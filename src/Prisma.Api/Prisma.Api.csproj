@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Prisma.Domain\Prisma.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

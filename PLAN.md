@@ -71,7 +71,7 @@ Uma etapa que crescer demais deve ser quebrada em duas, com aviso antes.
 
 ## Fase 0 — Fundação
 
-- [ ] **0.1 Solução e projetos**
+- [x] **0.1 Solução e projetos**
   `Prisma.Domain`, `Prisma.Api`, `Prisma.Domain.Tests`, `Prisma.Api.Tests`,
   `Prisma.Architecture.Tests`, com as referências corretas entre eles.
   *Pronto quando:* `dotnet build` e `dotnet test` passam com a solução vazia.
