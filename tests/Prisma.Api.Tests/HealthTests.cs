@@ -4,7 +4,8 @@ using Shouldly;
 
 namespace Prisma.Api.Tests;
 
-public sealed class HealthTests(PostgresFixture postgres) : IClassFixture<PostgresFixture>
+[Collection(ApiCollection.Name)]
+public sealed class HealthTests(PostgresFixture postgres)
 {
     [Fact]
     public async Task Health_returns_200_when_database_is_reachable()

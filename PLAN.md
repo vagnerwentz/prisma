@@ -102,7 +102,7 @@ Detalhamento completo em `docs/fase-1.md`.
   *Pronto quando:* teste prova que uma compra às 23h30 em `America/Sao_Paulo` fica no
   mesmo dia, e o relógio é substituível nos testes.
 
-- [ ] **1.3 Identity: cadastro e login com e-mail e senha**
+- [x] **1.3 Identity: cadastro e login com e-mail e senha**
   *Pronto quando:* integração cobre cadastro, login com cookie, login com senha errada
   e rate limit disparando.
 
