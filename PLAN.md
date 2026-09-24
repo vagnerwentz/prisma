@@ -191,9 +191,11 @@ Detalhamento completo em `docs/fase-1.md`.
   as parcelas se deslocando juntas, a soma inalterada e o bloqueio por fatura paga; a data é
   editável pela tela nos dois casos.
 
-- [ ] **1.15 Frontend: contas e cartões** — *próxima*
+- [x] **1.15 Frontend: contas e cartões**
   Detalhe do cartão com as faturas e edição de datas; editar e desativar contas; criar conta
   em painel.
+  *Feito:* a tela da fatura lista as compras dela, com `GET /transactions?statementId=`
+  (`docs/fase-1.md`, 3). Regras de "fatura atual" e status na mesma seção.
 
 - [ ] **1.10 Transferências entre contas**
   Inclui pagamento de fatura e aporte em investimento.

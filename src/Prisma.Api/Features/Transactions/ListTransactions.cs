@@ -15,7 +15,8 @@ public static class ListTransactions
         [FromQuery(Name = "to")] DateOnly? To,
         [FromQuery(Name = "accountId")] Guid? AccountId,
         [FromQuery(Name = "categoryId")] Guid? CategoryId,
-        [FromQuery(Name = "search")] string? Search);
+        [FromQuery(Name = "search")] string? Search,
+        [FromQuery(Name = "statementId")] Guid? StatementId);
 
     public sealed class Handler(AppDbContext db)
     {
@@ -34,6 +35,10 @@ public static class ListTransactions
 
             if (query.AccountId is { } accountId)
                 transactions = transactions.Where(t => t.AccountId == accountId);
+
+            // As compras de uma fatura do cartão (tela da fatura).
+            if (query.StatementId is { } statementId)
+                transactions = transactions.Where(t => t.StatementId == statementId);
 
             // Filtrar por categoria inclui as subcategorias dela.
             if (query.CategoryId is { } categoryId)

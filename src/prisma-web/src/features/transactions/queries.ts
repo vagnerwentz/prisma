@@ -1,9 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, unwrap, type Schemas } from '@/lib/api'
+import { statementsKey, transactionsKey } from '@/lib/queryKeys'
 
 export type Transaction = Schemas['TransactionResponse']
-
-export const transactionsKey = ['transactions'] as const
 
 // Período pela data da compra (docs/fase-1.md): a lista mostra o que aconteceu em cada dia.
 export function useTransactions(range: { from: string; to: string }) {
@@ -19,17 +18,25 @@ export function useCreateTransaction() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (body: NewTransaction) => unwrap(await api.POST('/transactions', { body })),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: transactionsKey }),
+    onSuccess: () => invalidateMoney(queryClient),
   })
+}
+
+// Lançamentos e totais das faturas andam juntos.
+function invalidateMoney(queryClient: ReturnType<typeof useQueryClient>) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: transactionsKey }),
+    queryClient.invalidateQueries({ queryKey: statementsKey }),
+  ])
 }
 
 export type TransactionChanges = Schemas['UpdateTransactionRequest']
 export type PurchaseChanges = Schemas['UpdateInstallmentPurchaseRequest']
 
-// Toda mutação recarrega a lista; é ela que o painel do lançamento lê.
+// Toda mutação recarrega a lista (é ela que o painel do lançamento lê) e as faturas.
 function useInvalidatingMutation<TInput, TOutput>(mutationFn: (input: TInput) => Promise<TOutput>) {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn, onSuccess: () => queryClient.invalidateQueries({ queryKey: transactionsKey }) })
+  return useMutation({ mutationFn, onSuccess: () => invalidateMoney(queryClient) })
 }
 
 // PATCH /transactions/{id}: um lançamento, ou uma parcela isolada (docs/fase-1.md, 2.2).

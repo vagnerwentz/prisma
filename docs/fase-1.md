@@ -218,7 +218,8 @@ GET    /accounts/{id}/statements
 PATCH  /statements/{id}           → editar datas, recalcula SettlementDate
 POST   /statements/{id}/pay       → cria a transferência
 
-GET    /transactions              ?from=&to=&accountId=&categoryId=&search=  (período pela PurchaseDate)
+GET    /transactions              ?from=&to=&accountId=&categoryId=&search=&statementId=
+                                  (período pela PurchaseDate; statementId = compras de uma fatura)
 POST   /transactions              → aceita Installments >= 1
 GET    /transactions/{id}
 PATCH  /transactions/{id}
@@ -227,6 +228,7 @@ POST   /transactions/{id}/restore
 
 PATCH  /installment-purchases/{id}
 DELETE /installment-purchases/{id}
+POST   /installment-purchases/{id}/restore
 
 POST   /transfers
 ```
@@ -235,6 +237,15 @@ Recurso de outro usuário retorna **404**, nunca 403: 403 confirmaria a existên
 recurso.
 
 Erros de negócio em `ProblemDetails`, com `detail` em pt-BR.
+
+### Faturas na tela (etapa 1.15)
+
+- **Fatura atual** é a primeira não paga que fecha hoje ou depois: a compra feita no dia do
+  fechamento ainda entra nela.
+- **Status:** "Paga"; "Fechada" (fechamento já passou); "Aberta" (a atual); "Futura". Sem pagamento
+  de fatura (etapa 1.10), fatura fechada não aparece como vencida.
+- Faturas com total zero (abertas por uma edição, por exemplo) ficam escondidas, exceto a atual e
+  as que tiveram as datas ajustadas.
 
 ---
 

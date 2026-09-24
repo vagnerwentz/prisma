@@ -210,4 +210,23 @@ public sealed class CardPurchasesTests(PostgresFixture postgres)
 
         (await Statements(owner, card)).Sum(s => s.TotalCents).ShouldBe(30000);
     }
+
+    // Etapa 1.15: a tela da fatura lista as compras dela.
+    [Fact]
+    public async Task Transactions_can_be_listed_by_statement()
+    {
+        await using var factory = new PrismaApiFactory(postgres.ConnectionString);
+        using var client = await factory.CreateAuthenticatedClientAsync();
+        using var intruder = await factory.CreateAuthenticatedClientAsync();
+        var card = await CreateCard(client);
+        var notebook = await Buy(client, card, 30000, 3);            // abril, maio, junho
+        var single = (await Buy(client, card, 5590, 1, "2026-04-01"))[0]; // abril
+        var april = (await Statements(client, card)).Single(s => s.Reference == "2026-04");
+
+        var inApril = (await client.GetFromJsonAsync<List<TransactionDto>>($"/transactions?statementId={april.Id}"))!;
+
+        inApril.Select(t => t.Id).ShouldBe([single.Id, notebook.Single(t => t.InstallmentNumber == 1).Id], ignoreOrder: true);
+        inApril.Sum(t => t.AmountCents).ShouldBe(april.TotalCents);
+        (await intruder.GetFromJsonAsync<List<TransactionDto>>($"/transactions?statementId={april.Id}"))!.ShouldBeEmpty();
+    }
 }

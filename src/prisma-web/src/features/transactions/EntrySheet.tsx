@@ -8,7 +8,8 @@ import { AccountTile, EntryTile } from '@/components/brand/Tiles'
 import { FieldError } from '@/components/FieldError'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
+import { BottomSheet, SheetFooterBar } from '@/components/BottomSheet'
+import { SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { paymentMethodLabels, type PaymentMethod } from '@/features/accounts/labels'
 import type { Account } from '@/features/accounts/queries'
 import { resolveCategory, type CategoryLabel, type CategoryNode } from '@/features/categories/queries'
@@ -62,33 +63,12 @@ export default function EntrySheet({ entry, onClose, ...rest }: EntrySheetProps)
   }
 
   return (
-    <Sheet open={entry !== undefined} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent
-        side="bottom"
-        showCloseButton={false}
-        aria-describedby={undefined}
-        // Foco no painel, não no primeiro botão: evita o anel de foco em "Editar" ao abrir.
-        onOpenAutoFocus={(event) => {
-          event.preventDefault()
-          ;(event.currentTarget as HTMLElement).focus()
-        }}
-        className="mx-auto outline-none max-h-[92dvh] w-full max-w-lg gap-0 rounded-t-[1.75rem] border-x bg-background p-0 sm:bottom-4 sm:rounded-[1.75rem] sm:border-b"
-      >
-        <span aria-hidden className="mx-auto mt-2.5 mb-1 h-1 w-10 shrink-0 rounded-full bg-border" />
-        {entry && mode.view === 'details' && (
-          <Details entry={entry} onClose={onClose} onEdit={(next) => setMode(next)} {...rest} />
-        )}
-        {entry && mode.view !== 'details' && (
-          <Editor
-            entry={entry}
-            mode={mode}
-            onDone={() => setMode({ view: 'details' })}
-            onClose={onClose}
-            {...rest}
-          />
-        )}
-      </SheetContent>
-    </Sheet>
+    <BottomSheet open={entry !== undefined} onClose={onClose}>
+      {entry && mode.view === 'details' && <Details entry={entry} onClose={onClose} onEdit={(next) => setMode(next)} {...rest} />}
+      {entry && mode.view !== 'details' && (
+        <Editor entry={entry} mode={mode} onDone={() => setMode({ view: 'details' })} onClose={onClose} {...rest} />
+      )}
+    </BottomSheet>
   )
 }
 
@@ -144,7 +124,7 @@ function Details({ entry, accounts, labels, onClose, onEdit }: Common & { onEdit
         )}
       </div>
 
-      <footer className="grid shrink-0 grid-cols-[1fr_auto] gap-2 border-t border-border/60 bg-background/90 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
+      <SheetFooterBar className="grid grid-cols-[1fr_auto] gap-2">
         <Button size="lg" className="h-12 rounded-2xl text-base" onClick={() => onEdit({ view: 'edit' })}>
           <Pencil />
           {kind === 'purchase' ? 'Editar compra' : 'Editar'}
@@ -159,7 +139,7 @@ function Details({ entry, accounts, labels, onClose, onEdit }: Common & { onEdit
           <Trash2 />
           Excluir
         </Button>
-      </footer>
+      </SheetFooterBar>
     </>
   )
 }
@@ -215,7 +195,9 @@ function InstallmentList({
                   {t.installmentNumber}/{count}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className={cn('block text-sm', past && 'text-muted-foreground')}>vence {formatShortDate(t.settlementDate)}</span>
+                  <span className={cn('block text-sm', past && 'text-muted-foreground')}>
+                    vence {formatShortDate(t.settlementDate)}
+                  </span>
                   {(isNext || note) && (
                     <span className="block truncate text-xs text-muted-foreground">
                       {[isNext ? 'Próxima' : null, note].filter(Boolean).join(' · ')}
@@ -329,11 +311,11 @@ function EditShell({
         )}
         {children}
       </div>
-      <footer className="shrink-0 border-t border-border/60 bg-background/90 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
+      <SheetFooterBar>
         <Button type="submit" form={formId} size="lg" disabled={submitting} className="h-12 w-full rounded-2xl text-base">
           {submitting ? 'Salvando…' : 'Salvar alterações'}
         </Button>
-      </footer>
+      </SheetFooterBar>
     </>
   )
 }
@@ -450,13 +432,30 @@ function SimpleForm({ transaction, accounts, categories, onDone, onClose, onMove
   })
 
   return (
-    <EditShell title="Editar lançamento" onBack={onDone} submitting={isSubmitting} error={errors.root?.message} formId="edit-entry">
+    <EditShell
+      title="Editar lançamento"
+      onBack={onDone}
+      submitting={isSubmitting}
+      error={errors.root?.message}
+      formId="edit-entry"
+    >
       <form id="edit-entry" onSubmit={submit} noValidate className="contents">
         <div className="flex flex-col items-center gap-4">
           <TypeToggle value={type} incomeDisabled={false} onChange={(value) => set('type', value)} />
-          <AmountField value={amountCents} onChange={(c) => set('amountCents', c)} income={type === 'Income'} error={errors.amountCents?.message} compact />
+          <AmountField
+            value={amountCents}
+            onChange={(c) => set('amountCents', c)}
+            income={type === 'Income'}
+            error={errors.amountCents?.message}
+            compact
+          />
         </div>
-        <DescriptionField field={form.register('description')} value={text} category={label} error={errors.description?.message} />
+        <DescriptionField
+          field={form.register('description')}
+          value={text}
+          category={label}
+          error={errors.description?.message}
+        />
         <Section title="Conta">
           <ChipRow>
             {choices.map((a) => (
@@ -520,7 +519,10 @@ function CardForm({ transaction, categories, onDone, onClose, onMoved }: EditorP
     try {
       await update.mutateAsync({
         id: transaction.id,
-        body: { ...sameAs(transaction, values.categoryId, values.description, values.amountCents), purchaseDate: values.purchaseDate },
+        body: {
+          ...sameAs(transaction, values.categoryId, values.description, values.amountCents),
+          purchaseDate: values.purchaseDate,
+        },
       })
       saved(transaction.purchaseDate, values.purchaseDate)
     } catch (error) {
@@ -529,7 +531,13 @@ function CardForm({ transaction, categories, onDone, onClose, onMoved }: EditorP
   })
 
   return (
-    <EditShell title="Editar compra no cartão" onBack={onDone} submitting={isSubmitting} error={errors.root?.message} formId="edit-card">
+    <EditShell
+      title="Editar compra no cartão"
+      onBack={onDone}
+      submitting={isSubmitting}
+      error={errors.root?.message}
+      formId="edit-card"
+    >
       <form id="edit-card" onSubmit={submit} noValidate className="contents">
         <AmountField
           value={amountCents}
@@ -538,12 +546,21 @@ function CardForm({ transaction, categories, onDone, onClose, onMoved }: EditorP
           error={errors.amountCents?.message}
           compact
         />
-        <DescriptionField field={form.register('description')} value={text} category={label} error={errors.description?.message} />
+        <DescriptionField
+          field={form.register('description')}
+          value={text}
+          category={label}
+          error={errors.description?.message}
+        />
         <Section title="Categoria">
           <CategoryPicker roots={roots} value={categoryId} onChange={(id) => form.setValue('categoryId', id)} />
         </Section>
         <Section title="Data da compra" aside={`fatura atual vence ${formatShortDate(transaction.settlementDate)}`}>
-          <DateChooser value={purchaseDate} onChange={(date) => form.setValue('purchaseDate', date)} error={errors.purchaseDate?.message} />
+          <DateChooser
+            value={purchaseDate}
+            onChange={(date) => form.setValue('purchaseDate', date)}
+            error={errors.purchaseDate?.message}
+          />
         </Section>
         <Note>
           Mudar a data leva a compra para a fatura do novo ciclo. Conta e meio de pagamento não mudam: para trocá-los, exclua e
@@ -563,15 +580,23 @@ const purchaseSchema = z.object({
 })
 
 // Compra parcelada inteira: o total é redistribuído entre as parcelas não pagas (docs/fase-1.md, 2.2).
-function PurchaseForm({ purchase, categories, onDone, onClose, onMoved }: EditorProps & { purchase: Extract<Entry, { kind: 'purchase' }> }) {
+function PurchaseForm({
+  purchase,
+  categories,
+  onDone,
+  onClose,
+  onMoved,
+}: EditorProps & { purchase: Extract<Entry, { kind: 'purchase' }> }) {
   const update = useUpdatePurchase()
   const saved = useSaved({ onDone, onClose, onMoved })
   const first = [...purchase.installments].sort(byNumber)[0]
   const form = useForm<z.infer<typeof purchaseSchema>>({
-    resolver: zodResolver(purchaseSchema.refine((v) => v.totalCents >= v.installments, {
-      message: 'O valor total deve ter ao menos 1 centavo por parcela.',
-      path: ['totalCents'],
-    })),
+    resolver: zodResolver(
+      purchaseSchema.refine((v) => v.totalCents >= v.installments, {
+        message: 'O valor total deve ter ao menos 1 centavo por parcela.',
+        path: ['totalCents'],
+      }),
+    ),
     defaultValues: {
       totalCents: purchase.totalCents,
       installments: purchase.installments.length,
@@ -618,7 +643,14 @@ function PurchaseForm({ purchase, categories, onDone, onClose, onMoved }: Editor
       formId="edit-purchase"
     >
       <form id="edit-purchase" onSubmit={submit} noValidate className="contents">
-        <AmountField label="Valor total" value={totalCents} onChange={(c) => set('totalCents', c)} income={false} error={errors.totalCents?.message} compact />
+        <AmountField
+          label="Valor total"
+          value={totalCents}
+          onChange={(c) => set('totalCents', c)}
+          income={false}
+          error={errors.totalCents?.message}
+          compact
+        />
         <Section
           title="Parcelas"
           aside={installments > 1 && totalCents >= installments ? describeInstallments(totalCents, installments) : undefined}
@@ -631,7 +663,12 @@ function PurchaseForm({ purchase, categories, onDone, onClose, onMoved }: Editor
             ))}
           </ChipRow>
         </Section>
-        <DescriptionField field={form.register('description')} value={text} category={label} error={errors.description?.message} />
+        <DescriptionField
+          field={form.register('description')}
+          value={text}
+          category={label}
+          error={errors.description?.message}
+        />
         <Section title="Categoria">
           <CategoryPicker roots={roots} value={categoryId} onChange={(id) => set('categoryId', id)} />
         </Section>
@@ -639,8 +676,8 @@ function PurchaseForm({ purchase, categories, onDone, onClose, onMoved }: Editor
           <DateChooser value={purchaseDate} onChange={(date) => set('purchaseDate', date)} error={errors.purchaseDate?.message} />
         </Section>
         <Note>
-          O total é dividido de novo entre as parcelas ainda não pagas, sem perder centavo; parcela em fatura paga mantém o
-          valor. Mudar a data leva todas as parcelas para as faturas dos novos ciclos.
+          O total é dividido de novo entre as parcelas ainda não pagas, sem perder centavo; parcela em fatura paga mantém o valor.
+          Mudar a data leva todas as parcelas para as faturas dos novos ciclos.
         </Note>
       </form>
     </EditShell>
@@ -688,11 +725,18 @@ function InstallmentForm({
       formId="edit-installment"
     >
       <form id="edit-installment" onSubmit={submit} noValidate className="contents">
-        <DescriptionField field={form.register('description')} value={text} category={label} error={errors.description?.message} />
+        <DescriptionField
+          field={form.register('description')}
+          value={text}
+          category={label}
+          error={errors.description?.message}
+        />
         <Section title="Categoria">
           <CategoryPicker roots={roots} value={categoryId} onChange={(id) => form.setValue('categoryId', id)} />
         </Section>
-        <Note>Muda só esta parcela. Valor, número de parcelas e data mudam pela compra inteira, para a soma continuar igual ao total.</Note>
+        <Note>
+          Muda só esta parcela. Valor, número de parcelas e data mudam pela compra inteira, para a soma continuar igual ao total.
+        </Note>
       </form>
     </EditShell>
   )

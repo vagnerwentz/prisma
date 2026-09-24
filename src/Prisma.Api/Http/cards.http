@@ -60,6 +60,10 @@ GET {{baseUrl}}/accounts/{{cardId}}/statements
     client.global.set("aprilStatementId", byDue[0].id);
 %}
 
+### Compras da fatura de abril
+GET {{baseUrl}}/transactions?statementId={{aprilStatementId}}
+
+
 ### Editar a parcela 2: só descrição e categoria (envie os campos atuais nos demais)
 PATCH {{baseUrl}}/transactions/{{installmentId}}
 Content-Type: application/json

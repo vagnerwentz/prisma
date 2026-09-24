@@ -12,6 +12,9 @@ const NewTransactionPage = lazy(() =>
   import('@/features/transactions/NewTransactionPage').then((m) => ({ default: m.NewTransactionPage })),
 )
 const AccountsPage = lazy(() => import('@/features/accounts/AccountsPage').then((m) => ({ default: m.AccountsPage })))
+const AccountDetailPage = lazy(() =>
+  import('@/features/accounts/AccountDetailPage').then((m) => ({ default: m.AccountDetailPage })),
+)
 
 function Loading() {
   return (
@@ -35,6 +38,7 @@ export function App() {
             <Route element={<AppLayout />}>
               <Route path="/" element={<TransactionsPage />} />
               <Route path="/contas" element={<AccountsPage />} />
+              <Route path="/contas/:id" element={<AccountDetailPage />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

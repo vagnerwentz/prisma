@@ -67,6 +67,7 @@ const rules: Rule[] = [
   logo(logos.nubank, 'Nubank', 'nubank', 'nu pagamentos'),
   logo(logos.picpay, 'PicPay', 'picpay'),
   logo(logos.paypal, 'PayPal', 'paypal'),
+  logo(logos.petz, 'Petz', 'petz'),
 
   monogram('Prime Video', 'pv', '#1A98FF', 'prime video', 'amazon prime', 'primevideo'),
   monogram('Amazon', 'a', '#FF9900', 'amazon', 'amzn'),

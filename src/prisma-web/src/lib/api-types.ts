@@ -828,6 +828,7 @@ export interface paths {
                     accountId?: string;
                     categoryId?: string;
                     search?: string;
+                    statementId?: string;
                 };
                 header?: never;
                 path?: never;
