@@ -1,21 +1,23 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect, useMemo } from 'react'
-import { Controller, useForm, useWatch } from 'react-hook-form'
+import { CalendarDays, ChevronDown, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useForm, useWatch, type Path, type PathValue } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router'
+import { toast } from 'sonner'
 import { z } from 'zod'
+import { AccountTile, CategoryTile, EntryTile } from '@/components/brand/Tiles'
 import { FieldError } from '@/components/FieldError'
-import { MoneyInput } from '@/components/MoneyInput'
-import { NativeSelect } from '@/components/NativeSelect'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
 import { defaultPaymentMethod, paymentMethodLabels, type PaymentMethod } from '@/features/accounts/labels'
 import { useAccounts, type Account } from '@/features/accounts/queries'
 import { useCategories, type CategoryNode } from '@/features/categories/queries'
 import { ApiError } from '@/lib/api'
-import { todayInSaoPaulo } from '@/lib/dates'
-import { describeInstallments } from '@/lib/money'
+import { findBrand } from '@/lib/brands/merchants'
+import { addDays, todayInSaoPaulo } from '@/lib/dates'
+import { describeInstallments, formatCents, parseCentsInput } from '@/lib/money'
 import { readLastAccountId, saveLastAccountId } from '@/lib/preferences'
 import { cn } from '@/lib/utils'
 import { useCreateTransaction } from './queries'
@@ -44,36 +46,71 @@ export function NewTransactionPage() {
   const activeAccounts = useMemo(() => (accounts.data ?? []).filter((a) => a.isActive), [accounts.data])
 
   if (accounts.isPending || categories.isPending) {
-    return <p className="p-4 text-center text-muted-foreground">Carregando…</p>
+    return (
+      <Shell>
+        <div className="flex flex-col items-center gap-6 px-4 pt-8">
+          <Skeleton className="h-9 w-56 rounded-full" />
+          <Skeleton className="h-16 w-64" />
+          <Skeleton className="h-24 w-full rounded-2xl" />
+        </div>
+      </Shell>
+    )
   }
   if (accounts.isError || categories.isError) {
     return (
-      <main className="p-4">
-        <Alert variant="destructive">
-          <AlertDescription>Não foi possível carregar contas e categorias. Tente novamente.</AlertDescription>
-        </Alert>
-      </main>
+      <Shell>
+        <div className="p-4">
+          <Alert variant="destructive">
+            <AlertDescription>Não foi possível carregar contas e categorias. Tente novamente.</AlertDescription>
+          </Alert>
+        </div>
+      </Shell>
     )
   }
   if (activeAccounts.length === 0) {
     return (
-      <main className="mx-auto flex max-w-2xl flex-col gap-4 p-4">
-        <p className="text-muted-foreground">Para lançar, crie antes uma conta.</p>
-        <Button asChild>
-          <Link to="/contas">Criar conta</Link>
-        </Button>
-      </main>
+      <Shell>
+        <div className="flex flex-col items-center gap-4 px-6 pt-16 text-center">
+          <p className="font-display text-3xl">Primeiro, uma conta</p>
+          <p className="text-muted-foreground">Lançamentos acontecem numa conta: corrente, cartão, carteira…</p>
+          <Button asChild className="rounded-full">
+            <Link to="/contas">Criar conta</Link>
+          </Button>
+        </div>
+      </Shell>
     )
   }
 
-  return <NewTransactionForm accounts={activeAccounts} categories={categories.data} />
+  return <Composer accounts={activeAccounts} categories={categories.data} />
 }
 
-function NewTransactionForm({ accounts, categories }: { accounts: Account[]; categories: CategoryNode[] }) {
+function Shell({ children, footer }: { children: ReactNode; footer?: ReactNode }) {
+  return (
+    <div className="flex min-h-dvh flex-col bg-background">
+      <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-border/60 bg-background/80 px-2 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
+        <Button asChild variant="ghost" size="icon" className="rounded-full" aria-label="Fechar">
+          <Link to="/">
+            <X />
+          </Link>
+        </Button>
+        <span className="text-sm font-medium">Novo lançamento</span>
+        <span className="size-9" />
+      </header>
+      <div className="mx-auto w-full max-w-md flex-1">{children}</div>
+      {footer}
+    </div>
+  )
+}
+
+function Composer({ accounts, categories }: { accounts: Account[]; categories: CategoryNode[] }) {
   const navigate = useNavigate()
   const createTransaction = useCreateTransaction()
+  const today = todayInSaoPaulo()
+  const yesterday = addDays(today, -1)
 
-  const initialAccount = accounts.find((a) => a.id === readLastAccountId()) ?? accounts[0]
+  // A última conta usada; na primeira vez, a conta corrente é o palpite mais provável.
+  const initialAccount =
+    accounts.find((a) => a.id === readLastAccountId()) ?? accounts.find((a) => a.type === 'Checking') ?? accounts[0]
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -82,20 +119,30 @@ function NewTransactionForm({ accounts, categories }: { accounts: Account[]; cat
       accountId: initialAccount.id,
       categoryId: '',
       method: defaultPaymentMethod(initialAccount.type),
-      purchaseDate: todayInSaoPaulo(),
+      purchaseDate: today,
       installments: 1,
       description: '',
     },
   })
   const { errors, isSubmitting } = form.formState
-
-  const [type, accountId, categoryId, amountCents, installments] = useWatch({
+  const [type, amountCents, accountId, categoryId, purchaseDate, installments, method, description] = useWatch({
     control: form.control,
-    name: ['type', 'accountId', 'categoryId', 'amountCents', 'installments'],
+    name: ['type', 'amountCents', 'accountId', 'categoryId', 'purchaseDate', 'installments', 'method', 'description'],
   })
+  const set = <K extends Path<Values>>(field: K, value: PathValue<Values, K>) =>
+    form.setValue(field, value, { shouldValidate: form.formState.isSubmitted })
+
   const account = accounts.find((a) => a.id === accountId)
   const isCard = account?.type === 'CreditCard'
-  const categoriesOfType = categories.filter((c) => c.type === type)
+  const roots = categories.filter((c) => c.type === type)
+  const selectedRoot = roots.find((r) => r.id === categoryId || r.subcategories.some((s) => s.id === categoryId))
+  const selectedSub = selectedRoot?.subcategories.find((s) => s.id === categoryId)
+  const selectedCategory = selectedRoot && {
+    name: selectedSub?.name ?? selectedRoot.name,
+    icon: selectedSub?.icon ?? selectedRoot.icon,
+    color: selectedSub?.color ?? selectedRoot.color,
+  }
+  const brand = findBrand(description)
 
   // Trocar a conta ajusta o meio de pagamento; o cartão só aceita despesa (docs/fase-1.md).
   useEffect(() => {
@@ -107,13 +154,12 @@ function NewTransactionForm({ accounts, categories }: { accounts: Account[]; cat
 
   // Categoria de receita não serve para despesa, e vice-versa.
   useEffect(() => {
-    const stillValid = categoriesOfType.some((c) => c.id === categoryId || c.subcategories.some((s) => s.id === categoryId))
-    if (categoryId && !stillValid) form.setValue('categoryId', '')
-  }, [categoriesOfType, categoryId, form])
+    if (categoryId && !selectedRoot) form.setValue('categoryId', '')
+  }, [categoryId, selectedRoot, form])
 
   const submit = form.handleSubmit(async (values) => {
     try {
-      await createTransaction.mutateAsync({
+      const created = await createTransaction.mutateAsync({
         accountId: values.accountId,
         type: values.type,
         amountCents: values.amountCents,
@@ -124,7 +170,16 @@ function NewTransactionForm({ accounts, categories }: { accounts: Account[]; cat
         installments: isCard ? values.installments : 1,
       })
       saveLastAccountId(values.accountId)
-      navigate('/', { replace: true })
+      toast.success('Lançamento salvo', {
+        description: [
+          values.description.trim() || null,
+          created.length > 1 ? describeInstallments(values.amountCents, created.length) : formatCents(values.amountCents),
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      })
+      // Abre o mês da compra: um lançamento antigo não some da vista.
+      navigate(`/?mes=${values.purchaseDate.slice(0, 7)}`, { replace: true })
     } catch (error) {
       form.setError('root', {
         message: error instanceof ApiError ? error.message : 'Não foi possível conectar. Tente novamente.',
@@ -132,131 +187,297 @@ function NewTransactionForm({ accounts, categories }: { accounts: Account[]; cat
     }
   })
 
-  return (
-    <main className="mx-auto max-w-2xl p-4 pb-28">
-      <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-        <h1 className="text-lg font-semibold">Novo lançamento</h1>
+  const isOtherDate = purchaseDate !== today && purchaseDate !== yesterday
+  const [pickingDate, setPickingDate] = useState(false)
+  const dateInput = useRef<HTMLInputElement>(null)
 
+  // "Outra data" mostra um campo visível (dá para digitar uma data antiga) e tenta abrir o
+  // calendário do sistema, que nem todo navegador permite abrir por código.
+  const pickOtherDate = () => {
+    setPickingDate(true)
+    requestAnimationFrame(() => {
+      dateInput.current?.focus()
+      try {
+        dateInput.current?.showPicker()
+      } catch {
+        // sem calendário por código: o campo visível basta
+      }
+    })
+  }
+
+  return (
+    <Shell
+      footer={
+        <div className="sticky bottom-0 z-20 border-t border-border/60 bg-background/85 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
+          <Button
+            type="submit"
+            form="new-transaction"
+            size="lg"
+            disabled={isSubmitting}
+            className="mx-auto flex h-12 w-full max-w-md rounded-2xl text-base"
+          >
+            {isSubmitting ? 'Lançando…' : amountCents > 0 ? `Lançar ${formatCents(amountCents)}` : 'Lançar'}
+          </Button>
+        </div>
+      }
+    >
+      <form id="new-transaction" onSubmit={submit} noValidate className="flex flex-col gap-7 px-4 pt-5 pb-8">
         {errors.root && (
           <Alert variant="destructive">
             <AlertDescription>{errors.root.message}</AlertDescription>
           </Alert>
         )}
 
-        <div className="grid grid-cols-2 gap-2 rounded-lg bg-background p-1">
-          {(['Expense', 'Income'] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              disabled={option === 'Income' && isCard}
-              onClick={() => form.setValue('type', option)}
+        <div className="flex flex-col items-center gap-5">
+          <TypeToggle value={type} incomeDisabled={isCard} onChange={(value) => set('type', value)} />
+          <div className="flex w-full flex-col items-center gap-1">
+            {/* Sem cursor piscando: os dígitos entram pela direita, e o foco aparece no filete. */}
+            <input
+              aria-label="Valor"
+              inputMode="numeric"
+              autoComplete="off"
+              autoFocus
+              placeholder={formatCents(0)}
+              value={amountCents === 0 ? '' : formatCents(amountCents)}
+              onChange={(event) => set('amountCents', parseCentsInput(event.target.value))}
               className={cn(
-                'rounded-md py-2 text-sm font-medium disabled:opacity-40',
-                type === option ? 'bg-primary text-primary-foreground' : 'text-muted-foreground',
+                'peer w-full bg-transparent text-center font-display leading-tight tabular-nums caret-transparent outline-none selection:bg-transparent placeholder:text-muted-foreground/40',
+                amountSize(amountCents),
+                type === 'Income' && amountCents > 0 && 'text-spectrum',
               )}
-            >
-              {option === 'Expense' ? 'Despesa' : 'Receita'}
-            </button>
-          ))}
+            />
+            <span
+              aria-hidden
+              className="h-0.5 w-16 rounded-full bg-[image:var(--spectrum)] opacity-0 transition-all duration-300 peer-focus:w-28 peer-focus:opacity-100"
+            />
+            <FieldError message={errors.amountCents?.message} />
+          </div>
         </div>
 
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="amount">Valor</Label>
-          <Controller
-            control={form.control}
-            name="amountCents"
-            render={({ field }) => (
-              <MoneyInput
-                id="amount"
-                autoFocus
-                className="h-14 text-3xl font-semibold tabular-nums md:text-3xl"
-                aria-invalid={!!errors.amountCents}
-                value={field.value}
-                onChange={field.onChange}
-              />
-            )}
-          />
-          <FieldError message={errors.amountCents?.message} />
-        </div>
+        <Section title="Descrição" aside={brand ? `${brand.name} reconhecido` : 'opcional'}>
+          <label className="flex items-center gap-3 rounded-2xl border bg-card py-2 pr-3 pl-2 focus-within:ring-2 focus-within:ring-ring/50">
+            <EntryTile description={description} category={selectedCategory} />
+            <input
+              placeholder="Ex.: Uber, iFood, Pão de Açúcar"
+              autoComplete="off"
+              className="h-10 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
+              {...form.register('description')}
+            />
+          </label>
+          <FieldError message={errors.description?.message} />
+        </Section>
 
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="account">Conta</Label>
-          <NativeSelect id="account" aria-invalid={!!errors.accountId} {...form.register('accountId')}>
+        <Section title="Conta">
+          <ChipRow>
             {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
+              <Chip key={a.id} selected={a.id === accountId} onClick={() => set('accountId', a.id)}>
+                <AccountTile name={a.name} type={a.type} size="sm" />
                 {a.name}
-              </option>
+              </Chip>
             ))}
-          </NativeSelect>
-        </div>
+          </ChipRow>
+        </Section>
 
         {isCard && (
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="installments">Parcelas</Label>
-            <NativeSelect id="installments" {...form.register('installments', { valueAsNumber: true })}>
+          <Section
+            title="Parcelas"
+            aside={installments > 1 && amountCents >= installments ? describeInstallments(amountCents, installments) : undefined}
+          >
+            <ChipRow>
               {Array.from({ length: maxInstallments }, (_, i) => i + 1).map((n) => (
-                <option key={n} value={n}>
+                <Chip key={n} selected={n === installments} onClick={() => set('installments', n)} className="tabular-nums">
                   {n === 1 ? 'À vista' : `${n}x`}
-                </option>
+                </Chip>
               ))}
-            </NativeSelect>
-            {installments > 1 && amountCents >= installments && (
-              <p className="text-sm text-muted-foreground">{describeInstallments(amountCents, installments)}</p>
-            )}
-          </div>
+            </ChipRow>
+          </Section>
         )}
 
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="category">Categoria</Label>
-          <NativeSelect id="category" {...form.register('categoryId')}>
-            <option value="">Sem categoria</option>
-            {categoriesOfType.map((root) =>
-              root.subcategories.length === 0 ? (
-                <option key={root.id} value={root.id}>
-                  {root.name}
-                </option>
-              ) : (
-                <optgroup key={root.id} label={root.name}>
-                  <option value={root.id}>{root.name} (geral)</option>
-                  {root.subcategories.map((sub) => (
-                    <option key={sub.id} value={sub.id}>
-                      {sub.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ),
-            )}
-          </NativeSelect>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="date">Data</Label>
-            <Input id="date" type="date" aria-invalid={!!errors.purchaseDate} {...form.register('purchaseDate')} />
-            <FieldError message={errors.purchaseDate?.message} />
+        <Section title="Categoria">
+          <div className="grid grid-cols-4 gap-x-2 gap-y-3">
+            {roots.map((root) => {
+              const selected = root.id === selectedRoot?.id
+              return (
+                <button
+                  key={root.id}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => set('categoryId', selected ? '' : root.id)}
+                  className="group flex flex-col items-center gap-1.5 rounded-2xl p-1 text-center outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <span className={cn('rounded-2xl p-[2px] transition-transform group-active:scale-95', selected && 'bg-[image:var(--spectrum-conic)]')}>
+                    <CategoryTile name={root.name} icon={root.icon} color={root.color} size="lg" className={cn(selected && 'ring-2 ring-background')} />
+                  </span>
+                  <span className={cn('line-clamp-2 text-[0.7rem] leading-tight', selected ? 'font-semibold' : 'text-muted-foreground')}>
+                    {root.name}
+                  </span>
+                </button>
+              )
+            })}
           </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="method">Pagamento</Label>
-            <NativeSelect id="method" disabled={isCard} {...form.register('method')}>
-              {(isCard ? (['Credit'] as PaymentMethod[]) : simpleMethods).map((m) => (
-                <option key={m} value={m}>
-                  {paymentMethodLabels[m]}
-                </option>
+          {selectedRoot && selectedRoot.subcategories.length > 0 && (
+            <ChipRow className="mt-3">
+              <Chip selected={categoryId === selectedRoot.id} onClick={() => set('categoryId', selectedRoot.id)}>
+                Geral
+              </Chip>
+              {selectedRoot.subcategories.map((sub) => (
+                <Chip key={sub.id} selected={sub.id === categoryId} onClick={() => set('categoryId', sub.id)}>
+                  <CategoryTile name={sub.name} icon={sub.icon ?? selectedRoot.icon} color={sub.color ?? selectedRoot.color} size="sm" />
+                  {sub.name}
+                </Chip>
               ))}
-            </NativeSelect>
+            </ChipRow>
+          )}
+        </Section>
+
+        <Section title="Data">
+          <ChipRow>
+            <Chip selected={purchaseDate === today} onClick={() => set('purchaseDate', today)}>
+              Hoje
+            </Chip>
+            <Chip selected={purchaseDate === yesterday} onClick={() => set('purchaseDate', yesterday)}>
+              Ontem
+            </Chip>
+            <Chip selected={isOtherDate || pickingDate} onClick={pickOtherDate}>
+              <CalendarDays className="size-4" />
+              {isOtherDate ? formatShortDate(purchaseDate) : 'Outra data'}
+            </Chip>
+          </ChipRow>
+          {(pickingDate || isOtherDate) && (
+            <Input
+              ref={dateInput}
+              type="date"
+              aria-label="Data da compra"
+              value={purchaseDate}
+              max="9999-12-31"
+              onChange={(event) => event.target.value && set('purchaseDate', event.target.value)}
+              className="h-11 rounded-xl"
+            />
+          )}
+          <FieldError message={errors.purchaseDate?.message} />
+        </Section>
+
+        <details className="group rounded-2xl border bg-card open:pb-4">
+          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium">
+            Mais opções
+            <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="flex flex-col gap-4 px-4">
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-medium text-muted-foreground">Pagamento</span>
+              <ChipRow>
+                {(isCard ? (['Credit'] as PaymentMethod[]) : simpleMethods).map((m) => (
+                  <Chip key={m} selected={m === method} onClick={() => set('method', m)}>
+                    {paymentMethodLabels[m]}
+                  </Chip>
+                ))}
+              </ChipRow>
+            </div>
           </div>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="description">Descrição (opcional)</Label>
-          <Input id="description" autoComplete="off" {...form.register('description')} />
-          <FieldError message={errors.description?.message} />
-        </div>
-
-        <Button type="submit" size="lg" disabled={isSubmitting}>
-          {isSubmitting ? 'Lançando…' : 'Lançar'}
-        </Button>
+        </details>
       </form>
-    </main>
+    </Shell>
+  )
+}
+
+// "2025-11-10" → "10/11/2025", sem passar por Date (DateOnly não tem fuso).
+function formatShortDate(date: string): string {
+  return date.split('-').reverse().join('/')
+}
+
+// O valor encolhe conforme cresce, para caber na largura do celular.
+function amountSize(cents: number): string {
+  const length = formatCents(cents).length
+  if (length > 15) return 'text-4xl'
+  if (length > 12) return 'text-5xl'
+  return 'text-6xl'
+}
+
+function TypeToggle({
+  value,
+  incomeDisabled,
+  onChange,
+}: {
+  value: Values['type']
+  incomeDisabled: boolean
+  onChange: (value: Values['type']) => void
+}) {
+  return (
+    <div className="grid grid-cols-2 rounded-full border bg-card p-1 text-sm font-medium">
+      <button
+        type="button"
+        aria-pressed={value === 'Expense'}
+        onClick={() => onChange('Expense')}
+        className={cn('rounded-full px-5 py-1.5 transition-colors', value === 'Expense' ? 'bg-foreground text-background' : 'text-muted-foreground')}
+      >
+        Despesa
+      </button>
+      <button
+        type="button"
+        aria-pressed={value === 'Income'}
+        disabled={incomeDisabled}
+        onClick={() => onChange('Income')}
+        className={cn(
+          'rounded-full px-5 py-1.5 transition-colors disabled:opacity-40',
+          value === 'Income' ? 'bg-[image:var(--spectrum)] text-white' : 'text-muted-foreground',
+        )}
+      >
+        Receita
+      </button>
+    </div>
+  )
+}
+
+function Section({ title, aside, children }: { title: string; aside?: string; children: ReactNode }) {
+  return (
+    <section className="flex flex-col gap-2.5">
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{title}</h2>
+        {aside && <span className="text-xs text-muted-foreground tabular-nums">{aside}</span>}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function ChipRow({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cn('-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', className)}>
+      {children}
+    </div>
+  )
+}
+
+function Chip({
+  selected,
+  onClick,
+  children,
+  className,
+}: {
+  selected: boolean
+  onClick: () => void
+  children: ReactNode
+  className?: string
+}) {
+  // O item escolhido fica visível mesmo numa fileira longa (ex.: 10x entre 24 parcelas).
+  const ref = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (selected) ref.current?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
+  }, [selected])
+
+  return (
+    <button
+      ref={ref}
+      type="button"
+      aria-pressed={selected}
+      onClick={onClick}
+      className={cn(
+        'flex h-10 shrink-0 items-center gap-2 rounded-full border px-3.5 text-sm whitespace-nowrap transition-colors active:scale-[0.97]',
+        selected ? 'spectrum-ring font-medium' : 'bg-card text-muted-foreground hover:text-foreground',
+        className,
+      )}
+    >
+      {children}
+    </button>
   )
 }

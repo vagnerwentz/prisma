@@ -165,6 +165,25 @@ Detalhamento completo em `docs/fase-1.md`.
   número de parcelas redistribui sem perder centavo; `PATCH /statements/{id}`: editar as
   datas de uma fatura recalcula o `SettlementDate` das transações dela.
 
+- [x] **1.13 Identidade visual e lançamento rápido v2** — *feita fora de ordem, a pedido*
+  Identidade "Prisma" (espectro no lugar de verde e vermelho), categorias padrão com ícone e cor,
+  logos de marca, modo escuro, lançamento rápido com grade de categorias e botões, telas sob
+  demanda. Regras em `CLAUDE.md`, seção 7.1.
+  *Pronto quando:* telas conferidas por captura nos modos claro e escuro; pacote inicial não
+  maior que o de antes do redesign; testes de reconhecimento de marca e de categorias padrão.
+
+- [ ] **1.14 Frontend: editar e excluir** — *próxima, combinada antes da 1.10*
+  O backend já permite; falta a tela. Tocar num lançamento abre um painel com detalhes,
+  "Editar" e "Excluir"; excluir mostra aviso com "Desfazer" (restauração). Compra parcelada:
+  painel com as parcelas e edição da compra inteira (total e número de parcelas); parcela
+  isolada edita só descrição e categoria (`docs/fase-1.md`, 2.2).
+  *Pronto quando:* dá para editar um lançamento simples, editar uma compra parcelada, excluir
+  e desfazer, tudo pela tela, conferido por captura nos modos claro e escuro.
+
+- [ ] **1.15 Frontend: contas e cartões** — *depois da 1.14*
+  Detalhe do cartão com as faturas e edição de datas; editar e desativar contas; criar conta
+  em painel.
+
 - [ ] **1.10 Transferências entre contas**
   Inclui pagamento de fatura e aporte em investimento.
   *Pronto quando:* teste prova que transferência não entra em receita nem despesa, que

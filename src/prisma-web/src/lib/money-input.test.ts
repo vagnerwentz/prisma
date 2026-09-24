@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { describeInstallments, formatCents, parseCentsInput, splitCents } from './money'
+import { describeInstallments, formatCents, parseCentsInput, shortInstallments, splitCents } from './money'
 
 const R$ = 'R$ '
 
@@ -62,5 +62,18 @@ describe('describeInstallments', () => {
     [4590, 1, `à vista`],
   ])('%i em %ix → %s', (total, parts, expected) => {
     expect(describeInstallments(total, parts)).toBe(expected)
+  })
+})
+
+// Forma curta para a lista, onde falta espaço: exata quando as parcelas são iguais; com "≈" e a
+// parcela menor quando o resto de centavos as deixa desiguais.
+describe('shortInstallments', () => {
+  it.each([
+    [100000, 10, `10x de ${R$}100,00`],
+    [100005, 10, `10x de ≈${R$}100,00`],
+    [450005, 10, `10x de ≈${R$}450,00`],
+    [4590, 1, `à vista`],
+  ])('%i em %ix → %s', (total, parts, expected) => {
+    expect(shortInstallments(total, parts)).toBe(expected)
   })
 })

@@ -59,7 +59,8 @@ Nada de código misto. `Transaction.SettlementDate` ao lado de `CreatedAt`, nunc
 | Frontend | React 19 + TypeScript + Vite + React Router |
 | Cliente da API | `openapi-typescript` (tipos gerados) + `openapi-fetch` (chamadas tipadas) |
 | Testes do frontend | Vitest (formatação e conversão de dinheiro e data) |
-| UI | Tailwind CSS + shadcn/ui |
+| UI | Tailwind CSS + shadcn/ui + `sonner` (avisos) + Instrument Serif (`@fontsource`, fonte hospedada no app) |
+| Ícones | `lucide-react` (import nominal, mapa fechado em `categoryIcons.ts`) + logos de marca gerados do `simple-icons` (devDependency, `npm run gen:brands`) |
 | Estado de servidor | TanStack Query v5 |
 | Formulários | React Hook Form + Zod |
 | Gráficos | Recharts |
@@ -301,6 +302,27 @@ estáticos do React **no mesmo domínio**, eliminando CORS e problemas de SameSi
 cookie de sessão.
 
 ---
+
+## 7.1 Identidade visual (frontend)
+
+**Prisma = luz branca decomposta num espectro.** Evite o visual padrão de app de finanças.
+
+- **Nada de verde para receita e vermelho para despesa.** Receita é "luz entrando": texto em
+  `text-spectrum` (gradiente frio violeta→ciano). Despesa é tinta (`foreground`) com o sinal "−".
+- **A cor vem do espectro, com parcimônia.** Base neutra (papel quente no claro, tinta no escuro);
+  cada categoria é uma faixa do espectro (`Category.Color`), exibida pelo `CategoryTile`, que
+  deriva fundo e ícone da cor com `oklch(from …)`. Subcategoria herda a cor da categoria pai.
+- **Assinaturas:** logo `PrismLogo` (SVG próprio), filete `spectrum-line` sob títulos, anel
+  `spectrum-ring` no item selecionado, halo `--halo` (só tons frios: complementares desfocados
+  viram marrom).
+- **Tipografia:** `font-display` (Instrument Serif) em valores grandes e títulos; Geist no resto.
+- **Marcas:** `findBrand` reconhece a marca pela descrição ou nome da conta. Logo do
+  `simple-icons` quando existe; monograma na cor da marca quando a marca saiu do projeto (Amazon,
+  bancos brasileiros). Nunca desenhe um logo à mão.
+- **Modo escuro** segue o sistema só com CSS (`prefers-color-scheme`). Toda tela nova é
+  conferida nos dois modos.
+- **Desempenho:** nada de importar conjuntos inteiros de ícones; telas secundárias com `lazy`;
+  confira o tamanho do pacote principal no `npm run build` ao adicionar dependência.
 
 ## 8. Segurança
 

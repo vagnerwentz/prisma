@@ -2,11 +2,15 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+@import "@fontsource/instrument-serif/latin-400.css";
+@import "@fontsource/instrument-serif/latin-400-italic.css";
 
-@custom-variant dark (&:is(.dark *));
+/* Modo escuro segue o sistema, só com CSS: sem script e sem piscar na troca. */
+@custom-variant dark (@media (prefers-color-scheme: dark));
 
 @theme inline {
     --font-heading: var(--font-sans);
+    --font-display: 'Instrument Serif', ui-serif, Georgia, serif;
     --font-sans: 'Geist Variable', sans-serif;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
@@ -48,83 +52,143 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/*
+ * Identidade Prisma: luz branca que se decompõe num espectro. A base é neutra (papel quente no
+ * claro, tinta profunda no escuro) e a cor vem do espectro: cada categoria é uma faixa dele.
+ * Receita é "luz entrando" (gradiente); despesa é tinta. Nada de verde e vermelho.
+ */
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
+    --spectrum: linear-gradient(90deg, #8b5cf6, #3b82f6, #22d3ee, #84cc16, #f59e0b, #f43f5e);
+    --spectrum-conic: conic-gradient(from 200deg, #8b5cf6, #3b82f6, #22d3ee, #84cc16, #f59e0b, #f43f5e, #8b5cf6);
+    /* Faixa fria do espectro: receitas (luz entrando) e halos. Misturar cores complementares
+       desfocadas vira marrom; a faixa fria continua luminosa nos dois temas. */
+    --spectrum-cool: linear-gradient(90deg, #8b5cf6, #3b82f6, #22d3ee);
+    --halo: conic-gradient(from 180deg, #8b5cf6, #3b82f6, #22d3ee, #a78bfa, #8b5cf6);
+
+    --background: oklch(0.985 0.005 85);
+    --foreground: oklch(0.21 0.025 285);
     --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
+    --card-foreground: oklch(0.21 0.025 285);
     --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --popover-foreground: oklch(0.21 0.025 285);
+    --primary: oklch(0.5 0.22 285);
+    --primary-foreground: oklch(0.99 0 0);
+    --secondary: oklch(0.955 0.012 285);
+    --secondary-foreground: oklch(0.3 0.06 285);
+    --muted: oklch(0.955 0.006 85);
+    --muted-foreground: oklch(0.5 0.02 285);
+    --accent: oklch(0.95 0.02 285);
+    --accent-foreground: oklch(0.3 0.08 285);
+    --destructive: oklch(0.58 0.2 20);
+    --border: oklch(0.915 0.008 85);
+    --input: oklch(0.9 0.01 85);
+    --ring: oklch(0.62 0.18 285);
+    --chart-1: oklch(0.6 0.2 285);
+    --chart-2: oklch(0.65 0.17 250);
+    --chart-3: oklch(0.8 0.13 200);
+    --chart-4: oklch(0.8 0.18 130);
+    --chart-5: oklch(0.78 0.16 75);
+    --radius: 0.875rem;
+    --sidebar: oklch(0.985 0.005 85);
+    --sidebar-foreground: oklch(0.21 0.025 285);
+    --sidebar-primary: oklch(0.5 0.22 285);
+    --sidebar-primary-foreground: oklch(0.99 0 0);
+    --sidebar-accent: oklch(0.95 0.02 285);
+    --sidebar-accent-foreground: oklch(0.3 0.08 285);
+    --sidebar-border: oklch(0.915 0.008 85);
+    --sidebar-ring: oklch(0.62 0.18 285);
+
+    /* Tons dos ladrilhos de categoria, derivados da cor da categoria (--tile). */
+    --tile-l: 0.94;
+    --tile-c: 0.055;
+    --tile-fg-l: 0.46;
+    --tile-fg-c: 0.17;
 }
 
-.dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background: oklch(0.15 0.022 285);
+        --foreground: oklch(0.955 0.01 285);
+        --card: oklch(0.195 0.025 285);
+        --card-foreground: oklch(0.955 0.01 285);
+        --popover: oklch(0.21 0.027 285);
+        --popover-foreground: oklch(0.955 0.01 285);
+        --primary: oklch(0.74 0.16 285);
+        --primary-foreground: oklch(0.17 0.04 285);
+        --secondary: oklch(0.25 0.03 285);
+        --secondary-foreground: oklch(0.92 0.02 285);
+        --muted: oklch(0.23 0.022 285);
+        --muted-foreground: oklch(0.7 0.025 285);
+        --accent: oklch(0.27 0.04 285);
+        --accent-foreground: oklch(0.95 0.02 285);
+        --destructive: oklch(0.7 0.17 20);
+        --border: oklch(1 0 0 / 8%);
+        --input: oklch(1 0 0 / 12%);
+        --ring: oklch(0.7 0.15 285);
+        --sidebar: oklch(0.195 0.025 285);
+        --sidebar-foreground: oklch(0.955 0.01 285);
+        --sidebar-primary: oklch(0.74 0.16 285);
+        --sidebar-primary-foreground: oklch(0.17 0.04 285);
+        --sidebar-accent: oklch(0.27 0.04 285);
+        --sidebar-accent-foreground: oklch(0.95 0.02 285);
+        --sidebar-border: oklch(1 0 0 / 8%);
+        --sidebar-ring: oklch(0.7 0.15 285);
+
+        --tile-l: 0.3;
+        --tile-c: 0.07;
+        --tile-fg-l: 0.86;
+        --tile-fg-c: 0.12;
+    }
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
+    * {
+        @apply border-border outline-ring/50;
     }
-  body {
-    @apply bg-background text-foreground;
+    html {
+        -webkit-tap-highlight-color: transparent;
+        color-scheme: light dark;
     }
-  html {
-    @apply font-sans;
+    body {
+        @apply bg-background text-foreground antialiased;
+        font-feature-settings: "tnum" 0;
+    }
+}
+
+@layer components {
+    /* Texto em gradiente espectral: receitas e destaques de marca. */
+    .text-spectrum {
+        background: var(--spectrum-cool);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    /* Filete do espectro: a assinatura visual, usada com parcimônia. */
+    .spectrum-line {
+        height: 2px;
+        background: var(--spectrum);
+        border-radius: 9999px;
+    }
+
+    /* Ladrilho de categoria: fundo e ícone na mesma matiz da cor da categoria, com luminosidade
+       ajustada ao tema. A cor de origem vem em --tile (relative color syntax do CSS). */
+    .category-tile {
+        background: oklch(from var(--tile, #94a3b8) var(--tile-l) var(--tile-c) h);
+        color: oklch(from var(--tile, #94a3b8) var(--tile-fg-l) var(--tile-fg-c) h);
+    }
+
+    /* Borda espectral (ex.: item selecionado, botão principal). */
+    .spectrum-ring {
+        border: 2px solid transparent;
+        background:
+            linear-gradient(var(--card), var(--card)) padding-box,
+            var(--spectrum) border-box;
+    }
+
+    .font-display {
+        font-family: var(--font-display);
+        font-weight: 400;
+        letter-spacing: -0.01em;
     }
 }

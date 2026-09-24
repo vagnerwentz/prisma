@@ -1,8 +1,14 @@
 import { Navigate, Outlet, useLocation } from 'react-router'
+import { PrismLogo } from '@/components/brand/PrismLogo'
 import { useCurrentUser } from './queries'
 
 function FullScreenMessage({ children }: { children: string }) {
-  return <div className="flex min-h-dvh items-center justify-center p-4 text-muted-foreground">{children}</div>
+  return (
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-4 p-4 text-muted-foreground">
+      <PrismLogo animated className="size-14 text-foreground" />
+      <span className="sr-only">{children}</span>
+    </div>
+  )
 }
 
 // Rotas que exigem sessão: sem ela, vai para /entrar e volta depois do login.

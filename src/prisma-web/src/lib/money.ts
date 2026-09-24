@@ -41,3 +41,13 @@ export function describeInstallments(totalCents: number, parts: number): string 
   const first = `${larger}x de ${formatCents(split[0])}`
   return larger === parts ? first : `${first} e ${parts - larger}x de ${formatCents(split[parts - 1])}`
 }
+
+// Forma curta para a lista: "10x de R$ 100,00", ou "10x de ≈R$ 100,00" quando o resto de
+// centavos deixa as primeiras parcelas um centavo maiores.
+export function shortInstallments(totalCents: number, parts: number): string {
+  if (parts === 1) return 'à vista'
+
+  const split = splitCents(totalCents, parts)
+  const smallest = split[parts - 1]
+  return `${parts}x de ${split[0] === smallest ? '' : '≈'}${formatCents(smallest)}`
+}

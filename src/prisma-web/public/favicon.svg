@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <style>
+    .ink { stroke: #2a2440; }
+    .glass { fill: #2a2440; fill-opacity: .08; }
+    @media (prefers-color-scheme: dark) { .ink { stroke: #f1eefb; } .glass { fill: #f1eefb; } }
+  </style>
+  <path class="ink" d="M1 29.5 17 24" stroke-width="2.6" stroke-linecap="round"/>
+  <g stroke-width="2.6" stroke-linecap="round">
+    <path d="M31 23.5 47 16" stroke="#8b5cf6"/><path d="M31 23.5 47 19.4" stroke="#3b82f6"/>
+    <path d="M31 23.5 47 22.8" stroke="#22d3ee"/><path d="M31 23.5 47 26.2" stroke="#84cc16"/>
+    <path d="M31 23.5 47 29.6" stroke="#f59e0b"/><path d="M31 23.5 47 33" stroke="#f43f5e"/>
+  </g>
+  <path class="ink glass" d="M24 6.5 40.5 40H7.5L24 6.5Z" stroke-width="2.6" stroke-linejoin="round"/>
+</svg>

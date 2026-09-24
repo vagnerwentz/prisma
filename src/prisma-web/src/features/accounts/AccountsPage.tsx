@@ -1,12 +1,16 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Plus, X } from 'lucide-react'
+import { useState } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
+import { toast } from 'sonner'
 import { z } from 'zod'
+import { AccountTile } from '@/components/brand/Tiles'
 import { FieldError } from '@/components/FieldError'
 import { MoneyInput } from '@/components/MoneyInput'
 import { NativeSelect } from '@/components/NativeSelect'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ApiError } from '@/lib/api'
@@ -44,52 +48,69 @@ const emptyForm: Values = { name: '', type: 'Checking', initialBalanceCents: 0, 
 
 export function AccountsPage() {
   const accounts = useAccounts()
+  const [creating, setCreating] = useState(false)
+  const showForm = creating || (accounts.isSuccess && accounts.data.length === 0)
 
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-4 p-4 pb-28">
-      <h1 className="text-lg font-semibold">Contas</h1>
+    <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 pt-5 pb-32">
+      <div className="flex flex-col gap-3">
+        <div className="flex items-end justify-between">
+          <h1 className="font-display text-4xl leading-none">Contas</h1>
+          {!showForm && (
+            <Button size="sm" variant="secondary" className="rounded-full" onClick={() => setCreating(true)}>
+              <Plus />
+              Nova conta
+            </Button>
+          )}
+        </div>
+        <div className="spectrum-line opacity-80" />
+      </div>
 
-      {accounts.isPending && <p className="text-muted-foreground">Carregando…</p>}
+      {accounts.isPending && <Skeleton className="h-40 w-full rounded-2xl" />}
       {accounts.isError && (
         <Alert variant="destructive">
           <AlertDescription>Não foi possível carregar as contas.</AlertDescription>
         </Alert>
       )}
       {accounts.isSuccess && accounts.data.length === 0 && (
-        <p className="text-muted-foreground">Você ainda não tem contas. Crie a primeira abaixo para começar a lançar.</p>
+        <p className="text-muted-foreground">Crie a primeira conta para começar a lançar: corrente, cartão, carteira…</p>
       )}
       {accounts.isSuccess && accounts.data.length > 0 && (
-        <ul className="divide-y overflow-hidden rounded-xl border bg-background">
+        <ul className="overflow-hidden rounded-2xl border bg-card">
           {accounts.data.map((account) => (
             <AccountRow key={account.id} account={account} />
           ))}
         </ul>
       )}
 
-      <NewAccountForm />
+      {showForm && <NewAccountForm onDone={() => setCreating(false)} canCancel={accounts.data?.length !== 0} />}
     </main>
   )
 }
 
 function AccountRow({ account }: { account: Account }) {
-  const details = [accountTypeLabels[account.type]]
-  if (account.type === 'CreditCard') details.push(`fecha dia ${account.closingDay}, vence dia ${account.dueDay}`)
+  const details = [account.type === 'CreditCard' ? 'Cartão' : accountTypeLabels[account.type]]
+  if (account.type === 'CreditCard') details.push(`fecha dia ${account.closingDay}`, `vence dia ${account.dueDay}`)
   if (!account.isActive) details.push('inativa')
 
   return (
-    <li className="flex items-center justify-between gap-3 px-4 py-3">
-      <div className="min-w-0">
+    <li className="flex items-center gap-3 px-4 py-3 [&+&]:border-t">
+      <AccountTile name={account.name} type={account.type} />
+      <div className="min-w-0 flex-1">
         <p className="truncate font-medium">{account.name}</p>
         <p className="truncate text-sm text-muted-foreground">{details.join(' · ')}</p>
       </div>
       {account.type !== 'CreditCard' && (
-        <span className="shrink-0 text-sm tabular-nums text-muted-foreground">{formatCents(account.initialBalanceCents)}</span>
+        <div className="shrink-0 text-right">
+          <p className="text-[0.65rem] tracking-wide text-muted-foreground uppercase">Saldo inicial</p>
+          <p className="text-sm tabular-nums">{formatCents(account.initialBalanceCents)}</p>
+        </div>
       )}
     </li>
   )
 }
 
-function NewAccountForm() {
+function NewAccountForm({ onDone, canCancel }: { onDone: () => void; canCancel: boolean }) {
   const createAccount = useCreateAccount()
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: emptyForm })
   const { errors, isSubmitting } = form.formState
@@ -106,6 +127,8 @@ function NewAccountForm() {
         creditLimitCents: isCard && values.creditLimitCents > 0 ? values.creditLimitCents : null,
       })
       form.reset(emptyForm)
+      toast.success('Conta criada', { description: values.name })
+      onDone()
     } catch (error) {
       form.setError('root', {
         message: error instanceof ApiError ? error.message : 'Não foi possível conectar. Tente novamente.',
@@ -114,11 +137,16 @@ function NewAccountForm() {
   })
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Nova conta</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <section className="rounded-2xl border bg-card p-4">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="font-display text-2xl">Nova conta</h2>
+        {canCancel && (
+          <Button variant="ghost" size="icon" className="rounded-full" aria-label="Cancelar" onClick={onDone}>
+            <X />
+          </Button>
+        )}
+      </div>
+      <div>
         <form onSubmit={submit} noValidate className="flex flex-col gap-4">
           {errors.root && (
             <Alert variant="destructive">
@@ -183,12 +211,12 @@ function NewAccountForm() {
               />
             </div>
           )}
-          <Button type="submit" disabled={isSubmitting}>
+          <Button type="submit" disabled={isSubmitting} className="h-11 rounded-2xl">
             {isSubmitting ? 'Criando…' : 'Criar conta'}
           </Button>
         </form>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   )
 }
 

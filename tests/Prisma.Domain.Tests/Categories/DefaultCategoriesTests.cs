@@ -61,6 +61,27 @@ public sealed class DefaultCategoriesTests
             sub.Type.ShouldBe(categories.Single(c => c.Id == sub.ParentCategoryId).Type);
     }
 
+    // Identidade visual (etapa 1.13): cada categoria nasce com ícone (nome do Lucide) e cor; a
+    // subcategoria herda a cor da categoria pai, para a família ser reconhecida pela cor.
+    [Fact]
+    public void Every_category_has_an_icon_and_subcategories_share_the_parent_color()
+    {
+        var categories = DefaultCategories.CreateFor(Guid.NewGuid());
+
+        categories.ShouldAllBe(c => !string.IsNullOrWhiteSpace(c.Icon) && c.Color != null);
+        foreach (var sub in categories.Where(c => c.ParentCategoryId is not null))
+            sub.Color.ShouldBe(categories.Single(c => c.Id == sub.ParentCategoryId).Color);
+    }
+
+    [Fact]
+    public void Root_categories_of_the_same_type_have_distinct_colors_except_Outros()
+    {
+        var roots = DefaultCategories.CreateFor(Guid.NewGuid()).Where(c => c.ParentCategoryId is null && c.Name != "Outros");
+
+        foreach (var group in roots.GroupBy(c => c.Type))
+            group.Select(c => c.Color).ShouldBeUnique();
+    }
+
     [Fact]
     public void Each_call_creates_new_categories()
     {

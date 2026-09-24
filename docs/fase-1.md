@@ -175,6 +175,9 @@ Impostos e Tarifas; Outros.
 Todas editáveis e excluíveis. Excluir categoria com transações vinculadas é bloqueado,
 com mensagem sugerindo realocar antes.
 
+Cada categoria padrão nasce com ícone (nome do Lucide) e cor: cada categoria é uma faixa
+do espectro e as subcategorias herdam a cor da categoria pai (etapa 1.13).
+
 ---
 
 ## 3. Endpoints
