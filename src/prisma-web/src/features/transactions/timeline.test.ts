@@ -13,7 +13,7 @@ describe('buildTimeline', () => {
     const days = buildTimeline([tx('a', '2026-03-12', 100), tx('b', '2026-03-12', 200), tx('c', '2026-03-10', 300)])
 
     expect(days.map((d) => d.date)).toEqual(['2026-03-12', '2026-03-10'])
-    expect(days[0].entries.map((e) => (e.kind === 'single' ? e.transaction.id : e.purchaseId))).toEqual(['a', 'b'])
+    expect(days[0].entries.map((e) => (e.kind === 'single' ? e.transaction.id : e.kind))).toEqual(['a', 'b'])
   })
 
   // As parcelas compartilham a data da compra (docs/fase-1.md, 2.2): viram uma linha só.
@@ -47,5 +47,35 @@ describe('buildTimeline', () => {
 
   it('lista vazia não tem dias', () => {
     expect(buildTimeline([])).toEqual([])
+  })
+})
+
+// Etapa 1.10 (docs/fase-1.md, 2.3): as duas pontas de uma transferência viram uma linha, com o
+// valor transferido (não a soma das pontas).
+describe('buildTimeline com transferências', () => {
+  const leg = (id: string, direction: 'Out' | 'In', pair = 'pix'): TimelineTransaction => ({
+    id,
+    purchaseDate: '2026-04-10',
+    amountCents: 20000,
+    transferPairId: pair,
+    transferDirection: direction,
+  })
+
+  it('junta as duas pontas numa entrada, com origem e destino', () => {
+    const [day] = buildTimeline([leg('in', 'In'), tx('café', '2026-04-10', 500), leg('out', 'Out')])
+
+    expect(day.entries.map((e) => e.kind)).toEqual(['transfer', 'single'])
+    const transfer = day.entries[0]
+    if (transfer.kind !== 'transfer') return
+    expect(transfer.pairId).toBe('pix')
+    expect(transfer.out?.id).toBe('out')
+    expect(transfer.in?.id).toBe('in')
+    expect(transfer.amountCents).toBe(20000)
+  })
+
+  it('transferências diferentes no mesmo dia ficam separadas', () => {
+    const [day] = buildTimeline([leg('a', 'Out', 'x'), leg('b', 'In', 'x'), leg('c', 'Out', 'y'), leg('d', 'In', 'y')])
+
+    expect(day.entries).toHaveLength(2)
   })
 })

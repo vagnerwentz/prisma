@@ -3,6 +3,7 @@ using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Http;
 using Prisma.Domain;
 using Prisma.Domain.Statements;
+using Prisma.Domain.Transactions;
 
 namespace Prisma.Api.Features.Statements;
 
@@ -19,7 +20,10 @@ public static class UpdateStatement
             if (statement is null)
                 return new Error(ErrorType.NotFound, "Fatura não encontrada.");
 
-            var transactions = await db.Transactions.Where(t => t.StatementId == id).ToListAsync(ct);
+            // Só as compras seguem o vencimento; a entrada do pagamento fica na data em que foi paga.
+            var transactions = await db.Transactions
+                .Where(t => t.StatementId == id && t.Type != TransactionType.Transfer)
+                .ToListAsync(ct);
 
             var edited = StatementEditing.EditDates(statement, transactions, req.ClosingDate, req.DueDate);
             if (!edited.IsSuccess)

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Http;
 using Prisma.Domain;
+using Prisma.Domain.Transactions;
 
 namespace Prisma.Api.Features.Transactions;
 
@@ -19,8 +20,18 @@ public static class RestoreTransaction
             if (transaction is null)
                 return new Error(ErrorType.NotFound, "Transação excluída não encontrada.");
 
+            if (transaction.TransferPairId is not null)
+                return await TransferPair.Restore(db, transaction, ct);
+
             if (transaction.CheckCanChangeIndividually() is { } error)
                 return error;
+
+            if (transaction.StatementId is { } statementId)
+            {
+                var statements = await db.Statements.Where(s => s.Id == statementId).ToListAsync(ct);
+                if (CardPurchase.CheckCanRestore([transaction], statements) is { } paidError)
+                    return paidError;
+            }
 
             if (!await db.Accounts.AnyAsync(a => a.Id == transaction.AccountId, ct))
                 return new Error(ErrorType.Conflict,

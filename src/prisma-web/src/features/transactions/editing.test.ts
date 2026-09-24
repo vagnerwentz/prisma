@@ -25,6 +25,15 @@ describe('editKind', () => {
   })
 
   // Uma edição pode reduzir a compra a 1 parcela: continua sendo compra parcelada.
+  it('transferência não é editada', () => {
+    const [day] = buildTimeline([
+      { ...base, id: 'a', transferPairId: 't', transferDirection: 'Out' as const },
+      { ...base, id: 'b', transferPairId: 't', transferDirection: 'In' as const },
+    ])
+    expect(editKind(day.entries[0])).toBe('transfer')
+    expect(entryKey(day.entries[0])).toBe('t')
+  })
+
   it('compra reduzida a uma parcela continua editada como compra', () => {
     const [day] = buildTimeline([{ ...base, id: 'a', statementId: 's1', installmentPurchaseId: 'p', installmentNumber: 1 }])
     expect(editKind(day.entries[0])).toBe('purchase')

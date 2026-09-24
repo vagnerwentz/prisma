@@ -1,3 +1,4 @@
+import { ArrowLeftRight, CreditCard } from 'lucide-react'
 import { createElement, type CSSProperties } from 'react'
 import type { AccountType } from '@/features/accounts/labels'
 import { findBrand, readableTextOn, type BrandMark } from '@/lib/brands/merchants'
@@ -73,19 +74,26 @@ export function EntryTile(props: {
 }) {
   const brand = findBrand(props.description)
   if (brand) return <BrandTile brand={brand} size={props.size} />
-  return (
-    <CategoryTile name={props.category?.name} icon={props.category?.icon} color={props.category?.color} size={props.size} />
-  )
+  return <CategoryTile name={props.category?.name} icon={props.category?.icon} color={props.category?.color} size={props.size} />
 }
 
 export function AccountTile({ name, type, size = 'md' }: { name: string; type: AccountType; size?: Size }) {
   const brand = findBrand(name)
   if (brand) return <BrandTile brand={brand} size={size} />
   return (
-    <span
-      className={cn('flex shrink-0 items-center justify-center bg-secondary text-secondary-foreground', box[size])}
-    >
+    <span className={cn('flex shrink-0 items-center justify-center bg-secondary text-secondary-foreground', box[size])}>
       {createElement(accountTypeIcons[type], { 'aria-hidden': true })}
+    </span>
+  )
+}
+
+// Transferência: tinta neutra, sem cor de categoria (não é receita nem despesa). O pagamento de
+// fatura leva o ícone do cartão.
+export function TransferTile({ payment, size = 'md' }: { payment?: boolean; size?: Size }) {
+  const Icon = payment ? CreditCard : ArrowLeftRight
+  return (
+    <span className={cn('flex shrink-0 items-center justify-center border bg-background text-foreground', box[size])}>
+      <Icon aria-hidden strokeWidth={1.75} />
     </span>
   )
 }

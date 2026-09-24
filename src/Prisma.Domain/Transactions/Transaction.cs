@@ -24,6 +24,7 @@ public sealed class Transaction : Entity
     public Guid? InstallmentPurchaseId { get; private set; }
     public int? InstallmentNumber { get; private set; }
     public Guid? TransferPairId { get; private set; }
+    public TransferDirection? TransferDirection { get; private set; }
     public TransactionSource Source { get; private init; }
 
     // Receita ou despesa fora do cartão: o dinheiro sai (ou entra) no dia da compra.
@@ -80,6 +81,9 @@ public sealed class Transaction : Entity
         Account account, TransactionType type, long amountCents, DateOnly purchaseDate,
         Category? category, PaymentMethod method, string? description)
     {
+        if (TransferPairId is not null)
+            return TransferIsNotEdited;
+
         if (StatementId is not null)
             return Invalid("Lançamento em cartão de crédito usa a compra no cartão.");
 
@@ -116,6 +120,30 @@ public sealed class Transaction : Entity
             Description = description,
             InstallmentPurchaseId = installmentPurchaseId,
             InstallmentNumber = installmentNumber,
+        };
+
+    public static readonly Error TransferIsNotEdited =
+        new(ErrorType.Validation, "Transferência não é editada. Exclua e lance de novo.");
+
+    // Ponta de uma transferência, criada só por Transfer. Na entrada de um pagamento de fatura,
+    // o StatementId liga a transferência à fatura paga; o caixa é a data do pagamento.
+    internal static Transaction CreateTransferLeg(
+        Guid userId, Account account, TransferDirection direction, Guid pairId, long amountCents, DateOnly date,
+        PaymentMethod method, string description, Statement? paidStatement) =>
+        new()
+        {
+            UserId = userId,
+            Source = TransactionSource.Manual,
+            AccountId = account.Id,
+            Type = TransactionType.Transfer,
+            Method = method,
+            AmountCents = amountCents,
+            PurchaseDate = date,
+            SettlementDate = date,
+            StatementId = paidStatement?.Id,
+            Description = description,
+            TransferPairId = pairId,
+            TransferDirection = direction,
         };
 
     // A categoria pode ter sido excluída enquanto a transação estava excluída: nesse caso a

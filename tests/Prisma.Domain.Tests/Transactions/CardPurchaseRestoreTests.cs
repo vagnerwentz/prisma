@@ -31,7 +31,7 @@ public sealed class CardPurchaseRestoreTests
     {
         var bought = Buy();
 
-        var result = CardPurchase.Restore(bought.Purchase!, bought.Installments, CategoryExists);
+        var result = CardPurchase.Restore(bought.Purchase!, bought.Installments, CategoryExists, bought.OpenedStatements);
 
         result.IsSuccess.ShouldBeTrue();
         bought.Installments.ShouldAllBe(t => t.CategoryId == Electronics.Id);
@@ -42,7 +42,7 @@ public sealed class CardPurchaseRestoreTests
     {
         var bought = Buy();
 
-        var result = CardPurchase.Restore(bought.Purchase!, bought.Installments.Take(2).ToList(), CategoryExists);
+        var result = CardPurchase.Restore(bought.Purchase!, bought.Installments.Take(2).ToList(), CategoryExists, bought.OpenedStatements);
 
         result.Error!.Type.ShouldBe(ErrorType.Conflict);
         result.Error!.Message.ShouldBe(MismatchMessage);
@@ -56,7 +56,7 @@ public sealed class CardPurchaseRestoreTests
         var other = Buy();
         var mixed = bought.Installments.Append(other.Installments[2]).ToList();
 
-        var result = CardPurchase.Restore(bought.Purchase!, mixed, CategoryExists);
+        var result = CardPurchase.Restore(bought.Purchase!, mixed, CategoryExists, bought.OpenedStatements);
 
         result.Error!.Message.ShouldBe(MismatchMessage);
     }
@@ -68,7 +68,7 @@ public sealed class CardPurchaseRestoreTests
         var bought = Buy(total: 10000);
         var other = Buy(total: 9000);
 
-        var result = CardPurchase.Restore(bought.Purchase!, other.Installments, CategoryExists);
+        var result = CardPurchase.Restore(bought.Purchase!, other.Installments, CategoryExists, bought.OpenedStatements);
 
         result.Error!.Message.ShouldBe(MismatchMessage);
     }
@@ -78,7 +78,7 @@ public sealed class CardPurchaseRestoreTests
     {
         var bought = Buy();
 
-        CardPurchase.Restore(bought.Purchase!, bought.Installments.Take(2).ToList(), new HashSet<Guid>());
+        CardPurchase.Restore(bought.Purchase!, bought.Installments.Take(2).ToList(), new HashSet<Guid>(), bought.OpenedStatements);
 
         bought.Installments.ShouldAllBe(t => t.CategoryId == Electronics.Id);
     }
@@ -88,7 +88,7 @@ public sealed class CardPurchaseRestoreTests
     {
         var bought = Buy();
 
-        var result = CardPurchase.Restore(bought.Purchase!, bought.Installments, new HashSet<Guid>());
+        var result = CardPurchase.Restore(bought.Purchase!, bought.Installments, new HashSet<Guid>(), bought.OpenedStatements);
 
         result.IsSuccess.ShouldBeTrue();
         bought.Installments.ShouldAllBe(t => t.CategoryId == null);

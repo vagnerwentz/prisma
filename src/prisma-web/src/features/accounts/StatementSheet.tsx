@@ -1,8 +1,8 @@
-import { CalendarCog } from 'lucide-react'
+import { CalendarCog, Check, Undo2 } from 'lucide-react'
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { BottomSheet, SheetFooterBar } from '@/components/BottomSheet'
-import { EntryTile } from '@/components/brand/Tiles'
+import { AccountTile, EntryTile } from '@/components/brand/Tiles'
 import { FieldError } from '@/components/FieldError'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -12,10 +12,13 @@ import { SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { categoryLabels, useCategories } from '@/features/categories/queries'
 import { ApiError } from '@/lib/api'
-import { formatLongDate, formatShortDate } from '@/lib/dates'
+import { formatLongDate, formatShortDate, todayInSaoPaulo } from '@/lib/dates'
 import { formatCents } from '@/lib/money'
 import { cn } from '@/lib/utils'
-import { useStatementTransactions, useUpdateStatement, type Statement } from './queries'
+import { Chip, ChipRow, DateChooser, Section } from '@/features/transactions/fields'
+import { useDeleteTransaction, usePayStatement, useRestoreTransaction } from '@/features/transactions/queries'
+import { paymentMethodLabels, type PaymentMethod } from './labels'
+import { useAccounts, useStatementTransactions, useUpdateStatement, type Statement } from './queries'
 import { statementTitle, type StatementStatus } from './statements'
 
 // Uma fatura: total, datas, as compras que entraram nela e o ajuste das datas (o banco antecipa
@@ -29,24 +32,41 @@ export function StatementSheet({
   status: StatementStatus
   onClose: () => void
 }) {
-  const [editing, setEditing] = useState(false)
+  const [view, setView] = useState<'details' | 'dates' | 'pay'>('details')
+  const back = () => setView('details')
 
   return (
     <BottomSheet open onClose={onClose}>
-      {editing ? (
-        <EditDates statement={statement} onDone={() => setEditing(false)} />
-      ) : (
-        <Details statement={statement} status={status} onEdit={() => setEditing(true)} />
+      {view === 'dates' && <EditDates statement={statement} onDone={back} />}
+      {view === 'pay' && <PayForm statement={statement} onDone={back} />}
+      {view === 'details' && (
+        <Details statement={statement} status={status} onEditDates={() => setView('dates')} onPay={() => setView('pay')} />
       )}
     </BottomSheet>
   )
 }
 
-function Details({ statement, status, onEdit }: { statement: Statement; status: StatementStatus; onEdit: () => void }) {
+function Details({
+  statement,
+  status,
+  onEditDates,
+  onPay,
+}: {
+  statement: Statement
+  status: StatementStatus
+  onEditDates: () => void
+  onPay: () => void
+}) {
   const transactions = useStatementTransactions(statement.id)
   const categories = useCategories()
   const labels = useMemo(() => categoryLabels(categories.data ?? []), [categories.data])
-  const items = [...(transactions.data ?? [])].sort((a, b) => b.purchaseDate.localeCompare(a.purchaseDate))
+  // A entrada do pagamento fica ligada à fatura, mas não é compra (docs/fase-1.md, 2.3).
+  const payment = transactions.data?.find((t) => t.type === 'Transfer')
+  const items = (transactions.data ?? [])
+    .filter((t) => t.type !== 'Transfer')
+    .sort((a, b) => b.purchaseDate.localeCompare(a.purchaseDate))
+  const undo = useUndoPayment()
+  const canPay = status === 'Fechada' && statement.totalCents > 0
 
   return (
     <>
@@ -64,6 +84,7 @@ function Details({ statement, status, onEdit }: { statement: Statement; status: 
           <Row label="Fechamento">{formatLongDate(statement.closingDate)}</Row>
           <Row label="Vencimento">{formatLongDate(statement.dueDate)}</Row>
           {statement.datesEditedManually && <Row label="Datas">ajustadas à mão</Row>}
+          {payment && <Row label="Paga em">{formatLongDate(payment.purchaseDate)}</Row>}
         </dl>
 
         <section className="mx-4 mb-5 flex flex-col gap-2">
@@ -105,17 +126,34 @@ function Details({ statement, status, onEdit }: { statement: Statement; status: 
         </section>
       </div>
 
-      <SheetFooterBar>
-        <Button
-          size="lg"
-          variant="outline"
-          className="h-12 w-full rounded-2xl text-base"
-          disabled={statement.isPaid}
-          onClick={onEdit}
-        >
-          <CalendarCog />
-          Ajustar datas
-        </Button>
+      <SheetFooterBar className={cn(canPay && 'grid grid-cols-[1fr_auto] gap-2')}>
+        {statement.isPaid ? (
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-12 w-full rounded-2xl text-base"
+            disabled={!payment || undo.isPending}
+            onClick={() => payment && undo.run(payment.id, statementTitle(statement.reference))}
+          >
+            <Undo2 />
+            Desfazer pagamento
+          </Button>
+        ) : canPay ? (
+          <>
+            <Button size="lg" className="h-12 rounded-2xl text-base" onClick={onPay}>
+              <Check />
+              Pagar {formatCents(statement.totalCents)}
+            </Button>
+            <Button size="lg" variant="outline" className="h-12 rounded-2xl" aria-label="Ajustar datas" onClick={onEditDates}>
+              <CalendarCog />
+            </Button>
+          </>
+        ) : (
+          <Button size="lg" variant="outline" className="h-12 w-full rounded-2xl text-base" onClick={onEditDates}>
+            <CalendarCog />
+            Ajustar datas
+          </Button>
+        )}
       </SheetFooterBar>
     </>
   )
@@ -147,7 +185,7 @@ function EditDates({ statement, onDone }: { statement: Statement; onDone: () => 
       toast.success('Datas da fatura ajustadas', { description: `Vence em ${formatShortDate(dueDate)}.` })
       onDone()
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Não foi possível conectar. Tente novamente.')
+      setError(messageOf(e))
     }
   }
 
@@ -203,6 +241,121 @@ function EditDates({ statement, onDone }: { statement: Statement; onDone: () => 
       </SheetFooterBar>
     </form>
   )
+}
+
+// Desfazer o pagamento é excluir a transferência; o aviso oferece refazer (restaurar).
+function useUndoPayment() {
+  const remove = useDeleteTransaction()
+  const restore = useRestoreTransaction()
+  const run = async (legId: string, title: string) => {
+    try {
+      await remove.mutateAsync(legId)
+    } catch (error) {
+      toast.error(messageOf(error))
+      return
+    }
+    toast('Pagamento desfeito', {
+      description: `Fatura de ${title.toLowerCase()} em aberto de novo.`,
+      duration: 8000,
+      action: {
+        label: 'Desfazer',
+        onClick: () =>
+          restore
+            .mutateAsync(legId)
+            .then(() => toast.success('Fatura paga de novo'))
+            .catch((error: unknown) => toast.error(messageOf(error))),
+      },
+    })
+  }
+  return { run, isPending: remove.isPending }
+}
+
+const paymentMethods: PaymentMethod[] = ['Pix', 'Boleto', 'Debit', 'Ted']
+
+// Paga o total da fatura a partir de uma conta (docs/fase-1.md, 2.3): sempre o total, depois do
+// fechamento. O gasto já está nas compras; o pagamento é transferência.
+function PayForm({ statement, onDone }: { statement: Statement; onDone: () => void }) {
+  const accounts = useAccounts()
+  const pay = usePayStatement()
+  const sources = (accounts.data ?? []).filter((a) => a.type !== 'CreditCard' && a.isActive)
+  const [fromId, setFromId] = useState<string>()
+  const from = fromId ?? sources.find((a) => a.type === 'Checking')?.id ?? sources[0]?.id
+  const [date, setDate] = useState(todayInSaoPaulo())
+  const [method, setMethod] = useState<PaymentMethod>('Pix')
+  const [error, setError] = useState<string>()
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!from) return
+    try {
+      await pay.mutateAsync({ id: statement.id, body: { fromAccountId: from, date, method, description: null } })
+      toast.success('Fatura paga', {
+        description: `${statementTitle(statement.reference)} · ${formatCents(statement.totalCents)}`,
+      })
+      onDone()
+    } catch (e) {
+      setError(messageOf(e))
+    }
+  }
+
+  return (
+    <form onSubmit={submit} noValidate className="flex min-h-0 flex-col">
+      <header className="flex flex-col items-center gap-1 px-4 pt-2 pb-4 text-center">
+        <SheetTitle className="text-sm font-medium text-muted-foreground">
+          Pagar fatura de {statementTitle(statement.reference).toLowerCase()}
+        </SheetTitle>
+        <span className="font-display text-5xl leading-none tabular-nums">{formatCents(statement.totalCents)}</span>
+        <SheetDescription className="text-xs">
+          Sempre o total. Não conta como despesa: o gasto já está nas compras.
+        </SheetDescription>
+      </header>
+      <div className="flex min-h-0 flex-col gap-6 overflow-y-auto px-4 pb-6">
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        {sources.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Crie uma conta corrente para pagar a fatura.</p>
+        ) : (
+          <Section title="Pagar com">
+            <ChipRow>
+              {sources.map((a) => (
+                <Chip key={a.id} selected={a.id === from} onClick={() => setFromId(a.id)}>
+                  <AccountTile name={a.name} type={a.type} size="sm" />
+                  {a.name}
+                </Chip>
+              ))}
+            </ChipRow>
+          </Section>
+        )}
+        <Section title="Data do pagamento">
+          <DateChooser value={date} onChange={setDate} />
+        </Section>
+        <Section title="Meio">
+          <ChipRow>
+            {paymentMethods.map((m) => (
+              <Chip key={m} selected={m === method} onClick={() => setMethod(m)}>
+                {paymentMethodLabels[m]}
+              </Chip>
+            ))}
+          </ChipRow>
+        </Section>
+      </div>
+      <SheetFooterBar className="grid grid-cols-[auto_1fr] gap-2">
+        <Button type="button" size="lg" variant="outline" className="h-12 rounded-2xl" onClick={onDone}>
+          Voltar
+        </Button>
+        <Button type="submit" size="lg" disabled={pay.isPending || !from} className="h-12 rounded-2xl text-base">
+          {pay.isPending ? 'Pagando…' : `Pagar ${formatCents(statement.totalCents)}`}
+        </Button>
+      </SheetFooterBar>
+    </form>
+  )
+}
+
+function messageOf(error: unknown): string {
+  return error instanceof ApiError ? error.message : 'Não foi possível conectar. Tente novamente.'
 }
 
 // Sem verde/vermelho (CLAUDE.md, 7.1): aberta ganha o espectro; o resto é neutro.

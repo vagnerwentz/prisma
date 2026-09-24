@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Http;
 using Prisma.Domain;
+using Prisma.Domain.Transactions;
 
 namespace Prisma.Api.Features.Transactions;
 
@@ -16,8 +17,19 @@ public static class DeleteTransaction
             if (transaction is null)
                 return new Error(ErrorType.NotFound, "Transação não encontrada.");
 
+            if (transaction.TransferPairId is not null)
+                return await TransferPair.Remove(db, transaction, ct);
+
             if (transaction.CheckCanChangeIndividually() is { } error)
                 return error;
+
+            // Compra no cartão: fatura paga não perde valor (docs/fase-1.md, 2.3).
+            if (transaction.StatementId is { } statementId)
+            {
+                var statements = await db.Statements.Where(s => s.Id == statementId).ToListAsync(ct);
+                if (CardPurchase.CheckCanRemove([transaction], statements) is { } paidError)
+                    return paidError;
+            }
 
             db.Transactions.Remove(transaction);
             await db.SaveChangesAsync(ct);

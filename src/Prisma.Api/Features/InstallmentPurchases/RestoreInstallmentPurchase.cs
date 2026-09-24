@@ -39,7 +39,10 @@ public static class RestoreInstallmentPurchase
                 .Select(c => c.Id)
                 .ToListAsync(ct)).ToHashSet();
 
-            var restored = CardPurchase.Restore(purchase, installments, existingCategoryIds);
+            var statementIds = installments.Select(t => t.StatementId).ToList();
+            var statements = await db.Statements.Where(s => statementIds.Contains(s.Id)).ToListAsync(ct);
+
+            var restored = CardPurchase.Restore(purchase, installments, existingCategoryIds, statements);
             if (!restored.IsSuccess)
                 return restored.Error;
 

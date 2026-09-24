@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Http;
 using Prisma.Domain;
+using Prisma.Domain.Transactions;
 
 namespace Prisma.Api.Features.InstallmentPurchases;
 
@@ -18,6 +19,11 @@ public static class DeleteInstallmentPurchase
 
             var installments = await db.Transactions.Where(t => t.InstallmentPurchaseId == id).ToListAsync(ct);
 
+            var statementIds = installments.Select(t => t.StatementId).ToList();
+            var statements = await db.Statements.Where(s => statementIds.Contains(s.Id)).ToListAsync(ct);
+            if (CardPurchase.CheckCanRemove(installments, statements) is { } paidError)
+                return paidError;
+
             db.Transactions.RemoveRange(installments);
             db.InstallmentPurchases.Remove(purchase);
             await db.SaveChangesAsync(ct);
@@ -32,5 +38,6 @@ public static class DeleteInstallmentPurchase
             return result.IsSuccess ? Results.NoContent() : result.Error.ToProblem();
         })
             .Produces(204)
-            .ProducesProblem(404);
+            .ProducesProblem(404)
+            .ProducesProblem(409);
 }

@@ -109,6 +109,74 @@ export interface paths {
         };
         trace?: never;
     };
+    "/statements/{id}/pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PayStatementRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TransactionResponse"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/installment-purchases/{id}": {
         parameters: {
             query?: never;
@@ -139,6 +207,15 @@ export interface paths {
                 };
                 /** @description Not Found */
                 404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -250,6 +327,54 @@ export interface paths {
                     };
                     content: {
                         "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateTransferRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TransactionResponse"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
                     };
                 };
             };
@@ -1143,6 +1268,18 @@ export interface components {
             /** Format: int32 */
             installments: null | number;
         };
+        CreateTransferRequest: {
+            /** Format: uuid */
+            fromAccountId: string;
+            /** Format: uuid */
+            toAccountId: string;
+            /** Format: int64 */
+            amountCents: number;
+            /** Format: date */
+            date: string;
+            method: components["schemas"]["PaymentMethod"];
+            description: null | string;
+        };
         HttpValidationProblemDetails: {
             type?: null | string;
             title?: null | string;
@@ -1192,6 +1329,14 @@ export interface components {
         };
         /** @enum {unknown} */
         PaymentMethod: "Pix" | "Debit" | "Credit" | "Boleto" | "Cash" | "Ted";
+        PayStatementRequest: {
+            /** Format: uuid */
+            fromAccountId: string;
+            /** Format: date */
+            date: string;
+            method: components["schemas"]["PaymentMethod"];
+            description: null | string;
+        };
         ProblemDetails: {
             type?: null | string;
             title?: null | string;
@@ -1234,12 +1379,15 @@ export interface components {
             installmentNumber: null | number;
             /** Format: uuid */
             transferPairId: null | string;
+            transferDirection: null | components["schemas"]["TransferDirection"];
             source: components["schemas"]["TransactionSource"];
         };
         /** @enum {unknown} */
         TransactionSource: "Manual" | "OfxImport" | "PdfImport" | "Nfce";
         /** @enum {unknown} */
         TransactionType: "Income" | "Expense" | "Transfer";
+        /** @enum {unknown} */
+        TransferDirection: "Out" | "In" | null;
         UpdateAccountRequest: {
             name: string;
             /** Format: int64 */

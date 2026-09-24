@@ -70,8 +70,8 @@ public static class CardPurchase
         var firstPlaced = dateChanges ? 1 : ordered.Count + 1;
         var targets = Enumerable.Range(firstPlaced, Math.Max(installmentCount - firstPlaced + 1, 0))
             .ToDictionary(n => n, placement.For);
-        if (dateChanges && targets.Values.Any(t => t.IsPaid))
-            return MovedIntoPaidStatement;
+        if (targets.Values.Any(t => t.IsPaid))
+            return dateChanges ? MovedIntoPaidStatement : NewInstallmentsIntoPaidStatement;
 
         // Validado: a partir daqui nada falha.
         var text = description?.Trim() ?? "";
@@ -107,6 +107,9 @@ public static class CardPurchase
         Account account, TransactionType type, long amountCents, DateOnly purchaseDate,
         Category? category, PaymentMethod method, string? description)
     {
+        if (transaction.TransferPairId is not null)
+            return Transaction.TransferIsNotEdited;
+
         if (transaction.StatementId is null)
             return Invalid("Lançamento fora do cartão usa a edição simples.");
 
@@ -123,6 +126,10 @@ public static class CardPurchase
         if (amountCents <= 0)
             return Invalid("O valor deve ser maior que zero.");
 
+        var inPaidStatement = statements.Any(s => s.Id == transaction.StatementId && s.IsPaid);
+        if (inPaidStatement && amountCents != transaction.AmountCents)
+            return Invalid("Esta compra está numa fatura paga; o valor não muda. Desfaça o pagamento para alterá-lo.");
+
         if (Transaction.ValidateDetails(type, category, description) is { } detailsError)
             return detailsError;
 
@@ -130,7 +137,7 @@ public static class CardPurchase
         Statement? target = null;
         if (purchaseDate != transaction.PurchaseDate)
         {
-            if (statements.Any(s => s.Id == transaction.StatementId && s.IsPaid))
+            if (inPaidStatement)
                 return PaidPurchaseKeepsItsDate;
 
             target = placement.For(1);
@@ -151,6 +158,30 @@ public static class CardPurchase
 
     private static readonly Error MovedIntoPaidStatement =
         new(ErrorType.Validation, "A nova data leva parcelas para uma fatura já paga.");
+
+    private static readonly Error NewInstallmentsIntoPaidStatement =
+        new(ErrorType.Validation, "As novas parcelas cairiam numa fatura já paga. Desfaça o pagamento para aumentar as parcelas.");
+
+    private static readonly Error PurchaseIntoPaidStatement =
+        new(ErrorType.Validation, "Esta compra cai numa fatura já paga. Desfaça o pagamento para lançá-la.");
+
+    // Fatura paga não muda de valor (docs/fase-1.md, 2.3): compra com parcela nela não sai (excluir)
+    // nem volta (restaurar). installments: as transações da compra; statements: as faturas delas.
+    public static Error? CheckCanRemove(IEnumerable<Transaction> installments, IReadOnlyCollection<Statement> statements) =>
+        TouchesPaidStatement(installments, statements)
+            ? new Error(ErrorType.Conflict, "Esta compra está numa fatura paga. Desfaça o pagamento para excluí-la.")
+            : null;
+
+    public static Error? CheckCanRestore(IEnumerable<Transaction> installments, IReadOnlyCollection<Statement> statements) =>
+        TouchesPaidStatement(installments, statements)
+            ? new Error(ErrorType.Conflict, "A fatura desta compra já está paga. Desfaça o pagamento para restaurá-la.")
+            : null;
+
+    private static bool TouchesPaidStatement(IEnumerable<Transaction> installments, IReadOnlyCollection<Statement> statements)
+    {
+        var paid = statements.Where(s => s.IsPaid).Select(s => s.Id).ToHashSet();
+        return installments.Any(t => t.StatementId is { } id && paid.Contains(id));
+    }
 
     // Fatura de cada parcela a partir de uma data de compra: reaproveita as faturas gravadas (e as
     // datas editadas delas) e abre as que faltam, como na criação.
@@ -181,7 +212,8 @@ public static class CardPurchase
     // Só restaura se elas forem exatamente as parcelas 1..N e somarem o total, para a soma nunca
     // divergir (CLAUDE.md, regra 2). Parcela cuja categoria foi excluída volta sem categoria.
     public static Result<InstallmentPurchase> Restore(
-        InstallmentPurchase purchase, IReadOnlyList<Transaction> installments, IReadOnlySet<Guid> existingCategoryIds)
+        InstallmentPurchase purchase, IReadOnlyList<Transaction> installments, IReadOnlySet<Guid> existingCategoryIds,
+        IReadOnlyCollection<Statement> statements)
     {
         var numbers = installments.Select(t => t.InstallmentNumber).Order().ToList();
         var matches = installments.All(t => t.InstallmentPurchaseId == purchase.Id)
@@ -191,6 +223,9 @@ public static class CardPurchase
         if (!matches)
             return new Error(ErrorType.Conflict,
                 "As parcelas desta compra não fecham com o total; não é possível restaurá-la.");
+
+        if (CheckCanRestore(installments, statements) is { } paidError)
+            return paidError;
 
         purchase.Restore();
         foreach (var installment in installments)
@@ -234,6 +269,9 @@ public static class CardPurchase
                 statements.Add(dates.Reference, statement);
                 opened.Add(statement);
             }
+
+            if (statement.IsPaid)
+                return PurchaseIntoPaidStatement;
 
             installments.Add(Transaction.CreateCardInstallment(
                 userId, card, parts[number - 1].Cents, purchaseDate, statement, category, text,

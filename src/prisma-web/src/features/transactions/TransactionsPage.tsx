@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { lazy, Suspense, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { PrismLogo } from '@/components/brand/PrismLogo'
-import { EntryTile } from '@/components/brand/Tiles'
+import { EntryTile, TransferTile } from '@/components/brand/Tiles'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -110,10 +110,22 @@ function MonthSwitcher({ month, onChange }: { month: YearMonth; onChange: (m: Ye
           <span className="text-sm text-muted-foreground tabular-nums">{year}</span>
         </h1>
         <div className="flex gap-1">
-          <Button variant="ghost" size="icon" className="rounded-full" aria-label="Mês anterior" onClick={() => onChange(shiftMonth(month, -1))}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full"
+            aria-label="Mês anterior"
+            onClick={() => onChange(shiftMonth(month, -1))}
+          >
             <ChevronLeft />
           </Button>
-          <Button variant="ghost" size="icon" className="rounded-full" aria-label="Próximo mês" onClick={() => onChange(shiftMonth(month, 1))}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full"
+            aria-label="Próximo mês"
+            onClick={() => onChange(shiftMonth(month, 1))}
+          >
             <ChevronRight />
           </Button>
         </div>
@@ -124,6 +136,7 @@ function MonthSwitcher({ month, onChange }: { month: YearMonth; onChange: (m: Ye
 }
 
 function EntryRow({ entry, lookups, onOpen }: { entry: TimelineEntry<Transaction>; lookups: Lookups; onOpen: () => void }) {
+  if (entry.kind === 'transfer') return <TransferRow entry={entry} lookups={lookups} onOpen={onOpen} />
   const first = entry.kind === 'single' ? entry.transaction : entry.installments[0]
   const category = first.categoryId ? lookups.categories.get(first.categoryId) : undefined
   const account = lookups.accounts.get(first.accountId)
@@ -140,17 +153,47 @@ function EntryRow({ entry, lookups, onOpen }: { entry: TimelineEntry<Transaction
         onClick={onOpen}
         className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors outline-none hover:bg-muted/40 focus-visible:bg-muted/60 active:bg-muted/70"
       >
-      <EntryTile description={first.description} category={category} />
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-medium">{title}</p>
-        {details.length > 0 && <p className="truncate text-sm text-muted-foreground">{details.join(' · ')}</p>}
-      </div>
-      <div className="flex shrink-0 flex-col items-end">
-        <Amount type={first.type} cents={amount} />
-        {installments > 1 && (
-          <span className="text-xs text-muted-foreground tabular-nums">{shortInstallments(amount, installments)}</span>
-        )}
-      </div>
+        <EntryTile description={first.description} category={category} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium">{title}</p>
+          {details.length > 0 && <p className="truncate text-sm text-muted-foreground">{details.join(' · ')}</p>}
+        </div>
+        <div className="flex shrink-0 flex-col items-end">
+          <Amount type={first.type} cents={amount} />
+          {installments > 1 && (
+            <span className="text-xs text-muted-foreground tabular-nums">{shortInstallments(amount, installments)}</span>
+          )}
+        </div>
+      </button>
+    </li>
+  )
+}
+
+// Transferência: origem → destino, valor sem sinal (não é receita nem despesa; docs/fase-1.md, 2.3).
+function TransferRow({
+  entry,
+  lookups,
+  onOpen,
+}: {
+  entry: Extract<TimelineEntry<Transaction>, { kind: 'transfer' }>
+  lookups: Lookups
+  onOpen: () => void
+}) {
+  const leg = entry.out ?? entry.in
+  const route = [entry.out, entry.in].map((t) => (t ? lookups.accounts.get(t.accountId) : '…')).join(' → ')
+  return (
+    <li className="[&+&]:border-t">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors outline-none hover:bg-muted/40 focus-visible:bg-muted/60 active:bg-muted/70"
+      >
+        <TransferTile payment={!!entry.in?.statementId} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium">{leg?.description}</p>
+          <p className="truncate text-sm text-muted-foreground">{route}</p>
+        </div>
+        <Amount type="Transfer" cents={entry.amountCents} className="text-muted-foreground" />
       </button>
     </li>
   )

@@ -73,3 +73,16 @@ export const useRestorePurchase = () =>
   useInvalidatingMutation(async (id: string) =>
     unwrap(await api.POST('/installment-purchases/{id}/restore', { params: { path: { id } } })),
   )
+
+export type NewTransfer = Schemas['CreateTransferRequest']
+export type StatementPayment = Schemas['PayStatementRequest']
+
+// Transferência entre contas: duas pontas, fora de receita e despesa (docs/fase-1.md, 2.3).
+export const useCreateTransfer = () =>
+  useInvalidatingMutation(async (body: NewTransfer) => unwrap(await api.POST('/transfers', { body })))
+
+// Paga o total da fatura; ela passa a "Paga".
+export const usePayStatement = () =>
+  useInvalidatingMutation(async ({ id, body }: { id: string; body: StatementPayment }) =>
+    unwrap(await api.POST('/statements/{id}/pay', { params: { path: { id } }, body })),
+  )

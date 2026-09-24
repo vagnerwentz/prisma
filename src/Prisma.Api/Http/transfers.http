@@ -1,0 +1,65 @@
+# Transferências e pagamento de fatura (etapa 1.10). Exige sessão (Login de auth.http) e os ids
+# guardados por accounts.http (checkingId, cardId) e cards.http (aprilStatementId).
+
+### Criar uma carteira para receber a transferência
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{
+  "name": "Carteira",
+  "type": "Cash",
+  "initialBalanceCents": 0
+}
+
+> {% client.global.set("cashId", response.body.id); %}
+
+### Transferir R$ 200,00 da conta corrente para a carteira (duas pontas, fora de receita e despesa)
+POST {{baseUrl}}/transfers
+Content-Type: application/json
+
+{
+  "fromAccountId": "{{checkingId}}",
+  "toAccountId": "{{cashId}}",
+  "amountCents": 20000,
+  "date": "2026-04-10",
+  "method": "Pix",
+  "description": "Saque"
+}
+
+> {% client.global.set("transferLegId", response.body[0].id); %}
+
+### Erro: transferência para cartão (400; cartão só recebe pelo pagamento da fatura)
+POST {{baseUrl}}/transfers
+Content-Type: application/json
+
+{
+  "fromAccountId": "{{checkingId}}",
+  "toAccountId": "{{cardId}}",
+  "amountCents": 20000,
+  "date": "2026-04-10",
+  "method": "Pix"
+}
+
+### Excluir uma ponta: as duas somem
+DELETE {{baseUrl}}/transactions/{{transferLegId}}
+
+### Restaurar: as duas voltam
+POST {{baseUrl}}/transactions/{{transferLegId}}/restore
+
+### Pagar a fatura de abril (sempre o total; só depois do fechamento)
+POST {{baseUrl}}/statements/{{aprilStatementId}}/pay
+Content-Type: application/json
+
+{
+  "fromAccountId": "{{checkingId}}",
+  "date": "2026-04-10",
+  "method": "Boleto"
+}
+
+> {% client.global.set("paymentLegId", response.body[0].id); %}
+
+### Faturas: abril aparece paga, com o total só das compras
+GET {{baseUrl}}/accounts/{{cardId}}/statements
+
+### Desfazer o pagamento (exclui a transferência; a fatura volta a não paga)
+DELETE {{baseUrl}}/transactions/{{paymentLegId}}

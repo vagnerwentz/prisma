@@ -27,11 +27,17 @@ public sealed class Statement : Entity
             DueDate = dates.DueDate,
         };
 
-    // Usado pelo pagamento de fatura (etapa 1.10). Parcelas em fatura paga não são redistribuídas.
+    // Pagamento de fatura (etapa 1.10). Fatura paga não muda de valor (docs/fase-1.md, 2.3).
     public void MarkAsPaid() => IsPaid = true;
+
+    // Excluir a transferência de pagamento desfaz o pagamento.
+    internal void MarkAsUnpaid() => IsPaid = false;
 
     public Result<Statement> EditDates(DateOnly closingDate, DateOnly dueDate)
     {
+        if (IsPaid)
+            return new Error(ErrorType.Validation, "Fatura paga não muda de datas. Desfaça o pagamento para ajustá-las.");
+
         if (dueDate < closingDate)
             return new Error(ErrorType.Validation, "O vencimento não pode ser antes do fechamento.");
 

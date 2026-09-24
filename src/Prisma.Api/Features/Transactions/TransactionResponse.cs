@@ -18,13 +18,14 @@ public sealed record TransactionResponse(
     Guid? InstallmentPurchaseId,
     int? InstallmentNumber,
     Guid? TransferPairId,
+    TransferDirection? TransferDirection,
     TransactionSource Source)
 {
     public static readonly Expression<Func<Transaction, TransactionResponse>> Projection = t =>
         new TransactionResponse(
             t.Id, t.AccountId, t.Type, t.AmountCents, t.PurchaseDate, t.SettlementDate, t.StatementId,
             t.CategoryId, t.Method, t.Description, t.RawDescription, t.InstallmentPurchaseId,
-            t.InstallmentNumber, t.TransferPairId, t.Source);
+            t.InstallmentNumber, t.TransferPairId, t.TransferDirection, t.Source);
 
     private static readonly Func<Transaction, TransactionResponse> Compiled = Projection.Compile();
 

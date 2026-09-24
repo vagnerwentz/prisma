@@ -2,12 +2,14 @@ using Microsoft.EntityFrameworkCore;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Http;
 using Prisma.Domain;
+using Prisma.Domain.Transactions;
 
 namespace Prisma.Api.Features.Statements;
 
 public static class ListStatements
 {
-    // TotalCents soma as transações ativas da fatura (o filtro global ignora as excluídas).
+    // TotalCents soma as compras ativas da fatura (o filtro global ignora as excluídas); a entrada
+    // do pagamento, Transfer, não conta (docs/fase-1.md, 2.3).
     public sealed record StatementResponse(
         Guid Id,
         string Reference,
@@ -30,7 +32,7 @@ public static class ListStatements
                 .OrderByDescending(s => s.DueDate)
                 .Select(s => new StatementResponse(
                     s.Id, s.Reference, s.ClosingDate, s.DueDate, s.IsPaid, s.DatesEditedManually,
-                    db.Transactions.Where(t => t.StatementId == s.Id).Sum(t => t.AmountCents)))
+                    db.Transactions.Where(t => t.StatementId == s.Id && t.Type != TransactionType.Transfer).Sum(t => t.AmountCents)))
                 .ToListAsync(ct);
         }
     }

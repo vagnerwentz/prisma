@@ -92,7 +92,8 @@ Agrupa as parcelas de uma mesma compra.
 | `RawDescription` | string? | texto cru de importação, **imutável** |
 | `InstallmentPurchaseId` | Guid? | |
 | `InstallmentNumber` | int? | 1-based |
-| `TransferPairId` | Guid? | a outra ponta |
+| `TransferPairId` | Guid? | identificador comum às duas pontas da transferência |
+| `TransferDirection` | TransferDirection? | `Out` na origem, `In` no destino; só em transferência |
 | `Source` | TransactionSource | |
 
 Índices: (`UserId`, `SettlementDate`), (`UserId`, `AccountId`, `SettlementDate`),
@@ -171,6 +172,24 @@ Três casos usam esse mesmo mecanismo:
 Pagar a fatura marca o `Statement` como `IsPaid`. O gasto do mês já está representado
 pelas transações individuais do cartão, então o pagamento **não** é despesa.
 
+Regras (etapa 1.10):
+
+- **Transferência livre** (`POST /transfers`): entre contas diferentes, nenhuma delas cartão de
+  crédito. Valor maior que zero; meio de pagamento qualquer, exceto crédito; sem categoria. As
+  duas pontas têm a mesma data (`PurchaseDate` = `SettlementDate`).
+- **Pagar fatura** (`POST /statements/{id}/pay`): sempre o **total** da fatura, a partir de uma
+  conta que não seja cartão. Só depois do fechamento (data do pagamento posterior ao
+  `ClosingDate`) e só fatura não paga com total maior que zero. A ponta de entrada fica no cartão,
+  ligada à fatura pelo `StatementId`, e **não conta no total da fatura**: o total soma só compras.
+- **Fatura paga não muda de valor.** Nada entra, sai ou muda de valor nela: compra nova (ou
+  parcela, ou compra movida de data) que cairia nela é recusada; excluir ou restaurar compra com
+  parcela nela é recusado; mudar o valor de compra nela é recusado; as datas dela não mudam.
+  Descrição e categoria continuam editáveis. Para mexer, desfaz-se o pagamento.
+- **Desfazer o pagamento** é excluir a transferência (qualquer ponta): as duas pontas vão para o
+  soft delete e a fatura volta a não paga. Restaurar a transferência volta a marcar a fatura como
+  paga, desde que ela não esteja paga e o total continue igual ao valor pago.
+- Transferência não é editada: exclua e lance de novo.
+
 ### 2.4 Categorias padrão (seed do novo usuário)
 
 Nomes gravados em **pt-BR**, porque são dados exibidos ao usuário, não código.
@@ -216,7 +235,7 @@ DELETE /categories/{id}
 
 GET    /accounts/{id}/statements
 PATCH  /statements/{id}           → editar datas, recalcula SettlementDate
-POST   /statements/{id}/pay       → cria a transferência
+POST   /statements/{id}/pay       → paga o total: cria a transferência e marca como paga
 
 GET    /transactions              ?from=&to=&accountId=&categoryId=&search=&statementId=
                                   (período pela PurchaseDate; statementId = compras de uma fatura)
@@ -230,7 +249,7 @@ PATCH  /installment-purchases/{id}
 DELETE /installment-purchases/{id}
 POST   /installment-purchases/{id}/restore
 
-POST   /transfers
+POST   /transfers                 → transferência livre (sem cartão)
 ```
 
 Recurso de outro usuário retorna **404**, nunca 403: 403 confirmaria a existência do

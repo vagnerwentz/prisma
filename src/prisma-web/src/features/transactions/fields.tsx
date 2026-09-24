@@ -26,7 +26,9 @@ export function Section({ title, aside, children }: { title: string; aside?: str
 
 export function ChipRow({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn('-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', className)}>
+    <div
+      className={cn('-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', className)}
+    >
       {children}
     </div>
   )
@@ -52,7 +54,8 @@ export function Chip({
     if (!selected || !chip || !row) return
     const c = chip.getBoundingClientRect()
     const r = row.getBoundingClientRect()
-    if (c.left < r.left || c.right > r.right) row.scrollBy({ left: c.left - r.left - (r.width - c.width) / 2, behavior: 'smooth' })
+    if (c.left < r.left || c.right > r.right)
+      row.scrollBy({ left: c.left - r.left - (r.width - c.width) / 2, behavior: 'smooth' })
   }, [selected])
 
   return (
@@ -76,18 +79,26 @@ export function TypeToggle({
   value,
   incomeDisabled,
   onChange,
+  onTransfer,
 }: {
-  value: EntryType
+  value: EntryType | 'Transfer'
   incomeDisabled: boolean
   onChange: (value: EntryType) => void
+  // No lançamento rápido, "Transferência" troca o formulário (docs/fase-1.md, 2.3).
+  onTransfer?: () => void
 }) {
+  const option = (selected: boolean, extra?: string) =>
+    cn(
+      'rounded-full px-4 py-1.5 transition-colors',
+      selected ? (extra ?? 'bg-foreground text-background') : 'text-muted-foreground',
+    )
   return (
-    <div className="grid grid-cols-2 rounded-full border bg-card p-1 text-sm font-medium">
+    <div className={cn('grid rounded-full border bg-card p-1 text-sm font-medium', onTransfer ? 'grid-cols-3' : 'grid-cols-2')}>
       <button
         type="button"
         aria-pressed={value === 'Expense'}
         onClick={() => onChange('Expense')}
-        className={cn('rounded-full px-5 py-1.5 transition-colors', value === 'Expense' ? 'bg-foreground text-background' : 'text-muted-foreground')}
+        className={option(value === 'Expense')}
       >
         Despesa
       </button>
@@ -96,13 +107,15 @@ export function TypeToggle({
         aria-pressed={value === 'Income'}
         disabled={incomeDisabled}
         onClick={() => onChange('Income')}
-        className={cn(
-          'rounded-full px-5 py-1.5 transition-colors disabled:opacity-40',
-          value === 'Income' ? 'bg-[image:var(--spectrum)] text-white' : 'text-muted-foreground',
-        )}
+        className={cn(option(value === 'Income', 'bg-[image:var(--spectrum)] text-white'), 'disabled:opacity-40')}
       >
         Receita
       </button>
+      {onTransfer && (
+        <button type="button" aria-pressed={value === 'Transfer'} onClick={onTransfer} className={option(value === 'Transfer')}>
+          Transferência
+        </button>
+      )}
     </div>
   )
 }
@@ -182,10 +195,23 @@ export function CategoryPicker({
               onClick={() => onChange(selected ? '' : root.id)}
               className="group flex flex-col items-center gap-1.5 rounded-2xl p-1 text-center outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <span className={cn('rounded-2xl p-[2px] transition-transform group-active:scale-95', selected && 'bg-[image:var(--spectrum-conic)]')}>
-                <CategoryTile name={root.name} icon={root.icon} color={root.color} size="lg" className={cn(selected && 'ring-2 ring-background')} />
+              <span
+                className={cn(
+                  'rounded-2xl p-[2px] transition-transform group-active:scale-95',
+                  selected && 'bg-[image:var(--spectrum-conic)]',
+                )}
+              >
+                <CategoryTile
+                  name={root.name}
+                  icon={root.icon}
+                  color={root.color}
+                  size="lg"
+                  className={cn(selected && 'ring-2 ring-background')}
+                />
               </span>
-              <span className={cn('line-clamp-2 text-[0.7rem] leading-tight', selected ? 'font-semibold' : 'text-muted-foreground')}>
+              <span
+                className={cn('line-clamp-2 text-[0.7rem] leading-tight', selected ? 'font-semibold' : 'text-muted-foreground')}
+              >
                 {root.name}
               </span>
             </button>
@@ -199,7 +225,12 @@ export function CategoryPicker({
           </Chip>
           {selectedRoot.subcategories.map((sub) => (
             <Chip key={sub.id} selected={sub.id === value} onClick={() => onChange(sub.id)}>
-              <CategoryTile name={sub.name} icon={sub.icon ?? selectedRoot.icon} color={sub.color ?? selectedRoot.color} size="sm" />
+              <CategoryTile
+                name={sub.name}
+                icon={sub.icon ?? selectedRoot.icon}
+                color={sub.color ?? selectedRoot.color}
+                size="sm"
+              />
               {sub.name}
             </Chip>
           ))}

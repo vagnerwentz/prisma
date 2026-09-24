@@ -16,11 +16,15 @@ public sealed class TransactionConfiguration : IEntityTypeConfiguration<Transact
         {
             table.HasCheckConstraint("ck_transactions_amount_cents_positive", "amount_cents > 0");
             table.HasCheckConstraint("ck_transactions_installment_number", "installment_number >= 1");
+            // Transferência tem par e direção; nada mais tem (docs/fase-1.md, 2.3).
+            table.HasCheckConstraint("ck_transactions_transfer_legs",
+                "(type = 'Transfer') = (transfer_pair_id IS NOT NULL AND transfer_direction IS NOT NULL)");
         });
 
         builder.Property(t => t.Type).HasConversion<string>().HasMaxLength(20);
         builder.Property(t => t.Method).HasConversion<string>().HasMaxLength(20);
         builder.Property(t => t.Source).HasConversion<string>().HasMaxLength(20);
+        builder.Property(t => t.TransferDirection).HasConversion<string>().HasMaxLength(10);
         builder.Property(t => t.Description).HasMaxLength(Transaction.DescriptionMaxLength);
 
         builder.HasOne<AppUser>().WithMany().HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Restrict);
@@ -35,5 +39,6 @@ public sealed class TransactionConfiguration : IEntityTypeConfiguration<Transact
         builder.HasIndex(t => new { t.UserId, t.AccountId, t.SettlementDate });
         builder.HasIndex(t => new { t.UserId, t.CategoryId });
         builder.HasIndex(t => new { t.UserId, t.PurchaseDate });
+        builder.HasIndex(t => t.TransferPairId);
     }
 }

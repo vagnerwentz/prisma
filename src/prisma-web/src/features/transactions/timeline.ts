@@ -3,25 +3,43 @@ export type TimelineTransaction = {
   purchaseDate: string
   amountCents: number
   installmentPurchaseId?: string | null
+  transferPairId?: string | null
+  transferDirection?: 'Out' | 'In' | null
 }
 
 export type TimelineEntry<T extends TimelineTransaction> =
   | { kind: 'single'; transaction: T }
   | { kind: 'purchase'; purchaseId: string; installments: T[]; totalCents: number }
+  | { kind: 'transfer'; pairId: string; out?: T; in?: T; amountCents: number }
 
 export type TimelineDay<T extends TimelineTransaction> = { date: string; entries: TimelineEntry<T>[] }
 
 // Agrupa a lista da API (já ordenada, mais recentes primeiro) por dia da compra. As parcelas de
-// uma compra têm a mesma PurchaseDate (docs/fase-1.md, 2.2) e viram uma entrada só.
+// uma compra têm a mesma PurchaseDate (docs/fase-1.md, 2.2) e viram uma entrada só; as duas pontas
+// de uma transferência também (2.3), com o valor transferido.
 export function buildTimeline<T extends TimelineTransaction>(transactions: T[]): TimelineDay<T>[] {
   const days: TimelineDay<T>[] = []
   const purchases = new Map<string, Extract<TimelineEntry<T>, { kind: 'purchase' }>>()
+  const transfers = new Map<string, Extract<TimelineEntry<T>, { kind: 'transfer' }>>()
 
   for (const transaction of transactions) {
     let day = days.at(-1)
     if (day?.date !== transaction.purchaseDate) {
       day = { date: transaction.purchaseDate, entries: [] }
       days.push(day)
+    }
+
+    const pairId = transaction.transferPairId
+    if (pairId) {
+      const side = transaction.transferDirection === 'Out' ? 'out' : 'in'
+      const existing = transfers.get(pairId)
+      if (existing) existing[side] = transaction
+      else {
+        const entry = { kind: 'transfer' as const, pairId, [side]: transaction, amountCents: transaction.amountCents }
+        transfers.set(pairId, entry)
+        day.entries.push(entry)
+      }
+      continue
     }
 
     const purchaseId = transaction.installmentPurchaseId

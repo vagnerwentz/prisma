@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { useForm, useWatch, type Path, type PathValue, type UseFormRegisterReturn } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
-import { AccountTile, EntryTile } from '@/components/brand/Tiles'
+import { AccountTile, EntryTile, TransferTile } from '@/components/brand/Tiles'
 import { FieldError } from '@/components/FieldError'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -31,10 +31,13 @@ import {
 } from './queries'
 import type { TimelineEntry } from './timeline'
 
-type Entry = TimelineEntry<Transaction>
+type AnyEntry = TimelineEntry<Transaction>
+type TransferEntry = Extract<AnyEntry, { kind: 'transfer' }>
+// Lançamentos editáveis; transferência tem painel próprio, só com "Excluir".
+type Entry = Exclude<AnyEntry, TransferEntry>
 
 export type EntrySheetProps = {
-  entry: Entry | undefined
+  entry: AnyEntry | undefined
   onClose: () => void
   // Editar a data pode levar o lançamento para outro mês: a lista vai junto.
   onMoved: (month: YearMonth) => void
@@ -64,8 +67,11 @@ export default function EntrySheet({ entry, onClose, ...rest }: EntrySheetProps)
 
   return (
     <BottomSheet open={entry !== undefined} onClose={onClose}>
-      {entry && mode.view === 'details' && <Details entry={entry} onClose={onClose} onEdit={(next) => setMode(next)} {...rest} />}
-      {entry && mode.view !== 'details' && (
+      {entry?.kind === 'transfer' && <TransferDetails entry={entry} accounts={rest.accounts} onClose={onClose} />}
+      {entry && entry.kind !== 'transfer' && mode.view === 'details' && (
+        <Details entry={entry} onClose={onClose} onEdit={(next) => setMode(next)} {...rest} />
+      )}
+      {entry && entry.kind !== 'transfer' && mode.view !== 'details' && (
         <Editor entry={entry} mode={mode} onDone={() => setMode({ view: 'details' })} onClose={onClose} {...rest} />
       )}
     </BottomSheet>
@@ -82,7 +88,10 @@ function Details({ entry, accounts, labels, onClose, onEdit }: Common & { onEdit
   const account = accounts.find((a) => a.id === first.accountId)
   const amount = entry.kind === 'single' ? first.amountCents : entry.totalCents
   const title = first.description || category?.name || 'Sem descrição'
-  const remove = useRemove(entry, title, amount)
+  const remove = useRemove(
+    entry.kind === 'purchase' ? { kind: 'purchase', id: entry.purchaseId } : { kind: 'single', id: first.id },
+    `${title} · ${formatCents(amount)}`,
+  )
 
   return (
     <>
@@ -217,31 +226,41 @@ function InstallmentList({
 
 // Exclui e oferece "Desfazer" no aviso (soft delete + restauração). Usa mutateAsync: o aviso
 // sobrevive ao painel fechado, e as opções do useMutation (recarregar a lista) valem mesmo assim.
-function useRemove(entry: Entry, title: string, amount: number) {
+// Transferência: excluir uma ponta leva as duas, e desfaz o pagamento se for um (docs/fase-1.md, 2.3).
+type RemoveTarget = { kind: 'single' | 'purchase' | 'transfer' | 'payment'; id: string }
+
+const removeTexts: Record<RemoveTarget['kind'], { removed: string; restored: string }> = {
+  single: { removed: 'Lançamento excluído', restored: 'Lançamento restaurado' },
+  purchase: { removed: 'Compra excluída', restored: 'Compra restaurada' },
+  transfer: { removed: 'Transferência excluída', restored: 'Transferência restaurada' },
+  payment: { removed: 'Pagamento desfeito', restored: 'Fatura paga de novo' },
+}
+
+function useRemove(target: RemoveTarget, description: string) {
   const deleteTransaction = useDeleteTransaction()
   const deletePurchase = useDeletePurchase()
   const restoreTransaction = useRestoreTransaction()
   const restorePurchase = useRestorePurchase()
-  const isPurchase = entry.kind === 'purchase'
-  const id = entry.kind === 'single' ? entry.transaction.id : entry.purchaseId
+  const isPurchase = target.kind === 'purchase'
+  const texts = removeTexts[target.kind]
 
   const run = async (onClose: () => void) => {
     try {
-      await (isPurchase ? deletePurchase : deleteTransaction).mutateAsync(id)
+      await (isPurchase ? deletePurchase : deleteTransaction).mutateAsync(target.id)
     } catch (error) {
       toast.error(messageOf(error))
       return
     }
     onClose()
-    toast(isPurchase ? 'Compra excluída' : 'Lançamento excluído', {
-      description: `${title} · ${formatCents(amount)}`,
+    toast(texts.removed, {
+      description,
       duration: 8000,
       action: {
         label: 'Desfazer',
         onClick: () => {
           ;(isPurchase ? restorePurchase : restoreTransaction)
-            .mutateAsync(id)
-            .then(() => toast.success(isPurchase ? 'Compra restaurada' : 'Lançamento restaurado'))
+            .mutateAsync(target.id)
+            .then(() => toast.success(texts.restored))
             .catch((error: unknown) => toast.error(messageOf(error)))
         },
       },
@@ -249,6 +268,70 @@ function useRemove(entry: Entry, title: string, amount: number) {
   }
 
   return { run, isPending: deleteTransaction.isPending || deletePurchase.isPending }
+}
+
+// Transferência (ou pagamento de fatura): origem, destino, data e meio. Não é editada; excluir
+// leva as duas pontas.
+function TransferDetails({ entry, accounts, onClose }: { entry: TransferEntry; accounts: Account[]; onClose: () => void }) {
+  const leg = (entry.out ?? entry.in)!
+  const isPayment = !!entry.in?.statementId
+  const from = accounts.find((a) => a.id === entry.out?.accountId)
+  const to = accounts.find((a) => a.id === entry.in?.accountId)
+  const remove = useRemove(
+    { kind: isPayment ? 'payment' : 'transfer', id: leg.id },
+    `${leg.description} · ${formatCents(entry.amountCents)}`,
+  )
+
+  return (
+    <>
+      <div className="flex min-h-0 flex-col overflow-y-auto overscroll-contain">
+        <header className="flex flex-col items-center gap-3 px-6 pt-4 pb-5 text-center">
+          <TransferTile payment={isPayment} size="xl" />
+          <SheetTitle className="font-display text-2xl leading-tight font-normal">{leg.description}</SheetTitle>
+          <span className="font-display text-5xl leading-none tabular-nums">{formatCents(entry.amountCents)}</span>
+          <p className="text-sm text-muted-foreground">Não entra em receita nem despesa</p>
+        </header>
+        <div className="spectrum-line mx-6 opacity-70" />
+        <dl className="mx-4 my-5 flex flex-col divide-y rounded-2xl border bg-card text-sm">
+          {from && (
+            <InfoRow label="De">
+              <span className="flex items-center gap-2">
+                <AccountTile name={from.name} type={from.type} size="sm" />
+                {from.name}
+              </span>
+            </InfoRow>
+          )}
+          {to && (
+            <InfoRow label={isPayment ? 'Fatura do cartão' : 'Para'}>
+              <span className="flex items-center gap-2">
+                <AccountTile name={to.name} type={to.type} size="sm" />
+                {to.name}
+              </span>
+            </InfoRow>
+          )}
+          <InfoRow label="Data">{formatLongDate(leg.purchaseDate)}</InfoRow>
+          <InfoRow label="Meio">{paymentMethodLabels[leg.method]}</InfoRow>
+        </dl>
+        <p className="mx-4 mb-5 rounded-2xl bg-muted/60 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+          {isPayment
+            ? 'Desfazer o pagamento exclui a transferência e a fatura volta a ficar em aberto.'
+            : 'Transferência não é editada. Para corrigir, exclua e lance de novo.'}
+        </p>
+      </div>
+      <SheetFooterBar>
+        <Button
+          size="lg"
+          variant="outline"
+          className="h-12 w-full rounded-2xl text-base"
+          disabled={remove.isPending}
+          onClick={() => remove.run(onClose)}
+        >
+          <Trash2 />
+          {isPayment ? 'Desfazer pagamento' : 'Excluir transferência'}
+        </Button>
+      </SheetFooterBar>
+    </>
+  )
 }
 
 function messageOf(error: unknown): string {

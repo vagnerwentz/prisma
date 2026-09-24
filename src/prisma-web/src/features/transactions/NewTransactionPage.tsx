@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ChevronDown, X } from 'lucide-react'
-import { useEffect, useMemo, type ReactNode } from 'react'
+import { ArrowDown, ChevronDown, X } from 'lucide-react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useForm, useWatch, type Path, type PathValue } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
@@ -9,6 +9,7 @@ import { AccountTile, EntryTile } from '@/components/brand/Tiles'
 import { FieldError } from '@/components/FieldError'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { defaultPaymentMethod, paymentMethodLabels, type PaymentMethod } from '@/features/accounts/labels'
 import { useAccounts, type Account } from '@/features/accounts/queries'
@@ -19,7 +20,7 @@ import { todayInSaoPaulo } from '@/lib/dates'
 import { describeInstallments, formatCents } from '@/lib/money'
 import { readLastAccountId, saveLastAccountId } from '@/lib/preferences'
 import { AmountField, CategoryPicker, Chip, ChipRow, DateChooser, Section, TypeToggle } from './fields'
-import { useCreateTransaction } from './queries'
+import { useCreateTransaction, useCreateTransfer } from './queries'
 
 const maxInstallments = 24
 
@@ -80,7 +81,17 @@ export function NewTransactionPage() {
     )
   }
 
-  return <Composer accounts={activeAccounts} categories={categories.data} />
+  return <Composers accounts={activeAccounts} categories={categories.data} />
+}
+
+// Receita e despesa num formulário; transferência em outro (duas pontas, sem categoria).
+function Composers({ accounts, categories }: { accounts: Account[]; categories: CategoryNode[] }) {
+  const [transfer, setTransfer] = useState(false)
+  return transfer ? (
+    <TransferComposer accounts={accounts} onEntry={() => setTransfer(false)} />
+  ) : (
+    <Composer accounts={accounts} categories={categories} onTransfer={() => setTransfer(true)} />
+  )
 }
 
 function Shell({ children, footer }: { children: ReactNode; footer?: ReactNode }) {
@@ -101,7 +112,15 @@ function Shell({ children, footer }: { children: ReactNode; footer?: ReactNode }
   )
 }
 
-function Composer({ accounts, categories }: { accounts: Account[]; categories: CategoryNode[] }) {
+function Composer({
+  accounts,
+  categories,
+  onTransfer,
+}: {
+  accounts: Account[]
+  categories: CategoryNode[]
+  onTransfer: () => void
+}) {
   const navigate = useNavigate()
   const createTransaction = useCreateTransaction()
   const today = todayInSaoPaulo()
@@ -203,7 +222,7 @@ function Composer({ accounts, categories }: { accounts: Account[]; categories: C
         )}
 
         <div className="flex flex-col items-center gap-5">
-          <TypeToggle value={type} incomeDisabled={isCard} onChange={(value) => set('type', value)} />
+          <TypeToggle value={type} incomeDisabled={isCard} onChange={(value) => set('type', value)} onTransfer={onTransfer} />
           <AmountField
             value={amountCents}
             onChange={(cents) => set('amountCents', cents)}
@@ -278,6 +297,154 @@ function Composer({ accounts, categories }: { accounts: Account[]; categories: C
             </div>
           </div>
         </details>
+      </form>
+    </Shell>
+  )
+}
+
+// Fora do cartão: o cartão recebe dinheiro só pelo "Pagar fatura" (decisão da etapa 1.10).
+const transferMethods = ['Pix', 'Ted', 'Cash', 'Debit', 'Boleto'] as const satisfies readonly PaymentMethod[]
+
+const transferSchema = z
+  .object({
+    amountCents: z.number().int().min(1, 'Informe o valor.'),
+    fromAccountId: z.string().min(1, 'Escolha a conta de origem.'),
+    toAccountId: z.string().min(1, 'Escolha a conta de destino.'),
+    date: z.string().min(1, 'Informe a data.'),
+    method: z.enum(['Pix', 'Debit', 'Boleto', 'Cash', 'Ted']),
+    description: z.string().max(200, 'A descrição deve ter no máximo 200 caracteres.'),
+  })
+  .refine((v) => v.fromAccountId !== v.toAccountId, { path: ['toAccountId'], message: 'Escolha contas diferentes.' })
+
+type TransferValues = z.infer<typeof transferSchema>
+
+// Transferência entre contas próprias (docs/fase-1.md, 2.3): não é receita nem despesa.
+function TransferComposer({ accounts, onEntry }: { accounts: Account[]; onEntry: () => void }) {
+  const navigate = useNavigate()
+  const createTransfer = useCreateTransfer()
+  const eligible = accounts.filter((a) => a.type !== 'CreditCard')
+  const initialFrom = eligible.find((a) => a.type === 'Checking') ?? eligible[0]
+  const form = useForm<TransferValues>({
+    resolver: zodResolver(transferSchema),
+    defaultValues: {
+      amountCents: 0,
+      fromAccountId: initialFrom?.id ?? '',
+      toAccountId: eligible.find((a) => a.id !== initialFrom?.id)?.id ?? '',
+      date: todayInSaoPaulo(),
+      method: 'Pix',
+      description: '',
+    },
+  })
+  const { errors, isSubmitting } = form.formState
+  const [amountCents, fromAccountId, toAccountId, date, method] = useWatch({
+    control: form.control,
+    name: ['amountCents', 'fromAccountId', 'toAccountId', 'date', 'method'],
+  })
+  const set = <K extends Path<TransferValues>>(field: K, value: PathValue<TransferValues, K>) =>
+    form.setValue(field, value, { shouldValidate: form.formState.isSubmitted })
+
+  const submit = form.handleSubmit(async (values) => {
+    try {
+      await createTransfer.mutateAsync({
+        fromAccountId: values.fromAccountId,
+        toAccountId: values.toAccountId,
+        amountCents: values.amountCents,
+        date: values.date,
+        method: values.method,
+        description: values.description.trim() || null,
+      })
+      const from = eligible.find((a) => a.id === values.fromAccountId)?.name
+      const to = eligible.find((a) => a.id === values.toAccountId)?.name
+      toast.success('Transferência lançada', { description: `${from} → ${to} · ${formatCents(values.amountCents)}` })
+      navigate(`/?mes=${values.date.slice(0, 7)}`, { replace: true })
+    } catch (error) {
+      form.setError('root', {
+        message: error instanceof ApiError ? error.message : 'Não foi possível conectar. Tente novamente.',
+      })
+    }
+  })
+
+  const accountChips = (selected: string, field: 'fromAccountId' | 'toAccountId') => (
+    <ChipRow>
+      {eligible.map((a) => (
+        <Chip key={a.id} selected={a.id === selected} onClick={() => set(field, a.id)}>
+          <AccountTile name={a.name} type={a.type} size="sm" />
+          {a.name}
+        </Chip>
+      ))}
+    </ChipRow>
+  )
+
+  return (
+    <Shell
+      footer={
+        <div className="sticky bottom-0 z-20 border-t border-border/60 bg-background/85 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
+          <Button
+            type="submit"
+            form="new-transfer"
+            size="lg"
+            disabled={isSubmitting || eligible.length < 2}
+            className="mx-auto flex h-12 w-full max-w-md rounded-2xl text-base"
+          >
+            {isSubmitting ? 'Transferindo…' : amountCents > 0 ? `Transferir ${formatCents(amountCents)}` : 'Transferir'}
+          </Button>
+        </div>
+      }
+    >
+      <form id="new-transfer" onSubmit={submit} noValidate className="flex flex-col gap-7 px-4 pt-5 pb-8">
+        {errors.root && (
+          <Alert variant="destructive">
+            <AlertDescription>{errors.root.message}</AlertDescription>
+          </Alert>
+        )}
+        <div className="flex flex-col items-center gap-5">
+          <TypeToggle value="Transfer" incomeDisabled={false} onChange={onEntry} onTransfer={() => {}} />
+          <AmountField
+            value={amountCents}
+            onChange={(cents) => set('amountCents', cents)}
+            income={false}
+            error={errors.amountCents?.message}
+            autoFocus
+          />
+          <p className="-mt-3 text-xs text-muted-foreground">Entre contas suas. Não conta como receita nem despesa.</p>
+        </div>
+
+        {eligible.length < 2 ? (
+          <p className="rounded-2xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+            Transferir exige duas contas (corrente, carteira ou investimento). Cartão recebe pelo "Pagar fatura", na tela da
+            fatura.
+          </p>
+        ) : (
+          <>
+            <Section title="De">{accountChips(fromAccountId, 'fromAccountId')}</Section>
+            <ArrowDown className="-my-4 size-4 self-center text-muted-foreground" aria-hidden />
+            <Section title="Para">
+              {accountChips(toAccountId, 'toAccountId')}
+              <FieldError message={errors.toAccountId?.message} />
+            </Section>
+            <Section title="Descrição" aside="opcional">
+              <Input
+                placeholder="Ex.: Aporte, saque, reserva"
+                autoComplete="off"
+                className="h-12 rounded-2xl"
+                {...form.register('description')}
+              />
+              <FieldError message={errors.description?.message} />
+            </Section>
+            <Section title="Data">
+              <DateChooser value={date} onChange={(value) => set('date', value)} error={errors.date?.message} />
+            </Section>
+            <Section title="Meio">
+              <ChipRow>
+                {transferMethods.map((m) => (
+                  <Chip key={m} selected={m === method} onClick={() => set('method', m)}>
+                    {paymentMethodLabels[m]}
+                  </Chip>
+                ))}
+              </ChipRow>
+            </Section>
+          </>
+        )}
       </form>
     </Shell>
   )

@@ -197,10 +197,14 @@ Detalhamento completo em `docs/fase-1.md`.
   *Feito:* a tela da fatura lista as compras dela, com `GET /transactions?statementId=`
   (`docs/fase-1.md`, 3). Regras de "fatura atual" e status na mesma seção.
 
-- [ ] **1.10 Transferências entre contas**
+- [x] **1.10 Transferências entre contas**
   Inclui pagamento de fatura e aporte em investimento.
   *Pronto quando:* teste prova que transferência não entra em receita nem despesa, que
   as duas pontas se mantêm consistentes e que excluir uma trata a outra.
+  *Decisões (com o usuário):* pagamento só pelo total; compra que cairia em fatura paga é
+  recusada; cartão só recebe dinheiro pelo "Pagar fatura". Regras derivadas em
+  `docs/fase-1.md`, 2.3. Tela: "Transferência" no lançamento rápido, "Pagar fatura" e
+  "Desfazer pagamento" na fatura.
 
 - [ ] **1.11 Isolamento multiusuário**
   *Pronto quando:* integração com dois usuários prova que nenhum endpoint vaza dado do
