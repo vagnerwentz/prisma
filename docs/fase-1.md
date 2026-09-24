@@ -42,7 +42,7 @@ ambos sejam nulos. Mensagem de erro em pt-BR.
 | Campo | Tipo | Observação |
 |---|---|---|
 | `AccountId` | Guid | sempre um `CreditCard` |
-| `Reference` | string | `"2026-03"`, identifica o ciclo |
+| `Reference` | string | `"2026-03"`, identifica o ciclo pelo **mês do vencimento** |
 | `ClosingDate` | DateOnly | gerada pelo calculador, **editável** |
 | `DueDate` | DateOnly | gerada pelo calculador, **editável** |
 | `IsPaid` | bool | |
@@ -228,7 +228,7 @@ Escritos **junto** com a implementação; os de dinheiro e data, **antes** dela.
 - `StatementCalculator`: compra na véspera, no dia e no dia seguinte ao fechamento.
 - `StatementCalculator`: fechamento dia 31 em abril, em fevereiro comum e em bissexto.
 - `StatementCalculator`: `DueDay` anterior ao `ClosingDay` cai no mês seguinte.
-- `StatementCalculator`: parcela 10 de 10 cai dez ciclos à frente.
+- `StatementCalculator`: parcela 10 de 10 cai na 10ª fatura, 9 ciclos após a da compra (regra 2.2).
 - `IClock`: compra às 23h30 em `America/Sao_Paulo` permanece no mesmo dia.
 - `Account` do tipo `CreditCard` sem `ClosingDay` não pode ser construída.
 - Transferência sempre produz exatamente duas transações ligadas entre si.

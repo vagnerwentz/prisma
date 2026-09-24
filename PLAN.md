@@ -120,7 +120,7 @@ Detalhamento completo em `docs/fase-1.md`.
   e tipo, sem diferenciar maiúsculas) é recusado. O bloqueio por transações vinculadas foi
   para a 1.8, porque a tabela de transações só nasce lá.
 
-- [ ] **1.7 `StatementCalculator` e entidade `Statement`** — *teste antes da implementação*
+- [x] **1.7 `StatementCalculator` e entidade `Statement`** — *teste antes da implementação*
   *Pronto quando:* passam os casos de véspera, dia do fechamento, dia seguinte,
   fechamento dia 31 em mês de 30 dias e em fevereiro, e datas editadas manualmente
   sobrescrevendo o cálculo automático.
@@ -133,7 +133,9 @@ Detalhamento completo em `docs/fase-1.md`.
 - [ ] **1.9 Despesa no cartão e parcelamento**
   *Pronto quando:* compra em 10x gera 10 transações com `SettlementDate` no `Statement`
   certo de cada mês; editar a parcela 3 não altera as demais; excluir a compra inteira
-  remove todas; alterar o valor total redistribui sem perder centavo.
+  remove todas; alterar o valor total redistribui sem perder centavo. Inclui
+  `GET /accounts/{id}/statements` e `PATCH /statements/{id}`: editar as datas de uma fatura
+  recalcula o `SettlementDate` das transações dela.
 
 - [ ] **1.10 Transferências entre contas**
   Inclui pagamento de fatura e aporte em investimento.
