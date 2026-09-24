@@ -27,6 +27,9 @@ public sealed class Statement : Entity
             DueDate = dates.DueDate,
         };
 
+    // Usado pelo pagamento de fatura (etapa 1.10). Parcelas em fatura paga não são redistribuídas.
+    public void MarkAsPaid() => IsPaid = true;
+
     public Result<Statement> EditDates(DateOnly closingDate, DateOnly dueDate)
     {
         if (dueDate < closingDate)

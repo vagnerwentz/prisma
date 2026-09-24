@@ -39,6 +39,64 @@ public sealed class Transaction : Entity
         return transaction;
     }
 
+    // PATCH /transactions/{id}: o lançamento simples segue as regras simples; o do cartão só
+    // muda descrição e categoria, e o valor quando é compra à vista (docs/fase-1.md, 2.2).
+    public Result<Transaction> Update(
+        Account account, TransactionType type, long amountCents, DateOnly purchaseDate,
+        Category? category, PaymentMethod method, string? description) =>
+        StatementId is null
+            ? UpdateSimple(account, type, amountCents, purchaseDate, category, method, description)
+            : UpdateCard(account, type, amountCents, purchaseDate, category, method, description);
+
+    private Result<Transaction> UpdateCard(
+        Account account, TransactionType type, long amountCents, DateOnly purchaseDate,
+        Category? category, PaymentMethod method, string? description)
+    {
+        if (account.Id != AccountId || type != Type || method != Method || purchaseDate != PurchaseDate)
+            return Invalid("Em compra no cartão, conta, tipo, meio de pagamento e data não mudam. Exclua e lance de novo.");
+
+        if (InstallmentPurchaseId is not null && amountCents != AmountCents)
+            return Invalid("O valor de uma parcela muda pela compra inteira, para a soma continuar igual ao total.");
+
+        if (amountCents <= 0)
+            return Invalid("O valor deve ser maior que zero.");
+
+        if (ValidateDetails(type, category, description) is { } error)
+            return error;
+
+        AmountCents = amountCents;
+        ApplyDetails(category, description?.Trim() ?? "");
+        return this;
+    }
+
+    internal static Error? ValidateDetails(TransactionType type, Category? category, string? description)
+    {
+        if (category is not null && category.Type != type)
+            return Invalid("A categoria deve ser do mesmo tipo da transação (receita ou despesa).");
+
+        if (description?.Trim().Length > DescriptionMaxLength)
+            return Invalid($"A descrição deve ter no máximo {DescriptionMaxLength} caracteres.");
+
+        return null;
+    }
+
+    internal void ApplyDetails(Category? category, string description)
+    {
+        CategoryId = category?.Id;
+        Description = description;
+    }
+
+    // Usado por CardPurchase.Edit, que garante a soma exata das parcelas.
+    internal void Redistribute(long amountCents) => AmountCents = amountCents;
+
+    internal void SettleOn(Statement statement)
+    {
+        if (StatementId != statement.Id)
+            throw new ArgumentException("A transação não pertence a esta fatura.", nameof(statement));
+
+        SettlementDate = statement.DueDate;
+    }
+
     public Result<Transaction> UpdateSimple(
         Account account, TransactionType type, long amountCents, DateOnly purchaseDate,
         Category? category, PaymentMethod method, string? description)

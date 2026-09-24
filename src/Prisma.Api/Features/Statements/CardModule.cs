@@ -8,13 +8,17 @@ public static class CardModule
     public static IServiceCollection AddCardFeatures(this IServiceCollection services)
     {
         services.AddScoped<ListStatements.Handler>();
+        services.AddScoped<UpdateStatement.Handler>();
         services.AddScoped<DeleteInstallmentPurchase.Handler>();
+        services.AddScoped<UpdateInstallmentPurchase.Handler>();
         return services;
     }
 
     public static void MapCardEndpoints(this IEndpointRouteBuilder app)
     {
         ListStatements.Map(app);
+        UpdateStatement.Map(app);
         DeleteInstallmentPurchase.Map(app);
+        UpdateInstallmentPurchase.Map(app);
     }
 }

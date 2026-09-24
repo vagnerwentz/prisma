@@ -191,7 +191,8 @@ public sealed class CardPurchasesTests(PostgresFixture postgres)
             {
                 accountId = checking, type = "Expense", amountCents = 100, purchaseDate = "2026-03-10", method = "Pix",
             }),
-            HttpStatusCode.BadRequest, "Lançamento em cartão de crédito usa a compra no cartão.");
+            // Regra da 1.9b: em compra no cartão, a conta não muda.
+            HttpStatusCode.BadRequest, "Em compra no cartão, conta, tipo, meio de pagamento e data não mudam. Exclua e lance de novo.");
     }
 
     [Fact]

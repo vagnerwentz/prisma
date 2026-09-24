@@ -52,6 +52,68 @@ Content-Type: application/json
 ### Faturas do cartão, com o total de cada uma (mais recentes primeiro)
 GET {{baseUrl}}/accounts/{{cardId}}/statements
 
+### Faturas: guarda a primeira (abril) para editar as datas
+GET {{baseUrl}}/accounts/{{cardId}}/statements
+
+> {%
+    const byDue = [...response.body].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+    client.global.set("aprilStatementId", byDue[0].id);
+%}
+
+### Editar a parcela 2: só descrição e categoria (envie os campos atuais nos demais)
+PATCH {{baseUrl}}/transactions/{{installmentId}}
+Content-Type: application/json
+
+{
+  "accountId": "{{cardId}}",
+  "type": "Expense",
+  "amountCents": 10001,
+  "purchaseDate": "2026-03-10",
+  "method": "Credit",
+  "description": "Notebook (parcela 2)"
+}
+
+### Erro: mudar o valor de uma parcela isolada (400; o valor muda pela compra inteira)
+PATCH {{baseUrl}}/transactions/{{installmentId}}
+Content-Type: application/json
+
+{
+  "accountId": "{{cardId}}",
+  "type": "Expense",
+  "amountCents": 12000,
+  "purchaseDate": "2026-03-10",
+  "method": "Credit",
+  "description": "Notebook"
+}
+
+### Editar a compra inteira: novo total e 12 parcelas (redistribui sem perder centavo)
+PATCH {{baseUrl}}/installment-purchases/{{purchaseId}}
+Content-Type: application/json
+
+{
+  "totalAmountCents": 120003,
+  "installmentCount": 12,
+  "description": "Notebook"
+}
+
+### Editar as datas da fatura de abril: vencimento adiado para 13/04 (recalcula o caixa)
+PATCH {{baseUrl}}/statements/{{aprilStatementId}}
+Content-Type: application/json
+
+{
+  "closingDate": "2026-04-06",
+  "dueDate": "2026-04-13"
+}
+
+### Erro: vencimento antes do fechamento (400)
+PATCH {{baseUrl}}/statements/{{aprilStatementId}}
+Content-Type: application/json
+
+{
+  "closingDate": "2026-04-13",
+  "dueDate": "2026-04-12"
+}
+
 ### Erro: excluir uma parcela isolada (409)
 DELETE {{baseUrl}}/transactions/{{installmentId}}
 

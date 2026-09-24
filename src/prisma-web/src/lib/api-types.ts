@@ -50,6 +50,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/statements/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateStatementRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ListStatementsStatementResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/installment-purchases/{id}": {
         parameters: {
             query?: never;
@@ -91,7 +150,59 @@ export interface paths {
         };
         options?: never;
         head?: never;
-        patch?: never;
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateInstallmentPurchaseRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UpdateInstallmentPurchaseResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/auth/register": {
@@ -1089,6 +1200,35 @@ export interface components {
             name: string;
             icon: null | string;
             color: null | string;
+        };
+        UpdateInstallmentPurchaseRequest: {
+            /** Format: int64 */
+            totalAmountCents: number;
+            /** Format: int32 */
+            installmentCount: number;
+            /** Format: uuid */
+            categoryId: null | string;
+            description: null | string;
+        };
+        UpdateInstallmentPurchaseResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            accountId: string;
+            description: string;
+            /** Format: int64 */
+            totalAmountCents: number;
+            /** Format: int32 */
+            installmentCount: number;
+            /** Format: date */
+            purchaseDate: string;
+            installments: components["schemas"]["TransactionResponse"][];
+        };
+        UpdateStatementRequest: {
+            /** Format: date */
+            closingDate: string;
+            /** Format: date */
+            dueDate: string;
         };
         UpdateTransactionRequest: {
             /** Format: uuid */

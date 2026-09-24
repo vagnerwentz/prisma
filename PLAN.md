@@ -160,7 +160,7 @@ Detalhamento completo em `docs/fase-1.md`.
   tudo pelo celular (HTTPS na rede local, por causa do cookie `Secure`).
   Inclui uma tela de contas (listar e criar), sem a qual um usuário novo não teria onde lançar.
 
-- [ ] **1.9b Despesa no cartão e parcelamento: editar**
+- [x] **1.9b Despesa no cartão e parcelamento: editar**
   *Pronto quando:* editar a parcela 3 não altera as demais; alterar o valor total ou o
   número de parcelas redistribui sem perder centavo; `PATCH /statements/{id}`: editar as
   datas de uma fatura recalcula o `SettlementDate` das transações dela.
@@ -217,5 +217,9 @@ Decidir quando a fase correspondente chegar:
 - Em produção, a API precisa ficar sob `/api` (ex.: `UsePathBase`) para não colidir com as
   rotas do SPA servido no mesmo domínio (`/transactions` é rota da API e da tela). Em
   desenvolvimento o proxy do Vite remove o prefixo. (ao decidir a hospedagem)
+- Mudar o dia de fechamento ou de vencimento do cartão não recalcula as faturas já criadas
+  (inclusive as futuras, abertas pelas parcelas). Proposta: recalcular as não editadas e não
+  pagas, e o `SettlementDate` das parcelas delas; `DatesEditedManually` já permite distinguir.
+  (quando fizer falta)
 - Estorno no cartão (crédito que abate a fatura). Hoje o cartão aceita só despesa. (Fase 4,
   quando a importação de fatura trouxer estornos, ou antes se fizer falta)

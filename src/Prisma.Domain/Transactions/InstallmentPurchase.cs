@@ -1,6 +1,7 @@
 namespace Prisma.Domain.Transactions;
 
-// Agrupa as parcelas de uma mesma compra no cartão (docs/fase-1.md). Só existe com 2+ parcelas.
+// Agrupa as parcelas de uma mesma compra no cartão (docs/fase-1.md). Nasce com 2+ parcelas; a
+// edição pode reduzi-la a 1.
 public sealed class InstallmentPurchase : Entity
 {
     public const int MaxInstallments = 24;
@@ -25,4 +26,11 @@ public sealed class InstallmentPurchase : Entity
             InstallmentCount = installmentCount,
             PurchaseDate = purchaseDate,
         };
+
+    internal void Update(long totalAmountCents, int installmentCount, string description)
+    {
+        TotalAmountCents = totalAmountCents;
+        InstallmentCount = installmentCount;
+        Description = description;
+    }
 }

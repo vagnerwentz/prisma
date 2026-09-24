@@ -13,7 +13,7 @@ public sealed class InstallmentPurchaseConfiguration : IEntityTypeConfiguration<
         builder.ToTable("installment_purchases", table =>
         {
             table.HasCheckConstraint("ck_installment_purchases_installment_count",
-                $"installment_count BETWEEN 2 AND {InstallmentPurchase.MaxInstallments}");
+                $"installment_count BETWEEN 1 AND {InstallmentPurchase.MaxInstallments}");
             table.HasCheckConstraint("ck_installment_purchases_cent_per_installment",
                 "total_amount_cents >= installment_count");
         });

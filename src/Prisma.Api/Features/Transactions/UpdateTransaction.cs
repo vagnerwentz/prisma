@@ -41,7 +41,7 @@ public static class UpdateTransaction
                 return references.Error;
 
             var (account, category) = references.Value;
-            var updated = transaction.UpdateSimple(
+            var updated = transaction.Update(
                 account, req.Type, req.AmountCents, req.PurchaseDate, category, req.Method, req.Description);
             if (!updated.IsSuccess)
                 return updated.Error;

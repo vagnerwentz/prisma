@@ -1,0 +1,256 @@
+using System.Net;
+using System.Net.Http.Json;
+using Microsoft.AspNetCore.Mvc;
+using Prisma.Api.Tests.Infrastructure;
+using Shouldly;
+
+namespace Prisma.Api.Tests.Features;
+
+// Etapa 1.9b. Cartão que fecha dia 5 e vence dia 12; compra em 10/03/2026 (1ª parcela em abril).
+[Collection(ApiCollection.Name)]
+public sealed class CardPurchaseEditingTests(PostgresFixture postgres)
+{
+    private sealed record IdDto(Guid Id);
+
+    private sealed record TransactionDto(
+        Guid Id, long AmountCents, DateOnly PurchaseDate, DateOnly SettlementDate, Guid? StatementId,
+        Guid? CategoryId, string Description, Guid? InstallmentPurchaseId, int? InstallmentNumber);
+
+    private sealed record StatementDto(
+        Guid Id, string Reference, DateOnly ClosingDate, DateOnly DueDate, bool DatesEditedManually, long TotalCents);
+
+    private sealed record PurchaseDto(Guid Id, long TotalAmountCents, int InstallmentCount, string Description, List<TransactionDto> Installments);
+
+    private sealed record NodeDto(Guid Id, string Name, string Type, List<IdDto> Subcategories);
+
+    private sealed class Scenario(HttpClient client, Guid cardId) : IDisposable
+    {
+        public HttpClient Client { get; } = client;
+        public Guid CardId { get; } = cardId;
+
+        public async Task<List<TransactionDto>> Buy(long amountCents, int installments, string date = "2026-03-10", string description = "Notebook")
+        {
+            var response = await Client.PostAsJsonAsync("/transactions", new
+            {
+                accountId = CardId, type = "Expense", amountCents, purchaseDate = date, method = "Credit", description, installments,
+            });
+            response.StatusCode.ShouldBe(HttpStatusCode.Created);
+            return (await response.Content.ReadFromJsonAsync<List<TransactionDto>>())!;
+        }
+
+        public async Task<List<TransactionDto>> Transactions() =>
+            (await Client.GetFromJsonAsync<List<TransactionDto>>("/transactions"))!.OrderBy(t => t.SettlementDate).ToList();
+
+        public async Task<List<StatementDto>> Statements() =>
+            (await Client.GetFromJsonAsync<List<StatementDto>>($"/accounts/{CardId}/statements"))!.OrderBy(s => s.DueDate).ToList();
+
+        public Task<HttpResponseMessage> PatchTransaction(TransactionDto t, long? amount = null, Guid? categoryId = null, string? description = null) =>
+            Client.PatchAsJsonAsync($"/transactions/{t.Id}", new
+            {
+                accountId = CardId, type = "Expense", amountCents = amount ?? t.AmountCents, purchaseDate = t.PurchaseDate,
+                categoryId = categoryId ?? t.CategoryId, method = "Credit", description = description ?? t.Description,
+            });
+
+        public Task<HttpResponseMessage> PatchPurchase(Guid purchaseId, long total, int count, Guid? categoryId = null, string description = "Notebook") =>
+            Client.PatchAsJsonAsync($"/installment-purchases/{purchaseId}",
+                new { totalAmountCents = total, installmentCount = count, categoryId, description });
+
+        public void Dispose() => Client.Dispose();
+    }
+
+    private async Task<(PrismaApiFactory, Scenario)> Start()
+    {
+        var factory = new PrismaApiFactory(postgres.ConnectionString);
+        var client = await factory.CreateAuthenticatedClientAsync();
+        var card = await (await client.PostAsJsonAsync("/accounts", new
+        {
+            name = "Visa", type = "CreditCard", initialBalanceCents = 0, closingDay = 5, dueDay = 12,
+        })).Content.ReadFromJsonAsync<IdDto>();
+        return (factory, new Scenario(client, card!.Id));
+    }
+
+    private static async Task ShouldBeProblem(HttpResponseMessage response, HttpStatusCode status, string detail)
+    {
+        response.StatusCode.ShouldBe(status);
+        (await response.Content.ReadFromJsonAsync<ProblemDetails>())!.Detail.ShouldBe(detail);
+    }
+
+    [Fact]
+    public async Task Editing_installment_3_does_not_change_the_others()
+    {
+        var (factory, s) = await Start();
+        await using var _ = factory;
+        using var __ = s;
+        var installments = await s.Buy(100000, 10);
+        var tree = (await s.Client.GetFromJsonAsync<List<NodeDto>>("/categories"))!;
+        var home = tree.Single(c => c.Type == "Expense" && c.Name == "Compras").Id;
+
+        var response = await s.PatchTransaction(installments[2], categoryId: home, description: "Notebook — parcela 3");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var after = await s.Transactions();
+        after.Single(t => t.Id == installments[2].Id).ShouldSatisfyAllConditions(
+            t => t.CategoryId.ShouldBe(home),
+            t => t.Description.ShouldBe("Notebook — parcela 3"),
+            t => t.AmountCents.ShouldBe(10000));
+        after.Where(t => t.Id != installments[2].Id).ShouldAllBe(t => t.Description == "Notebook" && t.CategoryId == null);
+        after.Sum(t => t.AmountCents).ShouldBe(100000);
+    }
+
+    [Fact]
+    public async Task Installment_amount_is_refused_but_a_single_payment_amount_is_accepted()
+    {
+        var (factory, s) = await Start();
+        await using var _ = factory;
+        using var __ = s;
+        var installment = (await s.Buy(100000, 10))[2];
+        var single = (await s.Buy(4590, 1, date: "2026-03-20", description: "Padaria"))[0];
+
+        await ShouldBeProblem(await s.PatchTransaction(installment, amount: 12000), HttpStatusCode.BadRequest,
+            "O valor de uma parcela muda pela compra inteira, para a soma continuar igual ao total.");
+
+        (await s.PatchTransaction(single, amount: 4990)).StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await s.Statements())[0].TotalCents.ShouldBe(10000 + 4990);
+    }
+
+    [Fact]
+    public async Task Changing_the_total_redistributes_without_losing_a_cent()
+    {
+        var (factory, s) = await Start();
+        await using var _ = factory;
+        using var __ = s;
+        var purchaseId = (await s.Buy(100000, 10))[0].InstallmentPurchaseId!.Value;
+
+        var response = await s.PatchPurchase(purchaseId, 120003, 10);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var purchase = (await response.Content.ReadFromJsonAsync<PurchaseDto>())!;
+        purchase.TotalAmountCents.ShouldBe(120003);
+        purchase.Installments.Select(t => t.AmountCents).ShouldBe([12001, 12001, 12001, 12000, 12000, 12000, 12000, 12000, 12000, 12000]);
+        (await s.Transactions()).Sum(t => t.AmountCents).ShouldBe(120003);
+        (await s.Statements()).Select(st => st.TotalCents).ShouldBe([12001, 12001, 12001, 12000, 12000, 12000, 12000, 12000, 12000, 12000]);
+    }
+
+    [Fact]
+    public async Task Fewer_installments_remove_the_last_ones()
+    {
+        var (factory, s) = await Start();
+        await using var _ = factory;
+        using var __ = s;
+        var purchaseId = (await s.Buy(100005, 10))[0].InstallmentPurchaseId!.Value;
+
+        (await s.PatchPurchase(purchaseId, 100005, 3)).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var after = await s.Transactions();
+        after.Select(t => t.InstallmentNumber).ShouldBe([1, 2, 3]);
+        after.Select(t => t.AmountCents).ShouldBe([33335, 33335, 33335]);
+        (await s.Statements()).Select(st => st.TotalCents).ShouldBe([33335, 33335, 33335, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    [Fact]
+    public async Task More_installments_open_the_following_statements()
+    {
+        var (factory, s) = await Start();
+        await using var _ = factory;
+        using var __ = s;
+        var purchaseId = (await s.Buy(30000, 3))[0].InstallmentPurchaseId!.Value;
+
+        (await s.PatchPurchase(purchaseId, 30000, 5, description: "Notebook em 5x")).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var after = await s.Transactions();
+        after.Select(t => t.SettlementDate).ShouldBe(Enumerable.Range(0, 5).Select(i => new DateOnly(2026, 4, 12).AddMonths(i)));
+        after.ShouldAllBe(t => t.AmountCents == 6000 && t.Description == "Notebook em 5x");
+        (await s.Statements()).Select(st => st.Reference).ShouldBe(["2026-04", "2026-05", "2026-06", "2026-07", "2026-08"]);
+    }
+
+    [Fact]
+    public async Task Invalid_purchase_edit_is_rejected_and_changes_nothing()
+    {
+        var (factory, s) = await Start();
+        await using var _ = factory;
+        using var __ = s;
+        var purchaseId = (await s.Buy(30000, 3))[0].InstallmentPurchaseId!.Value;
+
+        await ShouldBeProblem(await s.PatchPurchase(purchaseId, 30000, 25), HttpStatusCode.BadRequest,
+            "O número de parcelas deve estar entre 1 e 24.");
+        await ShouldBeProblem(await s.PatchPurchase(purchaseId, 2, 3), HttpStatusCode.BadRequest,
+            "O valor total deve ter ao menos 1 centavo por parcela não paga.");
+
+        (await s.Transactions()).Select(t => t.AmountCents).ShouldBe([10000, 10000, 10000]);
+    }
+
+    [Fact]
+    public async Task Editing_statement_dates_recalculates_the_settlement_of_its_transactions()
+    {
+        var (factory, s) = await Start();
+        await using var _ = factory;
+        using var __ = s;
+        await s.Buy(20000, 2);
+        await s.Buy(4590, 1, date: "2026-03-20", description: "Padaria");
+        var april = (await s.Statements())[0];
+
+        var response = await s.Client.PatchAsJsonAsync($"/statements/{april.Id}",
+            new { closingDate = "2026-04-06", dueDate = "2026-04-13" });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var edited = (await response.Content.ReadFromJsonAsync<StatementDto>())!;
+        edited.DatesEditedManually.ShouldBeTrue();
+        edited.TotalCents.ShouldBe(10000 + 4590);
+
+        var after = await s.Transactions();
+        after.Where(t => t.StatementId == april.Id).ShouldAllBe(t => t.SettlementDate == new DateOnly(2026, 4, 13));
+        after.Where(t => t.StatementId != april.Id).ShouldAllBe(t => t.SettlementDate == new DateOnly(2026, 5, 12));
+    }
+
+    // Regra 5 (docs/fase-1.md, 2.1) de ponta a ponta: com o fechamento de abril adiado para 06/04,
+    // uma compra em 06/04 ainda entra em abril, com o vencimento editado.
+    [Fact]
+    public async Task New_purchases_follow_the_edited_statement_dates()
+    {
+        var (factory, s) = await Start();
+        await using var _ = factory;
+        using var __ = s;
+        await s.Buy(4590, 1);
+        var april = (await s.Statements())[0];
+        await s.Client.PatchAsJsonAsync($"/statements/{april.Id}", new { closingDate = "2026-04-06", dueDate = "2026-04-13" });
+
+        var purchase = (await s.Buy(1000, 1, date: "2026-04-06", description: "Farmácia"))[0];
+
+        purchase.StatementId.ShouldBe(april.Id);
+        purchase.SettlementDate.ShouldBe(new DateOnly(2026, 4, 13));
+    }
+
+    [Fact]
+    public async Task Due_date_before_closing_date_is_rejected()
+    {
+        var (factory, s) = await Start();
+        await using var _ = factory;
+        using var __ = s;
+        await s.Buy(4590, 1);
+        var april = (await s.Statements())[0];
+
+        await ShouldBeProblem(
+            await s.Client.PatchAsJsonAsync($"/statements/{april.Id}", new { closingDate = "2026-04-13", dueDate = "2026-04-12" }),
+            HttpStatusCode.BadRequest, "O vencimento não pode ser antes do fechamento.");
+        (await s.Transactions()).Single().SettlementDate.ShouldBe(new DateOnly(2026, 4, 12));
+    }
+
+    [Fact]
+    public async Task Purchases_and_statements_of_another_user_are_invisible()
+    {
+        var (factory, owner) = await Start();
+        await using var _ = factory;
+        using var __ = owner;
+        using var intruder = await factory.CreateAuthenticatedClientAsync();
+        var purchaseId = (await owner.Buy(30000, 3))[0].InstallmentPurchaseId!.Value;
+        var april = (await owner.Statements())[0];
+
+        (await intruder.PatchAsJsonAsync($"/installment-purchases/{purchaseId}",
+            new { totalAmountCents = 1, installmentCount = 1 })).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (await intruder.PatchAsJsonAsync($"/statements/{april.Id}",
+            new { closingDate = "2026-04-01", dueDate = "2026-04-02" })).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+
+        (await owner.Transactions()).Sum(t => t.AmountCents).ShouldBe(30000);
+        (await owner.Statements())[0].DueDate.ShouldBe(new DateOnly(2026, 4, 12));
+    }
+}

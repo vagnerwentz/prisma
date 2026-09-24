@@ -125,9 +125,15 @@ Dada uma compra em `PurchaseDate` num cartão com `ClosingDay` e `DueDay`:
 - `Money.SplitInto(n)` distribui o resto nas primeiras parcelas.
 - A parcela *i* entra no statement *i-1* ciclos depois do statement da compra.
 - `PurchaseDate` é o mesmo em todas as parcelas; o que muda é o `SettlementDate`.
-- Editar uma parcela isolada altera só aquela transação.
+- Editar uma parcela isolada altera só aquela transação, e só **descrição e categoria**: o
+  valor e a data mudam pela compra inteira, para a soma continuar igual ao total. Compra à
+  vista no cartão (sem `InstallmentPurchase`) aceita também o valor. Em nenhum caso a conta,
+  o tipo, o meio de pagamento ou a data da compra mudam: para isso, exclua e lance de novo.
 - Editar o `InstallmentPurchase` (valor total ou número de parcelas) **redistribui**
-  todas as parcelas ainda não pagas e mantém a soma exata.
+  todas as parcelas ainda não pagas e mantém a soma exata. Parcela paga é a que está em
+  fatura paga: mantém o valor e não pode ser removida. Mais parcelas entram nos ciclos
+  seguintes; menos parcelas removem as últimas. Descrição e categoria também mudam, nas
+  parcelas não pagas. A data da compra não muda. De 1 a 24 parcelas.
 - Excluir o `InstallmentPurchase` faz soft delete em todas as parcelas.
 
 A API deixa explícito o escopo da edição: `PATCH /transactions/{id}` altera uma parcela;
