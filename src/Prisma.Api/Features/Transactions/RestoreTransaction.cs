@@ -19,6 +19,9 @@ public static class RestoreTransaction
             if (transaction is null)
                 return new Error(ErrorType.NotFound, "Transação excluída não encontrada.");
 
+            if (transaction.CheckCanChangeIndividually() is { } error)
+                return error;
+
             if (!await db.Accounts.AnyAsync(a => a.Id == transaction.AccountId, ct))
                 return new Error(ErrorType.Conflict,
                     "A conta desta transação foi excluída; não é possível restaurá-la.");

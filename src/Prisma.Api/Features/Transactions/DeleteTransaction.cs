@@ -16,6 +16,9 @@ public static class DeleteTransaction
             if (transaction is null)
                 return new Error(ErrorType.NotFound, "Transação não encontrada.");
 
+            if (transaction.CheckCanChangeIndividually() is { } error)
+                return error;
+
             db.Transactions.Remove(transaction);
             await db.SaveChangesAsync(ct);
             return transaction.Id;

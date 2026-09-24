@@ -31,6 +31,8 @@ public sealed class AppDbContext(
 
     public DbSet<Transaction> Transactions => Set<Transaction>();
 
+    public DbSet<InstallmentPurchase> InstallmentPurchases => Set<InstallmentPurchase>();
+
     // Lido pelo EF a cada consulta, não no momento em que o modelo é construído.
     private Guid CurrentUserId => currentUser.UserId;
 

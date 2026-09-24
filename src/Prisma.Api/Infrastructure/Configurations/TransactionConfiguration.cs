@@ -27,6 +27,8 @@ public sealed class TransactionConfiguration : IEntityTypeConfiguration<Transact
         builder.HasOne<Account>().WithMany().HasForeignKey(t => t.AccountId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Category>().WithMany().HasForeignKey(t => t.CategoryId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Statement>().WithMany().HasForeignKey(t => t.StatementId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<InstallmentPurchase>().WithMany().HasForeignKey(t => t.InstallmentPurchaseId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // Índices de docs/fase-1.md, mais PurchaseDate, que é o período da listagem.
         builder.HasIndex(t => new { t.UserId, t.SettlementDate });

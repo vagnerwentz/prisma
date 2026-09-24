@@ -24,7 +24,7 @@ GET {{baseUrl}}/categories
     client.global.set("salaryId", response.body.find(c => c.type === "Income" && c.name === "Salário").id);
 %}
 
-### Criar despesa no Pix (201; settlementDate = purchaseDate)
+### Criar despesa no Pix (201 com uma lista de um item; settlementDate = purchaseDate)
 POST {{baseUrl}}/transactions
 Content-Type: application/json
 
@@ -38,7 +38,7 @@ Content-Type: application/json
   "description": "Pão de queijo"
 }
 
-> {% client.global.set("transactionId", response.body.id); %}
+> {% client.global.set("transactionId", response.body[0].id); %}
 
 ### Criar receita por TED
 POST {{baseUrl}}/transactions

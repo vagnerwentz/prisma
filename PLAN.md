@@ -131,12 +131,16 @@ Detalhamento completo em `docs/fase-1.md`.
   vinculadas é bloqueado, com mensagem sugerindo realocar antes (`docs/fase-1.md`, 2.4). Excluir
   conta com transações também é bloqueado.
 
-- [ ] **1.9 Despesa no cartão e parcelamento**
+- [x] **1.9a Despesa no cartão e parcelamento: criar e excluir**
   *Pronto quando:* compra em 10x gera 10 transações com `SettlementDate` no `Statement`
-  certo de cada mês; editar a parcela 3 não altera as demais; excluir a compra inteira
-  remove todas; alterar o valor total redistribui sem perder centavo. Inclui
-  `GET /accounts/{id}/statements` e `PATCH /statements/{id}`: editar as datas de uma fatura
-  recalcula o `SettlementDate` das transações dela.
+  certo de cada mês; faturas são criadas na primeira compra do ciclo e reaproveitadas nas
+  seguintes; excluir a compra inteira remove todas as parcelas;
+  `GET /accounts/{id}/statements` lista as faturas do cartão com o total de cada uma.
+
+- [ ] **1.9b Despesa no cartão e parcelamento: editar**
+  *Pronto quando:* editar a parcela 3 não altera as demais; alterar o valor total ou o
+  número de parcelas redistribui sem perder centavo; `PATCH /statements/{id}`: editar as
+  datas de uma fatura recalcula o `SettlementDate` das transações dela.
 
 - [ ] **1.10 Transferências entre contas**
   Inclui pagamento de fatura e aporte em investimento.
@@ -193,3 +197,5 @@ Decidir quando a fase correspondente chegar:
   e-mail permite pré-sequestro de conta. Regra proposta: só juntar se o Google marcar o
   e-mail como verificado; se a conta local nunca confirmou o e-mail, remover a senha e trocar
   o `security_stamp` ao juntar. (quando o login social voltar à pauta)
+- Estorno no cartão (crédito que abate a fatura). Hoje o cartão aceita só despesa. (Fase 4,
+  quando a importação de fatura trouxer estornos, ou antes se fizer falta)

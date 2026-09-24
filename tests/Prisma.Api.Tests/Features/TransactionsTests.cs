@@ -58,7 +58,8 @@ public sealed class TransactionsTests(PostgresFixture postgres)
     {
         var response = await client.PostAsJsonAsync("/transactions", body);
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
-        return (await response.Content.ReadFromJsonAsync<TransactionDto>())!;
+        // POST /transactions sempre devolve uma lista; lançamento simples cria uma transação só.
+        return (await response.Content.ReadFromJsonAsync<List<TransactionDto>>())!.ShouldHaveSingleItem();
     }
 
     private static async Task<List<TransactionDto>> List(HttpClient client, string query = "") =>
@@ -122,7 +123,8 @@ public sealed class TransactionsTests(PostgresFixture postgres)
         await Rejects(Body(user.CheckingId, amountCents: 0), "O valor deve ser maior que zero.");
         await Rejects(Body(user.CheckingId, categoryId: user.Category("Income", "Salário")),
             "A categoria deve ser do mesmo tipo da transação (receita ou despesa).");
-        await Rejects(Body(card!.Id), "Lançamento em cartão de crédito usa a compra no cartão.");
+        // Em conta de cartão o lançamento vira compra no cartão (1.9a), que exige o crédito.
+        await Rejects(Body(card!.Id), "Compra no cartão usa o meio de pagamento crédito.");
         await Rejects(Body(user.CheckingId, method: "Credit"), "Pagamento no crédito exige uma conta de cartão de crédito.");
         await Rejects(Body(user.CheckingId, type: "Transfer"), "Transferência entre contas usa a operação de transferência.");
         await Rejects(Body(Guid.NewGuid()), "Conta não encontrada.");

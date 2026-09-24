@@ -120,6 +120,8 @@ Dada uma compra em `PurchaseDate` num cartão com `ClosingDay` e `DueDay`:
 
 ### 2.2 Parcelamento
 
+- De 1 a 24 parcelas, e o valor total precisa ter ao menos 1 centavo por parcela.
+- O cartão aceita só despesa nesta fase; estorno está nas pendências do `PLAN.md`.
 - `Money.SplitInto(n)` distribui o resto nas primeiras parcelas.
 - A parcela *i* entra no statement *i-1* ciclos depois do statement da compra.
 - `PurchaseDate` é o mesmo em todas as parcelas; o que muda é o `SettlementDate`.

@@ -1,0 +1,97 @@
+# Compras no cartão e faturas. Exige sessão: rode antes o Login de auth.http.
+# O cartão abaixo fecha dia 5 e vence dia 12. POST /transactions numa conta de cartão
+# devolve uma transação por parcela; amountCents é o valor TOTAL da compra.
+
+### Preparação: criar o cartão
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{
+  "name": "Visa para testes",
+  "type": "CreditCard",
+  "initialBalanceCents": 0,
+  "closingDay": 5,
+  "dueDay": 12,
+  "creditLimitCents": 1000000
+}
+
+> {% client.global.set("cardId", response.body.id); %}
+
+### Compra em 10x (201: 10 parcelas, de abril/2026 a janeiro/2027, vencendo dia 12)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "accountId": "{{cardId}}",
+  "type": "Expense",
+  "amountCents": 100005,
+  "purchaseDate": "2026-03-10",
+  "method": "Credit",
+  "description": "Notebook",
+  "installments": 10
+}
+
+> {%
+    client.global.set("purchaseId", response.body[0].installmentPurchaseId);
+    client.global.set("installmentId", response.body[1].id);
+%}
+
+### Compra à vista no dia do fechamento (entra na fatura de março, vence 12/03)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "accountId": "{{cardId}}",
+  "type": "Expense",
+  "amountCents": 4590,
+  "purchaseDate": "2026-03-05",
+  "method": "Credit",
+  "description": "Padaria"
+}
+
+### Faturas do cartão, com o total de cada uma (mais recentes primeiro)
+GET {{baseUrl}}/accounts/{{cardId}}/statements
+
+### Erro: excluir uma parcela isolada (409)
+DELETE {{baseUrl}}/transactions/{{installmentId}}
+
+### Excluir a compra inteira (204: as 10 parcelas somem; as faturas ficam com total 0)
+DELETE {{baseUrl}}/installment-purchases/{{purchaseId}}
+
+### Erro: 25 parcelas (400)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "accountId": "{{cardId}}",
+  "type": "Expense",
+  "amountCents": 100000,
+  "purchaseDate": "2026-03-10",
+  "method": "Credit",
+  "installments": 25
+}
+
+### Erro: menos de 1 centavo por parcela (400)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "accountId": "{{cardId}}",
+  "type": "Expense",
+  "amountCents": 9,
+  "purchaseDate": "2026-03-10",
+  "method": "Credit",
+  "installments": 10
+}
+
+### Erro: Pix no cartão (400)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "accountId": "{{cardId}}",
+  "type": "Expense",
+  "amountCents": 1000,
+  "purchaseDate": "2026-03-10",
+  "method": "Pix"
+}

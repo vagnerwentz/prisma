@@ -1,5 +1,6 @@
 using Prisma.Domain.Accounts;
 using Prisma.Domain.Categories;
+using Prisma.Domain.Statements;
 
 namespace Prisma.Domain.Transactions;
 
@@ -42,12 +43,43 @@ public sealed class Transaction : Entity
         Account account, TransactionType type, long amountCents, DateOnly purchaseDate,
         Category? category, PaymentMethod method, string? description)
     {
+        if (StatementId is not null)
+            return Invalid("Lançamento em cartão de crédito usa a compra no cartão.");
+
         if (ValidateSimple(account, type, amountCents, category, method, description) is { } error)
             return error;
 
         ApplySimple(account, type, amountCents, purchaseDate, category, method, description);
         return this;
     }
+
+    // Parcela de compra parcelada só é excluída ou restaurada junto com a compra, para a soma
+    // das parcelas continuar igual ao total.
+    public Error? CheckCanChangeIndividually() =>
+        InstallmentPurchaseId is null
+            ? null
+            : new Error(ErrorType.Conflict, "Esta parcela faz parte de uma compra parcelada. Exclua a compra inteira.");
+
+    // Criada só por CardPurchase, que valida a compra inteira antes.
+    internal static Transaction CreateCardInstallment(
+        Guid userId, Account card, long amountCents, DateOnly purchaseDate, Statement statement,
+        Category? category, string description, Guid? installmentPurchaseId, int? installmentNumber) =>
+        new()
+        {
+            UserId = userId,
+            Source = TransactionSource.Manual,
+            AccountId = card.Id,
+            Type = TransactionType.Expense,
+            Method = PaymentMethod.Credit,
+            AmountCents = amountCents,
+            PurchaseDate = purchaseDate,
+            StatementId = statement.Id,
+            SettlementDate = statement.DueDate, // CLAUDE.md, regra 4: no cartão, caixa = vencimento.
+            CategoryId = category?.Id,
+            Description = description,
+            InstallmentPurchaseId = installmentPurchaseId,
+            InstallmentNumber = installmentNumber,
+        };
 
     // A categoria pode ter sido excluída enquanto a transação estava excluída: nesse caso a
     // transação volta sem categoria, em vez de ficar impossível de restaurar.
