@@ -76,7 +76,7 @@ Uma etapa que crescer demais deve ser quebrada em duas, com aviso antes.
   `Prisma.Architecture.Tests`, com as referências corretas entre eles.
   *Pronto quando:* `dotnet build` e `dotnet test` passam com a solução vazia.
 
-- [ ] **0.2 Docker e Postgres**
+- [x] **0.2 Docker e Postgres**
   `docker-compose.yml` com PostgreSQL 17 e volume persistente. `AppDbContext`
   conectando, endpoint `/health` respondendo.
   *Pronto quando:* `docker compose up -d` sobe o banco e `/health` retorna 200.
