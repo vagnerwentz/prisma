@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { formatDayHeading, formatMonth, monthOf, monthRange, shiftMonth, todayInSaoPaulo } from './dates'
+import { formatDayHeading, formatLongDate, formatMonth, formatShortDate, monthOf, monthRange, shiftMonth, todayInSaoPaulo } from './dates'
 
 describe('todayInSaoPaulo', () => {
   // Mesmo caso do backend (etapa 1.2): 23h30 em São Paulo é 02h30 UTC do dia seguinte.
@@ -60,5 +60,24 @@ describe('meses', () => {
 
   it('formatMonth escreve o mês por extenso', () => {
     expect(formatMonth({ year: 2026, month: 3 })).toBe('Março de 2026')
+  })
+})
+
+describe('formatShortDate', () => {
+  it.each([
+    ['2025-11-10', '10/11/2025'],
+    ['2026-01-01', '01/01/2026'],
+  ])('%s → %s', (date, expected) => {
+    expect(formatShortDate(date)).toBe(expected)
+  })
+})
+
+describe('formatLongDate', () => {
+  it.each([
+    ['2026-03-10', '10 de março de 2026'],
+    ['2026-04-01', '1 de abril de 2026'],
+    ['2025-12-31', '31 de dezembro de 2025'],
+  ])('%s → %s', (date, expected) => {
+    expect(formatLongDate(date)).toBe(expected)
   })
 })

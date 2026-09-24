@@ -253,4 +253,84 @@ public sealed class CardPurchaseEditingTests(PostgresFixture postgres)
         (await owner.Transactions()).Sum(t => t.AmountCents).ShouldBe(30000);
         (await owner.Statements())[0].DueDate.ShouldBe(new DateOnly(2026, 4, 12));
     }
+
+    // Etapa 1.14: "Desfazer" depois de excluir a compra inteira.
+    [Fact]
+    public async Task Restoring_a_deleted_purchase_brings_back_every_installment()
+    {
+        var (factory, s) = await Start();
+        await using var _ = factory;
+        using var __ = s;
+        var purchaseId = (await s.Buy(100005, 10))[0].InstallmentPurchaseId!.Value;
+        (await s.Client.DeleteAsync($"/installment-purchases/{purchaseId}")).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        (await s.Transactions()).ShouldBeEmpty();
+
+        var response = await s.Client.PostAsync($"/installment-purchases/{purchaseId}/restore", null);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var restored = (await response.Content.ReadFromJsonAsync<PurchaseDto>())!;
+        restored.Installments.Select(t => t.InstallmentNumber).ShouldBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        var after = await s.Transactions();
+        after.Count.ShouldBe(10);
+        after.Sum(t => t.AmountCents).ShouldBe(100005);
+        (await s.Statements()).Select(st => st.TotalCents).ShouldBe([10001, 10001, 10001, 10001, 10001, 10000, 10000, 10000, 10000, 10000]);
+    }
+
+    [Fact]
+    public async Task Restoring_does_not_bring_back_installments_removed_by_an_earlier_edit()
+    {
+        var (factory, s) = await Start();
+        await using var _ = factory;
+        using var __ = s;
+        var purchaseId = (await s.Buy(100005, 10))[0].InstallmentPurchaseId!.Value;
+        (await s.PatchPurchase(purchaseId, 100005, 3)).StatusCode.ShouldBe(HttpStatusCode.OK);
+        await s.Client.DeleteAsync($"/installment-purchases/{purchaseId}");
+
+        (await s.Client.PostAsync($"/installment-purchases/{purchaseId}/restore", null)).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var after = await s.Transactions();
+        after.Select(t => t.InstallmentNumber).ShouldBe([1, 2, 3]);
+        after.Sum(t => t.AmountCents).ShouldBe(100005);
+    }
+
+    [Fact]
+    public async Task Restoring_a_purchase_that_is_not_deleted_returns_404()
+    {
+        var (factory, s) = await Start();
+        await using var _ = factory;
+        using var __ = s;
+        var purchaseId = (await s.Buy(30000, 3))[0].InstallmentPurchaseId!.Value;
+
+        await ShouldBeProblem(await s.Client.PostAsync($"/installment-purchases/{purchaseId}/restore", null),
+            HttpStatusCode.NotFound, "Compra parcelada excluída não encontrada.");
+    }
+
+    [Fact]
+    public async Task Restoring_a_purchase_whose_card_was_deleted_returns_409()
+    {
+        var (factory, s) = await Start();
+        await using var _ = factory;
+        using var __ = s;
+        var purchaseId = (await s.Buy(30000, 3))[0].InstallmentPurchaseId!.Value;
+        await s.Client.DeleteAsync($"/installment-purchases/{purchaseId}");
+        (await s.Client.DeleteAsync($"/accounts/{s.CardId}")).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        await ShouldBeProblem(await s.Client.PostAsync($"/installment-purchases/{purchaseId}/restore", null),
+            HttpStatusCode.Conflict, "A conta desta compra foi excluída; não é possível restaurá-la.");
+    }
+
+    [Fact]
+    public async Task Another_user_cannot_restore_a_purchase()
+    {
+        var (factory, owner) = await Start();
+        await using var _ = factory;
+        using var __ = owner;
+        using var intruder = await factory.CreateAuthenticatedClientAsync();
+        var purchaseId = (await owner.Buy(30000, 3))[0].InstallmentPurchaseId!.Value;
+        await owner.Client.DeleteAsync($"/installment-purchases/{purchaseId}");
+
+        (await intruder.PostAsync($"/installment-purchases/{purchaseId}/restore", null)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+
+        (await owner.Transactions()).ShouldBeEmpty();
+    }
 }

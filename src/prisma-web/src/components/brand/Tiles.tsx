@@ -4,12 +4,13 @@ import { findBrand, readableTextOn, type BrandMark } from '@/lib/brands/merchant
 import { cn } from '@/lib/utils'
 import { accountTypeIcons, categoryIcon } from './categoryIcons'
 
-type Size = 'sm' | 'md' | 'lg'
+type Size = 'sm' | 'md' | 'lg' | 'xl'
 
 const box: Record<Size, string> = {
   sm: 'size-7 rounded-lg [&_svg]:size-3.5 text-[0.6rem]',
   md: 'size-10 rounded-xl [&_svg]:size-5 text-xs',
   lg: 'size-12 rounded-2xl [&_svg]:size-6 text-sm',
+  xl: 'size-16 rounded-[1.25rem] [&_svg]:size-8 text-base',
 }
 
 // Cor neutra, mas estável, para categorias sem cor (criadas antes da identidade visual).

@@ -33,4 +33,6 @@ public sealed class InstallmentPurchase : Entity
         InstallmentCount = installmentCount;
         Description = description;
     }
+
+    internal void Restore() => ClearDeletion();
 }

@@ -73,3 +73,15 @@ const monthName = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC', month: 'lo
 export function formatMonth({ year, month }: YearMonth): string {
   return capitalize(monthName.format(new Date(Date.UTC(year, month - 1, 1))))
 }
+
+// "2025-11-10" → "10/11/2025", sem passar por Date (DateOnly não tem fuso).
+export function formatShortDate(date: string): string {
+  return date.split('-').reverse().join('/')
+}
+
+const longDate = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' })
+
+// "2026-03-10" → "10 de março de 2026".
+export function formatLongDate(date: string): string {
+  return longDate.format(toUtc(date))
+}

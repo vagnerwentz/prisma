@@ -120,6 +120,9 @@ DELETE {{baseUrl}}/transactions/{{installmentId}}
 ### Excluir a compra inteira (204: as 10 parcelas somem; as faturas ficam com total 0)
 DELETE {{baseUrl}}/installment-purchases/{{purchaseId}}
 
+### Desfazer a exclusão da compra (200: as parcelas voltam; 404 se a compra não estiver excluída)
+POST {{baseUrl}}/installment-purchases/{{purchaseId}}/restore
+
 ### Erro: 25 parcelas (400)
 POST {{baseUrl}}/transactions
 Content-Type: application/json

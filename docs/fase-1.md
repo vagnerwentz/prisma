@@ -135,6 +135,10 @@ Dada uma compra em `PurchaseDate` num cartão com `ClosingDay` e `DueDay`:
   seguintes; menos parcelas removem as últimas. Descrição e categoria também mudam, nas
   parcelas não pagas. A data da compra não muda. De 1 a 24 parcelas.
 - Excluir o `InstallmentPurchase` faz soft delete em todas as parcelas.
+- `POST /installment-purchases/{id}/restore` desfaz a exclusão (o "Desfazer" da tela): volta a
+  compra com as parcelas excluídas **junto com ela**. Parcelas removidas antes, por uma edição que
+  reduziu o número de parcelas, ficam de fora. Se as parcelas não forem exatamente 1..N somando o
+  total, a restauração é recusada (409). Parcela cuja categoria foi excluída volta sem categoria.
 
 A API deixa explícito o escopo da edição: `PATCH /transactions/{id}` altera uma parcela;
 `PATCH /installment-purchases/{id}` altera o conjunto.

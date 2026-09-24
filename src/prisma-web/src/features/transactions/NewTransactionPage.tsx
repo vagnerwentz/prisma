@@ -1,25 +1,24 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CalendarDays, ChevronDown, X } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { ChevronDown, X } from 'lucide-react'
+import { useEffect, useMemo, type ReactNode } from 'react'
 import { useForm, useWatch, type Path, type PathValue } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { z } from 'zod'
-import { AccountTile, CategoryTile, EntryTile } from '@/components/brand/Tiles'
+import { AccountTile, EntryTile } from '@/components/brand/Tiles'
 import { FieldError } from '@/components/FieldError'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { defaultPaymentMethod, paymentMethodLabels, type PaymentMethod } from '@/features/accounts/labels'
 import { useAccounts, type Account } from '@/features/accounts/queries'
-import { useCategories, type CategoryNode } from '@/features/categories/queries'
+import { resolveCategory, useCategories, type CategoryNode } from '@/features/categories/queries'
 import { ApiError } from '@/lib/api'
 import { findBrand } from '@/lib/brands/merchants'
-import { addDays, todayInSaoPaulo } from '@/lib/dates'
-import { describeInstallments, formatCents, parseCentsInput } from '@/lib/money'
+import { todayInSaoPaulo } from '@/lib/dates'
+import { describeInstallments, formatCents } from '@/lib/money'
 import { readLastAccountId, saveLastAccountId } from '@/lib/preferences'
-import { cn } from '@/lib/utils'
+import { AmountField, CategoryPicker, Chip, ChipRow, DateChooser, Section, TypeToggle } from './fields'
 import { useCreateTransaction } from './queries'
 
 const maxInstallments = 24
@@ -106,7 +105,6 @@ function Composer({ accounts, categories }: { accounts: Account[]; categories: C
   const navigate = useNavigate()
   const createTransaction = useCreateTransaction()
   const today = todayInSaoPaulo()
-  const yesterday = addDays(today, -1)
 
   // A última conta usada; na primeira vez, a conta corrente é o palpite mais provável.
   const initialAccount =
@@ -135,13 +133,7 @@ function Composer({ accounts, categories }: { accounts: Account[]; categories: C
   const account = accounts.find((a) => a.id === accountId)
   const isCard = account?.type === 'CreditCard'
   const roots = categories.filter((c) => c.type === type)
-  const selectedRoot = roots.find((r) => r.id === categoryId || r.subcategories.some((s) => s.id === categoryId))
-  const selectedSub = selectedRoot?.subcategories.find((s) => s.id === categoryId)
-  const selectedCategory = selectedRoot && {
-    name: selectedSub?.name ?? selectedRoot.name,
-    icon: selectedSub?.icon ?? selectedRoot.icon,
-    color: selectedSub?.color ?? selectedRoot.color,
-  }
+  const { root: selectedRoot, label: selectedCategory } = resolveCategory(roots, categoryId)
   const brand = findBrand(description)
 
   // Trocar a conta ajusta o meio de pagamento; o cartão só aceita despesa (docs/fase-1.md).
@@ -187,24 +179,6 @@ function Composer({ accounts, categories }: { accounts: Account[]; categories: C
     }
   })
 
-  const isOtherDate = purchaseDate !== today && purchaseDate !== yesterday
-  const [pickingDate, setPickingDate] = useState(false)
-  const dateInput = useRef<HTMLInputElement>(null)
-
-  // "Outra data" mostra um campo visível (dá para digitar uma data antiga) e tenta abrir o
-  // calendário do sistema, que nem todo navegador permite abrir por código.
-  const pickOtherDate = () => {
-    setPickingDate(true)
-    requestAnimationFrame(() => {
-      dateInput.current?.focus()
-      try {
-        dateInput.current?.showPicker()
-      } catch {
-        // sem calendário por código: o campo visível basta
-      }
-    })
-  }
-
   return (
     <Shell
       footer={
@@ -230,28 +204,13 @@ function Composer({ accounts, categories }: { accounts: Account[]; categories: C
 
         <div className="flex flex-col items-center gap-5">
           <TypeToggle value={type} incomeDisabled={isCard} onChange={(value) => set('type', value)} />
-          <div className="flex w-full flex-col items-center gap-1">
-            {/* Sem cursor piscando: os dígitos entram pela direita, e o foco aparece no filete. */}
-            <input
-              aria-label="Valor"
-              inputMode="numeric"
-              autoComplete="off"
-              autoFocus
-              placeholder={formatCents(0)}
-              value={amountCents === 0 ? '' : formatCents(amountCents)}
-              onChange={(event) => set('amountCents', parseCentsInput(event.target.value))}
-              className={cn(
-                'peer w-full bg-transparent text-center font-display leading-tight tabular-nums caret-transparent outline-none selection:bg-transparent placeholder:text-muted-foreground/40',
-                amountSize(amountCents),
-                type === 'Income' && amountCents > 0 && 'text-spectrum',
-              )}
-            />
-            <span
-              aria-hidden
-              className="h-0.5 w-16 rounded-full bg-[image:var(--spectrum)] opacity-0 transition-all duration-300 peer-focus:w-28 peer-focus:opacity-100"
-            />
-            <FieldError message={errors.amountCents?.message} />
-          </div>
+          <AmountField
+            value={amountCents}
+            onChange={(cents) => set('amountCents', cents)}
+            income={type === 'Income'}
+            error={errors.amountCents?.message}
+            autoFocus
+          />
         </div>
 
         <Section title="Descrição" aside={brand ? `${brand.name} reconhecido` : 'opcional'}>
@@ -294,67 +253,11 @@ function Composer({ accounts, categories }: { accounts: Account[]; categories: C
         )}
 
         <Section title="Categoria">
-          <div className="grid grid-cols-4 gap-x-2 gap-y-3">
-            {roots.map((root) => {
-              const selected = root.id === selectedRoot?.id
-              return (
-                <button
-                  key={root.id}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => set('categoryId', selected ? '' : root.id)}
-                  className="group flex flex-col items-center gap-1.5 rounded-2xl p-1 text-center outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <span className={cn('rounded-2xl p-[2px] transition-transform group-active:scale-95', selected && 'bg-[image:var(--spectrum-conic)]')}>
-                    <CategoryTile name={root.name} icon={root.icon} color={root.color} size="lg" className={cn(selected && 'ring-2 ring-background')} />
-                  </span>
-                  <span className={cn('line-clamp-2 text-[0.7rem] leading-tight', selected ? 'font-semibold' : 'text-muted-foreground')}>
-                    {root.name}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-          {selectedRoot && selectedRoot.subcategories.length > 0 && (
-            <ChipRow className="mt-3">
-              <Chip selected={categoryId === selectedRoot.id} onClick={() => set('categoryId', selectedRoot.id)}>
-                Geral
-              </Chip>
-              {selectedRoot.subcategories.map((sub) => (
-                <Chip key={sub.id} selected={sub.id === categoryId} onClick={() => set('categoryId', sub.id)}>
-                  <CategoryTile name={sub.name} icon={sub.icon ?? selectedRoot.icon} color={sub.color ?? selectedRoot.color} size="sm" />
-                  {sub.name}
-                </Chip>
-              ))}
-            </ChipRow>
-          )}
+          <CategoryPicker roots={roots} value={categoryId} onChange={(id) => set('categoryId', id)} />
         </Section>
 
         <Section title="Data">
-          <ChipRow>
-            <Chip selected={purchaseDate === today} onClick={() => set('purchaseDate', today)}>
-              Hoje
-            </Chip>
-            <Chip selected={purchaseDate === yesterday} onClick={() => set('purchaseDate', yesterday)}>
-              Ontem
-            </Chip>
-            <Chip selected={isOtherDate || pickingDate} onClick={pickOtherDate}>
-              <CalendarDays className="size-4" />
-              {isOtherDate ? formatShortDate(purchaseDate) : 'Outra data'}
-            </Chip>
-          </ChipRow>
-          {(pickingDate || isOtherDate) && (
-            <Input
-              ref={dateInput}
-              type="date"
-              aria-label="Data da compra"
-              value={purchaseDate}
-              max="9999-12-31"
-              onChange={(event) => event.target.value && set('purchaseDate', event.target.value)}
-              className="h-11 rounded-xl"
-            />
-          )}
-          <FieldError message={errors.purchaseDate?.message} />
+          <DateChooser value={purchaseDate} onChange={(date) => set('purchaseDate', date)} error={errors.purchaseDate?.message} />
         </Section>
 
         <details className="group rounded-2xl border bg-card open:pb-4">
@@ -377,107 +280,5 @@ function Composer({ accounts, categories }: { accounts: Account[]; categories: C
         </details>
       </form>
     </Shell>
-  )
-}
-
-// "2025-11-10" → "10/11/2025", sem passar por Date (DateOnly não tem fuso).
-function formatShortDate(date: string): string {
-  return date.split('-').reverse().join('/')
-}
-
-// O valor encolhe conforme cresce, para caber na largura do celular.
-function amountSize(cents: number): string {
-  const length = formatCents(cents).length
-  if (length > 15) return 'text-4xl'
-  if (length > 12) return 'text-5xl'
-  return 'text-6xl'
-}
-
-function TypeToggle({
-  value,
-  incomeDisabled,
-  onChange,
-}: {
-  value: Values['type']
-  incomeDisabled: boolean
-  onChange: (value: Values['type']) => void
-}) {
-  return (
-    <div className="grid grid-cols-2 rounded-full border bg-card p-1 text-sm font-medium">
-      <button
-        type="button"
-        aria-pressed={value === 'Expense'}
-        onClick={() => onChange('Expense')}
-        className={cn('rounded-full px-5 py-1.5 transition-colors', value === 'Expense' ? 'bg-foreground text-background' : 'text-muted-foreground')}
-      >
-        Despesa
-      </button>
-      <button
-        type="button"
-        aria-pressed={value === 'Income'}
-        disabled={incomeDisabled}
-        onClick={() => onChange('Income')}
-        className={cn(
-          'rounded-full px-5 py-1.5 transition-colors disabled:opacity-40',
-          value === 'Income' ? 'bg-[image:var(--spectrum)] text-white' : 'text-muted-foreground',
-        )}
-      >
-        Receita
-      </button>
-    </div>
-  )
-}
-
-function Section({ title, aside, children }: { title: string; aside?: string; children: ReactNode }) {
-  return (
-    <section className="flex flex-col gap-2.5">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{title}</h2>
-        {aside && <span className="text-xs text-muted-foreground tabular-nums">{aside}</span>}
-      </div>
-      {children}
-    </section>
-  )
-}
-
-function ChipRow({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <div className={cn('-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', className)}>
-      {children}
-    </div>
-  )
-}
-
-function Chip({
-  selected,
-  onClick,
-  children,
-  className,
-}: {
-  selected: boolean
-  onClick: () => void
-  children: ReactNode
-  className?: string
-}) {
-  // O item escolhido fica visível mesmo numa fileira longa (ex.: 10x entre 24 parcelas).
-  const ref = useRef<HTMLButtonElement>(null)
-  useEffect(() => {
-    if (selected) ref.current?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
-  }, [selected])
-
-  return (
-    <button
-      ref={ref}
-      type="button"
-      aria-pressed={selected}
-      onClick={onClick}
-      className={cn(
-        'flex h-10 shrink-0 items-center gap-2 rounded-full border px-3.5 text-sm whitespace-nowrap transition-colors active:scale-[0.97]',
-        selected ? 'spectrum-ring font-medium' : 'bg-card text-muted-foreground hover:text-foreground',
-        className,
-      )}
-    >
-      {children}
-    </button>
   )
 }

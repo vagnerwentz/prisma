@@ -96,6 +96,28 @@ public static class CardPurchase
         return new CardPurchaseEditResult(added, removed, opened);
     }
 
+    // Desfaz a exclusão da compra (etapa 1.14). installments: as parcelas excluídas junto com ela.
+    // Só restaura se elas forem exatamente as parcelas 1..N e somarem o total, para a soma nunca
+    // divergir (CLAUDE.md, regra 2). Parcela cuja categoria foi excluída volta sem categoria.
+    public static Result<InstallmentPurchase> Restore(
+        InstallmentPurchase purchase, IReadOnlyList<Transaction> installments, IReadOnlySet<Guid> existingCategoryIds)
+    {
+        var numbers = installments.Select(t => t.InstallmentNumber).Order().ToList();
+        var matches = installments.All(t => t.InstallmentPurchaseId == purchase.Id)
+            && numbers.SequenceEqual(Enumerable.Range(1, purchase.InstallmentCount).Select(n => (int?)n))
+            && installments.Sum(t => t.AmountCents) == purchase.TotalAmountCents;
+
+        if (!matches)
+            return new Error(ErrorType.Conflict,
+                "As parcelas desta compra não fecham com o total; não é possível restaurá-la.");
+
+        purchase.Restore();
+        foreach (var installment in installments)
+            installment.Restore(installment.CategoryId is not { } id || existingCategoryIds.Contains(id));
+
+        return purchase;
+    }
+
     public static readonly Error InstallmentsRequireCard =
         new(ErrorType.Validation, "Parcelamento só existe em cartão de crédito.");
 

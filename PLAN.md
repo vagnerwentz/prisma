@@ -172,15 +172,26 @@ Detalhamento completo em `docs/fase-1.md`.
   *Pronto quando:* telas conferidas por captura nos modos claro e escuro; pacote inicial não
   maior que o de antes do redesign; testes de reconhecimento de marca e de categorias padrão.
 
-- [ ] **1.14 Frontend: editar e excluir** — *próxima, combinada antes da 1.10*
+- [x] **1.14 Frontend: editar e excluir** — *combinada antes da 1.10*
   O backend já permite; falta a tela. Tocar num lançamento abre um painel com detalhes,
   "Editar" e "Excluir"; excluir mostra aviso com "Desfazer" (restauração). Compra parcelada:
   painel com as parcelas e edição da compra inteira (total e número de parcelas); parcela
   isolada edita só descrição e categoria (`docs/fase-1.md`, 2.2).
   *Pronto quando:* dá para editar um lançamento simples, editar uma compra parcelada, excluir
   e desfazer, tudo pela tela, conferido por captura nos modos claro e escuro.
+  *Feito:* o "Desfazer" da compra parcelada exigiu `POST /installment-purchases/{id}/restore`
+  (`docs/fase-1.md`, 2.2), que volta só as parcelas excluídas junto com a compra.
 
-- [ ] **1.15 Frontend: contas e cartões** — *depois da 1.14*
+- [ ] **1.14b Mudar a data de compra no cartão** — *próxima*
+  Compra à vista e compra parcelada no cartão passam a aceitar nova data de compra: cada parcela
+  é recalculada para a fatura do seu ciclo a partir da nova data, com `SettlementDate` igual ao
+  vencimento dessa fatura; os valores não mudam. Recusado se alguma parcela estiver em fatura
+  paga. Parcela isolada continua sem mudar a data (as parcelas compartilham a data da compra).
+  *Pronto quando:* testes de domínio provam a compra que muda de fatura, a que continua na mesma,
+  as parcelas se deslocando juntas, a soma inalterada e o bloqueio por fatura paga; a data é
+  editável pela tela nos dois casos.
+
+- [ ] **1.15 Frontend: contas e cartões** — *depois da 1.14b*
   Detalhe do cartão com as faturas e edição de datas; editar e desativar contas; criar conta
   em painel.
 

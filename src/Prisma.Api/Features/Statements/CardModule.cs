@@ -11,6 +11,7 @@ public static class CardModule
         services.AddScoped<UpdateStatement.Handler>();
         services.AddScoped<DeleteInstallmentPurchase.Handler>();
         services.AddScoped<UpdateInstallmentPurchase.Handler>();
+        services.AddScoped<RestoreInstallmentPurchase.Handler>();
         return services;
     }
 
@@ -20,5 +21,6 @@ public static class CardModule
         UpdateStatement.Map(app);
         DeleteInstallmentPurchase.Map(app);
         UpdateInstallmentPurchase.Map(app);
+        RestoreInstallmentPurchase.Map(app);
     }
 }

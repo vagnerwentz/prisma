@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { useMemo } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { PrismLogo } from '@/components/brand/PrismLogo'
 import { EntryTile } from '@/components/brand/Tiles'
@@ -9,9 +9,14 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAccounts } from '@/features/accounts/queries'
 import { categoryLabels, useCategories, type CategoryLabel } from '@/features/categories/queries'
 import { formatDayHeading, formatMonth, monthOf, monthRange, shiftMonth, todayInSaoPaulo, type YearMonth } from '@/lib/dates'
-import { formatCents, shortInstallments } from '@/lib/money'
+import { shortInstallments } from '@/lib/money'
+import { Amount } from './Amount'
+import { entryKey, findEntry } from './editing'
 import { useTransactions, type Transaction } from './queries'
 import { buildTimeline, type TimelineEntry } from './timeline'
+
+// O painel (detalhes e edição) só carrega quando alguém toca num lançamento.
+const EntrySheet = lazy(() => import('./EntrySheet'))
 
 type Lookups = { accounts: Map<string, string>; categories: Map<string, CategoryLabel> }
 
@@ -37,6 +42,10 @@ export function TransactionsPage() {
   )
   const days = useMemo(() => buildTimeline(transactions.data ?? []), [transactions.data])
 
+  // Guarda a chave, não o lançamento: depois de editar, o painel lê a versão recarregada.
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const selected = selectedKey ? findEntry(days, selectedKey) : undefined
+
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 pt-5 pb-32">
       <MonthSwitcher month={month} onChange={setMonth} />
@@ -58,11 +67,24 @@ export function TransactionsPage() {
           </h2>
           <ul className="overflow-hidden rounded-2xl border bg-card shadow-[0_1px_2px_rgb(0_0_0/0.03)]">
             {day.entries.map((entry) => (
-              <EntryRow key={entry.kind === 'single' ? entry.transaction.id : entry.purchaseId} entry={entry} lookups={lookups} />
+              <EntryRow key={entryKey(entry)} entry={entry} lookups={lookups} onOpen={() => setSelectedKey(entryKey(entry))} />
             ))}
           </ul>
         </section>
       ))}
+
+      {selectedKey && accounts.data && categories.data && (
+        <Suspense>
+          <EntrySheet
+            entry={selected}
+            onClose={() => setSelectedKey(null)}
+            onMoved={setMonth}
+            accounts={accounts.data}
+            categories={categories.data}
+            labels={lookups.categories}
+          />
+        </Suspense>
+      )}
     </main>
   )
 }
@@ -101,7 +123,7 @@ function MonthSwitcher({ month, onChange }: { month: YearMonth; onChange: (m: Ye
   )
 }
 
-function EntryRow({ entry, lookups }: { entry: TimelineEntry<Transaction>; lookups: Lookups }) {
+function EntryRow({ entry, lookups, onOpen }: { entry: TimelineEntry<Transaction>; lookups: Lookups; onOpen: () => void }) {
   const first = entry.kind === 'single' ? entry.transaction : entry.installments[0]
   const category = first.categoryId ? lookups.categories.get(first.categoryId) : undefined
   const account = lookups.accounts.get(first.accountId)
@@ -112,7 +134,12 @@ function EntryRow({ entry, lookups }: { entry: TimelineEntry<Transaction>; looku
   const details = [category && category.name !== title ? category.name : null, account].filter(Boolean)
 
   return (
-    <li className="flex items-center gap-3 px-4 py-3 [&+&]:border-t">
+    <li className="[&+&]:border-t">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors outline-none hover:bg-muted/40 focus-visible:bg-muted/60 active:bg-muted/70"
+      >
       <EntryTile description={first.description} category={category} />
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium">{title}</p>
@@ -124,18 +151,9 @@ function EntryRow({ entry, lookups }: { entry: TimelineEntry<Transaction>; looku
           <span className="text-xs text-muted-foreground tabular-nums">{shortInstallments(amount, installments)}</span>
         )}
       </div>
+      </button>
     </li>
   )
-}
-
-// AmountCents é sempre positivo; o tipo define o sinal (docs/fase-1.md). Receita é "luz
-// entrando" (gradiente espectral); despesa é tinta, sem vermelho alarmista.
-function Amount({ type, cents }: { type: Transaction['type']; cents: number }) {
-  if (type === 'Income') {
-    return <span className="text-spectrum shrink-0 font-semibold tabular-nums">+{formatCents(cents)}</span>
-  }
-  const text = type === 'Expense' ? formatCents(-cents).replace('-', '−') : formatCents(cents)
-  return <span className="shrink-0 font-medium tabular-nums">{text}</span>
 }
 
 function ListSkeleton() {

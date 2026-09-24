@@ -29,3 +29,15 @@ export function categoryLabels(tree: CategoryNode[]): Map<string, CategoryLabel>
   }
   return labels
 }
+
+// Categoria escolhida (id de categoria ou de subcategoria) entre as raízes do tipo.
+export function resolveCategory(roots: CategoryNode[], categoryId: string) {
+  const root = roots.find((r) => r.id === categoryId || r.subcategories.some((s) => s.id === categoryId))
+  const sub = root?.subcategories.find((s) => s.id === categoryId)
+  const label: Omit<CategoryLabel, 'parentName'> | undefined = root && {
+    name: sub?.name ?? root.name,
+    icon: sub?.icon ?? root.icon ?? null,
+    color: sub?.color ?? root.color ?? null,
+  }
+  return { root, label }
+}

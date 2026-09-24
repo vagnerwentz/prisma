@@ -1,0 +1,688 @@
+import { zodResolver } from '@hookform/resolvers/zod'
+import { ArrowLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { useForm, useWatch, type Path, type PathValue, type UseFormRegisterReturn } from 'react-hook-form'
+import { toast } from 'sonner'
+import { z } from 'zod'
+import { AccountTile, EntryTile } from '@/components/brand/Tiles'
+import { FieldError } from '@/components/FieldError'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
+import { paymentMethodLabels, type PaymentMethod } from '@/features/accounts/labels'
+import type { Account } from '@/features/accounts/queries'
+import { resolveCategory, type CategoryLabel, type CategoryNode } from '@/features/categories/queries'
+import { ApiError } from '@/lib/api'
+import { formatLongDate, formatShortDate, monthOf, todayInSaoPaulo, type YearMonth } from '@/lib/dates'
+import { describeInstallments, formatCents } from '@/lib/money'
+import { cn } from '@/lib/utils'
+import { Amount } from './Amount'
+import { editKind, entryKey, type EditKind } from './editing'
+import { AmountField, CategoryPicker, Chip, ChipRow, DateChooser, Section, TypeToggle } from './fields'
+import {
+  useDeletePurchase,
+  useDeleteTransaction,
+  useRestorePurchase,
+  useRestoreTransaction,
+  useUpdatePurchase,
+  useUpdateTransaction,
+  type Transaction,
+} from './queries'
+import type { TimelineEntry } from './timeline'
+
+type Entry = TimelineEntry<Transaction>
+
+export type EntrySheetProps = {
+  entry: Entry | undefined
+  onClose: () => void
+  // Editar a data pode levar o lançamento para outro mês: a lista vai junto.
+  onMoved: (month: YearMonth) => void
+  accounts: Account[]
+  categories: CategoryNode[]
+  labels: Map<string, CategoryLabel>
+}
+
+type Mode = { view: 'details' } | { view: 'edit' } | { view: 'installment'; id: string }
+
+const maxInstallments = 24
+
+// Fora do cartão não existe "Crédito" (a API recusa).
+const simpleMethods: PaymentMethod[] = ['Pix', 'Debit', 'Cash', 'Boleto', 'Ted']
+
+// Painel de um lançamento: detalhes, "Editar" e "Excluir" (com "Desfazer" no aviso).
+export default function EntrySheet({ entry, onClose, ...rest }: EntrySheetProps) {
+  const [mode, setMode] = useState<Mode>({ view: 'details' })
+
+  // Outro lançamento aberto começa pelos detalhes.
+  const key = entry && entryKey(entry)
+  const [shownKey, setShownKey] = useState(key)
+  if (key !== shownKey) {
+    setShownKey(key)
+    setMode({ view: 'details' })
+  }
+
+  return (
+    <Sheet open={entry !== undefined} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent
+        side="bottom"
+        showCloseButton={false}
+        aria-describedby={undefined}
+        // Foco no painel, não no primeiro botão: evita o anel de foco em "Editar" ao abrir.
+        onOpenAutoFocus={(event) => {
+          event.preventDefault()
+          ;(event.currentTarget as HTMLElement).focus()
+        }}
+        className="mx-auto outline-none max-h-[92dvh] w-full max-w-lg gap-0 rounded-t-[1.75rem] border-x bg-background p-0 sm:bottom-4 sm:rounded-[1.75rem] sm:border-b"
+      >
+        <span aria-hidden className="mx-auto mt-2.5 mb-1 h-1 w-10 shrink-0 rounded-full bg-border" />
+        {entry && mode.view === 'details' && (
+          <Details entry={entry} onClose={onClose} onEdit={(next) => setMode(next)} {...rest} />
+        )}
+        {entry && mode.view !== 'details' && (
+          <Editor
+            entry={entry}
+            mode={mode}
+            onDone={() => setMode({ view: 'details' })}
+            onClose={onClose}
+            {...rest}
+          />
+        )}
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+type Common = Omit<EntrySheetProps, 'entry' | 'onClose'> & { entry: Entry; onClose: () => void }
+
+function Details({ entry, accounts, labels, onClose, onEdit }: Common & { onEdit: (mode: Mode) => void }) {
+  const installments = entry.kind === 'purchase' ? [...entry.installments].sort(byNumber) : []
+  const first = entry.kind === 'single' ? entry.transaction : installments[0]
+  const kind = editKind(entry)
+  const category = first.categoryId ? labels.get(first.categoryId) : undefined
+  const account = accounts.find((a) => a.id === first.accountId)
+  const amount = entry.kind === 'single' ? first.amountCents : entry.totalCents
+  const title = first.description || category?.name || 'Sem descrição'
+  const remove = useRemove(entry, title, amount)
+
+  return (
+    <>
+      <div className="flex min-h-0 flex-col overflow-y-auto overscroll-contain">
+        <header className="flex flex-col items-center gap-3 px-6 pt-4 pb-5 text-center">
+          <EntryTile description={first.description} category={category} size="xl" />
+          <div className="flex flex-col gap-0.5">
+            <SheetTitle className="font-display text-2xl leading-tight font-normal">{title}</SheetTitle>
+            {category && category.name !== title && (
+              <p className="text-sm text-muted-foreground">
+                {category.parentName ? `${category.parentName} › ${category.name}` : category.name}
+              </p>
+            )}
+          </div>
+          <Amount type={first.type} cents={amount} className="font-display text-5xl leading-none font-normal" />
+          {installments.length > 1 && (
+            <p className="text-sm text-muted-foreground tabular-nums">{describeInstallments(amount, installments.length)}</p>
+          )}
+        </header>
+
+        <div className="spectrum-line mx-6 opacity-70" />
+
+        <dl className="mx-4 my-5 flex flex-col divide-y rounded-2xl border bg-card text-sm">
+          <InfoRow label="Data da compra">{formatLongDate(first.purchaseDate)}</InfoRow>
+          {kind === 'card' && <InfoRow label="Fatura que vence em">{formatLongDate(first.settlementDate)}</InfoRow>}
+          {account && (
+            <InfoRow label="Conta">
+              <span className="flex items-center gap-2">
+                <AccountTile name={account.name} type={account.type} size="sm" />
+                {account.name}
+              </span>
+            </InfoRow>
+          )}
+          <InfoRow label="Pagamento">{paymentMethodLabels[first.method]}</InfoRow>
+        </dl>
+
+        {installments.length > 0 && (
+          <InstallmentList installments={installments} labels={labels} onPick={(id) => onEdit({ view: 'installment', id })} />
+        )}
+      </div>
+
+      <footer className="grid shrink-0 grid-cols-[1fr_auto] gap-2 border-t border-border/60 bg-background/90 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
+        <Button size="lg" className="h-12 rounded-2xl text-base" onClick={() => onEdit({ view: 'edit' })}>
+          <Pencil />
+          {kind === 'purchase' ? 'Editar compra' : 'Editar'}
+        </Button>
+        <Button
+          size="lg"
+          variant="outline"
+          className="h-12 rounded-2xl px-5 text-base"
+          disabled={remove.isPending}
+          onClick={() => remove.run(onClose)}
+        >
+          <Trash2 />
+          Excluir
+        </Button>
+      </footer>
+    </>
+  )
+}
+
+function InfoRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-4 px-4 py-3">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="text-right font-medium">{children}</dd>
+    </div>
+  )
+}
+
+const byNumber = (a: Transaction, b: Transaction) => (a.installmentNumber ?? 0) - (b.installmentNumber ?? 0)
+
+// Parcelas da compra, com o vencimento de cada fatura. A próxima a vencer ganha o anel do
+// espectro; tocar numa parcela edita só ela (descrição e categoria).
+function InstallmentList({
+  installments,
+  labels,
+  onPick,
+}: {
+  installments: Transaction[]
+  labels: Map<string, CategoryLabel>
+  onPick: (id: string) => void
+}) {
+  const today = todayInSaoPaulo()
+  const next = installments.find((t) => t.settlementDate >= today)
+  const count = installments.length
+
+  return (
+    <section className="mx-4 mb-5 flex flex-col gap-2">
+      <h3 className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Parcelas</h3>
+      <ol className="flex flex-col divide-y rounded-2xl border bg-card">
+        {installments.map((t) => {
+          const isNext = t === next
+          const past = t.settlementDate < today
+          const differs = t.description !== installments[0].description || t.categoryId !== installments[0].categoryId
+          const note = differs ? t.description || (t.categoryId && labels.get(t.categoryId)?.name) || null : null
+          return (
+            <li key={t.id}>
+              <button
+                type="button"
+                onClick={() => onPick(t.id)}
+                className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors outline-none hover:bg-muted/50 focus-visible:bg-muted active:bg-muted"
+              >
+                <span
+                  className={cn(
+                    'flex h-7 min-w-11 items-center justify-center rounded-full border px-2 text-xs font-medium tabular-nums',
+                    isNext ? 'spectrum-ring' : past && 'text-muted-foreground',
+                  )}
+                >
+                  {t.installmentNumber}/{count}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className={cn('block text-sm', past && 'text-muted-foreground')}>vence {formatShortDate(t.settlementDate)}</span>
+                  {(isNext || note) && (
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {[isNext ? 'Próxima' : null, note].filter(Boolean).join(' · ')}
+                    </span>
+                  )}
+                </span>
+                <span className={cn('text-sm tabular-nums', past && 'text-muted-foreground')}>{formatCents(t.amountCents)}</span>
+                <ChevronRight className="size-4 text-muted-foreground" />
+              </button>
+            </li>
+          )
+        })}
+      </ol>
+    </section>
+  )
+}
+
+// Exclui e oferece "Desfazer" no aviso (soft delete + restauração). Usa mutateAsync: o aviso
+// sobrevive ao painel fechado, e as opções do useMutation (recarregar a lista) valem mesmo assim.
+function useRemove(entry: Entry, title: string, amount: number) {
+  const deleteTransaction = useDeleteTransaction()
+  const deletePurchase = useDeletePurchase()
+  const restoreTransaction = useRestoreTransaction()
+  const restorePurchase = useRestorePurchase()
+  const isPurchase = entry.kind === 'purchase'
+  const id = entry.kind === 'single' ? entry.transaction.id : entry.purchaseId
+
+  const run = async (onClose: () => void) => {
+    try {
+      await (isPurchase ? deletePurchase : deleteTransaction).mutateAsync(id)
+    } catch (error) {
+      toast.error(messageOf(error))
+      return
+    }
+    onClose()
+    toast(isPurchase ? 'Compra excluída' : 'Lançamento excluído', {
+      description: `${title} · ${formatCents(amount)}`,
+      duration: 8000,
+      action: {
+        label: 'Desfazer',
+        onClick: () => {
+          ;(isPurchase ? restorePurchase : restoreTransaction)
+            .mutateAsync(id)
+            .then(() => toast.success(isPurchase ? 'Compra restaurada' : 'Lançamento restaurado'))
+            .catch((error: unknown) => toast.error(messageOf(error)))
+        },
+      },
+    })
+  }
+
+  return { run, isPending: deleteTransaction.isPending || deletePurchase.isPending }
+}
+
+function messageOf(error: unknown): string {
+  return error instanceof ApiError ? error.message : 'Não foi possível conectar. Tente novamente.'
+}
+
+// ---------------------------------------------------------------------------------------------
+// Edição. O escopo segue docs/fase-1.md, 2.2: fora do cartão tudo muda; compra à vista no cartão
+// muda valor, descrição e categoria; compra parcelada muda total, parcelas, descrição e
+// categoria; parcela isolada muda só descrição e categoria.
+
+type EditorProps = Common & { mode: Mode; onDone: () => void }
+
+function Editor(props: EditorProps) {
+  const { entry, mode } = props
+  if (mode.view === 'installment' && entry.kind === 'purchase') {
+    const installment = entry.installments.find((t) => t.id === mode.id)
+    if (installment) return <InstallmentForm {...props} transaction={installment} count={entry.installments.length} />
+  }
+  const kind: EditKind = editKind(entry)
+  if (kind === 'purchase' && entry.kind === 'purchase') return <PurchaseForm {...props} purchase={entry} />
+  if (entry.kind === 'single' && kind === 'card') return <CardForm {...props} transaction={entry.transaction} />
+  if (entry.kind === 'single') return <SimpleForm {...props} transaction={entry.transaction} />
+  return null
+}
+
+function EditShell({
+  title,
+  subtitle,
+  onBack,
+  submitting,
+  error,
+  formId,
+  children,
+}: {
+  title: string
+  subtitle?: string
+  onBack: () => void
+  submitting: boolean
+  error?: string
+  formId: string
+  children: ReactNode
+}) {
+  return (
+    <>
+      <header className="flex shrink-0 items-center gap-2 px-2 pt-1 pb-2">
+        <Button variant="ghost" size="icon" className="rounded-full" aria-label="Voltar" onClick={onBack}>
+          <ArrowLeft />
+        </Button>
+        <div className="flex min-w-0 flex-col">
+          <SheetTitle className="truncate text-base font-medium">{title}</SheetTitle>
+          {subtitle && <SheetDescription className="truncate text-xs">{subtitle}</SheetDescription>}
+        </div>
+      </header>
+      <div className="flex min-h-0 flex-col gap-6 overflow-y-auto overscroll-contain px-4 pt-2 pb-6">
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        {children}
+      </div>
+      <footer className="shrink-0 border-t border-border/60 bg-background/90 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
+        <Button type="submit" form={formId} size="lg" disabled={submitting} className="h-12 w-full rounded-2xl text-base">
+          {submitting ? 'Salvando…' : 'Salvar alterações'}
+        </Button>
+      </footer>
+    </>
+  )
+}
+
+function DescriptionField({
+  field,
+  value,
+  category,
+  error,
+}: {
+  field: UseFormRegisterReturn<'description'>
+  value: string
+  category: { name: string; icon: string | null; color: string | null } | undefined
+  error?: string
+}) {
+  return (
+    <Section title="Descrição">
+      <label className="flex items-center gap-3 rounded-2xl border bg-card py-2 pr-3 pl-2 focus-within:ring-2 focus-within:ring-ring/50">
+        <EntryTile description={value} category={category} />
+        <input
+          placeholder="Ex.: Uber, iFood, Pão de Açúcar"
+          autoComplete="off"
+          className="h-10 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
+          {...field}
+        />
+      </label>
+      <FieldError message={error} />
+    </Section>
+  )
+}
+
+function Note({ children }: { children: ReactNode }) {
+  return <p className="rounded-2xl bg-muted/60 px-4 py-3 text-xs leading-relaxed text-muted-foreground">{children}</p>
+}
+
+const description = z.string().max(200, 'A descrição deve ter no máximo 200 caracteres.')
+
+// Depois de salvar, volta aos detalhes (que leem a lista recarregada).
+function useSaved(onDone: () => void) {
+  return () => {
+    toast.success('Alterações salvas')
+    onDone()
+  }
+}
+
+const simpleSchema = z.object({
+  type: z.enum(['Expense', 'Income']),
+  amountCents: z.number().int().min(1, 'Informe o valor.'),
+  accountId: z.string().min(1, 'Escolha a conta.'),
+  categoryId: z.string(),
+  method: z.enum(['Pix', 'Debit', 'Credit', 'Boleto', 'Cash', 'Ted']),
+  purchaseDate: z.string().min(1, 'Informe a data.'),
+  description,
+})
+
+function SimpleForm({ transaction, accounts, categories, onDone, onClose, onMoved }: EditorProps & { transaction: Transaction }) {
+  const update = useUpdateTransaction()
+  const saved = useSaved(onDone)
+  const form = useForm<z.infer<typeof simpleSchema>>({
+    resolver: zodResolver(simpleSchema),
+    defaultValues: {
+      type: transaction.type === 'Income' ? 'Income' : 'Expense',
+      amountCents: transaction.amountCents,
+      accountId: transaction.accountId,
+      categoryId: transaction.categoryId ?? '',
+      method: transaction.method,
+      purchaseDate: transaction.purchaseDate,
+      description: transaction.description,
+    },
+  })
+  const { errors, isSubmitting } = form.formState
+  const [type, amountCents, accountId, categoryId, method, purchaseDate, text] = useWatch({
+    control: form.control,
+    name: ['type', 'amountCents', 'accountId', 'categoryId', 'method', 'purchaseDate', 'description'],
+  })
+  const set = <K extends Path<z.infer<typeof simpleSchema>>>(field: K, value: PathValue<z.infer<typeof simpleSchema>, K>) =>
+    form.setValue(field, value, { shouldValidate: form.formState.isSubmitted })
+
+  // Cartão tem edição própria (a compra no cartão); aqui só contas fora do cartão.
+  const choices = accounts.filter((a) => a.type !== 'CreditCard' && (a.isActive || a.id === transaction.accountId))
+  const roots = categories.filter((c) => c.type === type)
+  const { root: selectedRoot, label } = resolveCategory(roots, categoryId)
+
+  // Categoria de receita não serve para despesa, e vice-versa.
+  useEffect(() => {
+    if (categoryId && !selectedRoot) form.setValue('categoryId', '')
+  }, [categoryId, selectedRoot, form])
+
+  const submit = form.handleSubmit(async (values) => {
+    try {
+      await update.mutateAsync({
+        id: transaction.id,
+        body: {
+          accountId: values.accountId,
+          type: values.type,
+          amountCents: values.amountCents,
+          purchaseDate: values.purchaseDate,
+          categoryId: values.categoryId || null,
+          method: values.method,
+          description: values.description.trim() || null,
+        },
+      })
+      const moved = monthOf(values.purchaseDate)
+      const before = monthOf(transaction.purchaseDate)
+      if (moved.year !== before.year || moved.month !== before.month) {
+        toast.success('Alterações salvas', { description: `Lançamento movido para ${formatShortDate(values.purchaseDate)}.` })
+        onClose()
+        onMoved(moved)
+      } else saved()
+    } catch (error) {
+      form.setError('root', { message: messageOf(error) })
+    }
+  })
+
+  return (
+    <EditShell title="Editar lançamento" onBack={onDone} submitting={isSubmitting} error={errors.root?.message} formId="edit-entry">
+      <form id="edit-entry" onSubmit={submit} noValidate className="contents">
+        <div className="flex flex-col items-center gap-4">
+          <TypeToggle value={type} incomeDisabled={false} onChange={(value) => set('type', value)} />
+          <AmountField value={amountCents} onChange={(c) => set('amountCents', c)} income={type === 'Income'} error={errors.amountCents?.message} compact />
+        </div>
+        <DescriptionField field={form.register('description')} value={text} category={label} error={errors.description?.message} />
+        <Section title="Conta">
+          <ChipRow>
+            {choices.map((a) => (
+              <Chip key={a.id} selected={a.id === accountId} onClick={() => set('accountId', a.id)}>
+                <AccountTile name={a.name} type={a.type} size="sm" />
+                {a.name}
+              </Chip>
+            ))}
+          </ChipRow>
+        </Section>
+        <Section title="Categoria">
+          <CategoryPicker roots={roots} value={categoryId} onChange={(id) => set('categoryId', id)} />
+        </Section>
+        <Section title="Data">
+          <DateChooser value={purchaseDate} onChange={(date) => set('purchaseDate', date)} error={errors.purchaseDate?.message} />
+        </Section>
+        <Section title="Pagamento">
+          <ChipRow>
+            {simpleMethods.map((m) => (
+              <Chip key={m} selected={m === method} onClick={() => set('method', m)}>
+                {paymentMethodLabels[m]}
+              </Chip>
+            ))}
+          </ChipRow>
+        </Section>
+      </form>
+    </EditShell>
+  )
+}
+
+const cardSchema = z.object({
+  amountCents: z.number().int().min(1, 'Informe o valor.'),
+  categoryId: z.string(),
+  description,
+})
+
+// Compra à vista no cartão: valor, descrição e categoria. Conta, data e meio seguem os da compra.
+function CardForm({ transaction, categories, onDone }: EditorProps & { transaction: Transaction }) {
+  const update = useUpdateTransaction()
+  const saved = useSaved(onDone)
+  const form = useForm<z.infer<typeof cardSchema>>({
+    resolver: zodResolver(cardSchema),
+    defaultValues: {
+      amountCents: transaction.amountCents,
+      categoryId: transaction.categoryId ?? '',
+      description: transaction.description,
+    },
+  })
+  const { errors, isSubmitting } = form.formState
+  const [amountCents, categoryId, text] = useWatch({ control: form.control, name: ['amountCents', 'categoryId', 'description'] })
+  const roots = categories.filter((c) => c.type === 'Expense')
+  const { label } = resolveCategory(roots, categoryId)
+
+  const submit = form.handleSubmit(async (values) => {
+    try {
+      await update.mutateAsync({ id: transaction.id, body: sameAs(transaction, values.categoryId, values.description, values.amountCents) })
+      saved()
+    } catch (error) {
+      form.setError('root', { message: messageOf(error) })
+    }
+  })
+
+  return (
+    <EditShell title="Editar compra no cartão" onBack={onDone} submitting={isSubmitting} error={errors.root?.message} formId="edit-card">
+      <form id="edit-card" onSubmit={submit} noValidate className="contents">
+        <AmountField
+          value={amountCents}
+          onChange={(c) => form.setValue('amountCents', c, { shouldValidate: form.formState.isSubmitted })}
+          income={false}
+          error={errors.amountCents?.message}
+          compact
+        />
+        <DescriptionField field={form.register('description')} value={text} category={label} error={errors.description?.message} />
+        <Section title="Categoria">
+          <CategoryPicker roots={roots} value={categoryId} onChange={(id) => form.setValue('categoryId', id)} />
+        </Section>
+        <Note>Conta, data e meio de pagamento de uma compra no cartão não mudam. Para trocá-los, exclua e lance de novo.</Note>
+      </form>
+    </EditShell>
+  )
+}
+
+const purchaseSchema = z.object({
+  totalCents: z.number().int().min(1, 'Informe o valor.'),
+  installments: z.number().int().min(1).max(maxInstallments),
+  categoryId: z.string(),
+  description,
+})
+
+// Compra parcelada inteira: o total é redistribuído entre as parcelas não pagas (docs/fase-1.md, 2.2).
+function PurchaseForm({ purchase, categories, onDone }: EditorProps & { purchase: Extract<Entry, { kind: 'purchase' }> }) {
+  const update = useUpdatePurchase()
+  const saved = useSaved(onDone)
+  const first = [...purchase.installments].sort(byNumber)[0]
+  const form = useForm<z.infer<typeof purchaseSchema>>({
+    resolver: zodResolver(purchaseSchema.refine((v) => v.totalCents >= v.installments, {
+      message: 'O valor total deve ter ao menos 1 centavo por parcela.',
+      path: ['totalCents'],
+    })),
+    defaultValues: {
+      totalCents: purchase.totalCents,
+      installments: purchase.installments.length,
+      categoryId: first.categoryId ?? '',
+      description: first.description,
+    },
+  })
+  const { errors, isSubmitting } = form.formState
+  const [totalCents, installments, categoryId, text] = useWatch({
+    control: form.control,
+    name: ['totalCents', 'installments', 'categoryId', 'description'],
+  })
+  const roots = categories.filter((c) => c.type === 'Expense')
+  const { label } = resolveCategory(roots, categoryId)
+  const set = <K extends Path<z.infer<typeof purchaseSchema>>>(field: K, value: PathValue<z.infer<typeof purchaseSchema>, K>) =>
+    form.setValue(field, value, { shouldValidate: form.formState.isSubmitted })
+
+  const submit = form.handleSubmit(async (values) => {
+    try {
+      await update.mutateAsync({
+        id: purchase.purchaseId,
+        body: {
+          totalAmountCents: values.totalCents,
+          installmentCount: values.installments,
+          categoryId: values.categoryId || null,
+          description: values.description.trim() || null,
+        },
+      })
+      saved()
+    } catch (error) {
+      form.setError('root', { message: messageOf(error) })
+    }
+  })
+
+  return (
+    <EditShell
+      title="Editar compra parcelada"
+      subtitle={`Comprada em ${formatLongDate(first.purchaseDate)}`}
+      onBack={onDone}
+      submitting={isSubmitting}
+      error={errors.root?.message}
+      formId="edit-purchase"
+    >
+      <form id="edit-purchase" onSubmit={submit} noValidate className="contents">
+        <AmountField label="Valor total" value={totalCents} onChange={(c) => set('totalCents', c)} income={false} error={errors.totalCents?.message} compact />
+        <Section
+          title="Parcelas"
+          aside={installments > 1 && totalCents >= installments ? describeInstallments(totalCents, installments) : undefined}
+        >
+          <ChipRow>
+            {Array.from({ length: maxInstallments }, (_, i) => i + 1).map((n) => (
+              <Chip key={n} selected={n === installments} onClick={() => set('installments', n)} className="tabular-nums">
+                {n === 1 ? 'À vista' : `${n}x`}
+              </Chip>
+            ))}
+          </ChipRow>
+        </Section>
+        <DescriptionField field={form.register('description')} value={text} category={label} error={errors.description?.message} />
+        <Section title="Categoria">
+          <CategoryPicker roots={roots} value={categoryId} onChange={(id) => set('categoryId', id)} />
+        </Section>
+        <Note>
+          O total é dividido de novo entre as parcelas ainda não pagas, sem perder centavo. Parcela em fatura paga mantém o
+          valor. A data da compra não muda.
+        </Note>
+      </form>
+    </EditShell>
+  )
+}
+
+const installmentSchema = z.object({ categoryId: z.string(), description })
+
+// Parcela isolada: só descrição e categoria. Valor e data mudam pela compra inteira.
+function InstallmentForm({
+  transaction,
+  count,
+  categories,
+  onDone,
+}: EditorProps & { transaction: Transaction; count: number }) {
+  const update = useUpdateTransaction()
+  const saved = useSaved(onDone)
+  const form = useForm<z.infer<typeof installmentSchema>>({
+    resolver: zodResolver(installmentSchema),
+    defaultValues: { categoryId: transaction.categoryId ?? '', description: transaction.description },
+  })
+  const { errors, isSubmitting } = form.formState
+  const [categoryId, text] = useWatch({ control: form.control, name: ['categoryId', 'description'] })
+  const roots = categories.filter((c) => c.type === 'Expense')
+  const { label } = resolveCategory(roots, categoryId)
+
+  const submit = form.handleSubmit(async (values) => {
+    try {
+      await update.mutateAsync({ id: transaction.id, body: sameAs(transaction, values.categoryId, values.description) })
+      saved()
+    } catch (error) {
+      form.setError('root', { message: messageOf(error) })
+    }
+  })
+
+  return (
+    <EditShell
+      title={`Parcela ${transaction.installmentNumber} de ${count}`}
+      subtitle={`${formatCents(transaction.amountCents)} · vence ${formatShortDate(transaction.settlementDate)}`}
+      onBack={onDone}
+      submitting={isSubmitting}
+      error={errors.root?.message}
+      formId="edit-installment"
+    >
+      <form id="edit-installment" onSubmit={submit} noValidate className="contents">
+        <DescriptionField field={form.register('description')} value={text} category={label} error={errors.description?.message} />
+        <Section title="Categoria">
+          <CategoryPicker roots={roots} value={categoryId} onChange={(id) => form.setValue('categoryId', id)} />
+        </Section>
+        <Note>Muda só esta parcela. Valor e número de parcelas mudam pela compra inteira, para a soma continuar igual ao total.</Note>
+      </form>
+    </EditShell>
+  )
+}
+
+// PATCH de lançamento no cartão: conta, tipo, data e meio seguem os atuais (a API recusa mudança).
+function sameAs(t: Transaction, categoryId: string, text: string, amountCents = t.amountCents) {
+  return {
+    accountId: t.accountId,
+    type: t.type,
+    amountCents,
+    purchaseDate: t.purchaseDate,
+    categoryId: categoryId || null,
+    method: t.method,
+    description: text.trim() || null,
+  }
+}
