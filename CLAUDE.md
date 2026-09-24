@@ -51,11 +51,11 @@ Nada de código misto. `Transaction.SettlementDate` ao lado de `CreatedAt`, nunc
 |---|---|
 | Runtime | .NET 10 (LTS) |
 | API | ASP.NET Core Minimal APIs |
-| Auth | ASP.NET Core Identity + cookie `httpOnly` + Google OAuth |
-| ORM | EF Core 10 + Npgsql |
+| Auth | ASP.NET Core Identity + cookie `httpOnly` + rate limiter nativo do ASP.NET Core; Google OAuth adiado |
+| ORM | EF Core 10 + Npgsql + EFCore.NamingConventions (snake_case) + EF Core Design (migrations; `dotnet-ef` fixado em `dotnet-tools.json`) |
 | Banco | PostgreSQL 17 (Docker) |
 | Validação | FluentValidation |
-| Testes | xUnit + Shouldly + Testcontainers + NetArchTest + CsCheck |
+| Testes | xUnit + Shouldly + Testcontainers + NetArchTest + CsCheck + `Microsoft.AspNetCore.Mvc.Testing` (`WebApplicationFactory`) |
 | Frontend | React 19 + TypeScript + Vite |
 | UI | Tailwind CSS + shadcn/ui |
 | Estado de servidor | TanStack Query v5 |
@@ -149,6 +149,8 @@ Não são preferências. Quebrá-las gera erro de dinheiro que passa despercebid
 3. **Datas com `DateOnly`, fuso fixo em `America/Sao_Paulo`.** Nunca `DateTime.Now`
    ou `DateTime.UtcNow` no código de negócio: use a abstração `IClock`. Só `CreatedAt`
    e `UpdatedAt` usam `DateTime` em UTC.
+   - "Hoje" é `IClock.Today`, o dia civil em São Paulo. Nunca `DateOnly.FromDateTime(clock.UtcNow)`.
+   - Instante UTC para data de negócio: `SaoPauloTime.DateOf(utc)`.
 
 4. **Toda transação tem duas datas.**
    - `PurchaseDate`: quando aconteceu.
@@ -203,8 +205,12 @@ exemplos, declare a invariante e deixe a biblioteca testar milhares de entradas:
 **Integração por slice** (`Prisma.Api.Tests`) com Postgres real via Testcontainers.
 Cobrem endpoint, EF Core, constraints e query filters de ponta a ponta.
 
-**Arquitetura** (`Prisma.Architecture.Tests`) com NetArchTest: o domínio não
-referencia infraestrutura, e nenhum tipo fora de `IClock` usa `DateTime.Now`.
+**Arquitetura** (`Prisma.Architecture.Tests`): o domínio não referencia
+infraestrutura (NetArchTest), e nenhum tipo fora da implementação de
+`Prisma.Domain.IClock` lê o relógio do sistema: `DateTime.Now`/`UtcNow`/`Today` e
+`DateTimeOffset.Now`/`UtcNow`. Essa segunda regra inspeciona o IL com Mono.Cecil (que
+vem junto com o NetArchTest), porque o NetArchTest só enxerga dependência de tipo, não
+de membro.
 
 **Fixtures de parser** (Fase 4): arquivos reais de OFX e de fatura em PDF,
 anonimizados, com o resultado esperado versionado ao lado. Quando o banco mudar o
@@ -247,6 +253,20 @@ não precisa.** `Category` com nome e cor não merece teste unitário;
 ---
 
 ## 7. Comandos
+
+Configuração inicial, uma vez por máquina. A senha do Postgres fica no `.env` (lido
+pelo `docker compose`, que não enxerga JSON) e a connection string da API fica em
+User Secrets. Os dois precisam ter a mesma senha.
+
+```bash
+dotnet tool restore                                   # dotnet-ef na versão do repositório
+cp .env.example .env                                  # e troque a senha
+dotnet user-secrets set "ConnectionStrings:Default" \
+  "Host=localhost;Port=5432;Database=prisma;Username=prisma;Password=<senha do .env>" \
+  --project src/Prisma.Api
+```
+
+Dia a dia:
 
 ```bash
 docker compose up -d                                  # Postgres

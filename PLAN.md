@@ -29,7 +29,7 @@ Estas estão fechadas. Não reabrir sem conversa explícita.
 | Backend | .NET 10 + ASP.NET Core Minimal APIs + EF Core + PostgreSQL |
 | Frontend | React + TypeScript + Vite (escolhido pelo uso no celular e pelo PWA) |
 | Arquitetura | Vertical Slice + domínio rico isolado + CQRS leve |
-| Auth | ASP.NET Core Identity, cookie `httpOnly`, Google OAuth |
+| Auth | ASP.NET Core Identity, cookie `httpOnly`; Google OAuth adiado |
 | Idioma do código | Inglês |
 | Visão do dashboard | **Caixa**: gasto do cartão conta no mês do vencimento da fatura |
 | Dinheiro | `long` em centavos, sempre |
@@ -43,7 +43,7 @@ Estas estão fechadas. Não reabrir sem conversa explícita.
 
 | Fase | Objetivo | Detalhe |
 |---|---|---|
-| **0** | Fundação: solução, Docker, Postgres, testes de arquitetura | `docs/fase-0.md` |
+| **0** | Fundação: solução, Docker, Postgres, testes de arquitetura | concluída; as etapas no próprio `PLAN.md` bastaram |
 | **1** | Núcleo: auth, contas, categorias, transações, parcelamento, transferências | `docs/fase-1.md` |
 | **2** | Dashboard: receitas, despesas, sobra, investido, por categoria, comparativo mensal | a escrever |
 | **3** | Entrada inteligente: QR Code da NFC-e, CNPJ/CNAE, merchants, regras que aprendem | a escrever |
@@ -106,9 +106,8 @@ Detalhamento completo em `docs/fase-1.md`.
   *Pronto quando:* integração cobre cadastro, login com cookie, login com senha errada
   e rate limit disparando.
 
-- [ ] **1.4 Google OAuth**
-  *Pronto quando:* o fluxo funciona manualmente e a mesma pessoa, entrando por e-mail e
-  depois por Google, cai na mesma conta em vez de duplicar usuário.
+- **1.4 Google OAuth** — *adiada por decisão de produto, sem checkbox de propósito para
+  não travar o protocolo. Ver "Pendências de produto".*
 
 - [ ] **1.5 `Account` (CRUD)**
   Checking, CreditCard, Cash e Investment.
@@ -176,3 +175,15 @@ Decidir quando a fase correspondente chegar:
 - Acompanhar rentabilidade de investimento ou só aporte? (Fase 5 ou depois)
 - Onde hospedar e qual orçamento mensal. (antes de abrir cadastro público)
 - Política de privacidade e termos de uso, por causa da LGPD. (antes de abrir cadastro público)
+- Confirmação de e-mail no cadastro. Hoje o cadastro loga direto, sem confirmar; entra junto
+  com o envio de e-mail (recuperação de senha). (antes de abrir cadastro público)
+- Rate limit por IP depende do IP real do cliente: atrás de proxy reverso, configurar
+  `ForwardedHeaders`, senão todos os usuários dividem a mesma cota. (ao decidir a hospedagem)
+- Contador de senhas erradas não expira: o Identity só zera no login certo ou ao bloquear, então
+  erros espalhados no tempo acumulam. Proposta: janela de 15 min com coluna
+  `last_failed_login_at` e `IClock`, que não reduz a proteção contra força bruta. (antes de abrir cadastro público)
+- Login com Google (antiga etapa 1.4), adiado. Critério original: entrar por e-mail e depois
+  por Google cai na mesma conta. Atenção: sem confirmação de e-mail, juntar contas pelo
+  e-mail permite pré-sequestro de conta. Regra proposta: só juntar se o Google marcar o
+  e-mail como verificado; se a conta local nunca confirmou o e-mail, remover a senha e trocar
+  o `security_stamp` ao juntar. (quando o login social voltar à pauta)

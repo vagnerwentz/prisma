@@ -174,8 +174,8 @@ com mensagem sugerindo realocar antes.
 POST   /auth/register
 POST   /auth/login
 POST   /auth/logout
-GET    /auth/google               → redirect
-GET    /auth/google/callback
+GET    /auth/google               → redirect (adiado)
+GET    /auth/google/callback      (adiado)
 POST   /auth/forgot-password
 POST   /auth/reset-password
 GET    /auth/me
@@ -259,7 +259,7 @@ Escritos **junto** com a implementação; os de dinheiro e data, **antes** dela.
 
 Escopo mínimo, mobile-first. Código em inglês, textos em pt-BR.
 
-- Login e cadastro, com opção do Google.
+- Login e cadastro por e-mail e senha (login com Google adiado).
 - Lista de transações agrupada por dia, com valor em destaque.
 - Formulário de lançamento rápido: valor primeiro, depois conta, categoria e data já
   preenchida com hoje. Meta de **menos de 10 segundos** para lançar um gasto.
