@@ -35,7 +35,8 @@ public enum TransactionSource { Manual, OfxImport, PdfImport, Nfce }
 | `IsActive` | bool | conta inativa não aparece no lançamento rápido |
 
 **Invariantes:** `CreditCard` exige `ClosingDay` e `DueDay`; os demais tipos exigem que
-ambos sejam nulos. Mensagem de erro em pt-BR.
+ambos sejam nulos. Mensagem de erro em pt-BR. Conta com transações ativas não pode ser
+excluída (409, sugerindo mover as transações ou marcar a conta como inativa).
 
 ### Statement (fatura do cartão)
 
@@ -194,7 +195,7 @@ GET    /accounts/{id}/statements
 PATCH  /statements/{id}           → editar datas, recalcula SettlementDate
 POST   /statements/{id}/pay       → cria a transferência
 
-GET    /transactions              ?from=&to=&accountId=&categoryId=&search=
+GET    /transactions              ?from=&to=&accountId=&categoryId=&search=  (período pela PurchaseDate)
 POST   /transactions              → aceita Installments >= 1
 GET    /transactions/{id}
 PATCH  /transactions/{id}

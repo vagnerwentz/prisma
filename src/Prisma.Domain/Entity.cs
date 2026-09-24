@@ -13,4 +13,7 @@ public abstract class Entity
     public DateTime UpdatedAt { get; private set; }
 
     public DateTime? DeletedAt { get; private set; }
+
+    // Desfaz o soft delete. Quem pode ser restaurado decide expondo um método próprio.
+    protected void ClearDeletion() => DeletedAt = null;
 }

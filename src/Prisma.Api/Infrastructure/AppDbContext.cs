@@ -7,6 +7,7 @@ using Prisma.Domain;
 using Prisma.Domain.Accounts;
 using Prisma.Domain.Categories;
 using Prisma.Domain.Statements;
+using Prisma.Domain.Transactions;
 
 namespace Prisma.Api.Infrastructure;
 
@@ -27,6 +28,8 @@ public sealed class AppDbContext(
     public DbSet<Category> Categories => Set<Category>();
 
     public DbSet<Statement> Statements => Set<Statement>();
+
+    public DbSet<Transaction> Transactions => Set<Transaction>();
 
     // Lido pelo EF a cada consulta, não no momento em que o modelo é construído.
     private Guid CurrentUserId => currentUser.UserId;

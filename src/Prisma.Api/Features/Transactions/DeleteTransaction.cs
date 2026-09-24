@@ -3,26 +3,22 @@ using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Http;
 using Prisma.Domain;
 
-namespace Prisma.Api.Features.Accounts;
+namespace Prisma.Api.Features.Transactions;
 
-public static class DeleteAccount
+public static class DeleteTransaction
 {
     public sealed class Handler(AppDbContext db)
     {
-        // Remove vira soft delete no AppDbContext.
+        // Remove vira soft delete no AppDbContext; POST /transactions/{id}/restore desfaz.
         public async Task<Result<Guid>> Execute(Guid id, CancellationToken ct)
         {
-            var account = await db.Accounts.SingleOrDefaultAsync(a => a.Id == id, ct);
-            if (account is null)
-                return new Error(ErrorType.NotFound, "Conta não encontrada.");
+            var transaction = await db.Transactions.SingleOrDefaultAsync(t => t.Id == id, ct);
+            if (transaction is null)
+                return new Error(ErrorType.NotFound, "Transação não encontrada.");
 
-            var activeTransactions = await db.Transactions.CountAsync(t => t.AccountId == id, ct);
-            if (account.CheckCanDelete(activeTransactions) is { } error)
-                return error;
-
-            db.Accounts.Remove(account);
+            db.Transactions.Remove(transaction);
             await db.SaveChangesAsync(ct);
-            return account.Id;
+            return transaction.Id;
         }
     }
 

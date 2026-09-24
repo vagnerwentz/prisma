@@ -131,13 +131,23 @@ public sealed class CategoryTests
     }
 
     [Fact]
-    public void Category_without_subcategories_can_be_deleted() =>
-        Root().CheckCanDelete(activeSubcategoryCount: 0).ShouldBeNull();
+    public void Category_without_subcategories_or_transactions_can_be_deleted() =>
+        Root().CheckCanDelete(activeSubcategoryCount: 0, activeTransactionCount: 0).ShouldBeNull();
+
+    [Fact]
+    public void Category_with_transactions_cannot_be_deleted()
+    {
+        var error = Root().CheckCanDelete(activeSubcategoryCount: 0, activeTransactionCount: 3);
+
+        error.ShouldNotBeNull();
+        error.Type.ShouldBe(ErrorType.Conflict);
+        error.Message.ShouldBe("Esta categoria tem transações. Mova as transações para outra categoria antes de excluir.");
+    }
 
     [Fact]
     public void Category_with_subcategories_cannot_be_deleted()
     {
-        var error = Root().CheckCanDelete(activeSubcategoryCount: 2);
+        var error = Root().CheckCanDelete(activeSubcategoryCount: 2, activeTransactionCount: 0);
 
         error.ShouldNotBeNull();
         error.Type.ShouldBe(ErrorType.Conflict);

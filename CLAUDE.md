@@ -166,7 +166,9 @@ Não são preferências. Quebrá-las gera erro de dinheiro que passa despercebid
 
 6. **Isolamento por usuário é automático.** Toda entidade tem `UserId` e o
    `AppDbContext` aplica Global Query Filter. Nunca escreva o filtro à mão e nunca use
-   `IgnoreQueryFilters()` fora de seed e migration.
+   `IgnoreQueryFilters()` fora de seed e migration. Única exceção: restaurar registro excluído usa
+   `IgnoreQueryFilters([AppDbContext.SoftDeleteFilter])`, que ignora só o filtro de exclusão.
+   O filtro de dono (`OwnerFilter`) nunca é ignorado; teste de arquitetura garante.
 
 7. **Exclusão é soft delete** (`DeletedAt` + filtro global), para permitir desfazer.
 

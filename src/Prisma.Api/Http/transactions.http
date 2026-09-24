@@ -1,0 +1,133 @@
+# Transações simples (receita e despesa fora do cartão). Exige sessão: rode antes o Login
+# de auth.http. A primeira requisição cria uma conta corrente e guarda os ids necessários.
+# SettlementDate é sempre igual a PurchaseDate aqui; o cartão entra na etapa 1.9.
+
+### Preparação: criar uma conta corrente
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{
+  "name": "Conta para transações",
+  "type": "Checking",
+  "initialBalanceCents": 0
+}
+
+> {% client.global.set("txAccountId", response.body.id); %}
+
+### Preparação: guardar ids de categorias padrão
+GET {{baseUrl}}/categories
+
+> {%
+    const food = response.body.find(c => c.type === "Expense" && c.name === "Alimentação");
+    client.global.set("foodId", food.id);
+    client.global.set("bakeryId", food.subcategories.find(s => s.name === "Padaria").id);
+    client.global.set("salaryId", response.body.find(c => c.type === "Income" && c.name === "Salário").id);
+%}
+
+### Criar despesa no Pix (201; settlementDate = purchaseDate)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "accountId": "{{txAccountId}}",
+  "type": "Expense",
+  "amountCents": 4590,
+  "purchaseDate": "2026-03-10",
+  "categoryId": "{{bakeryId}}",
+  "method": "Pix",
+  "description": "Pão de queijo"
+}
+
+> {% client.global.set("transactionId", response.body.id); %}
+
+### Criar receita por TED
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "accountId": "{{txAccountId}}",
+  "type": "Income",
+  "amountCents": 850000,
+  "purchaseDate": "2026-03-05",
+  "categoryId": "{{salaryId}}",
+  "method": "Ted",
+  "description": "Salário de março"
+}
+
+### Listar tudo (mais recentes primeiro)
+GET {{baseUrl}}/transactions
+
+### Listar março, só Alimentação (inclui subcategorias), buscando "queijo"
+GET {{baseUrl}}/transactions?from=2026-03-01&to=2026-03-31&categoryId={{foodId}}&search=queijo
+
+### Detalhar
+GET {{baseUrl}}/transactions/{{transactionId}}
+
+### Editar (envie todos os campos editáveis)
+PATCH {{baseUrl}}/transactions/{{transactionId}}
+Content-Type: application/json
+
+{
+  "accountId": "{{txAccountId}}",
+  "type": "Expense",
+  "amountCents": 5200,
+  "purchaseDate": "2026-03-12",
+  "categoryId": "{{bakeryId}}",
+  "method": "Debit",
+  "description": "Pão de queijo e café"
+}
+
+### Erro: excluir categoria com transações (409)
+DELETE {{baseUrl}}/categories/{{bakeryId}}
+
+### Erro: excluir conta com transações (409)
+DELETE {{baseUrl}}/accounts/{{txAccountId}}
+
+### Excluir (204, soft delete: some da listagem)
+DELETE {{baseUrl}}/transactions/{{transactionId}}
+
+### Restaurar (200, volta para a listagem)
+POST {{baseUrl}}/transactions/{{transactionId}}/restore
+
+### Erro: restaurar o que não está excluído (404)
+POST {{baseUrl}}/transactions/{{transactionId}}/restore
+
+### Erro: valor zero (400)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "accountId": "{{txAccountId}}",
+  "type": "Expense",
+  "amountCents": 0,
+  "purchaseDate": "2026-03-10",
+  "method": "Pix"
+}
+
+### Erro: categoria de receita numa despesa (400)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "accountId": "{{txAccountId}}",
+  "type": "Expense",
+  "amountCents": 1000,
+  "purchaseDate": "2026-03-10",
+  "categoryId": "{{salaryId}}",
+  "method": "Pix"
+}
+
+### Erro: pagamento no crédito fora do cartão (400)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "accountId": "{{txAccountId}}",
+  "type": "Expense",
+  "amountCents": 1000,
+  "purchaseDate": "2026-03-10",
+  "method": "Credit"
+}
+
+### Erro: período invertido (400)
+GET {{baseUrl}}/transactions?from=2026-04-01&to=2026-03-01

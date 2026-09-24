@@ -1,0 +1,32 @@
+using FluentValidation;
+
+namespace Prisma.Api.Features.Transactions;
+
+public static class TransactionsModule
+{
+    public static IServiceCollection AddTransactionFeatures(this IServiceCollection services)
+    {
+        services.AddScoped<ListTransactions.Handler>();
+        services.AddScoped<GetTransaction.Handler>();
+        services.AddScoped<CreateTransaction.Handler>();
+        services.AddScoped<UpdateTransaction.Handler>();
+        services.AddScoped<DeleteTransaction.Handler>();
+        services.AddScoped<RestoreTransaction.Handler>();
+
+        services.AddSingleton<IValidator<CreateTransaction.Request>, CreateTransaction.Validator>();
+        services.AddSingleton<IValidator<UpdateTransaction.Request>, UpdateTransaction.Validator>();
+
+        return services;
+    }
+
+    public static void MapTransactionEndpoints(this IEndpointRouteBuilder app)
+    {
+        var group = app.MapGroup("/transactions");
+        ListTransactions.Map(group);
+        GetTransaction.Map(group);
+        CreateTransaction.Map(group);
+        UpdateTransaction.Map(group);
+        DeleteTransaction.Map(group);
+        RestoreTransaction.Map(group);
+    }
+}

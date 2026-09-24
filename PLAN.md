@@ -125,10 +125,11 @@ Detalhamento completo em `docs/fase-1.md`.
   fechamento dia 31 em mês de 30 dias e em fevereiro, e datas editadas manualmente
   sobrescrevendo o cálculo automático.
 
-- [ ] **1.8 Transações simples (receita e despesa; Pix, débito, dinheiro)**
+- [x] **1.8 Transações simples (receita e despesa; Pix, débito, dinheiro)**
   *Pronto quando:* CRUD completo; `SettlementDate` igual a `PurchaseDate`; soft delete
   some da listagem e é restaurável. Excluir categoria (ou subcategoria) com transações
-  vinculadas é bloqueado, com mensagem sugerindo realocar antes (`docs/fase-1.md`, 2.4).
+  vinculadas é bloqueado, com mensagem sugerindo realocar antes (`docs/fase-1.md`, 2.4). Excluir
+  conta com transações também é bloqueado.
 
 - [ ] **1.9 Despesa no cartão e parcelamento**
   *Pronto quando:* compra em 10x gera 10 transações com `SettlementDate` no `Statement`

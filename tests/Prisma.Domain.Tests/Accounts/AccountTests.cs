@@ -144,4 +144,19 @@ public sealed class AccountTests
     public void Update_of_other_types_rejects_card_fields() =>
         ShouldFailWith(Checking().Update("Conta", 0, 5, 12, null, isActive: true),
             "Apenas cartão de crédito tem dia de fechamento e de vencimento.");
+
+    [Fact]
+    public void Account_without_transactions_can_be_deleted() =>
+        Checking().CheckCanDelete(activeTransactionCount: 0).ShouldBeNull();
+
+    [Fact]
+    public void Account_with_transactions_cannot_be_deleted()
+    {
+        var error = Checking().CheckCanDelete(activeTransactionCount: 1);
+
+        error.ShouldNotBeNull();
+        error.Type.ShouldBe(ErrorType.Conflict);
+        error.Message.ShouldBe(
+            "Esta conta tem transações. Mova ou exclua as transações antes, ou marque a conta como inativa.");
+    }
 }

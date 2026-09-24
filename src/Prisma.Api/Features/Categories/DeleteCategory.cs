@@ -15,9 +15,10 @@ public static class DeleteCategory
             if (category is null)
                 return new Error(ErrorType.NotFound, "Categoria não encontrada.");
 
-            // O filtro global já ignora subcategorias excluídas.
+            // O filtro global já ignora subcategorias e transações excluídas.
             var activeSubcategories = await db.Categories.CountAsync(c => c.ParentCategoryId == id, ct);
-            if (category.CheckCanDelete(activeSubcategories) is { } error)
+            var activeTransactions = await db.Transactions.CountAsync(t => t.CategoryId == id, ct);
+            if (category.CheckCanDelete(activeSubcategories, activeTransactions) is { } error)
                 return error;
 
             db.Categories.Remove(category);

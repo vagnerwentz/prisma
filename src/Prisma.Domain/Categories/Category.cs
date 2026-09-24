@@ -61,12 +61,18 @@ public sealed partial class Category : Entity
         return this;
     }
 
-    // A contagem vem da consulta; a decisão e a mensagem ficam aqui.
-    // Na 1.8 entra a verificação de transações vinculadas.
-    public Error? CheckCanDelete(int activeSubcategoryCount) =>
-        activeSubcategoryCount > 0
-            ? new Error(ErrorType.Conflict, "Esta categoria tem subcategorias. Exclua as subcategorias antes.")
-            : null;
+    // As contagens vêm da consulta; a decisão e as mensagens ficam aqui.
+    public Error? CheckCanDelete(int activeSubcategoryCount, int activeTransactionCount)
+    {
+        if (activeSubcategoryCount > 0)
+            return new Error(ErrorType.Conflict, "Esta categoria tem subcategorias. Exclua as subcategorias antes.");
+
+        if (activeTransactionCount > 0)
+            return new Error(ErrorType.Conflict,
+                "Esta categoria tem transações. Mova as transações para outra categoria antes de excluir.");
+
+        return null;
+    }
 
     private static Error? ValidateEditable(string? name, string? icon, string? color)
     {

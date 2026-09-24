@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Prisma.Api.Features.Accounts;
 using Prisma.Api.Features.Auth;
 using Prisma.Api.Features.Categories;
+using Prisma.Api.Features.Transactions;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Auth;
 using Prisma.Domain;
@@ -28,6 +29,7 @@ builder.Services.AddAuth(builder.Configuration);
 builder.Services.AddAuthFeatures();
 builder.Services.AddAccountFeatures();
 builder.Services.AddCategoryFeatures();
+builder.Services.AddTransactionFeatures();
 
 builder.Services.AddHealthChecks()
     .AddCheck<DatabaseHealthCheck>("database");
@@ -42,5 +44,6 @@ app.MapHealthChecks("/health").AllowAnonymous();
 app.MapAuthEndpoints();
 app.MapAccountEndpoints();
 app.MapCategoryEndpoints();
+app.MapTransactionEndpoints();
 
 app.Run();

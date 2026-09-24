@@ -51,6 +51,13 @@ public sealed class Account : Entity
         return this;
     }
 
+    // Para encerrar uma conta sem perder o histórico, o caminho é marcá-la como inativa.
+    public Error? CheckCanDelete(int activeTransactionCount) =>
+        activeTransactionCount > 0
+            ? new Error(ErrorType.Conflict,
+                "Esta conta tem transações. Mova ou exclua as transações antes, ou marque a conta como inativa.")
+            : null;
+
     private static Error? Validate(
         string? name, AccountType type, int? closingDay, int? dueDay, long? creditLimitCents)
     {
