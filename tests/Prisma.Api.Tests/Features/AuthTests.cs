@@ -10,13 +10,11 @@ namespace Prisma.Api.Tests.Features;
 [Collection(ApiCollection.Name)]
 public sealed class AuthTests(PostgresFixture postgres)
 {
-    private const string Password = "senha-forte-123";
+    private const string Password = PrismaApiFactory.Password;
 
     private sealed record UserResponse(Guid Id, string Email);
 
-    // Limite alto para que o rate limit não interfira nos testes que não tratam dele.
-    private PrismaApiFactory CreateFactory() =>
-        new(postgres.ConnectionString, new Dictionary<string, string> { ["RateLimiting:Auth:PermitLimit"] = "1000" });
+    private PrismaApiFactory CreateFactory() => new(postgres.ConnectionString);
 
     private static string NewEmail() => $"{Guid.NewGuid():N}@teste.com.br";
 
@@ -181,7 +179,7 @@ public sealed class AuthTests(PostgresFixture postgres)
     public async Task Rate_limit_blocks_the_sixth_attempt_within_a_minute()
     {
         // Sem sobrescrever o limite: verifica o valor padrão de produção (5 por minuto).
-        await using var factory = new PrismaApiFactory(postgres.ConnectionString);
+        await using var factory = new PrismaApiFactory(postgres.ConnectionString, settings: new Dictionary<string, string>());
         using var client = factory.CreateHttpsClient();
 
         for (var i = 0; i < 5; i++)

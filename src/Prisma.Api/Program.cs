@@ -1,4 +1,6 @@
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
+using Prisma.Api.Features.Accounts;
 using Prisma.Api.Features.Auth;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Auth;
@@ -16,9 +18,14 @@ builder.Services.AddDbContext<AppDbContext>(options => options
 
 builder.Services.AddSingleton<IClock, SystemClock>();
 
+// Enums trafegam como texto ("CreditCard"), nunca como número.
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false)));
+
 builder.Services.AddProblemDetails();
 builder.Services.AddAuth(builder.Configuration);
 builder.Services.AddAuthFeatures();
+builder.Services.AddAccountFeatures();
 
 builder.Services.AddHealthChecks()
     .AddCheck<DatabaseHealthCheck>("database");
@@ -31,5 +38,6 @@ app.UseRateLimiter();
 
 app.MapHealthChecks("/health").AllowAnonymous();
 app.MapAuthEndpoints();
+app.MapAccountEndpoints();
 
 app.Run();

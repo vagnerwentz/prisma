@@ -109,7 +109,7 @@ Detalhamento completo em `docs/fase-1.md`.
 - **1.4 Google OAuth** — *adiada por decisão de produto, sem checkbox de propósito para
   não travar o protocolo. Ver "Pendências de produto".*
 
-- [ ] **1.5 `Account` (CRUD)**
+- [x] **1.5 `Account` (CRUD)**
   Checking, CreditCard, Cash e Investment.
   *Pronto quando:* integração cobre criar, editar, listar e excluir; cartão sem
   `ClosingDay` é rejeitado com mensagem em pt-BR.
