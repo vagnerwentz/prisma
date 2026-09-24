@@ -81,7 +81,7 @@ Uma etapa que crescer demais deve ser quebrada em duas, com aviso antes.
   conectando, endpoint `/health` respondendo.
   *Pronto quando:* `docker compose up -d` sobe o banco e `/health` retorna 200.
 
-- [ ] **0.3 Testes de arquitetura**
+- [x] **0.3 Testes de arquitetura**
   NetArchTest verificando que `Prisma.Domain` não referencia EF Core, ASP.NET Core nem
   Npgsql, e que nenhum tipo fora de `IClock` usa `DateTime.Now`/`UtcNow`.
   *Pronto quando:* os testes passam e falham de verdade ao introduzir uma violação
