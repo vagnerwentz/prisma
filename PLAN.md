@@ -114,9 +114,11 @@ Detalhamento completo em `docs/fase-1.md`.
   *Pronto quando:* integração cobre criar, editar, listar e excluir; cartão sem
   `ClosingDay` é rejeitado com mensagem em pt-BR.
 
-- [ ] **1.6 `Category` e subcategorias, com seed padrão brasileiro**
+- [x] **1.6 `Category` e subcategorias, com seed padrão brasileiro**
   *Pronto quando:* novo usuário nasce com o conjunto padrão; editar e excluir funcionam;
-  excluir categoria com transações é bloqueado conforme `docs/fase-1.md`.
+  excluir categoria com subcategorias é bloqueado; nome repetido no mesmo nível (mesmo pai
+  e tipo, sem diferenciar maiúsculas) é recusado. O bloqueio por transações vinculadas foi
+  para a 1.8, porque a tabela de transações só nasce lá.
 
 - [ ] **1.7 `StatementCalculator` e entidade `Statement`** — *teste antes da implementação*
   *Pronto quando:* passam os casos de véspera, dia do fechamento, dia seguinte,
@@ -125,7 +127,8 @@ Detalhamento completo em `docs/fase-1.md`.
 
 - [ ] **1.8 Transações simples (receita e despesa; Pix, débito, dinheiro)**
   *Pronto quando:* CRUD completo; `SettlementDate` igual a `PurchaseDate`; soft delete
-  some da listagem e é restaurável.
+  some da listagem e é restaurável. Excluir categoria (ou subcategoria) com transações
+  vinculadas é bloqueado, com mensagem sugerindo realocar antes (`docs/fase-1.md`, 2.4).
 
 - [ ] **1.9 Despesa no cartão e parcelamento**
   *Pronto quando:* compra em 10x gera 10 transações com `SettlementDate` no `Statement`

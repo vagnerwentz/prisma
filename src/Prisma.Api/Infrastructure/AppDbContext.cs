@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Prisma.Api.Infrastructure.Auth;
 using Prisma.Domain;
 using Prisma.Domain.Accounts;
+using Prisma.Domain.Categories;
 
 namespace Prisma.Api.Infrastructure;
 
@@ -22,12 +23,16 @@ public sealed class AppDbContext(
 
     public DbSet<Account> Accounts => Set<Account>();
 
+    public DbSet<Category> Categories => Set<Category>();
+
     // Lido pelo EF a cada consulta, não no momento em que o modelo é construído.
     private Guid CurrentUserId => currentUser.UserId;
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+
+        builder.HasPostgresExtension("citext");
 
         // Nomes curtos em vez de asp_net_users etc. O snake_case vem da convenção global.
         builder.Entity<AppUser>().ToTable("users");

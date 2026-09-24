@@ -1,8 +1,10 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Identity;
+using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Auth;
 using Prisma.Api.Infrastructure.Http;
 using Prisma.Domain;
+using Prisma.Domain.Categories;
 
 namespace Prisma.Api.Features.Auth;
 
@@ -25,12 +27,19 @@ public static class Register
         }
     }
 
-    public sealed class Handler(UserManager<AppUser> users, SignInManager<AppUser> signIn)
+    public sealed class Handler(
+        AppDbContext db,
+        UserManager<AppUser> users,
+        SignInManager<AppUser> signIn,
+        IHttpContextAccessor httpContextAccessor)
     {
         public async Task<Result<Response>> Execute(Request req, CancellationToken ct)
         {
             var email = req.Email.Trim();
             var user = new AppUser { UserName = email, Email = email };
+
+            // Usuário e categorias padrão nascem juntos ou não nascem.
+            await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
             var created = await users.CreateAsync(user, req.Password);
             if (!created.Succeeded)
@@ -41,6 +50,14 @@ public static class Register
                 var message = string.Join(" ", created.Errors.Select(e => e.Description).Distinct());
                 return new Error(isDuplicate ? ErrorType.Conflict : ErrorType.Validation, message);
             }
+
+            // A partir daqui a requisição age como o novo usuário: o AppDbContext só aceita gravar
+            // entidades do usuário autenticado.
+            httpContextAccessor.HttpContext!.User = await signIn.CreateUserPrincipalAsync(user);
+
+            db.Categories.AddRange(DefaultCategories.CreateFor(user.Id));
+            await db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
 
             // Cadastro já entra logado: sem confirmação de e-mail por enquanto (ver PLAN.md).
             await signIn.SignInAsync(user, isPersistent: true);

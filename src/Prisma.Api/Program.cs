@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Prisma.Api.Features.Accounts;
 using Prisma.Api.Features.Auth;
+using Prisma.Api.Features.Categories;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Auth;
 using Prisma.Domain;
@@ -26,6 +27,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddAuth(builder.Configuration);
 builder.Services.AddAuthFeatures();
 builder.Services.AddAccountFeatures();
+builder.Services.AddCategoryFeatures();
 
 builder.Services.AddHealthChecks()
     .AddCheck<DatabaseHealthCheck>("database");
@@ -39,5 +41,6 @@ app.UseRateLimiter();
 app.MapHealthChecks("/health").AllowAnonymous();
 app.MapAuthEndpoints();
 app.MapAccountEndpoints();
+app.MapCategoryEndpoints();
 
 app.Run();
