@@ -93,7 +93,7 @@ Uma etapa que crescer demais deve ser quebrada em duas, com aviso antes.
 
 Detalhamento completo em `docs/fase-1.md`.
 
-- [ ] **1.1 Value Object `Money`** — *teste antes da implementação*
+- [x] **1.1 Value Object `Money`** — *teste antes da implementação*
   *Pronto quando:* teste de propriedade (CsCheck) prova que `SplitInto(n)` somado
   devolve o valor original para qualquer valor e qualquer n ≥ 1; exemplos
   R$ 100,00/3x → 3334+3333+3333 e R$ 0,01/2x → 1+0 passam.
