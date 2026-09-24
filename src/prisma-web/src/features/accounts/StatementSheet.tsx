@@ -1,4 +1,4 @@
-import { CalendarCog, Check, Undo2 } from 'lucide-react'
+import { CalendarClock, CalendarCog, Check, Lock, Undo2 } from 'lucide-react'
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { BottomSheet, SheetFooterBar } from '@/components/BottomSheet'
@@ -359,14 +359,23 @@ function messageOf(error: unknown): string {
 }
 
 // Sem verde/vermelho (CLAUDE.md, 7.1): aberta ganha o espectro; o resto é neutro.
+const statusIcons = { Fechada: Lock, Paga: Check, Futura: CalendarClock } as const
+
 export function StatusBadge({ status }: { status: StatementStatus }) {
+  const Icon = status === 'Aberta' ? null : statusIcons[status]
   return (
     <span
-      className={cn(
-        'rounded-full border px-2 py-0.5 text-[0.65rem] font-medium tracking-wide uppercase',
-        status === 'Aberta' ? 'spectrum-ring' : 'text-muted-foreground',
-      )}
+      data-status={status}
+      className="status-badge inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[0.68rem] leading-none font-semibold tracking-wider uppercase [&_svg]:size-3 [&_svg]:stroke-[2.5]"
     >
+      {Icon ? (
+        <Icon />
+      ) : (
+        <span className="relative flex size-1.5">
+          <span className="absolute inline-flex size-full animate-ping rounded-full bg-white/80" />
+          <span className="relative inline-flex size-1.5 rounded-full bg-white" />
+        </span>
+      )}
       {status}
     </span>
   )

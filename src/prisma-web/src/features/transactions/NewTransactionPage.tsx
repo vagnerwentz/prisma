@@ -279,22 +279,21 @@ function Composer({
           <DateChooser value={purchaseDate} onChange={(date) => set('purchaseDate', date)} error={errors.purchaseDate?.message} />
         </Section>
 
+        {/* Fechado, mostra a forma escolhida: dá para conferir sem abrir. */}
         <details className="group rounded-2xl border bg-card open:pb-4">
-          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium">
-            Mais opções
+          <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 text-sm">
+            <span className="text-muted-foreground">Pagamento</span>
+            <span className="ml-auto font-medium">{paymentMethodLabels[method]}</span>
             <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" />
           </summary>
-          <div className="flex flex-col gap-4 px-4">
-            <div className="flex flex-col gap-2">
-              <span className="text-xs font-medium text-muted-foreground">Pagamento</span>
-              <ChipRow>
-                {(isCard ? (['Credit'] as PaymentMethod[]) : simpleMethods).map((m) => (
-                  <Chip key={m} selected={m === method} onClick={() => set('method', m)}>
-                    {paymentMethodLabels[m]}
-                  </Chip>
-                ))}
-              </ChipRow>
-            </div>
+          <div className="px-4">
+            <ChipRow>
+              {(isCard ? (['Credit'] as PaymentMethod[]) : simpleMethods).map((m) => (
+                <Chip key={m} selected={m === method} onClick={() => set('method', m)}>
+                  {paymentMethodLabels[m]}
+                </Chip>
+              ))}
+            </ChipRow>
           </div>
         </details>
       </form>

@@ -253,7 +253,9 @@ POST   /transfers                 → transferência livre (sem cartão)
 ```
 
 Recurso de outro usuário retorna **404**, nunca 403: 403 confirmaria a existência do
-recurso.
+recurso. Id de outro usuário no corpo do pedido (conta, categoria, categoria pai) recebe a mesma
+resposta de um id inexistente. Filtrar a listagem pela conta, fatura ou categoria de outro usuário
+devolve lista vazia. `IsolationTests` (etapa 1.11) compara cada resposta com a de um id aleatório.
 
 Erros de negócio em `ProblemDetails`, com `detail` em pt-BR.
 

@@ -206,7 +206,7 @@ Detalhamento completo em `docs/fase-1.md`.
   `docs/fase-1.md`, 2.3. Tela: "Transferência" no lançamento rápido, "Pagar fatura" e
   "Desfazer pagamento" na fatura.
 
-- [ ] **1.11 Isolamento multiusuário**
+- [x] **1.11 Isolamento multiusuário**
   *Pronto quando:* integração com dois usuários prova que nenhum endpoint vaza dado do
   outro, inclusive em consulta por id direto (deve dar 404, não 403).
 

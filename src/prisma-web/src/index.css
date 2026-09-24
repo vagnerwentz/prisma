@@ -186,6 +186,28 @@
             var(--spectrum) border-box;
     }
 
+    /* Selo de status da fatura: cada status é uma faixa do espectro (nada de verde e vermelho).
+       Fundo e texto seguem os tons dos ladrilhos, então se ajustam ao tema sozinhos. */
+    .status-badge {
+        background: oklch(from var(--status) var(--tile-l) calc(var(--tile-c) * 1.6) h);
+        color: oklch(from var(--status) var(--tile-fg-l) var(--tile-fg-c) h);
+        box-shadow: inset 0 0 0 1px oklch(from var(--status) l c h / 0.45);
+    }
+    .status-badge[data-status="Fechada"] { --status: #f59e0b; }
+    .status-badge[data-status="Paga"] { --status: #22d3ee; }
+    .status-badge[data-status="Futura"] {
+        --status: #8b5cf6;
+        background: transparent;
+        box-shadow: none;
+        border: 1px dashed oklch(from var(--status) l c h / 0.6);
+    }
+    /* Aberta: a fatura viva, com o espectro frio de ponta a ponta. */
+    .status-badge[data-status="Aberta"] {
+        background: var(--spectrum-cool);
+        color: white;
+        box-shadow: 0 0 14px -3px #8b5cf6;
+    }
+
     .font-display {
         font-family: var(--font-display);
         font-weight: 400;
