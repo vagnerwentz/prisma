@@ -1,6 +1,7 @@
 using System.Reflection;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Prisma.Domain;
 using Shouldly;
 
 namespace Prisma.Architecture.Tests;
@@ -50,7 +51,7 @@ public sealed class ClockUsageTests
     {
         for (; type is not null; type = type.DeclaringType)
         {
-            if (type.Interfaces.Any(i => i.InterfaceType.Name == "IClock"))
+            if (type.Interfaces.Any(i => i.InterfaceType.FullName == typeof(IClock).FullName))
                 return true;
         }
 

@@ -98,7 +98,7 @@ Detalhamento completo em `docs/fase-1.md`.
   devolve o valor original para qualquer valor e qualquer n ≥ 1; exemplos
   R$ 100,00/3x → 3334+3333+3333 e R$ 0,01/2x → 1+0 passam.
 
-- [ ] **1.2 `IClock` e fuso**
+- [x] **1.2 `IClock` e fuso**
   *Pronto quando:* teste prova que uma compra às 23h30 em `America/Sao_Paulo` fica no
   mesmo dia, e o relógio é substituível nos testes.
 
