@@ -147,9 +147,11 @@ Detalhamento completo em `docs/fase-1.md`.
   gera os tipos; cadastro, login e logout funcionam pela tela, com os erros da API em pt-BR;
   rota protegida sem sessão leva ao login; `npm run build` passa sem erro de tipo.
 
-- [ ] **1.12b Frontend: lista de transações**
-  *Pronto quando:* lista agrupada por dia, valor em destaque, parcelas identificadas
-  ("3/10"); formatação de dinheiro (centavos → "R$ 1.234,56") coberta por teste.
+- [x] **1.12b Frontend: lista de transações**
+  *Pronto quando:* lista do mês agrupada por dia, valor em destaque; as parcelas de uma
+  compra aparecem numa linha só, com o total e o número de parcelas (todas têm a mesma
+  data da compra, então listá-las uma a uma repetiria a compra 10 vezes no mesmo dia);
+  formatação de dinheiro (centavos → "R$ 1.234,56") e de datas coberta por teste.
 
 - [ ] **1.12c Frontend: lançamento rápido**
   *Pronto quando:* formulário mobile-first (valor, conta, categoria, data já com hoje),

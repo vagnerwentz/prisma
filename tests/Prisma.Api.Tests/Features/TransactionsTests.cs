@@ -298,6 +298,22 @@ public sealed class TransactionsTests(PostgresFixture postgres)
             .StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
+    // Dinheiro só como número: o padrão web do ASP.NET aceitaria "4590" em texto.
+    [Fact]
+    public async Task Amount_sent_as_text_is_rejected()
+    {
+        var (factory, user) = await Start();
+        await using var _ = factory;
+        using var __ = user;
+
+        var response = await user.Client.PostAsync("/transactions", new StringContent(
+            $$"""{ "accountId": "{{user.CheckingId}}", "type": "Expense", "amountCents": "4590", "purchaseDate": "2026-03-10", "method": "Pix" }""",
+            System.Text.Encoding.UTF8, "application/json"));
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await List(user.Client)).ShouldBeEmpty();
+    }
+
     [Fact]
     public async Task Requires_authentication()
     {

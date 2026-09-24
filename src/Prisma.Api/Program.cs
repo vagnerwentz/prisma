@@ -22,9 +22,13 @@ builder.Services.AddDbContext<AppDbContext>(options => options
 
 builder.Services.AddSingleton<IClock, SystemClock>();
 
-// Enums trafegam como texto ("CreditCard"), nunca como número.
+// Enums trafegam como texto ("CreditCard"), nunca como número. Números só como número: o padrão
+// web aceitaria "12990" em texto para um valor em centavos.
 builder.Services.ConfigureHttpJsonOptions(options =>
-    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false)));
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false));
+    options.SerializerOptions.NumberHandling = JsonNumberHandling.Strict;
+});
 
 // Documento OpenAPI para gerar os tipos do frontend (npm run gen:api). Tipos aninhados como
 // Register.Response viram "RegisterResponse", para não colidirem entre si.

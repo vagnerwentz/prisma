@@ -11,11 +11,11 @@ public static class ListTransactions
     // O período filtra pela PurchaseDate: a lista mostra o que aconteceu em cada dia.
     // O dashboard (Fase 2) agrega pela SettlementDate.
     public sealed record Query(
-        [FromQuery] DateOnly? From,
-        [FromQuery] DateOnly? To,
-        [FromQuery] Guid? AccountId,
-        [FromQuery] Guid? CategoryId,
-        [FromQuery] string? Search);
+        [FromQuery(Name = "from")] DateOnly? From,
+        [FromQuery(Name = "to")] DateOnly? To,
+        [FromQuery(Name = "accountId")] Guid? AccountId,
+        [FromQuery(Name = "categoryId")] Guid? CategoryId,
+        [FromQuery(Name = "search")] string? Search);
 
     public sealed class Handler(AppDbContext db)
     {

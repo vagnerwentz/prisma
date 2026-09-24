@@ -657,11 +657,11 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
-                    From?: string;
-                    To?: string;
-                    AccountId?: string;
-                    CategoryId?: string;
-                    Search?: string;
+                    from?: string;
+                    to?: string;
+                    accountId?: string;
+                    categoryId?: string;
+                    search?: string;
                 };
                 header?: never;
                 path?: never;
@@ -920,13 +920,13 @@ export interface components {
             name: string;
             type: components["schemas"]["AccountType"];
             /** Format: int64 */
-            initialBalanceCents: number | string;
+            initialBalanceCents: number;
             /** Format: int32 */
-            closingDay: null | number | string;
+            closingDay: null | number;
             /** Format: int32 */
-            dueDay: null | number | string;
+            dueDay: null | number;
             /** Format: int64 */
-            creditLimitCents: null | number | string;
+            creditLimitCents: null | number;
             isActive: boolean;
         };
         /** @enum {unknown} */
@@ -945,13 +945,13 @@ export interface components {
             name: string;
             type: components["schemas"]["AccountType"];
             /** Format: int64 */
-            initialBalanceCents: number | string;
+            initialBalanceCents: number;
             /** Format: int32 */
-            closingDay: null | number | string;
+            closingDay: null | number;
             /** Format: int32 */
-            dueDay: null | number | string;
+            dueDay: null | number;
             /** Format: int64 */
-            creditLimitCents: null | number | string;
+            creditLimitCents: null | number;
         };
         CreateCategoryRequest: {
             name: string;
@@ -966,7 +966,7 @@ export interface components {
             accountId: string;
             type: components["schemas"]["TransactionType"];
             /** Format: int64 */
-            amountCents: number | string;
+            amountCents: number;
             /** Format: date */
             purchaseDate: string;
             /** Format: uuid */
@@ -974,13 +974,13 @@ export interface components {
             method: components["schemas"]["PaymentMethod"];
             description: null | string;
             /** Format: int32 */
-            installments: null | number | string;
+            installments: null | number;
         };
         HttpValidationProblemDetails: {
             type?: null | string;
             title?: null | string;
             /** Format: int32 */
-            status?: null | number | string;
+            status?: null | number;
             detail?: null | string;
             instance?: null | string;
             errors?: {
@@ -1007,7 +1007,7 @@ export interface components {
             isPaid: boolean;
             datesEditedManually: boolean;
             /** Format: int64 */
-            totalCents: number | string;
+            totalCents: number;
         };
         LoginRequest: {
             email: string;
@@ -1029,7 +1029,7 @@ export interface components {
             type?: null | string;
             title?: null | string;
             /** Format: int32 */
-            status?: null | number | string;
+            status?: null | number;
             detail?: null | string;
             instance?: null | string;
         };
@@ -1049,7 +1049,7 @@ export interface components {
             accountId: string;
             type: components["schemas"]["TransactionType"];
             /** Format: int64 */
-            amountCents: number | string;
+            amountCents: number;
             /** Format: date */
             purchaseDate: string;
             /** Format: date */
@@ -1064,7 +1064,7 @@ export interface components {
             /** Format: uuid */
             installmentPurchaseId: null | string;
             /** Format: int32 */
-            installmentNumber: null | number | string;
+            installmentNumber: null | number;
             /** Format: uuid */
             transferPairId: null | string;
             source: components["schemas"]["TransactionSource"];
@@ -1076,13 +1076,13 @@ export interface components {
         UpdateAccountRequest: {
             name: string;
             /** Format: int64 */
-            initialBalanceCents: number | string;
+            initialBalanceCents: number;
             /** Format: int32 */
-            closingDay: null | number | string;
+            closingDay: null | number;
             /** Format: int32 */
-            dueDay: null | number | string;
+            dueDay: null | number;
             /** Format: int64 */
-            creditLimitCents: null | number | string;
+            creditLimitCents: null | number;
             isActive: boolean;
         };
         UpdateCategoryRequest: {
@@ -1095,7 +1095,7 @@ export interface components {
             accountId: string;
             type: components["schemas"]["TransactionType"];
             /** Format: int64 */
-            amountCents: number | string;
+            amountCents: number;
             /** Format: date */
             purchaseDate: string;
             /** Format: uuid */
