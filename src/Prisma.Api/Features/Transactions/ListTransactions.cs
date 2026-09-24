@@ -66,5 +66,7 @@ public static class ListTransactions
         {
             var result = await handler.Execute(query, ct);
             return result.IsSuccess ? Results.Ok(result.Value) : result.Error.ToProblem();
-        });
+        })
+            .Produces<IReadOnlyList<TransactionResponse>>(200)
+            .ProducesProblem(400);
 }

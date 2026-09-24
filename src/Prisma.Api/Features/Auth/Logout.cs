@@ -10,5 +10,6 @@ public static class Logout
         {
             await signIn.SignOutAsync();
             return Results.NoContent();
-        });
+        })
+            .Produces(204);
 }

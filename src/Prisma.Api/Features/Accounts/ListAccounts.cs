@@ -17,5 +17,6 @@ public static class ListAccounts
 
     public static void Map(IEndpointRouteBuilder app) =>
         app.MapGet("/", async (Handler handler, CancellationToken ct) =>
-            Results.Ok(await handler.Execute(ct)));
+            Results.Ok(await handler.Execute(ct)))
+            .Produces<IReadOnlyList<AccountResponse>>(200);
 }

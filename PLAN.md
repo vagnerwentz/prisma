@@ -137,6 +137,26 @@ Detalhamento completo em `docs/fase-1.md`.
   seguintes; excluir a compra inteira remove todas as parcelas;
   `GET /accounts/{id}/statements` lista as faturas do cartão com o total de cada uma.
 
+> **Ordem alterada:** a 1.12 foi antecipada para antes da 1.9b, a pedido, para ver o produto
+> funcionando cedo. O backend já cobre o critério dela. A numeração ficou a original.
+
+- [x] **1.12a Frontend: base e autenticação**
+  Vite + React + TypeScript, Tailwind, shadcn/ui, TanStack Query, React Router, tipos gerados
+  do OpenAPI (`npm run gen:api`). Telas de cadastro e login; rota protegida.
+  *Pronto quando:* `npm run dev` sobe o frontend com proxy para a API; `npm run gen:api`
+  gera os tipos; cadastro, login e logout funcionam pela tela, com os erros da API em pt-BR;
+  rota protegida sem sessão leva ao login; `npm run build` passa sem erro de tipo.
+
+- [ ] **1.12b Frontend: lista de transações**
+  *Pronto quando:* lista agrupada por dia, valor em destaque, parcelas identificadas
+  ("3/10"); formatação de dinheiro (centavos → "R$ 1.234,56") coberta por teste.
+
+- [ ] **1.12c Frontend: lançamento rápido**
+  *Pronto quando:* formulário mobile-first (valor, conta, categoria, data já com hoje),
+  parcelas quando a conta for cartão; conversão do valor digitado para centavos coberta por
+  teste; dá para cadastrar, logar, lançar uma despesa parcelada no cartão e vê-la na lista,
+  tudo pelo celular (HTTPS na rede local, por causa do cookie `Secure`).
+
 - [ ] **1.9b Despesa no cartão e parcelamento: editar**
   *Pronto quando:* editar a parcela 3 não altera as demais; alterar o valor total ou o
   número de parcelas redistribui sem perder centavo; `PATCH /statements/{id}`: editar as
@@ -150,12 +170,6 @@ Detalhamento completo em `docs/fase-1.md`.
 - [ ] **1.11 Isolamento multiusuário**
   *Pronto quando:* integração com dois usuários prova que nenhum endpoint vaza dado do
   outro, inclusive em consulta por id direto (deve dar 404, não 403).
-
-- [ ] **1.12 Frontend: base, login e transações**
-  Vite, Tailwind, shadcn/ui, TanStack Query, tipos gerados do OpenAPI. Telas de login,
-  lista de transações e formulário de lançamento rápido, mobile-first.
-  *Pronto quando:* dá para cadastrar, logar, lançar uma despesa parcelada no cartão e
-  vê-la na lista, tudo pelo celular.
 
 ---
 
@@ -197,5 +211,8 @@ Decidir quando a fase correspondente chegar:
   e-mail permite pré-sequestro de conta. Regra proposta: só juntar se o Google marcar o
   e-mail como verificado; se a conta local nunca confirmou o e-mail, remover a senha e trocar
   o `security_stamp` ao juntar. (quando o login social voltar à pauta)
+- Em produção, a API precisa ficar sob `/api` (ex.: `UsePathBase`) para não colidir com as
+  rotas do SPA servido no mesmo domínio (`/transactions` é rota da API e da tela). Em
+  desenvolvimento o proxy do Vite remove o prefixo. (ao decidir a hospedagem)
 - Estorno no cartão (crédito que abate a fatura). Hoje o cartão aceita só despesa. (Fase 4,
   quando a importação de fatura trouxer estornos, ou antes se fizer falta)

@@ -47,5 +47,7 @@ public static class CreateAccount
                     ? Results.Created((string?)null, result.Value)
                     : result.Error.ToProblem();
             })
-            .AddEndpointFilter<ValidationFilter<Request>>();
+            .AddEndpointFilter<ValidationFilter<Request>>()
+            .Produces<AccountResponse>(201)
+            .ProducesValidationProblem();
 }

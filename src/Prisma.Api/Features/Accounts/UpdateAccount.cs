@@ -40,5 +40,8 @@ public static class UpdateAccount
         {
             var result = await handler.Execute(id, request, ct);
             return result.IsSuccess ? Results.Ok(result.Value) : result.Error.ToProblem();
-        });
+        })
+            .Produces<AccountResponse>(200)
+            .ProducesProblem(400)
+            .ProducesProblem(404);
 }

@@ -57,5 +57,8 @@ public static class UpdateTransaction
                 var result = await handler.Execute(id, request, ct);
                 return result.IsSuccess ? Results.Ok(result.Value) : result.Error.ToProblem();
             })
-            .AddEndpointFilter<ValidationFilter<Request>>();
+            .AddEndpointFilter<ValidationFilter<Request>>()
+            .Produces<TransactionResponse>(200)
+            .ProducesValidationProblem()
+            .ProducesProblem(404);
 }

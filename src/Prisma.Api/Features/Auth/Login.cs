@@ -54,5 +54,9 @@ public static class Login
             })
             .AllowAnonymous()
             .RequireRateLimiting(AuthSetup.RateLimitPolicy)
-            .AddEndpointFilter<ValidationFilter<Request>>();
+            .AddEndpointFilter<ValidationFilter<Request>>()
+            .Produces<Response>(200)
+            .ProducesValidationProblem()
+            .ProducesProblem(401)
+            .ProducesProblem(429);
 }

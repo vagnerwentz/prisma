@@ -31,5 +31,8 @@ public static class DeleteAccount
         {
             var result = await handler.Execute(id, ct);
             return result.IsSuccess ? Results.NoContent() : result.Error.ToProblem();
-        });
+        })
+            .Produces(204)
+            .ProducesProblem(404)
+            .ProducesProblem(409);
 }

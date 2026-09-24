@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.OpenApi;
 using Microsoft.EntityFrameworkCore;
 using Prisma.Api.Features.Accounts;
 using Prisma.Api.Features.Auth;
@@ -25,6 +26,13 @@ builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false)));
 
+// Documento OpenAPI para gerar os tipos do frontend (npm run gen:api). Tipos aninhados como
+// Register.Response viram "RegisterResponse", para não colidirem entre si.
+builder.Services.AddOpenApi(options => options.CreateSchemaReferenceId = type =>
+    type.Type.IsNested
+        ? $"{type.Type.DeclaringType!.Name}{type.Type.Name}"
+        : OpenApiOptions.CreateDefaultSchemaReferenceId(type));
+
 builder.Services.AddProblemDetails();
 builder.Services.AddAuth(builder.Configuration);
 builder.Services.AddAuthFeatures();
@@ -41,6 +49,9 @@ var app = builder.Build();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
+
+if (app.Environment.IsDevelopment())
+    app.MapOpenApi().AllowAnonymous();
 
 app.MapHealthChecks("/health").AllowAnonymous();
 app.MapAuthEndpoints();

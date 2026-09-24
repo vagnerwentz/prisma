@@ -30,5 +30,7 @@ public static class DeleteInstallmentPurchase
         {
             var result = await handler.Execute(id, ct);
             return result.IsSuccess ? Results.NoContent() : result.Error.ToProblem();
-        });
+        })
+            .Produces(204)
+            .ProducesProblem(404);
 }

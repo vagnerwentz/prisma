@@ -40,5 +40,7 @@ public static class ListStatements
         {
             var result = await handler.Execute(accountId, ct);
             return result.IsSuccess ? Results.Ok(result.Value) : result.Error.ToProblem();
-        });
+        })
+            .Produces<IReadOnlyList<StatementResponse>>(200)
+            .ProducesProblem(404);
 }

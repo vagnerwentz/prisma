@@ -50,13 +50,15 @@ Nada de código misto. `Transaction.SettlementDate` ao lado de `CreatedAt`, nunc
 | Camada | Tecnologia |
 |---|---|
 | Runtime | .NET 10 (LTS) |
-| API | ASP.NET Core Minimal APIs |
+| API | ASP.NET Core Minimal APIs + `Microsoft.AspNetCore.OpenApi` (documento em `/openapi/v1.json`, só em desenvolvimento) |
 | Auth | ASP.NET Core Identity + cookie `httpOnly` + rate limiter nativo do ASP.NET Core; Google OAuth adiado |
 | ORM | EF Core 10 + Npgsql + EFCore.NamingConventions (snake_case) + EF Core Design (migrations; `dotnet-ef` fixado em `dotnet-tools.json`) |
 | Banco | PostgreSQL 17 (Docker) |
 | Validação | FluentValidation |
 | Testes | xUnit + Shouldly + Testcontainers + NetArchTest + CsCheck + `Microsoft.AspNetCore.Mvc.Testing` (`WebApplicationFactory`) |
-| Frontend | React 19 + TypeScript + Vite |
+| Frontend | React 19 + TypeScript + Vite + React Router |
+| Cliente da API | `openapi-typescript` (tipos gerados) + `openapi-fetch` (chamadas tipadas) |
+| Testes do frontend | Vitest (formatação e conversão de dinheiro e data) |
 | UI | Tailwind CSS + shadcn/ui |
 | Estado de servidor | TanStack Query v5 |
 | Formulários | React Hook Form + Zod |
@@ -280,15 +282,19 @@ dotnet run --project src/Prisma.Api
 dotnet ef migrations add <Name> -p src/Prisma.Api -s src/Prisma.Api
 dotnet ef database update -p src/Prisma.Api -s src/Prisma.Api
 
-cd src/prisma-web && npm install && npm run dev
-npm run gen:api                                       # tipos TS a partir do OpenAPI
+cd src/prisma-web && npm install && npm run dev    # http://localhost:5173, proxy /api → API
+npm run gen:api       # tipos TS do OpenAPI; exige a API rodando (lê http://localhost:5151)
+npm run build         # checagem de tipos + build
+npm run lint          # oxlint
 ```
 
 Testes manuais: `src/Prisma.Api/Http/*.http` (HTTP Client do Rider), com a API rodando
 pelo perfil `https`. Rode o Login de `auth.http` antes dos demais: o Rider guarda o cookie
 de sessão. Ao criar ou mudar um endpoint, atualize o `.http` correspondente.
 
-Em desenvolvimento o Vite faz proxy para a API. Em produção o ASP.NET serve os
+Em desenvolvimento o Vite faz proxy para a API: o frontend chama `/api/...` e o proxy remove o
+prefixo. Rode o `npm run gen:api` sempre que um endpoint mudar, e versione o
+`src/lib/api-types.ts` gerado. Em produção o ASP.NET serve os
 estáticos do React **no mesmo domínio**, eliminando CORS e problemas de SameSite com o
 cookie de sessão.
 

@@ -28,5 +28,7 @@ public static class GetTransaction
         {
             var result = await handler.Execute(id, ct);
             return result.IsSuccess ? Results.Ok(result.Value) : result.Error.ToProblem();
-        });
+        })
+            .Produces<TransactionResponse>(200)
+            .ProducesProblem(404);
 }

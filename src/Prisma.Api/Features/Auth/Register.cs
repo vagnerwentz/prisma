@@ -75,5 +75,9 @@ public static class Register
             })
             .AllowAnonymous()
             .RequireRateLimiting(AuthSetup.RateLimitPolicy)
-            .AddEndpointFilter<ValidationFilter<Request>>();
+            .AddEndpointFilter<ValidationFilter<Request>>()
+            .Produces<Response>(201)
+            .ProducesValidationProblem()
+            .ProducesProblem(409)
+            .ProducesProblem(429);
 }

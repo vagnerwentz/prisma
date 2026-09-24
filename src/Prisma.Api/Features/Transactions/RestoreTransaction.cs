@@ -40,5 +40,8 @@ public static class RestoreTransaction
         {
             var result = await handler.Execute(id, ct);
             return result.IsSuccess ? Results.Ok(result.Value) : result.Error.ToProblem();
-        });
+        })
+            .Produces<TransactionResponse>(200)
+            .ProducesProblem(404)
+            .ProducesProblem(409);
 }

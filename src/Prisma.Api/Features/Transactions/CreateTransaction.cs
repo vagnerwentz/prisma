@@ -94,5 +94,7 @@ public static class CreateTransaction
                     ? Results.Created((string?)null, result.Value)
                     : result.Error.ToProblem();
             })
-            .AddEndpointFilter<ValidationFilter<Request>>();
+            .AddEndpointFilter<ValidationFilter<Request>>()
+            .Produces<IReadOnlyList<TransactionResponse>>(201)
+            .ProducesValidationProblem();
 }

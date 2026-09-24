@@ -31,5 +31,7 @@ public static class Me
         {
             var result = await handler.Execute(ct);
             return result.IsSuccess ? Results.Ok(result.Value) : result.Error.ToProblem();
-        });
+        })
+            .Produces<Response>(200)
+            .ProducesProblem(404);
 }

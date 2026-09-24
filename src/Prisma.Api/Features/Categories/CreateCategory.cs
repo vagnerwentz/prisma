@@ -63,5 +63,8 @@ public static class CreateCategory
                     ? Results.Created((string?)null, result.Value)
                     : result.Error.ToProblem();
             })
-            .AddEndpointFilter<ValidationFilter<Request>>();
+            .AddEndpointFilter<ValidationFilter<Request>>()
+            .Produces<CategoryResponse>(201)
+            .ProducesValidationProblem()
+            .ProducesProblem(409);
 }
