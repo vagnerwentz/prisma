@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Prisma.Api.Tests.Infrastructure;
 using Shouldly;
@@ -51,9 +52,10 @@ public sealed class CardPurchaseEditingTests(PostgresFixture postgres)
                 categoryId = categoryId ?? t.CategoryId, method = "Credit", description = description ?? t.Description,
             });
 
-        public Task<HttpResponseMessage> PatchPurchase(Guid purchaseId, long total, int count, Guid? categoryId = null, string description = "Notebook") =>
+        public Task<HttpResponseMessage> PatchPurchase(
+            Guid purchaseId, long total, int count, Guid? categoryId = null, string description = "Notebook", string date = "2026-03-10") =>
             Client.PatchAsJsonAsync($"/installment-purchases/{purchaseId}",
-                new { totalAmountCents = total, installmentCount = count, categoryId, description });
+                new { totalAmountCents = total, installmentCount = count, categoryId, description, purchaseDate = date });
 
         public void Dispose() => Client.Dispose();
     }
@@ -246,7 +248,7 @@ public sealed class CardPurchaseEditingTests(PostgresFixture postgres)
         var april = (await owner.Statements())[0];
 
         (await intruder.PatchAsJsonAsync($"/installment-purchases/{purchaseId}",
-            new { totalAmountCents = 1, installmentCount = 1 })).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+            new { totalAmountCents = 1, installmentCount = 1, purchaseDate = "2026-03-10" })).StatusCode.ShouldBe(HttpStatusCode.NotFound);
         (await intruder.PatchAsJsonAsync($"/statements/{april.Id}",
             new { closingDate = "2026-04-01", dueDate = "2026-04-02" })).StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
@@ -332,5 +334,80 @@ public sealed class CardPurchaseEditingTests(PostgresFixture postgres)
         (await intruder.PostAsync($"/installment-purchases/{purchaseId}/restore", null)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         (await owner.Transactions()).ShouldBeEmpty();
+    }
+
+    // Etapa 1.14b: mudar a data da compra no cartão.
+    [Fact]
+    public async Task Moving_a_single_card_purchase_changes_its_statement()
+    {
+        var (factory, s) = await Start();
+        await using var _ = factory;
+        using var __ = s;
+        var single = (await s.Buy(5590, 1, description: "Netflix"))[0];
+
+        var response = await s.Client.PatchAsJsonAsync($"/transactions/{single.Id}", new
+        {
+            accountId = s.CardId, type = "Expense", amountCents = 5590, purchaseDate = "2026-03-04",
+            method = "Credit", description = "Netflix",
+        });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var moved = (await s.Transactions()).Single();
+        moved.PurchaseDate.ShouldBe(new DateOnly(2026, 3, 4));
+        moved.SettlementDate.ShouldBe(new DateOnly(2026, 3, 12));
+        var statements = await s.Statements();
+        statements.Select(st => (st.Reference, st.TotalCents)).ShouldBe([("2026-03", 5590L), ("2026-04", 0L)]);
+    }
+
+    [Fact]
+    public async Task Moving_an_installment_purchase_moves_every_installment()
+    {
+        var (factory, s) = await Start();
+        await using var _ = factory;
+        using var __ = s;
+        var purchaseId = (await s.Buy(100000, 3))[0].InstallmentPurchaseId!.Value;
+
+        var response = await s.PatchPurchase(purchaseId, 100000, 3, date: "2026-05-10");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var after = await s.Transactions();
+        after.Select(t => t.SettlementDate).ShouldBe([new DateOnly(2026, 6, 12), new DateOnly(2026, 7, 12), new DateOnly(2026, 8, 12)]);
+        after.ShouldAllBe(t => t.PurchaseDate == new DateOnly(2026, 5, 10));
+        after.Sum(t => t.AmountCents).ShouldBe(100000);
+        (await s.Statements()).Where(st => st.TotalCents > 0).Select(st => st.Reference).ShouldBe(["2026-06", "2026-07", "2026-08"]);
+    }
+
+    [Fact]
+    public async Task Installment_date_changes_only_through_the_whole_purchase()
+    {
+        var (factory, s) = await Start();
+        await using var _ = factory;
+        using var __ = s;
+        var second = (await s.Buy(30000, 3)).Single(t => t.InstallmentNumber == 2);
+
+        var response = await s.Client.PatchAsJsonAsync($"/transactions/{second.Id}", new
+        {
+            accountId = s.CardId, type = "Expense", amountCents = second.AmountCents, purchaseDate = "2026-05-10",
+            method = "Credit", description = "Notebook",
+        });
+
+        await ShouldBeProblem(response, HttpStatusCode.BadRequest, "A data de uma parcela muda pela compra inteira.");
+    }
+
+    [Fact]
+    public async Task Purchase_edit_without_a_date_is_rejected()
+    {
+        var (factory, s) = await Start();
+        await using var _ = factory;
+        using var __ = s;
+        var purchaseId = (await s.Buy(30000, 3))[0].InstallmentPurchaseId!.Value;
+
+        var response = await s.Client.PatchAsJsonAsync($"/installment-purchases/{purchaseId}",
+            new { totalAmountCents = 30000, installmentCount = 3 });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>();
+        problem!.Errors["PurchaseDate"].ShouldContain("Informe a data da compra.");
+        (await s.Transactions()).ShouldAllBe(t => t.PurchaseDate == new DateOnly(2026, 3, 10));
     }
 }

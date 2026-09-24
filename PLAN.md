@@ -182,7 +182,7 @@ Detalhamento completo em `docs/fase-1.md`.
   *Feito:* o "Desfazer" da compra parcelada exigiu `POST /installment-purchases/{id}/restore`
   (`docs/fase-1.md`, 2.2), que volta só as parcelas excluídas junto com a compra.
 
-- [ ] **1.14b Mudar a data de compra no cartão** — *próxima*
+- [x] **1.14b Mudar a data de compra no cartão**
   Compra à vista e compra parcelada no cartão passam a aceitar nova data de compra: cada parcela
   é recalculada para a fatura do seu ciclo a partir da nova data, com `SettlementDate` igual ao
   vencimento dessa fatura; os valores não mudam. Recusado se alguma parcela estiver em fatura
@@ -191,7 +191,7 @@ Detalhamento completo em `docs/fase-1.md`.
   as parcelas se deslocando juntas, a soma inalterada e o bloqueio por fatura paga; a data é
   editável pela tela nos dois casos.
 
-- [ ] **1.15 Frontend: contas e cartões** — *depois da 1.14b*
+- [ ] **1.15 Frontend: contas e cartões** — *próxima*
   Detalhe do cartão com as faturas e edição de datas; editar e desativar contas; criar conta
   em painel.
 

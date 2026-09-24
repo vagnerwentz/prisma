@@ -27,11 +27,12 @@ public sealed class InstallmentPurchase : Entity
             PurchaseDate = purchaseDate,
         };
 
-    internal void Update(long totalAmountCents, int installmentCount, string description)
+    internal void Update(long totalAmountCents, int installmentCount, string description, DateOnly purchaseDate)
     {
         TotalAmountCents = totalAmountCents;
         InstallmentCount = installmentCount;
         Description = description;
+        PurchaseDate = purchaseDate;
     }
 
     internal void Restore() => ClearDeletion();

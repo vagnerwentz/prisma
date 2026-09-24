@@ -35,7 +35,7 @@ public sealed class CardPurchaseEditTests
 
         public Result<CardPurchaseEditResult> Edit(long total, int count, Category? category = null, string? description = "Notebook")
         {
-            var result = CardPurchase.Edit(Purchase, Card, Installments, Statements, total, count, category ?? Electronics, description);
+            var result = CardPurchase.Edit(Purchase, Card, Installments, Statements, total, count, category ?? Electronics, description, Purchase.PurchaseDate);
             if (result.IsSuccess)
             {
                 Installments.RemoveAll(t => result.Value.Removed.Contains(t));

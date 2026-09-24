@@ -1,3 +1,4 @@
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Prisma.Api.Features.Transactions;
 using Prisma.Api.Infrastructure;
@@ -10,8 +11,16 @@ namespace Prisma.Api.Features.InstallmentPurchases;
 
 public static class UpdateInstallmentPurchase
 {
-    // Todos os campos editáveis juntos, como nos demais PATCH. A data da compra não muda.
-    public sealed record Request(long TotalAmountCents, int InstallmentCount, Guid? CategoryId, string? Description);
+    // Todos os campos editáveis juntos, como nos demais PATCH. Mudar a data leva as parcelas para
+    // as faturas dos ciclos da nova data (etapa 1.14b).
+    public sealed record Request(
+        long TotalAmountCents, int InstallmentCount, Guid? CategoryId, string? Description, DateOnly PurchaseDate);
+
+    public sealed class Validator : AbstractValidator<Request>
+    {
+        public Validator() =>
+            RuleFor(x => x.PurchaseDate).NotEmpty().WithMessage("Informe a data da compra.");
+    }
 
     public sealed record Response(
         Guid Id,
@@ -45,16 +54,17 @@ public static class UpdateInstallmentPurchase
             var installments = await db.Transactions.Where(t => t.InstallmentPurchaseId == id).ToListAsync(ct);
 
             // As faturas das parcelas (para saber quais estão pagas) e as que podem receber
-            // parcelas novas: o cálculo parte de um ciclo antes do mês da compra.
+            // parcelas: o cálculo parte de um ciclo antes do mês da compra, antiga ou nova.
             var statementIds = installments.Select(t => t.StatementId).ToList();
-            var from = purchase.PurchaseDate.AddMonths(-2);
+            var earliest = req.PurchaseDate < purchase.PurchaseDate ? req.PurchaseDate : purchase.PurchaseDate;
+            var from = earliest.AddMonths(-2);
             var statements = await db.Statements
                 .Where(s => s.AccountId == card.Id && (s.ClosingDate >= from || statementIds.Contains(s.Id)))
                 .ToListAsync(ct);
 
             var edited = CardPurchase.Edit(
                 purchase, card, installments, statements, req.TotalAmountCents, req.InstallmentCount,
-                category, req.Description);
+                category, req.Description, req.PurchaseDate);
             if (!edited.IsSuccess)
                 return edited.Error;
 
@@ -80,7 +90,9 @@ public static class UpdateInstallmentPurchase
                 var result = await handler.Execute(id, request, ct);
                 return result.IsSuccess ? Results.Ok(result.Value) : result.Error.ToProblem();
             })
+            .AddEndpointFilter<ValidationFilter<Request>>()
             .Produces<Response>(200)
+            .ProducesValidationProblem()
             .ProducesProblem(400)
             .ProducesProblem(404)
             .ProducesProblem(409);

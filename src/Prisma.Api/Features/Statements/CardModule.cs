@@ -1,3 +1,4 @@
+using FluentValidation;
 using Prisma.Api.Features.InstallmentPurchases;
 
 namespace Prisma.Api.Features.Statements;
@@ -12,6 +13,7 @@ public static class CardModule
         services.AddScoped<DeleteInstallmentPurchase.Handler>();
         services.AddScoped<UpdateInstallmentPurchase.Handler>();
         services.AddScoped<RestoreInstallmentPurchase.Handler>();
+        services.AddSingleton<IValidator<UpdateInstallmentPurchase.Request>, UpdateInstallmentPurchase.Validator>();
         return services;
     }
 

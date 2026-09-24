@@ -371,9 +371,16 @@ function Note({ children }: { children: ReactNode }) {
 
 const description = z.string().max(200, 'A descrição deve ter no máximo 200 caracteres.')
 
-// Depois de salvar, volta aos detalhes (que leem a lista recarregada).
-function useSaved(onDone: () => void) {
-  return () => {
+// Depois de salvar, volta aos detalhes (que leem a lista recarregada). Se a data da compra foi
+// para outro mês, o lançamento sai da lista atual: fecha o painel e a lista vai para o novo mês.
+function useSaved({ onDone, onClose, onMoved }: Pick<EditorProps, 'onDone' | 'onClose' | 'onMoved'>) {
+  return (before?: string, after?: string) => {
+    if (before && after && before.slice(0, 7) !== after.slice(0, 7)) {
+      toast.success('Alterações salvas', { description: `Compra movida para ${formatShortDate(after)}.` })
+      onClose()
+      onMoved(monthOf(after))
+      return
+    }
     toast.success('Alterações salvas')
     onDone()
   }
@@ -391,7 +398,7 @@ const simpleSchema = z.object({
 
 function SimpleForm({ transaction, accounts, categories, onDone, onClose, onMoved }: EditorProps & { transaction: Transaction }) {
   const update = useUpdateTransaction()
-  const saved = useSaved(onDone)
+  const saved = useSaved({ onDone, onClose, onMoved })
   const form = useForm<z.infer<typeof simpleSchema>>({
     resolver: zodResolver(simpleSchema),
     defaultValues: {
@@ -436,13 +443,7 @@ function SimpleForm({ transaction, accounts, categories, onDone, onClose, onMove
           description: values.description.trim() || null,
         },
       })
-      const moved = monthOf(values.purchaseDate)
-      const before = monthOf(transaction.purchaseDate)
-      if (moved.year !== before.year || moved.month !== before.month) {
-        toast.success('Alterações salvas', { description: `Lançamento movido para ${formatShortDate(values.purchaseDate)}.` })
-        onClose()
-        onMoved(moved)
-      } else saved()
+      saved(transaction.purchaseDate, values.purchaseDate)
     } catch (error) {
       form.setError('root', { message: messageOf(error) })
     }
@@ -488,31 +489,40 @@ function SimpleForm({ transaction, accounts, categories, onDone, onClose, onMove
 
 const cardSchema = z.object({
   amountCents: z.number().int().min(1, 'Informe o valor.'),
+  purchaseDate: z.string().min(1, 'Informe a data.'),
   categoryId: z.string(),
   description,
 })
 
-// Compra à vista no cartão: valor, descrição e categoria. Conta, data e meio seguem os da compra.
-function CardForm({ transaction, categories, onDone }: EditorProps & { transaction: Transaction }) {
+// Compra à vista no cartão: valor, data, descrição e categoria. Conta e meio seguem os da compra;
+// a data nova leva a compra para a fatura do seu ciclo (etapa 1.14b).
+function CardForm({ transaction, categories, onDone, onClose, onMoved }: EditorProps & { transaction: Transaction }) {
   const update = useUpdateTransaction()
-  const saved = useSaved(onDone)
+  const saved = useSaved({ onDone, onClose, onMoved })
   const form = useForm<z.infer<typeof cardSchema>>({
     resolver: zodResolver(cardSchema),
     defaultValues: {
       amountCents: transaction.amountCents,
+      purchaseDate: transaction.purchaseDate,
       categoryId: transaction.categoryId ?? '',
       description: transaction.description,
     },
   })
   const { errors, isSubmitting } = form.formState
-  const [amountCents, categoryId, text] = useWatch({ control: form.control, name: ['amountCents', 'categoryId', 'description'] })
+  const [amountCents, purchaseDate, categoryId, text] = useWatch({
+    control: form.control,
+    name: ['amountCents', 'purchaseDate', 'categoryId', 'description'],
+  })
   const roots = categories.filter((c) => c.type === 'Expense')
   const { label } = resolveCategory(roots, categoryId)
 
   const submit = form.handleSubmit(async (values) => {
     try {
-      await update.mutateAsync({ id: transaction.id, body: sameAs(transaction, values.categoryId, values.description, values.amountCents) })
-      saved()
+      await update.mutateAsync({
+        id: transaction.id,
+        body: { ...sameAs(transaction, values.categoryId, values.description, values.amountCents), purchaseDate: values.purchaseDate },
+      })
+      saved(transaction.purchaseDate, values.purchaseDate)
     } catch (error) {
       form.setError('root', { message: messageOf(error) })
     }
@@ -532,7 +542,13 @@ function CardForm({ transaction, categories, onDone }: EditorProps & { transacti
         <Section title="Categoria">
           <CategoryPicker roots={roots} value={categoryId} onChange={(id) => form.setValue('categoryId', id)} />
         </Section>
-        <Note>Conta, data e meio de pagamento de uma compra no cartão não mudam. Para trocá-los, exclua e lance de novo.</Note>
+        <Section title="Data da compra" aside={`fatura atual vence ${formatShortDate(transaction.settlementDate)}`}>
+          <DateChooser value={purchaseDate} onChange={(date) => form.setValue('purchaseDate', date)} error={errors.purchaseDate?.message} />
+        </Section>
+        <Note>
+          Mudar a data leva a compra para a fatura do novo ciclo. Conta e meio de pagamento não mudam: para trocá-los, exclua e
+          lance de novo.
+        </Note>
       </form>
     </EditShell>
   )
@@ -541,14 +557,15 @@ function CardForm({ transaction, categories, onDone }: EditorProps & { transacti
 const purchaseSchema = z.object({
   totalCents: z.number().int().min(1, 'Informe o valor.'),
   installments: z.number().int().min(1).max(maxInstallments),
+  purchaseDate: z.string().min(1, 'Informe a data.'),
   categoryId: z.string(),
   description,
 })
 
 // Compra parcelada inteira: o total é redistribuído entre as parcelas não pagas (docs/fase-1.md, 2.2).
-function PurchaseForm({ purchase, categories, onDone }: EditorProps & { purchase: Extract<Entry, { kind: 'purchase' }> }) {
+function PurchaseForm({ purchase, categories, onDone, onClose, onMoved }: EditorProps & { purchase: Extract<Entry, { kind: 'purchase' }> }) {
   const update = useUpdatePurchase()
-  const saved = useSaved(onDone)
+  const saved = useSaved({ onDone, onClose, onMoved })
   const first = [...purchase.installments].sort(byNumber)[0]
   const form = useForm<z.infer<typeof purchaseSchema>>({
     resolver: zodResolver(purchaseSchema.refine((v) => v.totalCents >= v.installments, {
@@ -558,14 +575,15 @@ function PurchaseForm({ purchase, categories, onDone }: EditorProps & { purchase
     defaultValues: {
       totalCents: purchase.totalCents,
       installments: purchase.installments.length,
+      purchaseDate: first.purchaseDate,
       categoryId: first.categoryId ?? '',
       description: first.description,
     },
   })
   const { errors, isSubmitting } = form.formState
-  const [totalCents, installments, categoryId, text] = useWatch({
+  const [totalCents, installments, purchaseDate, categoryId, text] = useWatch({
     control: form.control,
-    name: ['totalCents', 'installments', 'categoryId', 'description'],
+    name: ['totalCents', 'installments', 'purchaseDate', 'categoryId', 'description'],
   })
   const roots = categories.filter((c) => c.type === 'Expense')
   const { label } = resolveCategory(roots, categoryId)
@@ -581,9 +599,10 @@ function PurchaseForm({ purchase, categories, onDone }: EditorProps & { purchase
           installmentCount: values.installments,
           categoryId: values.categoryId || null,
           description: values.description.trim() || null,
+          purchaseDate: values.purchaseDate,
         },
       })
-      saved()
+      saved(first.purchaseDate, values.purchaseDate)
     } catch (error) {
       form.setError('root', { message: messageOf(error) })
     }
@@ -592,7 +611,7 @@ function PurchaseForm({ purchase, categories, onDone }: EditorProps & { purchase
   return (
     <EditShell
       title="Editar compra parcelada"
-      subtitle={`Comprada em ${formatLongDate(first.purchaseDate)}`}
+      subtitle={describeInstallments(purchase.totalCents, purchase.installments.length)}
       onBack={onDone}
       submitting={isSubmitting}
       error={errors.root?.message}
@@ -616,9 +635,12 @@ function PurchaseForm({ purchase, categories, onDone }: EditorProps & { purchase
         <Section title="Categoria">
           <CategoryPicker roots={roots} value={categoryId} onChange={(id) => set('categoryId', id)} />
         </Section>
+        <Section title="Data da compra">
+          <DateChooser value={purchaseDate} onChange={(date) => set('purchaseDate', date)} error={errors.purchaseDate?.message} />
+        </Section>
         <Note>
-          O total é dividido de novo entre as parcelas ainda não pagas, sem perder centavo. Parcela em fatura paga mantém o
-          valor. A data da compra não muda.
+          O total é dividido de novo entre as parcelas ainda não pagas, sem perder centavo; parcela em fatura paga mantém o
+          valor. Mudar a data leva todas as parcelas para as faturas dos novos ciclos.
         </Note>
       </form>
     </EditShell>
@@ -633,9 +655,11 @@ function InstallmentForm({
   count,
   categories,
   onDone,
+  onClose,
+  onMoved,
 }: EditorProps & { transaction: Transaction; count: number }) {
   const update = useUpdateTransaction()
-  const saved = useSaved(onDone)
+  const saved = useSaved({ onDone, onClose, onMoved })
   const form = useForm<z.infer<typeof installmentSchema>>({
     resolver: zodResolver(installmentSchema),
     defaultValues: { categoryId: transaction.categoryId ?? '', description: transaction.description },
@@ -668,7 +692,7 @@ function InstallmentForm({
         <Section title="Categoria">
           <CategoryPicker roots={roots} value={categoryId} onChange={(id) => form.setValue('categoryId', id)} />
         </Section>
-        <Note>Muda só esta parcela. Valor e número de parcelas mudam pela compra inteira, para a soma continuar igual ao total.</Note>
+        <Note>Muda só esta parcela. Valor, número de parcelas e data mudam pela compra inteira, para a soma continuar igual ao total.</Note>
       </form>
     </EditShell>
   )

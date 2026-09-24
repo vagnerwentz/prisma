@@ -1,12 +1,14 @@
 using Prisma.Domain.Accounts;
 using Prisma.Domain.Categories;
+using Prisma.Domain.Statements;
 using Prisma.Domain.Transactions;
 using Shouldly;
 
 namespace Prisma.Domain.Tests.Transactions;
 
 // docs/fase-1.md, 2.2: a parcela isolada muda só descrição e categoria; a compra à vista no
-// cartão aceita também o valor. Conta, tipo, meio de pagamento e data nunca mudam.
+// cartão aceita também o valor (e a data, em CardPurchaseDateTests). Conta, tipo e meio de
+// pagamento nunca mudam.
 public sealed class CardTransactionUpdateTests
 {
     private static readonly Guid UserId = Guid.NewGuid();
@@ -21,13 +23,14 @@ public sealed class CardTransactionUpdateTests
         CardPurchase.Create(UserId, Card, TransactionType.Expense, PaymentMethod.Credit, total, count, March10,
             Electronics, "Notebook", []).Value.Installments;
 
-    private static Result<Transaction> Update(
+    private static Result<IReadOnlyList<Statement>> Update(
         Transaction t, long? amount = null, Category? category = null, string? description = "Notebook",
         Account? account = null, TransactionType type = TransactionType.Expense,
         PaymentMethod method = PaymentMethod.Credit, DateOnly? date = null) =>
-        t.Update(account ?? Card, type, amount ?? t.AmountCents, date ?? March10, category ?? Electronics, method, description);
+        CardPurchase.EditTransaction(t, Card, [], account ?? Card, type, amount ?? t.AmountCents, date ?? March10,
+            category ?? Electronics, method, description);
 
-    private static void ShouldFailWith(Result<Transaction> result, string message)
+    private static void ShouldFailWith<T>(Result<T> result, string message)
     {
         result.IsSuccess.ShouldBeFalse();
         result.Error.Type.ShouldBe(ErrorType.Validation);
@@ -72,13 +75,12 @@ public sealed class CardTransactionUpdateTests
         ShouldFailWith(Update(Buy(4590, 1)[0], amount: 0), "O valor deve ser maior que zero.");
 
     [Fact]
-    public void Account_type_method_and_date_never_change()
+    public void Account_type_and_method_never_change()
     {
-        const string message = "Em compra no cartão, conta, tipo, meio de pagamento e data não mudam. Exclua e lance de novo.";
+        const string message = "Em compra no cartão, conta, tipo e meio de pagamento não mudam. Exclua e lance de novo.";
         var single = Buy(4590, 1)[0];
 
         ShouldFailWith(Update(single, account: OtherCard), message);
-        ShouldFailWith(Update(single, date: March10.AddDays(1)), message);
         ShouldFailWith(Update(single, method: PaymentMethod.Pix), message);
         ShouldFailWith(Update(single, type: TransactionType.Income, category: null), message);
     }
@@ -89,7 +91,7 @@ public sealed class CardTransactionUpdateTests
         var checking = Account.Create(UserId, "Itaú", AccountType.Checking, 0, null, null, null).Value;
         var simple = Transaction.CreateSimple(UserId, checking, TransactionType.Expense, 4590, March10, null, PaymentMethod.Pix, null).Value;
 
-        simple.Update(checking, TransactionType.Expense, 5000, March10.AddDays(2), null, PaymentMethod.Debit, "Café").IsSuccess.ShouldBeTrue();
+        simple.UpdateSimple(checking, TransactionType.Expense, 5000, March10.AddDays(2), null, PaymentMethod.Debit, "Café").IsSuccess.ShouldBeTrue();
 
         simple.AmountCents.ShouldBe(5000);
         simple.SettlementDate.ShouldBe(March10.AddDays(2));

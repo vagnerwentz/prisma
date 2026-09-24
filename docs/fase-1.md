@@ -127,13 +127,21 @@ Dada uma compra em `PurchaseDate` num cartão com `ClosingDay` e `DueDay`:
 - `PurchaseDate` é o mesmo em todas as parcelas; o que muda é o `SettlementDate`.
 - Editar uma parcela isolada altera só aquela transação, e só **descrição e categoria**: o
   valor e a data mudam pela compra inteira, para a soma continuar igual ao total. Compra à
-  vista no cartão (sem `InstallmentPurchase`) aceita também o valor. Em nenhum caso a conta,
-  o tipo, o meio de pagamento ou a data da compra mudam: para isso, exclua e lance de novo.
+  vista no cartão (sem `InstallmentPurchase`) aceita também o valor e a data. Em nenhum caso a
+  conta, o tipo ou o meio de pagamento mudam: para isso, exclua e lance de novo.
+- **Mudar a data da compra no cartão** (etapa 1.14b) recalcula a fatura de cada parcela como na
+  criação: a parcela *i* vai para o statement *i-1* ciclos depois do statement da nova data,
+  reaproveitando faturas existentes (e as datas editadas delas) ou abrindo as que faltam. O
+  `SettlementDate` passa a ser o vencimento da nova fatura e os valores não mudam. É recusado se
+  alguma parcela estiver em fatura paga, ou se a nova data levar alguma parcela para uma fatura
+  paga. Exemplo (fecha dia 5, vence dia 12): compra à vista de
+  10/03/2026 movida para 04/03/2026 sai da fatura de abril (vence 12/04) para a de março (vence
+  12/03); compra em 3x movida de 10/03 para 10/05 passa a vencer 12/06, 12/07 e 12/08.
 - Editar o `InstallmentPurchase` (valor total ou número de parcelas) **redistribui**
   todas as parcelas ainda não pagas e mantém a soma exata. Parcela paga é a que está em
   fatura paga: mantém o valor e não pode ser removida. Mais parcelas entram nos ciclos
   seguintes; menos parcelas removem as últimas. Descrição e categoria também mudam, nas
-  parcelas não pagas. A data da compra não muda. De 1 a 24 parcelas.
+  parcelas não pagas. A data da compra também muda, pela regra acima. De 1 a 24 parcelas.
 - Excluir o `InstallmentPurchase` faz soft delete em todas as parcelas.
 - `POST /installment-purchases/{id}/restore` desfaz a exclusão (o "Desfazer" da tela): volta a
   compra com as parcelas excluídas **junto com ela**. Parcelas removidas antes, por uma edição que

@@ -41,15 +41,41 @@ public static class UpdateTransaction
                 return references.Error;
 
             var (account, category) = references.Value;
-            var updated = transaction.Update(
-                account, req.Type, req.AmountCents, req.PurchaseDate, category, req.Method, req.Description);
-            if (!updated.IsSuccess)
-                return updated.Error;
+
+            if (transaction.StatementId is null)
+            {
+                var updated = transaction.UpdateSimple(
+                    account, req.Type, req.AmountCents, req.PurchaseDate, category, req.Method, req.Description);
+                if (!updated.IsSuccess)
+                    return updated.Error;
+            }
+            else
+            {
+                // No cartão, a data nova pode levar a compra para outra fatura (etapa 1.14b).
+                var card = await db.Accounts.SingleOrDefaultAsync(a => a.Id == transaction.AccountId, ct);
+                if (card is null)
+                    return new Error(ErrorType.Conflict, "A conta desta compra foi excluída.");
+
+                var from = Min(transaction.PurchaseDate, req.PurchaseDate).AddMonths(-2);
+                var statements = await db.Statements
+                    .Where(s => s.AccountId == card.Id && (s.ClosingDate >= from || s.Id == transaction.StatementId))
+                    .ToListAsync(ct);
+
+                var edited = CardPurchase.EditTransaction(
+                    transaction, card, statements, account, req.Type, req.AmountCents, req.PurchaseDate,
+                    category, req.Method, req.Description);
+                if (!edited.IsSuccess)
+                    return edited.Error;
+
+                db.Statements.AddRange(edited.Value);
+            }
 
             await db.SaveChangesAsync(ct);
             return TransactionResponse.From(transaction);
         }
     }
+
+    private static DateOnly Min(DateOnly a, DateOnly b) => a < b ? a : b;
 
     public static void Map(IEndpointRouteBuilder app) =>
         app.MapPatch("/{id:guid}", async (Guid id, Request request, Handler handler, CancellationToken ct) =>

@@ -93,7 +93,19 @@ Content-Type: application/json
 {
   "totalAmountCents": 120003,
   "installmentCount": 12,
-  "description": "Notebook"
+  "description": "Notebook",
+  "purchaseDate": "2026-03-10"
+}
+
+### Mudar a data da compra: as parcelas vão para as faturas dos ciclos da nova data
+PATCH {{baseUrl}}/installment-purchases/{{purchaseId}}
+Content-Type: application/json
+
+{
+  "totalAmountCents": 120003,
+  "installmentCount": 12,
+  "description": "Notebook",
+  "purchaseDate": "2026-05-10"
 }
 
 ### Editar as datas da fatura de abril: vencimento adiado para 13/04 (recalcula o caixa)

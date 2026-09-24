@@ -1264,6 +1264,8 @@ export interface components {
             /** Format: uuid */
             categoryId: null | string;
             description: null | string;
+            /** Format: date */
+            purchaseDate: string;
         };
         UpdateInstallmentPurchaseResponse: {
             /** Format: uuid */
