@@ -282,6 +282,10 @@ cd src/prisma-web && npm install && npm run dev
 npm run gen:api                                       # tipos TS a partir do OpenAPI
 ```
 
+Testes manuais: `src/Prisma.Api/Http/*.http` (HTTP Client do Rider), com a API rodando
+pelo perfil `https`. Rode o Login de `auth.http` antes dos demais: o Rider guarda o cookie
+de sessão. Ao criar ou mudar um endpoint, atualize o `.http` correspondente.
+
 Em desenvolvimento o Vite faz proxy para a API. Em produção o ASP.NET serve os
 estáticos do React **no mesmo domínio**, eliminando CORS e problemas de SameSite com o
 cookie de sessão.

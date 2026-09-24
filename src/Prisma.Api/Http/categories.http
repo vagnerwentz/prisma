@@ -1,0 +1,95 @@
+# Categorias. Exige sessão: rode antes o Login de auth.http.
+# Usuário cadastrado a partir da etapa 1.6 já nasce com o conjunto padrão.
+
+### Listar a árvore (guarda o id de "Alimentação" e de "Mercado")
+GET {{baseUrl}}/categories
+
+> {%
+    const food = response.body.find(c => c.type === "Expense" && c.name === "Alimentação");
+    client.global.set("foodId", food.id);
+    client.global.set("marketId", food.subcategories.find(s => s.name === "Mercado").id);
+%}
+
+### Criar categoria de despesa
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+  "name": "Pets",
+  "type": "Expense",
+  "icon": "paw-print",
+  "color": "#AA6600"
+}
+
+> {% client.global.set("petsId", response.body.id); %}
+
+### Criar subcategoria (mesmo tipo da categoria pai)
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+  "name": "Veterinário",
+  "type": "Expense",
+  "parentCategoryId": "{{petsId}}"
+}
+
+> {% client.global.set("vetId", response.body.id); %}
+
+### Editar nome, ícone e cor (envie os três; tipo e pai não mudam)
+PATCH {{baseUrl}}/categories/{{petsId}}
+Content-Type: application/json
+
+{
+  "name": "Animais",
+  "icon": "dog",
+  "color": "#884400"
+}
+
+### Erro: excluir categoria com subcategorias (409)
+DELETE {{baseUrl}}/categories/{{petsId}}
+
+### Excluir a subcategoria (204)
+DELETE {{baseUrl}}/categories/{{vetId}}
+
+### Agora a categoria pode ser excluída (204)
+DELETE {{baseUrl}}/categories/{{petsId}}
+
+### Erro: nome repetido no mesmo nível, sem diferenciar maiúsculas (409)
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+  "name": "mercado",
+  "type": "Expense",
+  "parentCategoryId": "{{foodId}}"
+}
+
+### Erro: subcategoria de outro tipo (400)
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+  "name": "Bônus",
+  "type": "Income",
+  "parentCategoryId": "{{foodId}}"
+}
+
+### Erro: terceiro nível (400)
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+  "name": "Hortifruti",
+  "type": "Expense",
+  "parentCategoryId": "{{marketId}}"
+}
+
+### Erro: cor fora do formato #RRGGBB (400)
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+  "name": "Colorida",
+  "type": "Expense",
+  "color": "vermelho"
+}

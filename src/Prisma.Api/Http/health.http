@@ -1,0 +1,4 @@
+# Estado da API e do banco. 200 com o Postgres no ar, 503 com ele parado.
+
+### Health
+GET {{baseUrl}}/health

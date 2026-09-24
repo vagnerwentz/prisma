@@ -1,0 +1,56 @@
+# Autenticação. O Rider guarda o cookie de sessão e o reenvia nas requisições seguintes,
+# inclusive em outros arquivos .http. Rode "Cadastro" uma vez; depois use "Login".
+#
+# Rate limit: cadastro e login aceitam 5 tentativas por minuto por IP (429 na 6ª).
+# Lockout: 5 senhas erradas seguidas bloqueiam a conta por 15 minutos.
+
+### Cadastro (201 e já entra logado; 409 se o e-mail já existir)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### Login (200 e grava o cookie de sessão)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### Usuário logado (200 com sessão, 401 sem)
+GET {{baseUrl}}/auth/me
+
+### Logout (204; depois disso /auth/me dá 401)
+POST {{baseUrl}}/auth/logout
+
+### Cadastro de um usuário novo e aleatório (útil para testar isolamento entre usuários)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{$random.uuid}}@teste.com.br",
+  "password": "{{password}}"
+}
+
+### Erro: senha errada (401, "E-mail ou senha inválidos.")
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "senha-errada-999"
+}
+
+### Erro: dados inválidos (400 com a mensagem de cada campo)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "nao-e-email",
+  "password": "curta"
+}

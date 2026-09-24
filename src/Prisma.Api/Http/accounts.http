@@ -1,0 +1,84 @@
+# Contas. Exige sessão: rode antes o Login de auth.http.
+# Os ids criados ficam guardados (checkingId, cardId) para as requisições seguintes.
+
+### Listar contas
+GET {{baseUrl}}/accounts
+
+### Criar conta corrente
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{
+  "name": "Itaú Personnalité",
+  "type": "Checking",
+  "initialBalanceCents": 150000
+}
+
+> {% client.global.set("checkingId", response.body.id); %}
+
+### Criar cartão de crédito
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{
+  "name": "Cartão Itaú Visa",
+  "type": "CreditCard",
+  "initialBalanceCents": 0,
+  "closingDay": 5,
+  "dueDay": 12,
+  "creditLimitCents": 500000
+}
+
+> {% client.global.set("cardId", response.body.id); %}
+
+### Editar o cartão (envie todos os campos editáveis; o tipo não muda)
+PATCH {{baseUrl}}/accounts/{{cardId}}
+Content-Type: application/json
+
+{
+  "name": "Visa Infinite",
+  "initialBalanceCents": 0,
+  "closingDay": 10,
+  "dueDay": 20,
+  "creditLimitCents": null,
+  "isActive": true
+}
+
+### Excluir a conta corrente (204, soft delete)
+DELETE {{baseUrl}}/accounts/{{checkingId}}
+
+### Erro: excluir de novo (404, "Conta não encontrada.")
+DELETE {{baseUrl}}/accounts/{{checkingId}}
+
+### Erro: cartão sem dia de fechamento (400)
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{
+  "name": "Cartão sem fechamento",
+  "type": "CreditCard",
+  "initialBalanceCents": 0,
+  "dueDay": 12
+}
+
+### Erro: conta corrente com dia de fechamento (400)
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{
+  "name": "Corrente errada",
+  "type": "Checking",
+  "initialBalanceCents": 0,
+  "closingDay": 5,
+  "dueDay": 12
+}
+
+### Erro: tipo desconhecido (400)
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{
+  "name": "Poupança",
+  "type": "Savings",
+  "initialBalanceCents": 0
+}
