@@ -1,14 +1,20 @@
 import path from 'node:path'
+import basicSsl from '@vitejs/plugin-basic-ssl'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
+// `npm run dev:lan` abre o servidor na rede local com HTTPS (certificado local), para testar
+// no celular: o cookie de sessão é Secure e o navegador não o grava em http://192.168...
+const lan = process.env.PRISMA_LAN === '1'
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), ...(lan ? [basicSsl()] : [])],
   resolve: {
     alias: { '@': path.resolve(__dirname, './src') },
   },
   server: {
+    host: lan,
     // O frontend chama /api/...; o proxy repassa para a API sem o prefixo. Mesmo host para o
     // navegador, então o cookie de sessão funciona sem CORS (CLAUDE.md, seção 7).
     proxy: {

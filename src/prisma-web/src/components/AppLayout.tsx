@@ -1,4 +1,5 @@
 import { Outlet, useNavigate } from 'react-router'
+import { BottomNav } from '@/components/BottomNav'
 import { Button } from '@/components/ui/button'
 import { useLogout } from '@/features/auth/queries'
 
@@ -23,6 +24,7 @@ export function AppLayout() {
         </Button>
       </header>
       <Outlet />
+      <BottomNav />
     </div>
   )
 }

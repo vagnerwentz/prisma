@@ -3,6 +3,8 @@ import { AppLayout } from '@/components/AppLayout'
 import { RedirectIfAuthenticated, RequireAuth } from '@/features/auth/guards'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { RegisterPage } from '@/features/auth/RegisterPage'
+import { AccountsPage } from '@/features/accounts/AccountsPage'
+import { NewTransactionPage } from '@/features/transactions/NewTransactionPage'
 import { TransactionsPage } from '@/features/transactions/TransactionsPage'
 
 export function App() {
@@ -16,6 +18,8 @@ export function App() {
         <Route element={<RequireAuth />}>
           <Route element={<AppLayout />}>
             <Route path="/" element={<TransactionsPage />} />
+            <Route path="/lancar" element={<NewTransactionPage />} />
+            <Route path="/contas" element={<AccountsPage />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, unwrap, type Schemas } from '@/lib/api'
 
 export type Transaction = Schemas['TransactionResponse']
@@ -10,5 +10,15 @@ export function useTransactions(range: { from: string; to: string }) {
   return useQuery({
     queryKey: [...transactionsKey, range],
     queryFn: async () => unwrap(await api.GET('/transactions', { params: { query: range } })),
+  })
+}
+
+export type NewTransaction = Schemas['CreateTransactionRequest']
+
+export function useCreateTransaction() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: NewTransaction) => unwrap(await api.POST('/transactions', { body })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: transactionsKey }),
   })
 }

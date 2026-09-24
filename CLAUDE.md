@@ -284,6 +284,8 @@ dotnet ef database update -p src/Prisma.Api -s src/Prisma.Api
 
 cd src/prisma-web && npm install && npm run dev    # http://localhost:5173, proxy /api → API
 npm run gen:api       # tipos TS do OpenAPI; exige a API rodando (lê http://localhost:5151)
+npm run dev:lan       # rede local com HTTPS, para testar no celular (aceite o certificado local)
+npm test              # Vitest
 npm run build         # checagem de tipos + build
 npm run lint          # oxlint
 ```

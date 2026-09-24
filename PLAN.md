@@ -153,11 +153,12 @@ Detalhamento completo em `docs/fase-1.md`.
   data da compra, então listá-las uma a uma repetiria a compra 10 vezes no mesmo dia);
   formatação de dinheiro (centavos → "R$ 1.234,56") e de datas coberta por teste.
 
-- [ ] **1.12c Frontend: lançamento rápido**
+- [x] **1.12c Frontend: lançamento rápido**
   *Pronto quando:* formulário mobile-first (valor, conta, categoria, data já com hoje),
   parcelas quando a conta for cartão; conversão do valor digitado para centavos coberta por
   teste; dá para cadastrar, logar, lançar uma despesa parcelada no cartão e vê-la na lista,
   tudo pelo celular (HTTPS na rede local, por causa do cookie `Secure`).
+  Inclui uma tela de contas (listar e criar), sem a qual um usuário novo não teria onde lançar.
 
 - [ ] **1.9b Despesa no cartão e parcelamento: editar**
   *Pronto quando:* editar a parcela 3 não altera as demais; alterar o valor total ou o
