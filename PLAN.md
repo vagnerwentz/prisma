@@ -280,6 +280,16 @@ Cada etapa entrega API e tela juntas, para o resumo crescer à vista.
   desativada, receita que cairia no cartão, estorno fora); telas conferidas nos dois modos e em
   320px.
 
+- [x] **2.8 Compromissos herdados** (pedida pelo usuário, depois da Fase 2)
+  No Resumo, "Parcelas de compras anteriores" separa do "Saiu" do mês as parcelas 2+ de compras
+  feitas antes (`GET /dashboard/inherited`), e "Já comprometido" mostra o "Saiu" já lançado dos 6
+  meses seguintes ao de hoje, com o mês da última parcela (`GET /dashboard/committed`)
+  (`docs/fase-2.md`, 2.6). Resumo, comparativo e os dois blocos passam a usar as mesmas consultas
+  agrupadas (`DashboardEntries`).
+  *Pronto quando:* testes de domínio escritos antes, com o exemplo da 2.6; integração com o exemplo
+  inteiro (pagamento de fatura e compra excluída de fora) e isolamento; Vitest da participação, das
+  barras e dos textos; telas conferidas nos dois modos e em 320, 390 e 1280px.
+
 ---
 
 ## Hospedagem para uso próprio

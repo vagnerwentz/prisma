@@ -211,6 +211,60 @@ Resultado de outubro:
   R$ 100,00 (3%).
 - Novembro, só com o sapato: despesas R$ 300,00.
 
+### 2.6 Compromissos herdados (etapa 2.8)
+
+Pedida pelo usuário depois da Fase 2. Na visão de caixa, parte do "Saiu" de um mês são parcelas de
+compras feitas meses antes: dizer "gastou 20% a mais" mistura o que foi decidido agora com o que foi
+decidido em junho. E as parcelas futuras já estão lançadas: dá para mostrar quanto dos próximos meses
+já está comprometido.
+
+**Parcelas de compras anteriores** (olha para o mês escolhido no Resumo):
+
+1. **Parcela herdada** do mês é a despesa de uma compra parcelada com vencimento (`SettlementDate`)
+   no mês e **número da parcela 2 ou maior**: a compra já tinha cobrado numa fatura anterior. A
+   parcela 1 conta como compra do mês, igual a uma compra à vista: é a primeira cobrança dela.
+2. **Herdado** é a soma das parcelas herdadas. **Decidido no mês** é o "Saiu" do Resumo (despesas
+   menos estornos, 2.1 e 2.5) menos o herdado. Estorno nunca é herdado: abate o decidido no mês.
+3. Se o "Saiu" ficar **abaixo** do herdado (estornos grandes), a divisão não é mostrada: só o
+   herdado e a lista, sem "decidido no mês" nem participação.
+4. **Lista:** cada parcela herdada, com descrição, categoria, conta, "4/10" (número e total de
+   parcelas da compra) e valor. Maior valor primeiro; empate pela data da compra mais antiga, depois
+   pela descrição.
+
+**Já comprometido** (olha para **hoje**, como as próximas faturas da 2.4):
+
+5. Para cada um dos **6 meses seguintes ao mês de hoje**, o "Saiu" que o Resumo daquele mês já
+   mostra hoje: despesas lançadas com vencimento no mês, estornos abatidos. Inclui parcelas e compras
+   à vista no cartão que só vencem depois. Mês sem nada lançado aparece com zero.
+6. **Última parcela:** o mês de vencimento da última parcela de compra parcelada lançada, depois do
+   mês de hoje, mesmo além dos 6 meses. Sem parcela futura, não aparece.
+
+**Para os dois:** transferência (inclusive pagamento de fatura) nunca conta; excluído (soft delete)
+fica fora; cada usuário vê só o seu.
+
+#### Exemplo (usado nos testes)
+
+Hoje é 15/10/2026. Visa fecha dia 26 e vence dia 5; Itaú é a corrente.
+
+| Lançamento | Parcelas (vencimento) | Outubro |
+|---|---|---|
+| TV, R$ 4.000,00 em 10x, 10/06 | jul/2026 a abr/2027 | 4/10, R$ 400,00 herdado |
+| Passagem, R$ 3.600,00 em 6x, 20/08 | set/2026 a fev/2027 | 2/6, R$ 600,00 herdado |
+| Mercado, R$ 300,00 em 3x, 02/08 | set a nov/2026 | 2/3, R$ 100,00 herdado |
+| Tênis, R$ 600,00 em 3x, 15/09 | out a dez/2026 | 1/3, R$ 200,00 do mês |
+| Feira no Pix, R$ 250,00, 03/10, Itaú | — | R$ 250,00 do mês |
+| iFood, R$ 80,00 à vista, 28/09 (depois do fechamento) | nov/2026 | — |
+| Estorno no Visa, R$ 50,00, 08/10 | fatura de nov/2026 | — |
+| Pagamento da fatura de outubro, 05/10 | transferência | não conta |
+| Relógio, R$ 900,00 em 3x, 20/08, excluído | set a nov/2026 | 2/3 excluída, não conta |
+
+Outubro: "Saiu" **R$ 1.550,00**; herdado **R$ 1.100,00** (Passagem R$ 600,00, TV R$ 400,00, Mercado
+R$ 100,00, nessa ordem); decidido no mês **R$ 450,00**; 71% herdado.
+
+Já comprometido, de novembro a abril: **R$ 1.330,00** (TV, Passagem, Mercado 3/3, Tênis 2/3, iFood,
+menos o estorno), **R$ 1.200,00**, **R$ 1.000,00**, **R$ 1.000,00**, **R$ 400,00**, **R$ 400,00**.
+Última parcela: **abril de 2027** (TV 10/10).
+
 ---
 
 ## 3. Endpoints
@@ -220,6 +274,8 @@ GET /dashboard/summary?month=2026-10      → receitas, despesas, sobra e invest
 GET /dashboard/categories?month=2026-10   → despesas por categoria raiz, maior primeiro
 GET /dashboard/history?month=2026-10      → os 6 meses que terminam no mês, mais antigo primeiro
 GET /dashboard/upcoming-statements        → a próxima fatura não paga de cada cartão ativo
+GET /dashboard/inherited?month=2026-10    → parcelas de compras anteriores no mês (2.6)
+GET /dashboard/committed                  → os 6 meses seguintes ao de hoje e a última parcela (2.6)
 ```
 
 `month` no formato `aaaa-mm`; sem ele, o mês de hoje (`IClock.Today`). Mês inválido: 400.
@@ -298,6 +354,21 @@ ainda pode ser estornado; na parcelada, sobre o total da compra), para a tela pr
   uma grade 2 × 2 abaixo de 640px, para caber em 320px.
 - Conferido nos modos claro e escuro, em 320, 390 e 1280px.
 
+**Compromissos herdados (etapa 2.8):**
+
+- **"Parcelas de compras anteriores"**, logo abaixo de "Entrou / Saiu / Investido", porque explica o
+  "Saiu": o herdado em destaque, a frase "R$ 1.100,00 dos R$ 1.550,00 que saíram em outubro vieram
+  de compras anteriores", uma barra dividida (herdado em tinta, "Decidido no mês" em tinta clara) e a
+  lista com ladrilho da categoria, "4/10" com uma barrinha de progresso da compra e o valor. Até 4
+  linhas; o resto num "Ver todas (N)". Sem parcela herdada no mês, o bloco não aparece.
+- **"Já comprometido"**, junto do bloco "Hoje" (os dois olham para hoje), só no Resumo do mês atual:
+  uma linha por mês ("nov/26"), com barra em tinta relativa ao maior mês e o valor inteiro à direita
+  (barras verticais com valor não cabem seis em 320px), e "A última parcela vence em abril de 2027".
+  Tocar num mês abre o Resumo dele. Sem nada lançado nos 6 meses, o bloco não aparece.
+- Sem biblioteca de gráfico (barras em CSS) e sem espectro novo: o da tela continua sendo o filete
+  sob o mês. Carregado sob demanda, como as categorias.
+- Conferido nos modos claro e escuro, em 320, 390 e 1280px.
+
 ---
 
 ## 5. Testes obrigatórios da fase
@@ -328,6 +399,17 @@ ainda pode ser estornado; na parcelada, sobre o total da compra), para a tela pr
   valor exibido; editar mudando de fatura; excluir e restaurar (restaurar acima do limite é
   recusado); excluir a compra mantém o estorno; isolamento entre usuários.
 - **Frontend:** "Estornar" preenchido com o que resta; estado "Saldo a favor" da fatura.
+
+### Compromissos herdados (etapa 2.8)
+
+- **Domínio, antes da implementação:** o exemplo da seção 2.6 (herdado, ordem, decidido no mês);
+  parcela 1 fora do herdado; "Saiu" abaixo do herdado sem divisão; os 6 meses com zero nos vazios e
+  virada de ano; estorno abatendo o mês futuro; última parcela além dos 6 meses e ausente sem
+  parcelas.
+- **Integração:** o exemplo inteiro pelos endpoints, com o pagamento de fatura e a compra excluída
+  de fora; isolamento entre usuários.
+- **Frontend:** participação arredondada e ausente quando o "Saiu" não cobre o herdado; largura
+  relativa das barras; rótulo do mês e texto da última parcela.
 
 ### Frontend (Vitest)
 

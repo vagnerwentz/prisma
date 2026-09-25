@@ -6,7 +6,7 @@ import { toMonthParam, useMonthParam } from '@/lib/monthParam'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatMonth, type YearMonth } from '@/lib/dates'
+import { formatMonth, monthOf, todayInSaoPaulo, type YearMonth } from '@/lib/dates'
 import { formatCents } from '@/lib/money'
 import { cn } from '@/lib/utils'
 import { useMonthlySummary, type MonthlySummary } from './queries'
@@ -17,6 +17,9 @@ const CategoryBreakdown = lazy(() => import('./CategoryBreakdown').then((m) => (
 const HistoryChart = lazy(() => import('./HistoryChart'))
 // Saldo em contas e próximas faturas: os ladrilhos de conta trazem os logos de marca.
 const TodayPanel = lazy(() => import('./TodayPanel'))
+// Compromissos herdados (docs/fase-2.md, 2.6): os ladrilhos das compras trazem os logos de marca.
+const InheritedInstallments = lazy(() => import('./CommitmentBlocks').then((m) => ({ default: m.InheritedInstallments })))
+const CommittedMonths = lazy(() => import('./CommitmentBlocks').then((m) => ({ default: m.CommittedMonths })))
 
 // Tela inicial: o mês de relance, pela data de caixa (docs/fase-2.md, 4).
 export function SummaryPage() {
@@ -149,9 +152,23 @@ function Overview({
         </div>
       )}
 
+      {/* Logo abaixo do "Saiu", que ele explica. */}
+      {!empty && (
+        <Suspense fallback={<Skeleton className="h-56 w-full rounded-2xl" />}>
+          <InheritedInstallments month={monthParam} monthName={monthName} />
+        </Suspense>
+      )}
+
       <Suspense fallback={<Skeleton className="h-40 w-full rounded-2xl" />}>
         <TodayPanel />
       </Suspense>
+
+      {/* Olha para hoje, como o bloco "Hoje": só no Resumo do mês atual. */}
+      {monthParam === toMonthParam(monthOf(todayInSaoPaulo())) && (
+        <Suspense fallback={<Skeleton className="h-60 w-full rounded-2xl" />}>
+          <CommittedMonths onSelect={onSelectMonth} />
+        </Suspense>
+      )}
 
       {!empty && (
         <Suspense fallback={<Skeleton className="h-48 w-full rounded-2xl" />}>

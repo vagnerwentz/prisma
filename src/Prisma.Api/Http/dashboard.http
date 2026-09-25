@@ -25,3 +25,9 @@ GET {{baseUrl}}/dashboard/summary?month=10-2026
 
 ### Próximas faturas: a próxima não paga de cada cartão ativo, vencendo hoje ou depois (não usa month)
 GET {{baseUrl}}/dashboard/upcoming-statements
+
+### Parcelas de compras anteriores no mês (docs/fase-2.md, 2.6)
+GET {{baseUrl}}/dashboard/inherited?month=2026-10
+
+### Já comprometido: os 6 meses seguintes ao de hoje e a última parcela
+GET {{baseUrl}}/dashboard/committed

@@ -1422,6 +1422,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/dashboard/inherited": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    month?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GetInheritedInstallmentsResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dashboard/committed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GetCommittedMonthsResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1504,6 +1585,44 @@ export interface components {
         };
         /** @enum {unknown} */
         DateBasis: "Purchase" | "Settlement" | null;
+        GetCommittedMonthsItem: {
+            month: string;
+            /** Format: int64 */
+            expenseCents: number;
+        };
+        GetCommittedMonthsResponse: {
+            months: components["schemas"]["GetCommittedMonthsItem"][];
+            lastInstallmentMonth: null | string;
+        };
+        GetInheritedInstallmentsItem: {
+            /** Format: uuid */
+            transactionId: string;
+            /** Format: uuid */
+            purchaseId: string;
+            description: string;
+            /** Format: uuid */
+            categoryId: null | string;
+            /** Format: uuid */
+            accountId: string;
+            /** Format: int32 */
+            installmentNumber: number;
+            /** Format: int32 */
+            installmentCount: number;
+            /** Format: int64 */
+            amountCents: number;
+            /** Format: date */
+            purchaseDate: string;
+        };
+        GetInheritedInstallmentsResponse: {
+            month: string;
+            /** Format: int64 */
+            expenseCents: number;
+            /** Format: int64 */
+            inheritedCents: number;
+            /** Format: int64 */
+            decidedInMonthCents: null | number;
+            items: components["schemas"]["GetInheritedInstallmentsItem"][];
+        };
         GetMonthlySummaryResponse: {
             month: string;
             /** Format: int64 */

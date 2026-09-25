@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Http;
 using Prisma.Domain;
@@ -24,14 +23,7 @@ public static class GetMonthlySummary
             var first = resolved.Value;
             var last = first.AddMonths(1).AddDays(-1);
 
-            var entries = await db.Transactions
-                .AsNoTracking()
-                .Where(t => t.SettlementDate >= first && t.SettlementDate <= last)
-                .Join(db.Accounts, t => t.AccountId, a => a.Id, (t, a) => new { t.Type, t.TransferDirection, AccountType = a.Type, t.AmountCents })
-                .GroupBy(x => new { x.Type, x.TransferDirection, x.AccountType })
-                .Select(g => new SummaryEntry(g.Key.Type, g.Key.TransferDirection, g.Key.AccountType, g.Sum(x => x.AmountCents)))
-                .ToListAsync(ct);
-
+            var entries = await DashboardEntries.InPeriod(db, first, last, ct);
             var summary = MonthlySummary.Of(entries);
             return new Response(
                 DashboardMonth.Format(first), summary.IncomeCents, summary.ExpenseCents, summary.CardExpenseCents,

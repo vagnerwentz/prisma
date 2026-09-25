@@ -39,3 +39,21 @@ export function useUpcomingStatements() {
     queryFn: async () => unwrap(await api.GET('/dashboard/upcoming-statements')),
   })
 }
+
+export type InheritedInstallment = Schemas['GetInheritedInstallmentsItem']
+
+// Parcelas de compras anteriores que vencem no mês, maior primeiro (docs/fase-2.md, 2.6).
+export function useInheritedInstallments(month: string) {
+  return useQuery({
+    queryKey: [...dashboardKey, 'inherited', month],
+    queryFn: async () => unwrap(await api.GET('/dashboard/inherited', { params: { query: { month } } })),
+  })
+}
+
+// O "Saiu" já lançado dos 6 meses seguintes ao de hoje e o mês da última parcela (docs/fase-2.md, 2.6).
+export function useCommittedMonths() {
+  return useQuery({
+    queryKey: [...dashboardKey, 'committed'],
+    queryFn: async () => unwrap(await api.GET('/dashboard/committed')),
+  })
+}

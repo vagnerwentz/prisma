@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Http;
 using Prisma.Domain;
@@ -22,19 +21,7 @@ public static class GetMonthlyHistory
             var from = MonthlyHistory.FirstMonth(lastMonth);
             var to = lastMonth.AddMonths(1).AddDays(-1);
 
-            var rows = await db.Transactions
-                .AsNoTracking()
-                .Where(t => t.SettlementDate >= from && t.SettlementDate <= to)
-                .Join(db.Accounts, t => t.AccountId, a => a.Id, (t, a) => new
-                {
-                    t.SettlementDate.Year, t.SettlementDate.Month, t.Type, t.TransferDirection, AccountType = a.Type, t.AmountCents,
-                })
-                .GroupBy(x => new { x.Year, x.Month, x.Type, x.TransferDirection, x.AccountType })
-                .Select(g => new { g.Key.Year, g.Key.Month, g.Key.Type, g.Key.TransferDirection, g.Key.AccountType, Cents = g.Sum(x => x.AmountCents) })
-                .ToListAsync(ct);
-
-            var entries = rows.Select(r => new MonthlyEntry(
-                new DateOnly(r.Year, r.Month, 1), new SummaryEntry(r.Type, r.TransferDirection, r.AccountType, r.Cents)));
+            var entries = await DashboardEntries.ByMonth(db, from, to, ct);
 
             return MonthlyHistory.Of(lastMonth, entries)
                 .Select(m => new GetMonthlySummary.Response(
