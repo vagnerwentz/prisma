@@ -57,3 +57,14 @@ export function useCommittedMonths() {
     queryFn: async () => unwrap(await api.GET('/dashboard/committed')),
   })
 }
+
+export type SpendingVariation = Schemas['GetSpendingVariationResponse']
+
+// Por que o gasto mudou: a diferença do "Saiu" para o mês anterior e os motivos, que somam
+// exatamente a diferença (docs/fase-2.md, 2.7).
+export function useSpendingVariation(month: string) {
+  return useQuery({
+    queryKey: [...dashboardKey, 'variation', month],
+    queryFn: async () => unwrap(await api.GET('/dashboard/variation', { params: { query: { month } } })),
+  })
+}

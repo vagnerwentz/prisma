@@ -299,7 +299,7 @@ Cada etapa entrega API e tela juntas, para o resumo crescer à vista.
   *Feito:* o Resumo deixou de baixar o comparativo (102 kB gzip do Recharts) ao abrir; o pacote
   principal ficou igual. "Já comprometido" virou o primeiro bloco da seção "Daqui para frente".
 
-- [ ] **2.10 Por que o gasto mudou** (pedida pelo usuário, depois da 2.8)
+- [x] **2.10 Por que o gasto mudou** (pedida pelo usuário, depois da 2.8)
   Decompõe a diferença do "Saiu" para o mês anterior em motivos que somam exatamente a diferença:
   parcelas de compras anteriores e o decidido no mês por categoria, com o maior lançamento de cada
   alta (`docs/fase-2.md`, 2.7). `GET /dashboard/variation`. No topo da Análise, com uma linha no
@@ -307,6 +307,10 @@ Cada etapa entrega API e tela juntas, para o resumo crescer à vista.
   *Pronto quando:* testes de domínio escritos antes, com o exemplo da 2.7 e a propriedade da soma
   exata; integração com o exemplo e isolamento; Vitest das frases; tela conferida nos dois modos e
   em 320, 390 e 1280px.
+  *Feito:* `SpendingVariation` no domínio (11 testes, com a propriedade da soma exata em CsCheck);
+  `GET /dashboard/variation` traz as despesas e os estornos dos dois meses numa consulta. Na Análise,
+  bloco sob demanda (1,3 kB gzip); no Resumo, a linha substitui o atalho "Ver análise". Decisões da
+  tela registradas em `docs/fase-2.md`, 4.
 
 ---
 

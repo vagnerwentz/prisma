@@ -31,3 +31,6 @@ GET {{baseUrl}}/dashboard/inherited?month=2026-10
 
 ### Já comprometido: os 6 meses seguintes ao de hoje e a última parcela
 GET {{baseUrl}}/dashboard/committed
+
+### Por que o gasto mudou: diferença do "Saiu" para o mês anterior e os motivos (docs/fase-2.md, 2.7)
+GET {{baseUrl}}/dashboard/variation?month=2026-09

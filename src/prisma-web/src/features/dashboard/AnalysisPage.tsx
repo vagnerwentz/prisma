@@ -13,9 +13,11 @@ const CategoryBreakdown = lazy(() => import('./CategoryBreakdown').then((m) => (
 const HistoryChart = lazy(() => import('./HistoryChart'))
 const InheritedInstallments = lazy(() => import('./CommitmentBlocks').then((m) => ({ default: m.InheritedInstallments })))
 const CommittedMonths = lazy(() => import('./CommitmentBlocks').then((m) => ({ default: m.CommittedMonths })))
+const VariationBlock = lazy(() => import('./VariationBlock').then((m) => ({ default: m.VariationBlock })))
 
 // Análise: "para onde foi e por quê?" (docs/fase-2.md, 4, etapa 2.9). O Resumo fica de relance; aqui
-// ficam categorias, parcelas herdadas, comparativo e o que vem pela frente, no mesmo mês da URL.
+// ficam por que o gasto mudou, categorias, parcelas herdadas, comparativo e o que vem pela frente, no
+// mesmo mês da URL.
 export function AnalysisPage() {
   const [month, setMonth] = useMonthParam()
   const param = toMonthParam(month)
@@ -58,6 +60,13 @@ export function AnalysisPage() {
           </div>
           {ahead}
         </>
+      )}
+
+      {summary.isSuccess && !empty && (
+        // O "por que mudou" abre a tela, na largura toda: explica o número que trouxe a pessoa até aqui.
+        <Suspense fallback={<Skeleton className="h-52 w-full rounded-2xl" />}>
+          <VariationBlock month={param} />
+        </Suspense>
       )}
 
       {summary.isSuccess && !empty && (

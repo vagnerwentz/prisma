@@ -10,6 +10,7 @@ public static class DashboardModule
         services.AddScoped<ListUpcomingStatements.Handler>();
         services.AddScoped<GetInheritedInstallments.Handler>();
         services.AddScoped<GetCommittedMonths.Handler>();
+        services.AddScoped<GetSpendingVariation.Handler>();
         return services;
     }
 
@@ -22,5 +23,6 @@ public static class DashboardModule
         ListUpcomingStatements.Map(group);
         GetInheritedInstallments.Map(group);
         GetCommittedMonths.Map(group);
+        GetSpendingVariation.Map(group);
     }
 }

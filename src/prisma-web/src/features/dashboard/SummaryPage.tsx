@@ -9,7 +9,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { formatMonth } from '@/lib/dates'
 import { formatCents } from '@/lib/money'
 import { cn } from '@/lib/utils'
-import { useMonthlySummary, type MonthlySummary } from './queries'
+import { useMonthlySummary, useSpendingVariation, type MonthlySummary } from './queries'
+import { mainReason, monthNameOf, variationHeadline } from './variation'
 
 // Saldo em contas e próximas faturas: os ladrilhos de conta trazem os logos de marca.
 const TodayPanel = lazy(() => import('./TodayPanel'))
@@ -142,9 +143,7 @@ function Overview({ summary, monthName, monthParam }: { summary: MonthlySummary;
 
       {/* Para ir além do relance, no mesmo mês. */}
       <nav aria-label={`Mais sobre ${monthName}`} className="surface flex flex-col divide-y divide-border/60 rounded-2xl">
-        <Shortcut to={`/analise?mes=${monthParam}`} icon={<ChartPie />}>
-          Ver análise de {monthName}
-        </Shortcut>
+        <AnalysisShortcut monthName={monthName} monthParam={monthParam} />
         <Shortcut to={`/lancamentos?mes=${monthParam}`} icon={<List />}>
           Ver lançamentos de {monthName}
         </Shortcut>
@@ -216,6 +215,28 @@ function Figure({
         {note && <span className="text-xs leading-snug text-muted-foreground">{note}</span>}
       </div>
     </Box>
+  )
+}
+
+// A linha do "por que mudou" (docs/fase-2.md, 2.7): o cabeçalho e o maior motivo, levando à Análise.
+// Enquanto carrega, ou sem nada a comparar, é só o atalho.
+function AnalysisShortcut({ monthName, monthParam }: { monthName: string; monthParam: string }) {
+  const variation = useSpendingVariation(monthParam)
+  const data = variation.data
+  const headline = data ? variationHeadline(data.expenseCents, data.previousExpenseCents, monthNameOf(data.previousMonth)) : null
+  const reason = data ? mainReason(data.reasons, data.changeCents) : null
+
+  return (
+    <Shortcut to={`/analise?mes=${monthParam}`} icon={<ChartPie />}>
+      {headline ? (
+        <span className="flex flex-col gap-0.5">
+          <span>{headline}</span>
+          <span className="text-xs font-normal text-muted-foreground">{reason ?? `Ver análise de ${monthName}`}</span>
+        </span>
+      ) : (
+        <>Ver análise de {monthName}</>
+      )}
+    </Shortcut>
   )
 }
 

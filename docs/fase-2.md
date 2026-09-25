@@ -290,7 +290,8 @@ somam exatamente a diferença. Tudo pela data de caixa, como o resto do Resumo.
    - Parcelas: as compras cujas parcelas **começaram** a ser herdadas no mês (parcela 2 no mês) e as
      que **terminaram** no mês anterior (a última parcela foi herdada nele).
 6. **Sem nada a explicar** (diferença zero e nenhum motivo): "Gastou o mesmo que em agosto", sem
-   lista. Mês sem gasto e anterior sem gasto: a explicação não aparece.
+   lista. Mês sem gasto e anterior sem gasto: a explicação não aparece. Diferença que arredonda para
+   0%: "Gastou quase o mesmo que em agosto (+R$ 1,00)", com os motivos.
 7. Transferência nunca conta; excluído fica fora; cada usuário vê só o seu.
 
 **Por que determinístico, e não um modelo de IA:** a decomposição é aritmética e precisa bater ao
@@ -455,8 +456,14 @@ que é análise, e no computador ocupa uma coluna estreita. Cada tela passa a re
   um por linha: nome (ladrilho da categoria, ou o das parcelas), variação com sinal ("+R$ 600,00",
   "−R$ 450,00", em tinta, sem verde e vermelho) e o detalhe embaixo. Linha de categoria abre a lista
   dela no mês, como em "Onde foi o dinheiro".
-- **No Resumo, uma linha:** o cabeçalho e o maior motivo ("principalmente parcelas de compras
-  anteriores, +R$ 600,00"), levando à Análise.
+- **No Resumo, uma linha:** o cabeçalho e o maior motivo **na direção da diferença** ("Principalmente
+  parcelas de compras anteriores, +R$ 600,00"; um motivo contrário não explica o "a mais"), levando à
+  Análise. Ela ocupa o lugar do atalho "Ver análise de setembro", que volta enquanto carrega ou sem nada
+  a comparar.
+- Embaixo do cabeçalho, os dois "Saiu" ("R$ 2.600,00 em agosto → R$ 2.750,00 em setembro"). O valor
+  fica na linha do nome e o detalhe embaixo, na largura toda, para caber em 320px. Parcelas e "Outras
+  categorias" levam ladrilho neutro e não abrem lista. A partir de 1024px, cabeçalho à esquerda e
+  motivos à direita.
 
 ---
 
