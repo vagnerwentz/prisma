@@ -192,4 +192,23 @@ public sealed class DashboardTests(PostgresFixture postgres)
 
         (await Categories(other, "2026-10")).ShouldBeEmpty();
     }
+
+    [Fact]
+    public async Task History_has_six_months_ending_in_the_chosen_one()
+    {
+        await using var factory = new PrismaApiFactory(postgres.ConnectionString, clock: October15);
+        using var e = await Example.Create(factory);
+
+        var history = (await e.Client.GetFromJsonAsync<List<SummaryDto>>("/dashboard/history?month=2026-11"))!;
+
+        history.Select(m => m.Month).ShouldBe(["2026-06", "2026-07", "2026-08", "2026-09", "2026-10", "2026-11"]);
+        history[4].ShouldBe(new SummaryDto("2026-10", 800000, 400000, 60000, 400000, 100000));
+        history[5].ShouldBe(new SummaryDto("2026-11", 0, 30000, 30000, -30000, 0));
+        // O jantar de 20/09 conta em outubro (vencimento da fatura): setembro fica zerado.
+        history.Take(4).ShouldAllBe(m => m.IncomeCents == 0 && m.ExpenseCents == 0 && m.InvestedCents == 0);
+
+        using var other = await factory.CreateAuthenticatedClientAsync();
+        (await other.GetFromJsonAsync<List<SummaryDto>>("/dashboard/history?month=2026-11"))!
+            .ShouldAllBe(m => m.IncomeCents == 0 && m.ExpenseCents == 0);
+    }
 }

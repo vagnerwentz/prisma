@@ -238,7 +238,7 @@ Cada etapa entrega API e tela juntas, para o resumo crescer à vista.
   *Pronto quando:* integração com as categorias do exemplo; participação arredondada coberta
   por teste no frontend; tela conferida nos dois modos.
 
-- [ ] **2.3 Comparativo mensal**
+- [x] **2.3 Comparativo mensal**
   `GET /dashboard/history`: 6 meses terminando no escolhido (`docs/fase-2.md`, 2.3). Gráfico
   de barras com Recharts, carregado sob demanda; variação das despesas contra o mês anterior.
   *Pronto quando:* testes de domínio para meses vazios e virada de ano; variação percentual

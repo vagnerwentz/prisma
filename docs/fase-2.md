@@ -58,8 +58,9 @@ quais faturas vêm pela frente.
 
 - Os **6 meses** que terminam no mês escolhido, do mais antigo para o mais recente, cada um com
   receitas, despesas, sobra e investido (regra 2.1). Mês sem lançamentos aparece com zeros.
-- A tela destaca a variação das despesas em relação ao mês anterior ("12% a mais que setembro").
-  Mês anterior com despesa zero: sem porcentagem.
+- A tela destaca a variação das despesas em relação ao mês anterior ("Gastou 12% a mais que em
+  setembro"), arredondada para inteiro; arredondou para 0%, "Gastou o mesmo que em setembro". Mês
+  anterior com despesa zero: sem porcentagem.
 
 ### 2.4 Próximas faturas e saldo em contas
 
@@ -132,7 +133,7 @@ GET /transactions?from=&to=&dateBasis=Settlement&type=Expense&categoryId=   (ou 
 - **"Saiu"** mostra, quando houver, "R$ X em faturas de cartão".
 - **Por categoria:** barras horizontais na cor de cada categoria, com ícone, valor e %.
 - **Comparativo:** gráfico de barras (Recharts, carregado sob demanda) com receitas e despesas dos
-  6 meses.
+  6 meses; o mês escolhido em destaque; tocar numa barra abre aquele mês.
 - **Próximas faturas** e **Em contas:** cartões pequenos que levam ao detalhe da conta.
 - Tocar numa categoria abre a lista de lançamentos filtrada por ela, pela data de caixa
   (`/lancamentos?mes=2026-10&categoria=<id>`, ou `&categoria=sem`), com um aviso do filtro e um

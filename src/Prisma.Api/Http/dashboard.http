@@ -10,6 +10,9 @@ GET {{baseUrl}}/dashboard/summary
 ### Despesas do mês por categoria raiz, maior primeiro (sem categoria: id e nome nulos)
 GET {{baseUrl}}/dashboard/categories?month=2026-10
 
+### Comparativo: os 6 meses que terminam no mês, mais antigo primeiro
+GET {{baseUrl}}/dashboard/history?month=2026-10
+
 ### Detalhar uma categoria pela data de caixa: soma o mesmo valor do dashboard
 GET {{baseUrl}}/transactions?from=2026-10-01&to=2026-10-31&dateBasis=Settlement&type=Expense&categoryId=<id da categoria>
 

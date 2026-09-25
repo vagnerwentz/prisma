@@ -6,13 +6,15 @@ import { toMonthParam, useMonthParam } from '@/lib/monthParam'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatMonth } from '@/lib/dates'
+import { formatMonth, type YearMonth } from '@/lib/dates'
 import { formatCents } from '@/lib/money'
 import { cn } from '@/lib/utils'
 import { useMonthlySummary, type MonthlySummary } from './queries'
 
 // As categorias trazem os ícones e logos dos ladrilhos: ficam fora do pacote principal.
 const CategoryBreakdown = lazy(() => import('./CategoryBreakdown').then((m) => ({ default: m.CategoryBreakdown })))
+// O gráfico traz o Recharts: também sob demanda.
+const HistoryChart = lazy(() => import('./HistoryChart'))
 
 // Tela inicial: o mês de relance, pela data de caixa (docs/fase-2.md, 4).
 export function SummaryPage() {
@@ -36,12 +38,22 @@ export function SummaryPage() {
           <AlertDescription>Não foi possível carregar o resumo. Tente novamente.</AlertDescription>
         </Alert>
       )}
-      {summary.isSuccess && <Overview summary={summary.data} monthName={monthName} monthParam={param} />}
+      {summary.isSuccess && <Overview summary={summary.data} monthName={monthName} monthParam={param} onSelectMonth={setMonth} />}
     </main>
   )
 }
 
-function Overview({ summary, monthName, monthParam }: { summary: MonthlySummary; monthName: string; monthParam: string }) {
+function Overview({
+  summary,
+  monthName,
+  monthParam,
+  onSelectMonth,
+}: {
+  summary: MonthlySummary
+  monthName: string
+  monthParam: string
+  onSelectMonth: (month: YearMonth) => void
+}) {
   const { incomeCents, expenseCents, cardExpenseCents, leftoverCents, investedCents } = summary
   const [explaining, setExplaining] = useState(false)
   const empty = incomeCents === 0 && expenseCents === 0 && investedCents === 0
@@ -136,6 +148,10 @@ function Overview({ summary, monthName, monthParam }: { summary: MonthlySummary;
           <CategoryBreakdown month={monthParam} totalCents={expenseCents} />
         </Suspense>
       )}
+
+      <Suspense fallback={<Skeleton className="h-64 w-full rounded-2xl" />}>
+        <HistoryChart month={monthParam} onSelect={onSelectMonth} />
+      </Suspense>
 
       <Link
         to={`/lancamentos?mes=${monthParam}`}

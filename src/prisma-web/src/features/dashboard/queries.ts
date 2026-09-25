@@ -20,3 +20,11 @@ export function useCategoryTotals(month: string) {
     queryFn: async () => unwrap(await api.GET('/dashboard/categories', { params: { query: { month } } })),
   })
 }
+
+// Os 6 meses que terminam no escolhido, mais antigo primeiro (docs/fase-2.md, 2.3).
+export function useMonthlyHistory(month: string) {
+  return useQuery({
+    queryKey: [...dashboardKey, 'history', month],
+    queryFn: async () => unwrap(await api.GET('/dashboard/history', { params: { query: { month } } })),
+  })
+}

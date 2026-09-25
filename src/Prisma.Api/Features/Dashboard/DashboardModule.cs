@@ -6,6 +6,7 @@ public static class DashboardModule
     {
         services.AddScoped<GetMonthlySummary.Handler>();
         services.AddScoped<ListCategoryTotals.Handler>();
+        services.AddScoped<GetMonthlyHistory.Handler>();
         return services;
     }
 
@@ -14,5 +15,6 @@ public static class DashboardModule
         var group = app.MapGroup("/dashboard");
         GetMonthlySummary.Map(group);
         ListCategoryTotals.Map(group);
+        GetMonthlyHistory.Map(group);
     }
 }
