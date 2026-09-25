@@ -21,6 +21,11 @@ public sealed class StatementConfiguration : IEntityTypeConfiguration<Statement>
         builder.HasOne<AppUser>().WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Account>().WithMany().HasForeignKey(s => s.AccountId).OnDelete(DeleteBehavior.Restrict);
 
+        // Controle de concorrência pela coluna de sistema xmin do Postgres: pagar, desfazer o pagamento
+        // e editar as datas mudam a fatura. Dois pedidos ao mesmo tempo (toque duplo, duas abas) leem a
+        // fatura em aberto; o segundo a salvar recebe 409 em vez de criar um segundo pagamento.
+        builder.Property<uint>("Version").IsRowVersion();
+
         // Uma fatura por ciclo do cartão (docs/fase-1.md).
         builder.HasIndex(s => new { s.AccountId, s.Reference })
             .IsUnique()

@@ -166,6 +166,25 @@ public sealed class TransfersTests(PostgresFixture postgres)
         Totals(aprilCash).ShouldBe((0, 10000));
     }
 
+    // Toque duplo com a rede lenta, ou duas abas: os dois pedidos leem a fatura ainda em aberto. Só um
+    // pagamento pode valer; o outro recebe 409. Várias rodadas, porque a corrida nem sempre acontece.
+    [Fact]
+    public async Task Paying_the_same_statement_twice_at_once_creates_a_single_payment()
+    {
+        var (factory, s) = await Start();
+        await using var _ = factory;
+        using var __ = s;
+        await s.Buy(50000, 5); // faturas de abril a agosto, todas fechadas em 10/08
+
+        foreach (var statement in await s.Statements())
+        {
+            var responses = await Task.WhenAll(s.Pay(statement.Id, "2026-08-10"), s.Pay(statement.Id, "2026-08-10"));
+
+            responses.Select(r => r.StatusCode).ShouldBe([HttpStatusCode.Created, HttpStatusCode.Conflict], ignoreOrder: true);
+            (await s.Transactions()).Count(t => t.StatementId == statement.Id && t.Type == "Transfer").ShouldBe(1);
+        }
+    }
+
     [Fact]
     public async Task Statement_payment_rules()
     {

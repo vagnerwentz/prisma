@@ -1,9 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, unwrap, type Schemas } from '@/lib/api'
+import { meKey } from '@/lib/queryKeys'
 
 export type CurrentUser = Schemas['MeResponse']
-
-const meKey = ['auth', 'me'] as const
 
 // Usuário da sessão atual, ou null quando não há sessão (401).
 export function useCurrentUser() {

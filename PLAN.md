@@ -250,6 +250,13 @@ Cada etapa entrega API e tela juntas, para o resumo crescer à vista.
   *Pronto quando:* integração com fatura paga, fatura zerada e cartão inativo ficando de fora;
   tela conferida nos dois modos.
 
+- [x] **Revisão antes da Fase 3** (pedida pelo usuário)
+  Sessão expirada volta ao login; tela de erro, de versão nova e 404; consultas não repetem
+  erro 4xx; pagamento de fatura em duplicidade barrado com 409 (token `xmin`); exceção não
+  tratada vira ProblemDetails em pt-BR; `.DS_Store` fora do Git.
+  *Pronto quando:* teste de corrida do pagamento e testes do 401 e das respostas de erro;
+  telas conferidas nos dois modos e em 320, 390 e 1280px.
+
 ---
 
 ## Fases 3 a 5
@@ -271,6 +278,8 @@ Escopo em uma linha cada, para orientar decisões sem antecipar detalhe.
 
 Decidir quando a fase correspondente chegar:
 
+- Integração contínua (GitHub Actions rodando `dotnet test`, Vitest, lint e build a cada push;
+  o Testcontainers funciona nos runners). (depois do primeiro push para o GitHub)
 - Envio de fatura para LLM externo é opt-in explícito do usuário? (Fase 4)
 - Acompanhar rentabilidade de investimento ou só aporte? (Fase 5 ou depois)
 - Onde hospedar e qual orçamento mensal. (antes de abrir cadastro público)

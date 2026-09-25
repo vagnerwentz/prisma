@@ -1,6 +1,8 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
+import { BrowserRouter, Route, Routes } from 'react-router'
 import { AppLayout } from '@/components/AppLayout'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { NotFoundPage } from '@/components/NotFoundPage'
 import { PrismLogo } from '@/components/brand/PrismLogo'
 import { RedirectIfAuthenticated, RequireAuth } from '@/features/auth/guards'
 import { SummaryPage } from '@/features/dashboard/SummaryPage'
@@ -19,6 +21,10 @@ const AccountDetailPage = lazy(() =>
   import('@/features/accounts/AccountDetailPage').then((m) => ({ default: m.AccountDetailPage })),
 )
 
+// Só em desenvolvimento: abre a tela de erro de propósito, para conferir o visual
+// (/dev/erro e /dev/erro?tipo=atualizacao).
+const CrashOnPurpose = import.meta.env.DEV ? lazy(() => import('@/components/CrashOnPurpose')) : null
+
 function Loading() {
   return (
     <div className="flex min-h-dvh items-center justify-center">
@@ -30,24 +36,27 @@ function Loading() {
 export function App() {
   return (
     <BrowserRouter>
-      <Suspense fallback={<Loading />}>
-        <Routes>
-          <Route element={<RedirectIfAuthenticated />}>
-            <Route path="/entrar" element={<LoginPage />} />
-            <Route path="/cadastro" element={<RegisterPage />} />
-          </Route>
-          <Route element={<RequireAuth />}>
-            <Route path="/lancar" element={<NewTransactionPage />} />
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<SummaryPage />} />
-              <Route path="/lancamentos" element={<TransactionsPage />} />
-              <Route path="/contas" element={<AccountsPage />} />
-              <Route path="/contas/:id" element={<AccountDetailPage />} />
+      <ErrorBoundary>
+        <Suspense fallback={<Loading />}>
+          <Routes>
+            <Route element={<RedirectIfAuthenticated />}>
+              <Route path="/entrar" element={<LoginPage />} />
+              <Route path="/cadastro" element={<RegisterPage />} />
             </Route>
-          </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Suspense>
+            <Route element={<RequireAuth />}>
+              <Route path="/lancar" element={<NewTransactionPage />} />
+              <Route element={<AppLayout />}>
+                <Route path="/" element={<SummaryPage />} />
+                <Route path="/lancamentos" element={<TransactionsPage />} />
+                <Route path="/contas" element={<AccountsPage />} />
+                <Route path="/contas/:id" element={<AccountDetailPage />} />
+              </Route>
+            </Route>
+            {CrashOnPurpose && <Route path="/dev/erro" element={<CrashOnPurpose />} />}
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </Suspense>
+      </ErrorBoundary>
     </BrowserRouter>
   )
 }

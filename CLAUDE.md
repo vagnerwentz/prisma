@@ -250,6 +250,11 @@ não precisa.** `Category` com nome e cor não merece teste unitário;
 - Nullable reference types habilitado e tratado como erro.
 - **Erros de negócio esperados** usam o `Result` pattern; exceções só para o que é de
   fato excepcional.
+  Exceção que escapa vira ProblemDetails em pt-BR no `ProblemExceptionHandler` (500 sem
+  detalhe interno; corpo ilegível é 400; `DbUpdateConcurrencyException` é 409).
+- **Concorrência:** entidade que dois pedidos simultâneos podem corromper (hoje, `Statement`:
+  pagar duas vezes a mesma fatura) usa a coluna `xmin` do Postgres como token
+  (`Property<uint>("Version").IsRowVersion()`), com teste de corrida.
 - Tabelas e colunas em `snake_case` no Postgres, mapeadas a partir dos nomes em inglês.
 - Endpoints em inglês e no plural: `/transactions`, `/accounts`, `/statements`.
 - **Mensagens de erro e textos de interface em pt-BR**, ainda que o código à volta
@@ -323,6 +328,13 @@ cookie de sessão.
   conferida nos dois modos.
 - **Desempenho:** nada de importar conjuntos inteiros de ícones; telas secundárias com `lazy`;
   confira o tamanho do pacote principal no `npm run build` ao adicionar dependência.
+- **Telas de erro:** `ErrorScreen` com a cena `BrokenPrism` (espectro desalinhado que se
+  recompõe ao passar o ponteiro na ação), para erro inesperado (`ErrorBoundary`), versão nova
+  publicada com o app aberto e endereço inexistente. Ficam no pacote principal, porque precisam
+  aparecer quando o resto não carrega. Em desenvolvimento: `/dev/erro` e
+  `/dev/erro?tipo=atualizacao`.
+- **Sessão expirada:** o primeiro 401 de qualquer consulta ou mutação leva a `/entrar`
+  (`createQueryClient`, em `lib/queryClient.ts`); consultas não repetem erro 4xx.
 
 ## 8. Segurança
 

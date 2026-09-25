@@ -10,6 +10,7 @@ using Prisma.Api.Features.Transactions;
 using Prisma.Api.Features.Transfers;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Auth;
+using Prisma.Api.Infrastructure.Http;
 using Prisma.Domain;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -40,6 +41,7 @@ builder.Services.AddOpenApi(options => options.CreateSchemaReferenceId = type =>
         : OpenApiOptions.CreateDefaultSchemaReferenceId(type));
 
 builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ProblemExceptionHandler>();
 builder.Services.AddAuth(builder.Configuration);
 builder.Services.AddAuthFeatures();
 builder.Services.AddAccountFeatures();
@@ -53,6 +55,11 @@ builder.Services.AddHealthChecks()
     .AddCheck<DatabaseHealthCheck>("database");
 
 var app = builder.Build();
+
+// Exceção não tratada e resposta de erro sem corpo (404 de rota inexistente, 401 do cookie) saem
+// como ProblemDetails, o formato que o frontend lê.
+app.UseExceptionHandler();
+app.UseStatusCodePages();
 
 app.UseAuthentication();
 app.UseAuthorization();

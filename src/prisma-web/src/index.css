@@ -226,3 +226,97 @@
         letter-spacing: -0.01em;
     }
 }
+
+/* Cena das telas de erro (BrokenPrism): raios que oscilam, seguem o ponteiro (--px e --py, de -1
+   a 1) e, com data-mending, voltam ao leque do logo. Tudo gira em torno do ponto de saída do
+   espectro (236, 118 no viewBox). */
+@layer components {
+    .broken-prism {
+        --px: 0;
+        --py: 0;
+    }
+    .broken-prism .bp-halo {
+        opacity: 0.2;
+        transition: opacity 0.8s ease;
+    }
+    .broken-prism .bp-fan {
+        transform-origin: 236px 118px;
+        transform: rotate(calc(var(--py) * 7deg));
+        transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    .broken-prism .bp-ray {
+        transform-origin: 236px 118px;
+        transform: rotate(var(--a));
+        transition: transform 0.9s cubic-bezier(0.2, 0.9, 0.25, 1.12);
+    }
+    .broken-prism .bp-wobble {
+        transform-origin: 236px 118px;
+        animation: bp-wobble 3s ease-in-out infinite alternate;
+    }
+    .broken-prism .bp-flicker line {
+        animation: bp-flicker 5s linear infinite;
+    }
+    .broken-prism .bp-prism {
+        transform: translate(calc(var(--px) * -4px), calc(var(--py) * -3px));
+        transition: transform 0.5s ease-out;
+    }
+    .broken-prism .bp-crack {
+        transition: opacity 0.6s ease;
+    }
+    .broken-prism[data-mending='true'] .bp-fan {
+        transform: none;
+    }
+    .broken-prism[data-mending='true'] .bp-ray {
+        transform: rotate(var(--m));
+    }
+    .broken-prism[data-mending='true'] .bp-wobble,
+    .broken-prism[data-mending='true'] .bp-flicker line {
+        animation: none;
+    }
+    .broken-prism[data-mending='true'] .bp-crack {
+        opacity: 0;
+    }
+    .broken-prism[data-mending='true'] .bp-halo {
+        opacity: 0.4;
+    }
+    @media (prefers-color-scheme: dark) {
+        .broken-prism .bp-halo {
+            opacity: 0.3;
+        }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .broken-prism * {
+            animation: none !important;
+            transition: none !important;
+        }
+    }
+}
+
+@keyframes bp-wobble {
+    from {
+        transform: rotate(-3deg);
+    }
+    to {
+        transform: rotate(3deg);
+    }
+}
+
+@keyframes bp-flicker {
+    0%,
+    86%,
+    100% {
+        opacity: 1;
+    }
+    88% {
+        opacity: 0.15;
+    }
+    90% {
+        opacity: 0.9;
+    }
+    92% {
+        opacity: 0.25;
+    }
+    94% {
+        opacity: 1;
+    }
+}
