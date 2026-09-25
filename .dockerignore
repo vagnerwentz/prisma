@@ -1,0 +1,14 @@
+# Só o código entra no contexto do build: nada de segredos, dependências ou saídas locais.
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/.vitest/
+**/*.user
+**/.DS_Store
+.git/
+.idea/
+.claude/
+.env
+docs/
+tests/

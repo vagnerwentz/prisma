@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "gen:api": "openapi-typescript http://localhost:5151/openapi/v1.json -o src/lib/api-types.ts",
+    "gen:api": "openapi-typescript http://localhost:5151/api/openapi/v1.json -o src/lib/api-types.ts",
     "typecheck": "tsc -b",
     "test": "vitest run",
     "dev:lan": "PRISMA_LAN=1 vite",

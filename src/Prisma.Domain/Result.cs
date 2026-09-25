@@ -2,7 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Prisma.Domain;
 
-public enum ErrorType { Validation, Unauthorized, NotFound, Conflict, TooManyAttempts }
+public enum ErrorType { Validation, Unauthorized, Forbidden, NotFound, Conflict, TooManyAttempts }
 
 // Message é exibida ao usuário, portanto em pt-BR.
 public sealed record Error(ErrorType Type, string Message);

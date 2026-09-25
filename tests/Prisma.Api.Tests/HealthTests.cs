@@ -13,7 +13,7 @@ public sealed class HealthTests(PostgresFixture postgres)
         await using var factory = new PrismaApiFactory(postgres.ConnectionString);
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync("/health");
+        var response = await client.GetAsync("/api/health");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
@@ -26,7 +26,7 @@ public sealed class HealthTests(PostgresFixture postgres)
         await using var factory = new PrismaApiFactory(unreachable);
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync("/health");
+        var response = await client.GetAsync("/api/health");
 
         response.StatusCode.ShouldBe(HttpStatusCode.ServiceUnavailable);
     }

@@ -1,4 +1,5 @@
 using System.Reflection;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -16,7 +17,7 @@ public sealed class AppDbContext(
     DbContextOptions<AppDbContext> options,
     ICurrentUser currentUser,
     IClock clock)
-    : IdentityUserContext<AppUser, Guid>(options)
+    : IdentityUserContext<AppUser, Guid>(options), IDataProtectionKeyContext
 {
     // Filtros nomeados (EF Core 10): permitem ignorar só o soft delete, por exemplo para
     // restaurar um registro, sem nunca desligar o isolamento por usuário.
@@ -32,6 +33,10 @@ public sealed class AppDbContext(
     public DbSet<Transaction> Transactions => Set<Transaction>();
 
     public DbSet<InstallmentPurchase> InstallmentPurchases => Set<InstallmentPurchase>();
+
+    // Chaves que assinam o cookie de sessão. No banco, e não no disco do contêiner, para que um
+    // deploy novo não derrube a sessão de quem está logado. Não é do usuário: fica sem filtro.
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     // Lido pelo EF a cada consulta, não no momento em que o modelo é construído.
     private Guid CurrentUserId => currentUser.UserId;

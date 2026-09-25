@@ -10,6 +10,7 @@ public static class ErrorResults
         {
             ErrorType.Validation => (StatusCodes.Status400BadRequest, "Dados inválidos."),
             ErrorType.Unauthorized => (StatusCodes.Status401Unauthorized, "Não autorizado."),
+            ErrorType.Forbidden => (StatusCodes.Status403Forbidden, "Acesso negado."),
             ErrorType.NotFound => (StatusCodes.Status404NotFound, "Não encontrado."),
             ErrorType.Conflict => (StatusCodes.Status409Conflict, "Conflito."),
             ErrorType.TooManyAttempts => (StatusCodes.Status429TooManyRequests, "Muitas tentativas."),

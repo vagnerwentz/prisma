@@ -35,7 +35,7 @@ Estas estão fechadas. Não reabrir sem conversa explícita.
 | Dinheiro | `long` em centavos, sempre |
 | Multiusuário | Dados por `UserId`, sem grupo familiar |
 | Investimentos | Fase 1 registra aporte como transferência; rentabilidade fica para depois |
-| Hospedagem | Adiada. Roda local via Docker; decisão quando o produto existir |
+| Hospedagem | Uso próprio: Railway, com API, React e Postgres num só projeto e o React servido pela API (mesmo domínio). Cadastro público: reavaliar antes de abrir |
 
 ---
 
@@ -46,6 +46,7 @@ Estas estão fechadas. Não reabrir sem conversa explícita.
 | **0** | Fundação: solução, Docker, Postgres, testes de arquitetura | concluída; as etapas no próprio `PLAN.md` bastaram |
 | **1** | Núcleo: auth, contas, categorias, transações, parcelamento, transferências | `docs/fase-1.md` |
 | **2** | Dashboard: receitas, despesas, sobra, investido, por categoria, comparativo mensal | `docs/fase-2.md` |
+| **H** | Hospedagem para uso próprio: build de produção e deploy no Railway | etapas no próprio `PLAN.md` |
 | **3** | Entrada inteligente: QR Code da NFC-e, CNPJ/CNAE, merchants, regras que aprendem | a escrever |
 | **4** | Importação: OFX, fatura do Itaú em PDF, deduplicação | a escrever |
 | **5** | PWA instalável, orçamentos por categoria, metas, E2E com Playwright | a escrever |
@@ -272,6 +273,62 @@ Cada etapa entrega API e tela juntas, para o resumo crescer à vista.
 
 ---
 
+## Hospedagem para uso próprio
+
+Antes da Fase 3, a pedido: usar o Prisma no dia a dia exige que ele abra fora de casa, com
+HTTPS. Só para o próprio usuário: o cadastro fica fechado, e LGPD, termos e confirmação de
+e-mail continuam nas pendências, para quando o cadastro abrir.
+
+*Decisões (com o usuário):*
+- **Railway** para tudo: um serviço com a API e um Postgres no mesmo projeto, na mesma rede
+  privada. Plano Hobby (US$ 5/mês com US$ 5 de uso incluído); estimativa de US$ 5 a 10/mês.
+- **O React é servido pela própria API**, no mesmo domínio, como o `CLAUDE.md` já decidia.
+  Cloudflare Pages foi descartado: com front e API em domínios diferentes (`*.pages.dev` e
+  `*.up.railway.app`), o cookie `SameSite=Lax` não vai nas chamadas, e o Safari bloqueia
+  cookie de terceiros; exigiria CORS e cookie `SameSite=None`, que o `CLAUDE.md` não admite.
+  Servir os estáticos pela API não custa nada a mais.
+- **Supabase descartado por ora:** a Auth dele duplicaria o Identity, e o plano grátis pausa o
+  banco inativo e não tem backup. Com a API no Railway (sem região no Brasil) e o banco no
+  Supabase (São Paulo), cada consulta atravessaria o continente: o resumo faz várias.
+- **Terraform não entra:** um serviço e um banco não pagam a ferramenta. O Dockerfile e a
+  configuração versionados bastam; reavaliar com mais de um ambiente.
+- **Domínio próprio é opcional:** o endereço `*.up.railway.app` já tem HTTPS. Com domínio, o
+  DNS pode ficar no Cloudflare (grátis).
+
+- [x] **H.1 Build de produção**
+  `Dockerfile` em estágios: build do React (Node), `dotnet publish` e imagem final só com o
+  runtime, com o `dist` do React em `wwwroot`. A API passa a servir os estáticos e a rota de
+  fallback do SPA; os endpoints ficam sob `/api` (`UsePathBase`), separados das rotas das telas
+  (hoje em português, mas nada impede uma coincidência como `/accounts`), e o proxy do Vite deixa
+  de remover o prefixo.
+  `ForwardedHeaders` para o IP e o esquema reais atrás do proxy do Railway (o rate limit do
+  login depende do IP). Chaves do Data Protection persistidas (volume ou banco), senão cada deploy
+  derruba a sessão. Migrations aplicadas no deploy. Cadastro fechado por configuração
+  (`/register` recusado em produção, salvo e-mail liberado). Log sem valor, descrição, e-mail
+  nem token, como na seção 8 do `CLAUDE.md`.
+  *Pronto quando:* a imagem sobe local com `docker run` apontando para o Postgres do
+  `docker compose`; integração prova o `/api`, o fallback do SPA (rota de tela devolve o
+  `index.html`, rota de API inexistente devolve 404 em JSON), o IP do `X-Forwarded-For` no rate
+  limit, o cadastro fechado e a sessão sobrevivendo a um reinício do contêiner.
+  *Feito:* conferido também com a imagem real num banco vazio (13 migrations aplicadas ao subir,
+  cadastro fechado com e-mail liberado, sessão válida depois de `docker restart`). Rota
+  inexistente da API sem sessão responde 401, como antes: o 404 só aparece com login. O cookie de
+  sessão ficou fixo no caminho `/`: herdando o `/api`, convivia com o cookie antigo e a sessão caía
+  logo depois do login (achado pelo usuário no teste pela tela).
+
+- [ ] **H.2 Deploy no Railway**
+  Projeto com o serviço da API (build pelo `Dockerfile`, deploy a cada push na `main`) e o
+  Postgres do Railway; connection string montada a partir das variáveis do Postgres (as chaves
+  do cookie já vão no banco, sem volume); seu e-mail em `Registration__AllowedEmails__0`; porta
+  8080; health check em `/api/health`. Backup diário do
+  banco (o do Railway, se o plano incluir; senão `pg_dump` agendado para fora dele) e um teste
+  de restauração. Instruções no `CLAUDE.md`, seção 7.
+  *Pronto quando:* o app abre pelo celular fora da rede de casa, com HTTPS; login, lançamento e
+  resumo funcionam; um deploy novo não derruba a sessão; um backup foi restaurado num banco
+  local e conferido.
+
+---
+
 ## Fases 3 a 5
 
 Escopo em uma linha cada, para orientar decisões sem antecipar detalhe.
@@ -295,12 +352,11 @@ Decidir quando a fase correspondente chegar:
   o Testcontainers funciona nos runners). (depois do primeiro push para o GitHub)
 - Envio de fatura para LLM externo é opt-in explícito do usuário? (Fase 4)
 - Acompanhar rentabilidade de investimento ou só aporte? (Fase 5 ou depois)
-- Onde hospedar e qual orçamento mensal. (antes de abrir cadastro público)
+- Hospedagem para cadastro público: o Railway basta, ou os dados devem ficar numa região no
+  Brasil por causa da LGPD? Qual orçamento mensal? (antes de abrir cadastro público)
 - Política de privacidade e termos de uso, por causa da LGPD. (antes de abrir cadastro público)
 - Confirmação de e-mail no cadastro. Hoje o cadastro loga direto, sem confirmar; entra junto
   com o envio de e-mail (recuperação de senha). (antes de abrir cadastro público)
-- Rate limit por IP depende do IP real do cliente: atrás de proxy reverso, configurar
-  `ForwardedHeaders`, senão todos os usuários dividem a mesma cota. (ao decidir a hospedagem)
 - Contador de senhas erradas não expira: o Identity só zera no login certo ou ao bloquear, então
   erros espalhados no tempo acumulam. Proposta: janela de 15 min com coluna
   `last_failed_login_at` e `IClock`, que não reduz a proteção contra força bruta. (antes de abrir cadastro público)
@@ -309,9 +365,6 @@ Decidir quando a fase correspondente chegar:
   e-mail permite pré-sequestro de conta. Regra proposta: só juntar se o Google marcar o
   e-mail como verificado; se a conta local nunca confirmou o e-mail, remover a senha e trocar
   o `security_stamp` ao juntar. (quando o login social voltar à pauta)
-- Em produção, a API precisa ficar sob `/api` (ex.: `UsePathBase`) para não colidir com as
-  rotas do SPA servido no mesmo domínio (`/transactions` é rota da API e da tela). Em
-  desenvolvimento o proxy do Vite remove o prefixo. (ao decidir a hospedagem)
 - Mudar o dia de fechamento ou de vencimento do cartão não recalcula as faturas já criadas
   (inclusive as futuras, abertas pelas parcelas). Proposta: recalcular as não editadas e não
   pagas, e o `SettlementDate` das parcelas delas; `DatesEditedManually` já permite distinguir.

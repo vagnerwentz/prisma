@@ -15,14 +15,14 @@ export default defineConfig({
   },
   server: {
     host: lan,
-    // O frontend chama /api/...; o proxy repassa para a API sem o prefixo. Mesmo host para o
-    // navegador, então o cookie de sessão funciona sem CORS (CLAUDE.md, seção 7).
+    // O frontend chama /api/...; o proxy repassa para a API, que responde sob /api como em
+    // produção. Mesmo host para o navegador, então o cookie de sessão funciona sem CORS
+    // (CLAUDE.md, seção 7).
     proxy: {
       '/api': {
         target: 'https://localhost:7153',
         changeOrigin: true,
         secure: false, // certificado de desenvolvimento do ASP.NET
-        rewrite: (url) => url.replace(/^\/api/, ''),
       },
     },
   },

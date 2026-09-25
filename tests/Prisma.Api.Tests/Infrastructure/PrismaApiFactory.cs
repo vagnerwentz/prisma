@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Mvc.Testing.Handlers;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Prisma.Domain;
@@ -33,13 +34,25 @@ public sealed class PrismaApiFactory(
             builder.ConfigureTestServices(services => services.AddSingleton(clock));
     }
 
-    // HTTPS porque o cookie de sessão é Secure: por HTTP o cliente não o reenviaria.
+    // HTTPS porque o cookie de sessão é Secure: por HTTP o cliente não o reenviaria. Os testes
+    // escrevem as rotas da API sem o prefixo (/auth/me); o cliente acrescenta o /api, como o
+    // frontend faz.
     public HttpClient CreateHttpsClient() =>
-        CreateClient(new WebApplicationFactoryClientOptions
+        CreateDefaultClient(new Uri("https://localhost"), new ApiPrefixHandler(), new CookieContainerHandler());
+
+    // Cliente sem prefixo nem cookies: para os testes do próprio endereço (frontend, /api).
+    public HttpClient CreateRawClient() => CreateDefaultClient(new Uri("https://localhost"));
+
+    private sealed class ApiPrefixHandler : DelegatingHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            BaseAddress = new Uri("https://localhost"),
-            AllowAutoRedirect = false,
-        });
+            var uri = new UriBuilder(request.RequestUri!);
+            uri.Path = "/api" + uri.Path;
+            request.RequestUri = uri.Uri;
+            return base.SendAsync(request, cancellationToken);
+        }
+    }
 
     // Cliente já logado como um usuário novo.
     public async Task<HttpClient> CreateAuthenticatedClientAsync()

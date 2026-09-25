@@ -1,6 +1,8 @@
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Prisma.Api.Features.Accounts;
 using Prisma.Api.Features.Auth;
 using Prisma.Api.Features.Categories;
@@ -15,9 +17,15 @@ using Prisma.Domain;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var connectionString = builder.Configuration.GetConnectionString("Default")
+// Sem criptografia GSS (Kerberos), que o Prisma não usa: o Npgsql tentaria antes do SSL e, na
+// imagem de produção sem a biblioteca do Kerberos, registraria um erro no log.
+var connectionString = new NpgsqlConnectionStringBuilder(
+    builder.Configuration.GetConnectionString("Default")
     ?? throw new InvalidOperationException(
-        "Connection string 'Default' não configurada. Em desenvolvimento, use User Secrets.");
+        "Connection string 'Default' não configurada. Em desenvolvimento, use User Secrets."))
+{
+    GssEncryptionMode = GssEncryptionMode.Disable,
+}.ConnectionString;
 
 builder.Services.AddDbContext<AppDbContext>(options => options
     .UseNpgsql(connectionString)
@@ -54,12 +62,37 @@ builder.Services.AddDashboardFeatures();
 builder.Services.AddHealthChecks()
     .AddCheck<DatabaseHealthCheck>("database");
 
+// Atrás do proxy da hospedagem, o IP e o esquema reais vêm nos cabeçalhos X-Forwarded-*: sem isso,
+// o rate limit do login veria todos os usuários com o IP do proxy. Só com o proxy na frente, senão
+// qualquer cliente forjaria o próprio IP. O proxy acrescenta o IP ao fim da lista, e só o último
+// valor é lido (ForwardLimit = 1): o que o cliente escreve antes dele não conta.
+if (builder.Configuration.GetValue<bool>("ForwardedHeaders:Enabled"))
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        options.KnownIPNetworks.Clear();
+        options.KnownProxies.Clear();
+    });
+
 var app = builder.Build();
+
+// Em produção, o contêiner aplica as migrations ao subir (uma instância só, sem corrida).
+if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+{
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.MigrateAsync();
+}
+
+app.UseForwardedHeaders();
 
 // Exceção não tratada e resposta de erro sem corpo (404 de rota inexistente, 401 do cookie) saem
 // como ProblemDetails, o formato que o frontend lê.
 app.UseExceptionHandler();
 app.UseStatusCodePages();
+
+// O frontend fica fora de /api; o roteamento vem depois, para enxergar as rotas sem o prefixo.
+app.UseFrontendAndApiPrefix();
+app.UseRouting();
 
 app.UseAuthentication();
 app.UseAuthorization();

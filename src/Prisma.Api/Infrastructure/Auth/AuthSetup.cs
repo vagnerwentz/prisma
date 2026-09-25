@@ -1,5 +1,6 @@
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -11,6 +12,14 @@ public static class AuthSetup
 
     public static IServiceCollection AddAuth(this IServiceCollection services, IConfiguration configuration)
     {
+        // Chaves do cookie no Postgres. O nome fixo impede que o isolamento padrão, pela pasta do
+        // app, invalide as sessões quando o app muda de pasta (outro build, outro contêiner).
+        services.AddDataProtection()
+            .SetApplicationName("Prisma")
+            .PersistKeysToDbContext<AppDbContext>();
+
+        services.Configure<RegistrationOptions>(configuration.GetSection(RegistrationOptions.Section));
+
         services.AddAuthentication(IdentityConstants.ApplicationScheme)
             .AddIdentityCookies();
 
@@ -38,6 +47,10 @@ public static class AuthSetup
             options.Cookie.HttpOnly = true;
             options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
             options.Cookie.SameSite = SameSiteMode.Lax;
+            // Caminho fixo: sem isso o cookie herdaria o /api da API (PathBase) e conviveria com um
+            // cookie antigo de mesmo nome em "/". O navegador manda os dois, e o ASP.NET lê o último,
+            // o velho: o login parecia funcionar e a sessão caía em seguida.
+            options.Cookie.Path = "/";
 
             // API não redireciona para tela de login: responde com o status.
             options.Events.OnRedirectToLogin = context =>

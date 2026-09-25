@@ -52,7 +52,7 @@ Nada de código misto. `Transaction.SettlementDate` ao lado de `CreatedAt`, nunc
 |---|---|
 | Runtime | .NET 10 (LTS) |
 | API | ASP.NET Core Minimal APIs + `Microsoft.AspNetCore.OpenApi` (documento em `/openapi/v1.json`, só em desenvolvimento) |
-| Auth | ASP.NET Core Identity + cookie `httpOnly` + rate limiter nativo do ASP.NET Core; Google OAuth adiado |
+| Auth | ASP.NET Core Identity + cookie `httpOnly` + rate limiter nativo do ASP.NET Core + chaves do Data Protection no Postgres (`Microsoft.AspNetCore.DataProtection.EntityFrameworkCore`); Google OAuth adiado |
 | ORM | EF Core 10 + Npgsql + EFCore.NamingConventions (snake_case) + EF Core Design (migrations; `dotnet-ef` fixado em `dotnet-tools.json`) |
 | Banco | PostgreSQL 17 (Docker) |
 | Validação | FluentValidation |
@@ -297,17 +297,29 @@ npm run dev:lan       # rede local com HTTPS, para testar no celular (aceite o c
 npm test              # Vitest
 npm run build         # checagem de tipos + build
 npm run lint          # oxlint
+
+docker build -t prisma .                           # imagem de produção (API + React), na raiz
 ```
 
 Testes manuais: `src/Prisma.Api/Http/*.http` (HTTP Client do Rider), com a API rodando
 pelo perfil `https`. Rode o Login de `auth.http` antes dos demais: o Rider guarda o cookie
 de sessão. Ao criar ou mudar um endpoint, atualize o `.http` correspondente.
 
-Em desenvolvimento o Vite faz proxy para a API: o frontend chama `/api/...` e o proxy remove o
-prefixo. Rode o `npm run gen:api` sempre que um endpoint mudar, e versione o
-`src/lib/api-types.ts` gerado. Em produção o ASP.NET serve os
-estáticos do React **no mesmo domínio**, eliminando CORS e problemas de SameSite com o
-cookie de sessão.
+**A API responde sob `/api`** (`/api/health`, `/api/auth/me`), em qualquer ambiente; as rotas são
+mapeadas sem o prefixo (`FrontendHosting`, `UsePathBase`). Em desenvolvimento o Vite repassa
+`/api/...` para a API como está. Rode o `npm run gen:api` sempre que um endpoint mudar, e versione o
+`src/lib/api-types.ts` gerado. Nos testes de integração, `CreateHttpsClient()` acrescenta o `/api`:
+escreva as rotas sem ele.
+
+**Produção** (`Dockerfile` na raiz): o ASP.NET serve os estáticos do React **no mesmo domínio**,
+eliminando CORS e problemas de SameSite com o cookie de sessão. Fora de `/api`, arquivo existente é
+servido (`/assets` com cache eterno, o resto revalidado) e rota de tela devolve o `index.html`. A
+imagem liga `ForwardedHeaders:Enabled` (IP real atrás do proxy) e `Database:MigrateOnStartup`. As
+chaves do cookie ficam no Postgres (`data_protection_keys`): deploy não derruba a sessão. O cookie
+fica no caminho `/`, nunca herdando o `/api`: dois cookies de mesmo nome em caminhos diferentes
+convivem, e o ASP.NET lê o último (o velho), derrubando a sessão logo depois do login. Cadastro
+fechado fora de desenvolvimento (`Registration:Open`); libere e-mails em
+`Registration__AllowedEmails__0`. A connection string vem de `ConnectionStrings__Default`.
 
 ---
 

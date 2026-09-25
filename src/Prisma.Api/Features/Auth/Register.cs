@@ -1,5 +1,6 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Options;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Auth;
 using Prisma.Api.Infrastructure.Http;
@@ -31,11 +32,15 @@ public static class Register
         AppDbContext db,
         UserManager<AppUser> users,
         SignInManager<AppUser> signIn,
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        IOptions<RegistrationOptions> registration)
     {
         public async Task<Result<Response>> Execute(Request req, CancellationToken ct)
         {
             var email = req.Email.Trim();
+            if (!registration.Value.Allows(email))
+                return new Error(ErrorType.Forbidden, "O cadastro está fechado por enquanto.");
+
             var user = new AppUser { UserName = email, Email = email };
 
             // Usuário e categorias padrão nascem juntos ou não nascem.
@@ -78,6 +83,7 @@ public static class Register
             .AddEndpointFilter<ValidationFilter<Request>>()
             .Produces<Response>(201)
             .ProducesValidationProblem()
+            .ProducesProblem(403)
             .ProducesProblem(409)
             .ProducesProblem(429);
 }
