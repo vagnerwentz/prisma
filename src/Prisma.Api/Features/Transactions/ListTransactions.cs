@@ -3,20 +3,27 @@ using Microsoft.EntityFrameworkCore;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Http;
 using Prisma.Domain;
+using Prisma.Domain.Transactions;
 
 namespace Prisma.Api.Features.Transactions;
 
 public static class ListTransactions
 {
-    // O período filtra pela PurchaseDate: a lista mostra o que aconteceu em cada dia.
-    // O dashboard (Fase 2) agrega pela SettlementDate.
+    // Por padrão o período filtra pela PurchaseDate: a lista mostra o que aconteceu em cada dia.
+    // O dashboard agrega pela SettlementDate; o detalhamento de uma categoria dele pede
+    // DateBasis=Settlement para somar o mesmo valor (docs/fase-2.md, 2.2).
+    public enum DateBasis { Purchase, Settlement }
+
     public sealed record Query(
         [FromQuery(Name = "from")] DateOnly? From,
         [FromQuery(Name = "to")] DateOnly? To,
         [FromQuery(Name = "accountId")] Guid? AccountId,
         [FromQuery(Name = "categoryId")] Guid? CategoryId,
         [FromQuery(Name = "search")] string? Search,
-        [FromQuery(Name = "statementId")] Guid? StatementId);
+        [FromQuery(Name = "statementId")] Guid? StatementId,
+        [FromQuery(Name = "dateBasis")] DateBasis? DateBasis,
+        [FromQuery(Name = "type")] TransactionType? Type,
+        [FromQuery(Name = "uncategorized")] bool? Uncategorized);
 
     public sealed class Handler(AppDbContext db)
     {
@@ -27,11 +34,23 @@ public static class ListTransactions
 
             var transactions = db.Transactions.AsNoTracking();
 
+            var bySettlement = query.DateBasis == DateBasis.Settlement;
+
             if (query.From is { } from)
-                transactions = transactions.Where(t => t.PurchaseDate >= from);
+                transactions = bySettlement
+                    ? transactions.Where(t => t.SettlementDate >= from)
+                    : transactions.Where(t => t.PurchaseDate >= from);
 
             if (query.To is { } to)
-                transactions = transactions.Where(t => t.PurchaseDate <= to);
+                transactions = bySettlement
+                    ? transactions.Where(t => t.SettlementDate <= to)
+                    : transactions.Where(t => t.PurchaseDate <= to);
+
+            if (query.Type is { } type)
+                transactions = transactions.Where(t => t.Type == type);
+
+            if (query.Uncategorized == true)
+                transactions = transactions.Where(t => t.CategoryId == null);
 
             if (query.AccountId is { } accountId)
                 transactions = transactions.Where(t => t.AccountId == accountId);

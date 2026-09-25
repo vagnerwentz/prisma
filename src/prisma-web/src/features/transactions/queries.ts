@@ -1,14 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, unwrap, type Schemas } from '@/lib/api'
+import type { paths } from '@/lib/api-types'
 import { balancesKey, dashboardKey, statementsKey, transactionsKey } from '@/lib/queryKeys'
 
 export type Transaction = Schemas['TransactionResponse']
 
-// Período pela data da compra (docs/fase-1.md): a lista mostra o que aconteceu em cada dia.
-export function useTransactions(range: { from: string; to: string }) {
+export type TransactionFilters = NonNullable<paths['/transactions']['get']['parameters']['query']>
+
+// Período pela data da compra (docs/fase-1.md): a lista mostra o que aconteceu em cada dia. Vindo
+// de uma categoria do resumo, pela data de caixa (dateBasis: 'Settlement', docs/fase-2.md, 2.2).
+export function useTransactions(filters: TransactionFilters) {
   return useQuery({
-    queryKey: [...transactionsKey, range],
-    queryFn: async () => unwrap(await api.GET('/transactions', { params: { query: range } })),
+    queryKey: [...transactionsKey, filters],
+    queryFn: async () => unwrap(await api.GET('/transactions', { params: { query: filters } })),
   })
 }
 

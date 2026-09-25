@@ -232,7 +232,7 @@ Cada etapa entrega API e tela juntas, para o resumo crescer à vista.
   de fatura não duplica o gasto; despesa excluída some e volta ao restaurar; dois usuários não se
   enxergam; tela conferida nos modos claro e escuro.
 
-- [ ] **2.2 Gastos por categoria**
+- [x] **2.2 Gastos por categoria**
   `GET /dashboard/categories`: despesas do mês pela categoria raiz, "Sem categoria" à parte
   (`docs/fase-2.md`, 2.2). Barras na cor da categoria; tocar abre a lista filtrada.
   *Pronto quando:* integração com as categorias do exemplo; participação arredondada coberta

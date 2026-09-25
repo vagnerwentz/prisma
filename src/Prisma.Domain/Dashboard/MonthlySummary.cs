@@ -9,11 +9,12 @@ public readonly record struct SummaryEntry(
 
 // Resumo de um mês pela SettlementDate (docs/fase-2.md, 2.1). Transferência nunca é receita nem
 // despesa; só a que entra ou sai de conta de investimento conta, e como investido.
-public sealed record MonthlySummary(long IncomeCents, long ExpenseCents, long LeftoverCents, long InvestedCents)
+// CardExpenseCents: a parte das despesas feita no cartão (as faturas que vencem no mês).
+public sealed record MonthlySummary(long IncomeCents, long ExpenseCents, long CardExpenseCents, long LeftoverCents, long InvestedCents)
 {
     public static MonthlySummary Of(IEnumerable<SummaryEntry> entries)
     {
-        long income = 0, expense = 0, invested = 0;
+        long income = 0, expense = 0, cardExpense = 0, invested = 0;
         foreach (var entry in entries)
         {
             switch (entry.Type)
@@ -23,6 +24,7 @@ public sealed record MonthlySummary(long IncomeCents, long ExpenseCents, long Le
                     break;
                 case TransactionType.Expense:
                     expense += entry.AmountCents;
+                    if (entry.AccountType == AccountType.CreditCard) cardExpense += entry.AmountCents;
                     break;
                 case TransactionType.Transfer:
                     var sign = entry.Direction switch
@@ -41,6 +43,6 @@ public sealed record MonthlySummary(long IncomeCents, long ExpenseCents, long Le
         }
 
         // Sobra = receitas − despesas (decisão do usuário): investir é guardar a sobra, não gastar.
-        return new MonthlySummary(income, expense, income - expense, invested);
+        return new MonthlySummary(income, expense, cardExpense, income - expense, invested);
     }
 }

@@ -1,7 +1,8 @@
 import { ChevronRight, HandCoins, Info, Receipt, Sprout } from 'lucide-react'
-import { useState, type CSSProperties, type ReactNode } from 'react'
+import { lazy, Suspense, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router'
-import { MonthSwitcher, toMonthParam, useMonthParam } from '@/components/MonthSwitcher'
+import { MonthSwitcher } from '@/components/MonthSwitcher'
+import { toMonthParam, useMonthParam } from '@/lib/monthParam'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -9,6 +10,9 @@ import { formatMonth } from '@/lib/dates'
 import { formatCents } from '@/lib/money'
 import { cn } from '@/lib/utils'
 import { useMonthlySummary, type MonthlySummary } from './queries'
+
+// As categorias trazem os ícones e logos dos ladrilhos: ficam fora do pacote principal.
+const CategoryBreakdown = lazy(() => import('./CategoryBreakdown').then((m) => ({ default: m.CategoryBreakdown })))
 
 // Tela inicial: o mês de relance, pela data de caixa (docs/fase-2.md, 4).
 export function SummaryPage() {
@@ -38,12 +42,19 @@ export function SummaryPage() {
 }
 
 function Overview({ summary, monthName, monthParam }: { summary: MonthlySummary; monthName: string; monthParam: string }) {
-  const { incomeCents, expenseCents, leftoverCents, investedCents } = summary
+  const { incomeCents, expenseCents, cardExpenseCents, leftoverCents, investedCents } = summary
   const [explaining, setExplaining] = useState(false)
   const empty = incomeCents === 0 && expenseCents === 0 && investedCents === 0
-  // Sem receita lançada, "faltou" soaria como alarme: muita gente só registra os gastos.
-  const title =
-    incomeCents === 0 ? `Saldo de ${monthName}` : leftoverCents < 0 ? `Faltou em ${monthName}` : `Sobra de ${monthName}`
+  // Sem receita lançada, a sobra seria só o gasto com sinal trocado, em tom de alarme: muita gente
+  // só registra os gastos. Então o destaque mostra os gastos (docs/fase-2.md, 4).
+  const withoutIncome = incomeCents === 0 && expenseCents > 0
+  const title = withoutIncome ? `Gastos de ${monthName}` : leftoverCents < 0 ? `Faltou em ${monthName}` : `Sobra de ${monthName}`
+  const cardNote =
+    cardExpenseCents <= 0
+      ? undefined
+      : cardExpenseCents === expenseCents
+        ? 'Tudo em faturas de cartão'
+        : `${formatCents(cardExpenseCents)} em faturas de cartão`
   const spentShare = incomeCents > 0 ? expenseCents / incomeCents : 0
 
   return (
@@ -68,8 +79,11 @@ function Overview({ summary, monthName, monthParam }: { summary: MonthlySummary;
           </button>
         </div>
         <span className="relative font-display text-[clamp(2.75rem,12vw,3.5rem)] leading-none tabular-nums">
-          {signed(leftoverCents)}
+          {withoutIncome ? formatCents(expenseCents) : signed(leftoverCents)}
         </span>
+        {withoutIncome && (
+          <span className="relative text-sm font-medium text-foreground/75">Lance suas receitas para ver quanto sobra</span>
+        )}
         {incomeCents > 0 && (
           <div className="relative flex flex-col gap-2">
             <div className="h-2 overflow-hidden rounded-full bg-muted">
@@ -102,7 +116,7 @@ function Overview({ summary, monthName, monthParam }: { summary: MonthlySummary;
           <Figure icon={<HandCoins />} tint={incomeTint} label="Entrou">
             {incomeCents > 0 ? <span className="text-spectrum">{formatCents(incomeCents)}</span> : formatCents(0)}
           </Figure>
-          <Figure icon={<Receipt />} label="Saiu">
+          <Figure icon={<Receipt />} label="Saiu" note={cardNote}>
             {formatCents(expenseCents)}
           </Figure>
           <Figure
@@ -115,6 +129,12 @@ function Overview({ summary, monthName, monthParam }: { summary: MonthlySummary;
             {signed(investedCents)}
           </Figure>
         </div>
+      )}
+
+      {expenseCents > 0 && (
+        <Suspense fallback={<Skeleton className="h-48 w-full rounded-2xl" />}>
+          <CategoryBreakdown month={monthParam} totalCents={expenseCents} />
+        </Suspense>
       )}
 
       <Link
@@ -152,6 +172,7 @@ function Figure({
   tint,
   label,
   hint,
+  note,
   wide,
   children,
 }: {
@@ -159,6 +180,7 @@ function Figure({
   tint?: string
   label: string
   hint?: string
+  note?: string
   wide?: boolean
   children: ReactNode
 }) {
@@ -174,14 +196,12 @@ function Figure({
         <span className="text-sm font-medium text-foreground/75">{label}</span>
         {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
       </div>
-      <span
-        className={cn(
-          'truncate text-[clamp(1.05rem,4.8vw,1.35rem)] leading-tight font-semibold tracking-tight tabular-nums',
-          wide ? 'sm:-mt-2' : '-mt-2',
-        )}
-      >
-        {children}
-      </span>
+      <div className={cn('flex min-w-0 flex-col gap-1', wide ? 'sm:-mt-2' : '-mt-2')}>
+        <span className="truncate text-[clamp(1.05rem,4.8vw,1.35rem)] leading-tight font-semibold tracking-tight tabular-nums">
+          {children}
+        </span>
+        {note && <span className="text-xs leading-snug text-muted-foreground">{note}</span>}
+      </div>
     </div>
   )
 }

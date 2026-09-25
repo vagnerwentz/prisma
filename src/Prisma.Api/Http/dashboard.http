@@ -7,5 +7,14 @@ GET {{baseUrl}}/dashboard/summary?month=2026-10
 ### Resumo do mês atual
 GET {{baseUrl}}/dashboard/summary
 
+### Despesas do mês por categoria raiz, maior primeiro (sem categoria: id e nome nulos)
+GET {{baseUrl}}/dashboard/categories?month=2026-10
+
+### Detalhar uma categoria pela data de caixa: soma o mesmo valor do dashboard
+GET {{baseUrl}}/transactions?from=2026-10-01&to=2026-10-31&dateBasis=Settlement&type=Expense&categoryId=<id da categoria>
+
+### Detalhar as despesas sem categoria
+GET {{baseUrl}}/transactions?from=2026-10-01&to=2026-10-31&dateBasis=Settlement&type=Expense&uncategorized=true
+
 ### Erro: mês fora do formato (400)
 GET {{baseUrl}}/dashboard/summary?month=10-2026

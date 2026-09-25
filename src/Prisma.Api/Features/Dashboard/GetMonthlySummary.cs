@@ -11,7 +11,8 @@ namespace Prisma.Api.Features.Dashboard;
 // O banco soma agrupado; o domínio decide o que é receita, despesa e investido.
 public static class GetMonthlySummary
 {
-    public sealed record Response(string Month, long IncomeCents, long ExpenseCents, long LeftoverCents, long InvestedCents);
+    public sealed record Response(
+        string Month, long IncomeCents, long ExpenseCents, long CardExpenseCents, long LeftoverCents, long InvestedCents);
 
     public sealed class Handler(AppDbContext db, IClock clock)
     {
@@ -33,7 +34,8 @@ public static class GetMonthlySummary
 
             var summary = MonthlySummary.Of(entries);
             return new Response(
-                DashboardMonth.Format(first), summary.IncomeCents, summary.ExpenseCents, summary.LeftoverCents, summary.InvestedCents);
+                DashboardMonth.Format(first), summary.IncomeCents, summary.ExpenseCents, summary.CardExpenseCents,
+                summary.LeftoverCents, summary.InvestedCents);
         }
     }
 

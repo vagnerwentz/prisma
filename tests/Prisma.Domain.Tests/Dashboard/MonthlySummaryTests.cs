@@ -23,7 +23,7 @@ public sealed class MonthlySummaryTests
     [Fact]
     public void Empty_month_is_all_zeros()
     {
-        MonthlySummary.Of([]).ShouldBe(new MonthlySummary(0, 0, 0, 0));
+        MonthlySummary.Of([]).ShouldBe(new MonthlySummary(0, 0, 0, 0, 0));
     }
 
     // O exemplo da seção 2 de docs/fase-2.md, já somado por tipo, direção e tipo de conta.
@@ -47,6 +47,7 @@ public sealed class MonthlySummaryTests
 
         summary.IncomeCents.ShouldBe(800000);
         summary.ExpenseCents.ShouldBe(400000);
+        summary.CardExpenseCents.ShouldBe(60000);
         summary.LeftoverCents.ShouldBe(400000);
         summary.InvestedCents.ShouldBe(100000);
     }
@@ -62,6 +63,7 @@ public sealed class MonthlySummaryTests
         ]);
 
         summary.ExpenseCents.ShouldBe(60000);
+        summary.CardExpenseCents.ShouldBe(60000);
         summary.IncomeCents.ShouldBe(0);
         summary.InvestedCents.ShouldBe(0);
     }
@@ -93,6 +95,21 @@ public sealed class MonthlySummaryTests
 
         summary.LeftoverCents.ShouldBe(-50000);
         summary.InvestedCents.ShouldBe(20000);
+    }
+
+    [Fact]
+    public void Card_expense_is_the_part_of_the_expense_made_on_credit_cards()
+    {
+        var summary = MonthlySummary.Of(
+        [
+            Expense(10000),
+            Expense(20000, AccountType.CreditCard),
+            Expense(5000, AccountType.Cash),
+            Income(3000, AccountType.CreditCard),
+        ]);
+
+        summary.ExpenseCents.ShouldBe(35000);
+        summary.CardExpenseCents.ShouldBe(20000);
     }
 
     [Fact]

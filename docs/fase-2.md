@@ -39,6 +39,8 @@ quais faturas vêm pela frente.
 - **Investido** = aportes − resgates (decisão do usuário): transferências recebidas por contas do
   tipo `Investment` menos as enviadas por elas, no mês. Transferência entre duas contas de
   investimento se anula. Pode ser negativo (mês em que se resgatou mais do que aportou).
+- **No cartão** = a parte das despesas feita em contas `CreditCard`: as faturas que vencem no mês.
+  Explica na tela por que compras de meses anteriores aparecem como gasto do mês.
 
 ### 2.2 Gastos por categoria
 
@@ -46,7 +48,11 @@ quais faturas vêm pela frente.
   soma na categoria pai (Alimentação).
 - Despesa sem categoria vai para "Sem categoria".
 - Ordem: do maior valor para o menor. A participação (%) é calculada na tela sobre o total de
-  despesas do mês, arredondada para inteiro.
+  despesas do mês, arredondada para inteiro; categoria com algum gasto mostra pelo menos 1%.
+- **Tocar numa categoria abre a lista que soma o mesmo valor:** despesas daquela categoria (com
+  as subcategorias) com `SettlementDate` no mês, e não pela data da compra. Sem isso, o jantar de
+  20/09 (fatura de outubro) contaria em outubro no resumo e sumiria da lista de outubro.
+  "Sem categoria" também abre a lista, com as despesas sem categoria.
 
 ### 2.3 Comparativo mensal
 
@@ -83,8 +89,8 @@ vence dia 5.
 
 Resultado de outubro:
 
-- Receitas **R$ 8.000,00**; despesas **R$ 4.000,00** (2.500 + 800 + 600 + 100); sobra
-  **R$ 4.000,00**; investido **R$ 1.000,00** (1.500 − 500).
+- Receitas **R$ 8.000,00**; despesas **R$ 4.000,00** (2.500 + 800 + 600 + 100), das quais
+  **R$ 600,00** no cartão (o jantar); sobra **R$ 4.000,00**; investido **R$ 1.000,00** (1.500 − 500).
 - Por categoria: Moradia R$ 2.500,00 (63%); Alimentação R$ 1.400,00 (35%); Sem categoria
   R$ 100,00 (3%).
 - Novembro, só com o sapato: despesas R$ 300,00.
@@ -102,6 +108,15 @@ GET /dashboard/upcoming-statements        → a próxima fatura não paga de cad
 
 `month` no formato `aaaa-mm`; sem ele, o mês de hoje (`IClock.Today`). Mês inválido: 400.
 
+A lista ganha três filtros opcionais para o detalhamento (etapa 2.2):
+
+```
+GET /transactions?from=&to=&dateBasis=Settlement&type=Expense&categoryId=   (ou &uncategorized=true)
+```
+
+`dateBasis` escolhe a data do período: `Purchase` (padrão, a lista de sempre) ou `Settlement`
+(data de caixa, a do dashboard).
+
 ---
 
 ## 4. Tela
@@ -110,13 +125,18 @@ GET /dashboard/upcoming-statements        → a próxima fatura não paga de cad
   lançamentos. A lista vai para `/lancamentos?mes=`.
 - **Topo:** sobra do mês em destaque (`font-display`), com ⓘ que explica a visão de caixa; "Entrou",
   "Saiu" e "Investido" abaixo. Receita em `text-spectrum`, despesa em tinta (`CLAUDE.md`, 7.1); o
-  rótulo já diz a direção, então só sobra e investido levam "−" quando negativos. Sem receita no
-  mês, o título é "Saldo de …" e a barra de gasto some.
+  rótulo já diz a direção, então só sobra e investido levam "−" quando negativos.
+- **Sem receita no mês**, o destaque mostra os **gastos** ("Gastos de outubro R$ 4.482,86"), não uma
+  sobra negativa que só repetiria o "Saiu" em tom de alarme; embaixo, "Lance suas receitas para
+  ver quanto sobra". Com receita: "Sobra de …", ou "Faltou em …" se o gasto passar da receita.
+- **"Saiu"** mostra, quando houver, "R$ X em faturas de cartão".
 - **Por categoria:** barras horizontais na cor de cada categoria, com ícone, valor e %.
 - **Comparativo:** gráfico de barras (Recharts, carregado sob demanda) com receitas e despesas dos
   6 meses.
 - **Próximas faturas** e **Em contas:** cartões pequenos que levam ao detalhe da conta.
-- Tocar numa categoria abre a lista de lançamentos do mês filtrada por ela.
+- Tocar numa categoria abre a lista de lançamentos filtrada por ela, pela data de caixa
+  (`/lancamentos?mes=2026-10&categoria=<id>`, ou `&categoria=sem`), com um aviso do filtro e um
+  botão para limpá-lo.
 - **Estilo do dashboard** (ajustado com o usuário na 2.1; as demais telas seguem como estão):
   blocos são superfícies (`.surface`: tom e sombra suave, sem contorno de 1px); serifada só no
   nome do mês e no valor principal, os outros valores em Geist seminegrito; um espectro por tela
@@ -140,6 +160,7 @@ GET /dashboard/upcoming-statements        → a próxima fatura não paga de cad
 ### Integração
 
 - O exemplo da seção 2, pelos endpoints: resumo, categorias e novembro com o sapato.
+- A lista filtrada pela categoria e pela data de caixa soma o mesmo valor da categoria no resumo.
 - Pagamento de fatura não duplica o gasto do mês (`CLAUDE.md`, casos obrigatórios).
 - Despesa excluída some do resumo; restaurada, volta.
 - Dois usuários: cada um vê só os próprios números.

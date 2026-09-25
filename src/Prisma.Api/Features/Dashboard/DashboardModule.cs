@@ -5,6 +5,7 @@ public static class DashboardModule
     public static IServiceCollection AddDashboardFeatures(this IServiceCollection services)
     {
         services.AddScoped<GetMonthlySummary.Handler>();
+        services.AddScoped<ListCategoryTotals.Handler>();
         return services;
     }
 
@@ -12,5 +13,6 @@ public static class DashboardModule
     {
         var group = app.MapGroup("/dashboard");
         GetMonthlySummary.Map(group);
+        ListCategoryTotals.Map(group);
     }
 }

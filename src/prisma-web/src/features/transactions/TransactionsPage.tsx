@@ -1,18 +1,20 @@
 import { lazy, Suspense, useMemo, useState } from 'react'
-import { Link } from 'react-router'
+import { X } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router'
 import { PrismLogo } from '@/components/brand/PrismLogo'
 import { EntryTile, TransferTile } from '@/components/brand/Tiles'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { MonthSwitcher, useMonthParam } from '@/components/MonthSwitcher'
+import { MonthSwitcher } from '@/components/MonthSwitcher'
+import { useMonthParam } from '@/lib/monthParam'
 import { useAccounts } from '@/features/accounts/queries'
 import { categoryLabels, useCategories, type CategoryLabel } from '@/features/categories/queries'
 import { formatDayHeading, formatMonth, monthRange, todayInSaoPaulo, type YearMonth } from '@/lib/dates'
 import { shortInstallments } from '@/lib/money'
 import { Amount } from './Amount'
 import { entryKey, findEntry } from './editing'
-import { useTransactions, type Transaction } from './queries'
+import { useTransactions, type Transaction, type TransactionFilters } from './queries'
 import { buildTimeline, type TimelineEntry } from './timeline'
 
 // O painel (detalhes e edição) só carrega quando alguém toca num lançamento.
@@ -27,7 +29,29 @@ export function TransactionsPage() {
   const [month, setMonth] = useMonthParam()
   const range = monthRange(month)
 
-  const transactions = useTransactions(range)
+  // Vindo de uma categoria do resumo (?categoria=<id> ou sem): só despesas dela, pela data de
+  // caixa, para a lista somar o mesmo valor do resumo (docs/fase-2.md, 2.2).
+  const [searchParams, setSearchParams] = useSearchParams()
+  const category = searchParams.get('categoria')
+  const filters: TransactionFilters = category
+    ? {
+        ...range,
+        dateBasis: 'Settlement',
+        type: 'Expense',
+        ...(category === 'sem' ? { uncategorized: true } : { categoryId: category }),
+      }
+    : range
+  const clearCategory = () =>
+    setSearchParams(
+      (current) => {
+        const params = new URLSearchParams(current)
+        params.delete('categoria')
+        return params
+      },
+      { replace: true },
+    )
+
+  const transactions = useTransactions(filters)
   const accounts = useAccounts()
   const categories = useCategories()
 
@@ -47,6 +71,13 @@ export function TransactionsPage() {
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 pt-5 pb-32">
       <MonthSwitcher month={month} onChange={setMonth} />
+
+      {category && (
+        <CategoryFilter
+          name={category === 'sem' ? 'Sem categoria' : (lookups.categories.get(category)?.name ?? 'Categoria')}
+          onClear={clearCategory}
+        />
+      )}
 
       {transactions.isPending && <ListSkeleton />}
 
@@ -181,6 +212,22 @@ function EmptyMonth({ month }: { month: YearMonth }) {
       </div>
       <Button asChild className="rounded-full">
         <Link to="/lancar">Fazer um lançamento</Link>
+      </Button>
+    </div>
+  )
+}
+
+// Aviso do filtro vindo do resumo: a lista está pela data de caixa, então uma compra no cartão
+// aparece no mês da fatura, sob o dia em que foi feita.
+function CategoryFilter({ name, onClear }: { name: string; onClear: () => void }) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl bg-muted/60 py-2 pr-2 pl-4">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-sm font-medium">Despesas em {name}</span>
+        <span className="text-xs text-muted-foreground">Pela data de caixa, como no resumo</span>
+      </div>
+      <Button variant="ghost" size="icon" className="shrink-0 rounded-full" aria-label="Limpar filtro" onClick={onClear}>
+        <X />
       </Button>
     </div>
   )

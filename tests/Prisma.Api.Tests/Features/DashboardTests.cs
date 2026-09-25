@@ -15,7 +15,14 @@ public sealed class DashboardTests(PostgresFixture postgres)
 
     private sealed record EntryDto(Guid Id, Guid? StatementId);
 
-    private sealed record SummaryDto(string Month, long IncomeCents, long ExpenseCents, long LeftoverCents, long InvestedCents);
+    private sealed record CategoryNodeDto(Guid Id, string Name, List<CategoryNodeDto>? Subcategories);
+
+    private sealed record CategoryTotalDto(Guid? CategoryId, string? Name, string? Icon, string? Color, long AmountCents);
+
+    private sealed record ListedDto(Guid Id, long AmountCents);
+
+    private sealed record SummaryDto(
+        string Month, long IncomeCents, long ExpenseCents, long CardExpenseCents, long LeftoverCents, long InvestedCents);
 
     private static readonly FakeClock October15 = new(new DateTime(2026, 10, 15, 15, 0, 0, DateTimeKind.Utc));
 
@@ -24,6 +31,9 @@ public sealed class DashboardTests(PostgresFixture postgres)
         public HttpClient Client { get; } = client;
         public Guid Checking { get; private set; }
         public Guid DeletedExpense { get; private set; }
+        public Guid Housing { get; private set; }
+        public Guid Food { get; private set; }
+        public Guid Shopping { get; private set; }
 
         public static async Task<Example> Create(PrismaApiFactory factory)
         {
@@ -33,13 +43,21 @@ public sealed class DashboardTests(PostgresFixture postgres)
             var treasury = await e.Account(new { name = "Tesouro", type = "Investment", initialBalanceCents = 0 });
             var card = await e.Account(new { name = "Visa", type = "CreditCard", initialBalanceCents = 0, closingDay = 26, dueDay = 5 });
 
-            await e.Entry(e.Checking, "Income", 800000, "2026-10-05", "Pix");           // salário
-            await e.Entry(e.Checking, "Expense", 250000, "2026-10-10", "Pix");          // aluguel
-            await e.Entry(e.Checking, "Expense", 80000, "2026-10-12", "Debit");         // mercado
-            await e.Entry(e.Checking, "Expense", 10000, "2026-10-15", "Pix");           // farmácia
-            var dinner = await e.Entry(card, "Expense", 60000, "2026-09-20", "Credit"); // fatura vence 05/10
-            await e.Entry(card, "Expense", 30000, "2026-10-10", "Credit");              // sapato: fatura vence 05/11
-            e.DeletedExpense = (await e.Entry(e.Checking, "Expense", 99900, "2026-10-09", "Pix")).Id;
+            var tree = (await e.Client.GetFromJsonAsync<List<CategoryNodeDto>>("/categories"))!;
+            Guid Root(string name) => tree.Single(c => c.Name == name).Id;
+            Guid Sub(string root, string name) => tree.Single(c => c.Name == root).Subcategories!.Single(c => c.Name == name).Id;
+            e.Housing = Root("Moradia");
+            e.Food = Root("Alimentação");
+            e.Shopping = Root("Compras");
+            var salary = tree.Single(c => c.Name == "Salário").Id;
+
+            await e.Entry(e.Checking, "Income", 800000, "2026-10-05", "Pix", salary);
+            await e.Entry(e.Checking, "Expense", 250000, "2026-10-10", "Pix", Sub("Moradia", "Aluguel"));
+            await e.Entry(e.Checking, "Expense", 80000, "2026-10-12", "Debit", Sub("Alimentação", "Mercado"));
+            await e.Entry(e.Checking, "Expense", 10000, "2026-10-15", "Pix");           // farmácia, sem categoria
+            var dinner = await e.Entry(card, "Expense", 60000, "2026-09-20", "Credit", Sub("Alimentação", "Restaurante")); // vence 05/10
+            await e.Entry(card, "Expense", 30000, "2026-10-10", "Credit", e.Shopping);   // sapato: fatura vence 05/11
+            e.DeletedExpense = (await e.Entry(e.Checking, "Expense", 99900, "2026-10-09", "Pix", Root("Lazer"))).Id;
             (await e.Client.DeleteAsync($"/transactions/{e.DeletedExpense}")).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
             await e.Created(e.Client.PostAsJsonAsync($"/statements/{dinner.StatementId}/pay",
@@ -53,9 +71,9 @@ public sealed class DashboardTests(PostgresFixture postgres)
         private async Task<Guid> Account(object body) =>
             (await (await Created(Client.PostAsJsonAsync("/accounts", body))).Content.ReadFromJsonAsync<IdDto>())!.Id;
 
-        private async Task<EntryDto> Entry(Guid account, string type, long cents, string date, string method) =>
+        private async Task<EntryDto> Entry(Guid account, string type, long cents, string date, string method, Guid? categoryId = null) =>
             (await (await Created(Client.PostAsJsonAsync("/transactions",
-                new { accountId = account, type, amountCents = cents, purchaseDate = date, method }))).Content
+                new { accountId = account, type, amountCents = cents, purchaseDate = date, method, categoryId }))).Content
                 .ReadFromJsonAsync<List<EntryDto>>())![0];
 
         private Task Transfer(Guid from, Guid to, long cents, string date) =>
@@ -81,9 +99,9 @@ public sealed class DashboardTests(PostgresFixture postgres)
         using var e = await Example.Create(factory);
 
         // O pagamento da fatura (R$ 600,00) não duplica o jantar; o saque não é despesa.
-        (await Summary(e.Client, "2026-10")).ShouldBe(new SummaryDto("2026-10", 800000, 400000, 400000, 100000));
-        (await Summary(e.Client, "2026-11")).ShouldBe(new SummaryDto("2026-11", 0, 30000, -30000, 0));
-        (await Summary(e.Client, "2026-09")).ShouldBe(new SummaryDto("2026-09", 0, 0, 0, 0));
+        (await Summary(e.Client, "2026-10")).ShouldBe(new SummaryDto("2026-10", 800000, 400000, 60000, 400000, 100000));
+        (await Summary(e.Client, "2026-11")).ShouldBe(new SummaryDto("2026-11", 0, 30000, 30000, -30000, 0));
+        (await Summary(e.Client, "2026-09")).ShouldBe(new SummaryDto("2026-09", 0, 0, 0, 0, 0));
     }
 
     [Fact]
@@ -119,7 +137,59 @@ public sealed class DashboardTests(PostgresFixture postgres)
         using var e = await Example.Create(factory);
         using var other = await factory.CreateAuthenticatedClientAsync();
 
-        (await Summary(other, "2026-10")).ShouldBe(new SummaryDto("2026-10", 0, 0, 0, 0));
+        (await Summary(other, "2026-10")).ShouldBe(new SummaryDto("2026-10", 0, 0, 0, 0, 0));
         (await Summary(e.Client, "2026-10")).IncomeCents.ShouldBe(800000);
+    }
+
+    private static async Task<List<CategoryTotalDto>> Categories(HttpClient client, string month) =>
+        (await client.GetFromJsonAsync<List<CategoryTotalDto>>($"/dashboard/categories?month={month}"))!;
+
+    [Fact]
+    public async Task Spec_example_expenses_by_root_category()
+    {
+        await using var factory = new PrismaApiFactory(postgres.ConnectionString, clock: October15);
+        using var e = await Example.Create(factory);
+
+        // Aluguel soma em Moradia; mercado e jantar (fatura de outubro) em Alimentação; a despesa
+        // excluída (Lazer) não aparece; a farmácia fica em "sem categoria" (id e nome nulos).
+        var october = await Categories(e.Client, "2026-10");
+        october.Select(c => (c.CategoryId, c.Name, c.AmountCents)).ShouldBe(
+        [
+            (e.Housing, "Moradia", 250000L),
+            (e.Food, "Alimentação", 140000L),
+            (null, null, 10000L),
+        ]);
+        october[0].Icon.ShouldNotBeNull();
+        october[0].Color.ShouldNotBeNull();
+
+        (await Categories(e.Client, "2026-11")).Select(c => (c.CategoryId, c.AmountCents)).ShouldBe([(e.Shopping, 30000L)]);
+        (await Categories(e.Client, "2026-09")).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Drilling_into_a_category_by_cash_date_adds_up_to_the_dashboard()
+    {
+        await using var factory = new PrismaApiFactory(postgres.ConnectionString, clock: October15);
+        using var e = await Example.Create(factory);
+        const string october = "from=2026-10-01&to=2026-10-31";
+
+        async Task<List<ListedDto>> List(string filter) =>
+            (await e.Client.GetFromJsonAsync<List<ListedDto>>($"/transactions?{october}&{filter}"))!;
+
+        (await List($"dateBasis=Settlement&type=Expense&categoryId={e.Food}")).Sum(t => t.AmountCents).ShouldBe(140000);
+        (await List("dateBasis=Settlement&type=Expense&uncategorized=true")).Sum(t => t.AmountCents).ShouldBe(10000);
+
+        // Pela data da compra (a lista de sempre), o jantar de 20/09 fica fora de outubro.
+        (await List($"categoryId={e.Food}")).Sum(t => t.AmountCents).ShouldBe(80000);
+    }
+
+    [Fact]
+    public async Task Categories_of_another_user_are_not_counted()
+    {
+        await using var factory = new PrismaApiFactory(postgres.ConnectionString, clock: October15);
+        using var e = await Example.Create(factory);
+        using var other = await factory.CreateAuthenticatedClientAsync();
+
+        (await Categories(other, "2026-10")).ShouldBeEmpty();
     }
 }
