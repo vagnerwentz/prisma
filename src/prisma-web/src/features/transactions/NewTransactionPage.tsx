@@ -19,7 +19,7 @@ import { findBrand } from '@/lib/brands/merchants'
 import { todayInSaoPaulo } from '@/lib/dates'
 import { describeInstallments, formatCents } from '@/lib/money'
 import { readLastAccountId, saveLastAccountId } from '@/lib/preferences'
-import { AmountField, CategoryPicker, Chip, ChipRow, DateChooser, Section, TypeToggle } from './fields'
+import { AmountField, CategoryPicker, Chip, ChipRow, DateChooser, Section, TypeToggle, type EntryType } from './fields'
 import { useCreateTransaction, useCreateTransfer, useTransaction, type Transaction } from './queries'
 
 const maxInstallments = 24
@@ -96,12 +96,19 @@ export function NewTransactionPage() {
 }
 
 // Receita, despesa e estorno num formulário; transferência em outro (duas pontas, sem categoria).
+// Sair da transferência pelo seletor abre o formulário já no tipo tocado (despesa, receita ou estorno).
 function Composers({ accounts, categories }: { accounts: Account[]; categories: CategoryNode[] }) {
-  const [transfer, setTransfer] = useState(false)
-  return transfer ? (
-    <TransferComposer accounts={accounts} onEntry={() => setTransfer(false)} />
+  const [shown, setShown] = useState<EntryType | 'Transfer'>('Expense')
+  return shown === 'Transfer' ? (
+    <TransferComposer accounts={accounts} onEntry={setShown} />
   ) : (
-    <Composer accounts={accounts} categories={categories} onTransfer={() => setTransfer(true)} />
+    <Composer
+      key={shown}
+      accounts={accounts}
+      categories={categories}
+      initialType={shown}
+      onTransfer={() => setShown('Transfer')}
+    />
   )
 }
 
@@ -128,9 +135,11 @@ function Composer({
   categories,
   onTransfer,
   refundOf,
+  initialType = 'Expense',
 }: {
   accounts: Account[]
   categories: CategoryNode[]
+  initialType?: EntryType
   onTransfer?: () => void
   // Estornar uma compra: tipo, conta e vínculo fixos; valor, categoria e descrição já preenchidos.
   refundOf?: Transaction
@@ -156,7 +165,8 @@ function Composer({
           description: `Estorno: ${refundOf.description || 'compra'}`.slice(0, 200),
         }
       : {
-          type: 'Expense',
+          // Receita não vai para o cartão: se a conta lembrada for um cartão, começa como despesa.
+          type: initialType === 'Income' && initialAccount.type === 'CreditCard' ? 'Expense' : initialType,
           amountCents: 0,
           accountId: initialAccount.id,
           categoryId: '',
@@ -391,7 +401,7 @@ const transferSchema = z
 type TransferValues = z.infer<typeof transferSchema>
 
 // Transferência entre contas próprias (docs/fase-1.md, 2.3): não é receita nem despesa.
-function TransferComposer({ accounts, onEntry }: { accounts: Account[]; onEntry: () => void }) {
+function TransferComposer({ accounts, onEntry }: { accounts: Account[]; onEntry: (type: EntryType) => void }) {
   const navigate = useNavigate()
   const createTransfer = useCreateTransfer()
   const eligible = accounts.filter((a) => a.type !== 'CreditCard')
@@ -470,7 +480,7 @@ function TransferComposer({ accounts, onEntry }: { accounts: Account[]; onEntry:
           </Alert>
         )}
         <div className="flex flex-col items-center gap-5">
-          <TypeToggle value="Transfer" incomeDisabled={false} onChange={onEntry} onTransfer={() => {}} />
+          <TypeToggle value="Transfer" incomeDisabled={false} onChange={onEntry} onTransfer={() => {}} withRefund />
           <AmountField
             value={amountCents}
             onChange={(cents) => set('amountCents', cents)}

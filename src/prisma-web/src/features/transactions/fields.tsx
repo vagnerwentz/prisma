@@ -101,7 +101,7 @@ export function TypeToggle({
     <div
       className={cn(
         'grid border bg-card p-1 text-sm font-medium',
-        count === 4 ? 'grid-cols-2 gap-y-1 rounded-3xl sm:grid-cols-4 sm:rounded-full' : 'rounded-full',
+        count === 4 ? 'grid-cols-2 gap-y-1 rounded-3xl sm:grid-cols-[repeat(4,auto)] sm:rounded-full' : 'rounded-full',
         count === 3 && 'grid-cols-3',
         count === 2 && 'grid-cols-2',
       )}
