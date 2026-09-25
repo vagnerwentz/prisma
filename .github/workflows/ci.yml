@@ -1,0 +1,51 @@
+# Integração contínua: todo push na main (e todo pull request para ela) roda os testes do backend
+# e do frontend. O Railway só faz o deploy com este check verde ("Wait for CI").
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Um push novo cancela a execução anterior do mesmo ramo, que já ficou velha.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (dotnet test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      # Domínio, arquitetura e integração. A integração sobe o próprio Postgres 17 com
+      # Testcontainers, no Docker que o runner já tem: nenhum banco ou segredo a configurar.
+      - run: dotnet test
+
+  frontend:
+    name: Frontend (lint, Vitest, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: src/prisma-web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/prisma-web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      # Checagem de tipos e build do Vite: o mesmo que o Dockerfile faz no deploy.
+      - run: npm run build

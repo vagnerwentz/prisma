@@ -301,6 +301,9 @@ npm run lint          # oxlint
 docker build -t prisma .                           # imagem de produção (API + React), na raiz
 ```
 
+**CI:** `.github/workflows/ci.yml` roda `dotnet test` e, no frontend, lint, Vitest e build a cada
+push na `main` e em pull requests. Comando novo de verificação entra lá também.
+
 Testes manuais: `src/Prisma.Api/Http/*.http` (HTTP Client do Rider), com a API rodando
 pelo perfil `https`. Rode o Login de `auth.http` antes dos demais: o Rider guarda o cookie
 de sessão. Ao criar ou mudar um endpoint, atualize o `.http` correspondente.

@@ -316,8 +316,15 @@ e-mail continuam nas pendências, para quando o cadastro abrir.
   sessão ficou fixo no caminho `/`: herdando o `/api`, convivia com o cookie antigo e a sessão caía
   logo depois do login (achado pelo usuário no teste pela tela).
 
+- [ ] **CI no GitHub Actions** (pedida pelo usuário, antes da H.2)
+  `.github/workflows/ci.yml`: a cada push na `main` e a cada pull request para ela, o backend roda
+  `dotnet test` (a integração sobe o próprio Postgres com Testcontainers, no Docker do runner) e o
+  frontend roda lint, Vitest e build, em paralelo.
+  *Pronto quando:* a primeira execução no GitHub fica verde.
+
 - [ ] **H.2 Deploy no Railway**
-  Projeto com o serviço da API (build pelo `Dockerfile`, deploy a cada push na `main`) e o
+  Projeto com o serviço da API (build pelo `Dockerfile`, deploy a cada push na `main` só com o CI
+  verde: "Wait for CI") e o
   Postgres do Railway; connection string montada a partir das variáveis do Postgres (as chaves
   do cookie já vão no banco, sem volume); seu e-mail em `Registration__AllowedEmails__0`; porta
   8080; health check em `/api/health`. Backup diário do
@@ -348,8 +355,6 @@ Escopo em uma linha cada, para orientar decisões sem antecipar detalhe.
 
 Decidir quando a fase correspondente chegar:
 
-- Integração contínua (GitHub Actions rodando `dotnet test`, Vitest, lint e build a cada push;
-  o Testcontainers funciona nos runners). (depois do primeiro push para o GitHub)
 - Envio de fatura para LLM externo é opt-in explícito do usuário? (Fase 4)
 - Acompanhar rentabilidade de investimento ou só aporte? (Fase 5 ou depois)
 - Hospedagem para cadastro público: o Railway basta, ou os dados devem ficar numa região no
