@@ -9,6 +9,13 @@ export function shouldRetry(failureCount: number, error: unknown): boolean {
   return failureCount < 1
 }
 
+// Por quanto tempo uma resposta vale sem ir de novo ao servidor. Sem isso, voltar a uma tela
+// (Resumo → Contas → Resumo) refazia todos os pedidos dela, ainda que nada tivesse mudado. Não deixa
+// número velho depois de um lançamento: toda mutação invalida o que afeta (invalidateMoney e as
+// mutações de conta e fatura), e o invalidado vai ao servidor na hora. O que pode ficar até um
+// minuto atrasado é só o que mudou fora desta aba, como um lançamento feito no celular.
+export const freshFor = 60_000
+
 // A sessão (cookie de 14 dias) pode expirar com o app aberto. O primeiro 401 de qualquer consulta
 // ou mutação esquece o usuário e tudo o que estava em cache, como no "Sair"; o RequireAuth então
 // leva para /entrar e volta à mesma tela depois do login. Sem usuário na sessão (senha errada no
@@ -28,7 +35,7 @@ export function createQueryClient(onSessionExpired: () => void = () => {}): Quer
     queryCache: new QueryCache({ onError: handleError }),
     mutationCache: new MutationCache({ onError: handleError }),
     defaultOptions: {
-      queries: { retry: shouldRetry, refetchOnWindowFocus: false },
+      queries: { retry: shouldRetry, refetchOnWindowFocus: false, staleTime: freshFor },
     },
   })
   return client

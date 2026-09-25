@@ -70,3 +70,42 @@ describe('session expired', () => {
     expect(client.getQueryData(meKey)).toEqual({ id: '1', email: 'a@b.com' })
   })
 })
+
+// Validade do cache: voltar a uma tela em menos de um minuto usa o que já veio, sem ir à rede.
+// Qualquer mudança feita no app invalida o que afeta, então o dado não fica velho por isso.
+describe('cache freshness', () => {
+  const counting = () => {
+    let calls = 0
+    return { queryFn: () => Promise.resolve(++calls), calls: () => calls }
+  }
+
+  it('reuses a response for a minute', async () => {
+    vi.useFakeTimers()
+    try {
+      const client = createQueryClient()
+      const api = counting()
+
+      await client.fetchQuery({ queryKey: ['dashboard', 'summary'], queryFn: api.queryFn })
+      vi.advanceTimersByTime(59_000)
+      await client.fetchQuery({ queryKey: ['dashboard', 'summary'], queryFn: api.queryFn })
+      expect(api.calls()).toBe(1)
+
+      vi.advanceTimersByTime(2_000)
+      await client.fetchQuery({ queryKey: ['dashboard', 'summary'], queryFn: api.queryFn })
+      expect(api.calls()).toBe(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('goes back to the server right after a change invalidates the data', async () => {
+    const client = createQueryClient()
+    const api = counting()
+
+    await client.fetchQuery({ queryKey: ['dashboard', 'summary'], queryFn: api.queryFn })
+    await client.invalidateQueries({ queryKey: ['dashboard'] })
+    await client.fetchQuery({ queryKey: ['dashboard', 'summary'], queryFn: api.queryFn })
+
+    expect(api.calls()).toBe(2)
+  })
+})

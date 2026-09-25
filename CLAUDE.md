@@ -335,6 +335,9 @@ cookie de sessão.
   `/dev/erro?tipo=atualizacao`.
 - **Sessão expirada:** o primeiro 401 de qualquer consulta ou mutação leva a `/entrar`
   (`createQueryClient`, em `lib/queryClient.ts`); consultas não repetem erro 4xx.
+- **Cache de dados:** o TanStack Query é o único cache (nada de Redux nem de dados financeiros no
+  `localStorage`). Respostas valem 60 s (`freshFor`); por isso **toda mutação precisa invalidar
+  as chaves que afeta** (`invalidateMoney`, `lib/queryKeys.ts`), senão a tela fica com número velho.
 
 ## 8. Segurança
 
