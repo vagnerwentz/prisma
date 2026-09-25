@@ -1,4 +1,4 @@
-import { ChevronRight, HandCoins, Info, Receipt, Sprout } from 'lucide-react'
+import { ChartPie, ChevronRight, HandCoins, Info, List, Receipt, Sprout } from 'lucide-react'
 import { lazy, Suspense, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { MonthSwitcher } from '@/components/MonthSwitcher'
@@ -6,22 +6,16 @@ import { toMonthParam, useMonthParam } from '@/lib/monthParam'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatMonth, monthOf, todayInSaoPaulo, type YearMonth } from '@/lib/dates'
+import { formatMonth } from '@/lib/dates'
 import { formatCents } from '@/lib/money'
 import { cn } from '@/lib/utils'
 import { useMonthlySummary, type MonthlySummary } from './queries'
 
-// As categorias trazem os ícones e logos dos ladrilhos: ficam fora do pacote principal.
-const CategoryBreakdown = lazy(() => import('./CategoryBreakdown').then((m) => ({ default: m.CategoryBreakdown })))
-// O gráfico traz o Recharts: também sob demanda.
-const HistoryChart = lazy(() => import('./HistoryChart'))
 // Saldo em contas e próximas faturas: os ladrilhos de conta trazem os logos de marca.
 const TodayPanel = lazy(() => import('./TodayPanel'))
-// Compromissos herdados (docs/fase-2.md, 2.6): os ladrilhos das compras trazem os logos de marca.
-const InheritedInstallments = lazy(() => import('./CommitmentBlocks').then((m) => ({ default: m.InheritedInstallments })))
-const CommittedMonths = lazy(() => import('./CommitmentBlocks').then((m) => ({ default: m.CommittedMonths })))
 
-// Tela inicial: o mês de relance, pela data de caixa (docs/fase-2.md, 4).
+// Tela inicial: o mês de relance, pela data de caixa (docs/fase-2.md, 4). Categorias, parcelas e
+// comparativo ficam na Análise (etapa 2.9), no mesmo mês.
 export function SummaryPage() {
   const [month, setMonth] = useMonthParam()
   const param = toMonthParam(month)
@@ -43,22 +37,12 @@ export function SummaryPage() {
           <AlertDescription>Não foi possível carregar o resumo. Tente novamente.</AlertDescription>
         </Alert>
       )}
-      {summary.isSuccess && <Overview summary={summary.data} monthName={monthName} monthParam={param} onSelectMonth={setMonth} />}
+      {summary.isSuccess && <Overview summary={summary.data} monthName={monthName} monthParam={param} />}
     </main>
   )
 }
 
-function Overview({
-  summary,
-  monthName,
-  monthParam,
-  onSelectMonth,
-}: {
-  summary: MonthlySummary
-  monthName: string
-  monthParam: string
-  onSelectMonth: (month: YearMonth) => void
-}) {
+function Overview({ summary, monthName, monthParam }: { summary: MonthlySummary; monthName: string; monthParam: string }) {
   const { incomeCents, expenseCents, cardExpenseCents, leftoverCents, investedCents } = summary
   const [explaining, setExplaining] = useState(false)
   const empty = incomeCents === 0 && expenseCents === 0 && investedCents === 0
@@ -137,7 +121,7 @@ function Overview({
           <Figure icon={<HandCoins />} tint={incomeTint} label="Entrou">
             {incomeCents > 0 ? <span className="text-spectrum">{formatCents(incomeCents)}</span> : formatCents(0)}
           </Figure>
-          <Figure icon={<Receipt />} label="Saiu" note={cardNote}>
+          <Figure icon={<Receipt />} label="Saiu" note={cardNote} to={`/analise?mes=${monthParam}`}>
             {signed(expenseCents)}
           </Figure>
           <Figure
@@ -152,41 +136,19 @@ function Overview({
         </div>
       )}
 
-      {/* Logo abaixo do "Saiu", que ele explica. */}
-      {!empty && (
-        <Suspense fallback={<Skeleton className="h-56 w-full rounded-2xl" />}>
-          <InheritedInstallments month={monthParam} monthName={monthName} />
-        </Suspense>
-      )}
-
       <Suspense fallback={<Skeleton className="h-40 w-full rounded-2xl" />}>
         <TodayPanel />
       </Suspense>
 
-      {/* Olha para hoje, como o bloco "Hoje": só no Resumo do mês atual. */}
-      {monthParam === toMonthParam(monthOf(todayInSaoPaulo())) && (
-        <Suspense fallback={<Skeleton className="h-60 w-full rounded-2xl" />}>
-          <CommittedMonths onSelect={onSelectMonth} />
-        </Suspense>
-      )}
-
-      {!empty && (
-        <Suspense fallback={<Skeleton className="h-48 w-full rounded-2xl" />}>
-          <CategoryBreakdown month={monthParam} />
-        </Suspense>
-      )}
-
-      <Suspense fallback={<Skeleton className="h-64 w-full rounded-2xl" />}>
-        <HistoryChart month={monthParam} onSelect={onSelectMonth} />
-      </Suspense>
-
-      <Link
-        to={`/lancamentos?mes=${monthParam}`}
-        className="surface flex items-center justify-between rounded-2xl px-4 py-3.5 text-sm font-medium transition-colors hover:bg-muted/40 active:bg-muted/70"
-      >
-        Ver lançamentos de {monthName}
-        <ChevronRight className="size-4 text-muted-foreground" />
-      </Link>
+      {/* Para ir além do relance, no mesmo mês. */}
+      <nav aria-label={`Mais sobre ${monthName}`} className="surface flex flex-col divide-y divide-border/60 rounded-2xl">
+        <Shortcut to={`/analise?mes=${monthParam}`} icon={<ChartPie />}>
+          Ver análise de {monthName}
+        </Shortcut>
+        <Shortcut to={`/lancamentos?mes=${monthParam}`} icon={<List />}>
+          Ver lançamentos de {monthName}
+        </Shortcut>
+      </nav>
     </>
   )
 }
@@ -217,6 +179,7 @@ function Figure({
   hint,
   note,
   wide,
+  to,
   children,
 }: {
   icon: ReactNode
@@ -225,15 +188,22 @@ function Figure({
   hint?: string
   note?: string
   wide?: boolean
+  // Com destino, o bloco inteiro vira um link (o "Saiu" abre a análise do mês).
+  to?: string
   children: ReactNode
 }) {
+  const Box = to ? Link : 'div'
   return (
-    <div
+    <Box
+      to={to as string}
       className={cn(
         'surface flex min-w-0 gap-3 rounded-2xl p-4',
         wide ? 'col-span-2 flex-row items-center sm:col-span-1 sm:flex-col sm:items-start' : 'flex-col',
+        to &&
+          'relative transition-colors outline-none hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring active:bg-muted/70',
       )}
     >
+      {to && <ChevronRight aria-hidden className="absolute top-4 right-3 size-4 text-muted-foreground" />}
       <Tile icon={icon} tint={tint} />
       <div className={cn('flex min-w-0 flex-col gap-0.5', wide && 'flex-1 sm:flex-none')}>
         <span className="text-sm font-medium text-foreground/75">{label}</span>
@@ -245,7 +215,20 @@ function Figure({
         </span>
         {note && <span className="text-xs leading-snug text-muted-foreground">{note}</span>}
       </div>
-    </div>
+    </Box>
+  )
+}
+
+function Shortcut({ to, icon, children }: { to: string; icon: ReactNode; children: ReactNode }) {
+  return (
+    <Link
+      to={to}
+      className="flex items-center gap-3 px-4 py-3.5 text-sm font-medium transition-colors first:rounded-t-2xl last:rounded-b-2xl hover:bg-muted/40 active:bg-muted/70 [&>svg:first-child]:size-4 [&>svg:first-child]:text-muted-foreground"
+    >
+      {icon}
+      <span className="flex-1">{children}</span>
+      <ChevronRight className="size-4 text-muted-foreground" />
+    </Link>
   )
 }
 

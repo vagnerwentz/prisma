@@ -265,6 +265,55 @@ Já comprometido, de novembro a abril: **R$ 1.330,00** (TV, Passagem, Mercado 3/
 menos o estorno), **R$ 1.200,00**, **R$ 1.000,00**, **R$ 1.000,00**, **R$ 400,00**, **R$ 400,00**.
 Última parcela: **abril de 2027** (TV 10/10).
 
+### 2.7 Por que o gasto mudou (etapa 2.10)
+
+Pedida pelo usuário depois da 2.8. O comparativo diz "Gastou 6% a mais que em agosto" e para aí.
+A explicação decompõe a diferença do "Saiu" entre o mês escolhido e o anterior em **motivos** que
+somam exatamente a diferença. Tudo pela data de caixa, como o resto do Resumo.
+
+1. **Diferença do mês:** "Saiu" do mês menos o "Saiu" do anterior (2.1, estornos abatidos). A
+   porcentagem é a do comparativo (2.3): sem gasto no mês anterior, só o valor, sem %.
+2. **Motivos**, cada um com a variação em reais:
+   - **Parcelas de compras anteriores:** herdado do mês menos herdado do anterior (2.6).
+   - **Uma linha por categoria raiz** (e "Sem categoria"): a variação do que foi **decidido no mês**
+     naquela categoria, ou seja, o líquido da categoria (despesas menos estornos, 2.5) sem as
+     parcelas herdadas. Assim uma compra parcelada que passa de "do mês" para "herdada" aparece
+     como queda na categoria e alta nas parcelas, e as duas se compensam.
+3. **Soma exata:** Σ motivos = diferença do mês, sempre, ao centavo. Motivo com variação zero não
+   aparece.
+4. **Ordem e corte:** maior variação em módulo primeiro; empate, alta antes de queda, depois pelo
+   nome. No máximo **3 categorias**; as demais viram uma linha "Outras categorias" com a soma, sempre
+   a última, para a soma continuar exata. As parcelas não contam no limite das 3.
+5. **Detalhe de cada linha:**
+   - Categoria que **subiu:** o maior lançamento decidido no mês nela ("o maior foi Show, R$
+     180,00"). Categoria que caiu, sem detalhe.
+   - Parcelas: as compras cujas parcelas **começaram** a ser herdadas no mês (parcela 2 no mês) e as
+     que **terminaram** no mês anterior (a última parcela foi herdada nele).
+6. **Sem nada a explicar** (diferença zero e nenhum motivo): "Gastou o mesmo que em agosto", sem
+   lista. Mês sem gasto e anterior sem gasto: a explicação não aparece.
+7. Transferência nunca conta; excluído fica fora; cada usuário vê só o seu.
+
+**Por que determinístico, e não um modelo de IA:** a decomposição é aritmética e precisa bater ao
+centavo. Um texto gerado por IA, se vier um dia, deve **redigir** estes motivos já calculados, nunca
+calcular: a resposta estruturada do endpoint é o contrato.
+
+#### Exemplo (usado nos testes)
+
+Agosto e setembro de 2026, pela data de caixa.
+
+| | Agosto | Setembro | Variação |
+|---|---|---|---|
+| Parcelas de compras anteriores | TV 2/10, R$ 400,00 | TV 3/10 R$ 400,00 + Passagem 2/6 R$ 600,00 = R$ 1.000,00 | **+R$ 600,00** |
+| Lazer (decidido no mês) | Cinema R$ 100,00 + Passagem 1/6 R$ 600,00 = R$ 700,00 | Show R$ 180,00 + Cinema R$ 70,00 = R$ 250,00 | **−R$ 450,00** |
+| Saúde | — | Farmácia R$ 150,00 | **+R$ 150,00** |
+| Alimentação | Mercado R$ 900,00 + iFood R$ 300,00 = R$ 1.200,00 | Mercado R$ 800,00 + iFood R$ 250,00 = R$ 1.050,00 | **−R$ 150,00** |
+| Transporte | Uber R$ 300,00 | Uber R$ 300,00 | 0, não aparece |
+| **"Saiu"** | **R$ 2.600,00** | **R$ 2.750,00** | **+R$ 150,00** (6%) |
+
+Motivos, nessa ordem: Parcelas +R$ 600,00 (começou: Passagem); Lazer −R$ 450,00; Saúde +R$ 150,00
+(o maior foi Farmácia, R$ 150,00); Alimentação −R$ 150,00 (empata com Saúde em módulo: a alta
+vem antes). Soma: 600 − 450 + 150 − 150 = **+R$ 150,00**.
+
 ---
 
 ## 3. Endpoints
@@ -276,7 +325,11 @@ GET /dashboard/history?month=2026-10      → os 6 meses que terminam no mês, m
 GET /dashboard/upcoming-statements        → a próxima fatura não paga de cada cartão ativo
 GET /dashboard/inherited?month=2026-10    → parcelas de compras anteriores no mês (2.6)
 GET /dashboard/committed                  → os 6 meses seguintes ao de hoje e a última parcela (2.6)
+GET /dashboard/variation?month=2026-09    → diferença do "Saiu" para o mês anterior e os motivos (2.7)
 ```
+
+A resposta da variação é estruturada (mês, mês anterior, os dois "Saiu", a diferença e a lista de
+motivos com tipo, categoria, variação e detalhe), não um texto pronto: a tela monta as frases.
 
 `month` no formato `aaaa-mm`; sem ele, o mês de hoje (`IClock.Today`). Mês inválido: 400.
 
@@ -369,6 +422,42 @@ ainda pode ser estornado; na parcelada, sobre o total da compra), para a tela pr
   sob o mês. Carregado sob demanda, como as categorias.
 - Conferido nos modos claro e escuro, em 320, 390 e 1280px.
 
+**Resumo e Análise (etapa 2.9):**
+
+Pedida pelo usuário depois da 2.8: o Resumo acumulou oito blocos, mistura o que é de relance com o
+que é análise, e no computador ocupa uma coluna estreita. Cada tela passa a responder uma pergunta.
+
+- **Resumo (`/`), "como estou?":** o destaque do mês com o ⓘ, "Entrou / Saiu / Investido", o bloco
+  "Hoje" (em contas e próximas faturas) e dois atalhos: "Ver análise de setembro" e "Ver lançamentos
+  de setembro". Tocar em "Saiu" também abre a Análise do mês. Com a 2.10, ganha uma linha do "por que
+  mudou".
+- **Análise (`/analise?mes=2026-09`), "para onde foi e por quê?":** o mesmo seletor de mês, e nesta
+  ordem: (2.10: por que o gasto mudou), "Onde foi o dinheiro", "Parcelas de compras anteriores",
+  "Últimos 6 meses" e, só no mês atual, "Daqui para frente" com o "Já comprometido". Mês sem nada
+  lançado: "Nada lançado para setembro" e o botão de lançar, como no Resumo.
+- **O mês é o mesmo nas duas:** o `?mes=` vai junto nos atalhos e na barra, então trocar de tela não
+  perde o mês escolhido.
+- **Barra de navegação:** Resumo, Lançamentos, "+", Análise e Contas, cinco colunas iguais (a Análise
+  ocupa o espaço que sobrava à direita do "+"). Em 320px os rótulos continuam cabendo.
+- **Computador (a partir de 1024px):** a Análise alarga para até 1024px de conteúdo e usa duas
+  colunas: à esquerda "Onde foi o dinheiro" e "Últimos 6 meses"; à direita "Parcelas de compras
+  anteriores" e "Daqui para frente". O cabeçalho acompanha a largura da tela aberta. O Resumo continua
+  numa coluna: é de relance.
+- **Desempenho:** a Análise é carregada sob demanda. O Resumo deixa de trazer categorias, parcelas e
+  o comparativo, então o Recharts sai da tela inicial.
+- Os blocos não mudam por dentro; só mudam de lugar. Nenhum número aparece em duas telas, a não ser o
+  "Saiu", que liga as duas.
+- Conferido nos modos claro e escuro, em 320, 390 e 1280px.
+
+**Por que o gasto mudou na tela (etapa 2.10):**
+
+- **Na Análise, no topo:** o cabeçalho "Gastou 6% a mais que em agosto (+R$ 150,00)" e os motivos,
+  um por linha: nome (ladrilho da categoria, ou o das parcelas), variação com sinal ("+R$ 600,00",
+  "−R$ 450,00", em tinta, sem verde e vermelho) e o detalhe embaixo. Linha de categoria abre a lista
+  dela no mês, como em "Onde foi o dinheiro".
+- **No Resumo, uma linha:** o cabeçalho e o maior motivo ("principalmente parcelas de compras
+  anteriores, +R$ 600,00"), levando à Análise.
+
 ---
 
 ## 5. Testes obrigatórios da fase
@@ -410,6 +499,14 @@ ainda pode ser estornado; na parcelada, sobre o total da compra), para a tela pr
   de fora; isolamento entre usuários.
 - **Frontend:** participação arredondada e ausente quando o "Saiu" não cobre o herdado; largura
   relativa das barras; rótulo do mês e texto da última parcela.
+
+### Por que o gasto mudou (etapa 2.10)
+
+- **Domínio, antes da implementação:** o exemplo da seção 2.7 (ordem, detalhes e soma); a soma
+  exata também com "Outras categorias" (5 categorias variando), com estorno numa categoria e com
+  "Sem categoria"; propriedade (CsCheck): para quaisquer dois meses, Σ motivos = diferença.
+- **Integração:** o exemplo pelos endpoints; isolamento entre usuários; mês inválido é 400.
+- **Frontend:** as frases de cada motivo e do cabeçalho, com e sem porcentagem.
 
 ### Frontend (Vitest)
 

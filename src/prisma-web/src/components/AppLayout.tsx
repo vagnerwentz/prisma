@@ -1,5 +1,5 @@
 import { LogOut } from 'lucide-react'
-import { Outlet, useNavigate } from 'react-router'
+import { Outlet, useMatch, useNavigate } from 'react-router'
 import { BottomNav } from '@/components/BottomNav'
 import { Wordmark } from '@/components/brand/PrismLogo'
 import {
@@ -11,12 +11,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useCurrentUser, useLogout } from '@/features/auth/queries'
+import { cn } from '@/lib/utils'
 
 export function AppLayout() {
+  // O cabeçalho acompanha a largura da tela aberta: a Análise alarga no computador (docs/fase-2.md, 4).
+  const wide = useMatch('/analise') !== null
   return (
     <div className="min-h-dvh bg-background">
       <header className="sticky top-0 z-20 border-b border-border/60 bg-background/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
-        <div className="mx-auto flex h-14 max-w-2xl items-center justify-between px-4">
+        <div className={cn('mx-auto flex h-14 max-w-2xl items-center justify-between px-4', wide && 'lg:max-w-5xl')}>
           <Wordmark />
           <UserMenu />
         </div>

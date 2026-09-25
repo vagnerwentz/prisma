@@ -139,8 +139,8 @@ function Row({
   )
 }
 
-// Já comprometido: o "Saiu" que cada um dos próximos 6 meses já tem hoje. Olha para hoje, como o
-// bloco "Hoje"; tocar num mês abre o Resumo dele.
+// Já comprometido: o "Saiu" que cada um dos próximos 6 meses já tem hoje. Olha para hoje, não para o
+// mês escolhido; tocar num mês abre a análise dele.
 export function CommittedMonths({ onSelect }: { onSelect: (month: YearMonth) => void }) {
   const committed = useCommittedMonths()
 
@@ -153,9 +153,13 @@ export function CommittedMonths({ onSelect }: { onSelect: (month: YearMonth) => 
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="px-1 text-sm font-medium text-foreground/75">Já comprometido</h2>
+      {/* A seção vai receber recorrências e projeção de caixa; hoje, só o já comprometido. */}
+      <h2 className="px-1 text-sm font-medium text-foreground/75">Daqui para frente</h2>
       <div className="surface flex flex-col rounded-2xl">
-        <p className="px-4 pt-4 text-sm text-muted-foreground">Compras já lançadas que vencem nos próximos meses.</p>
+        <div className="flex flex-col gap-0.5 px-4 pt-4">
+          <h3 className="text-sm font-semibold">Já comprometido</h3>
+          <p className="text-sm text-muted-foreground">Compras já lançadas que vencem nos próximos meses.</p>
+        </div>
         <ul className="flex flex-col py-2">
           {months.map((m, i) => (
             <li key={m.month}>

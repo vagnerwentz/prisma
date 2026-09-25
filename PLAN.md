@@ -290,6 +290,24 @@ Cada etapa entrega API e tela juntas, para o resumo crescer à vista.
   inteiro (pagamento de fatura e compra excluída de fora) e isolamento; Vitest da participação, das
   barras e dos textos; telas conferidas nos dois modos e em 320, 390 e 1280px.
 
+- [x] **2.9 Resumo e Análise** (pedida pelo usuário, depois da 2.8)
+  O Resumo fica de relance (destaque, "Entrou / Saiu / Investido", "Hoje" e atalhos); a nova tela
+  Análise (`/analise?mes=`) recebe categorias, parcelas herdadas, comparativo e "Daqui para frente";
+  aba nova na barra; duas colunas a partir de 1024px (`docs/fase-2.md`, 4). Só frontend.
+  *Pronto quando:* o mês passa entre as telas; a Recharts sai do carregamento do Resumo (conferido no
+  `npm run build`); telas conferidas nos dois modos e em 320, 390 e 1280px.
+  *Feito:* o Resumo deixou de baixar o comparativo (102 kB gzip do Recharts) ao abrir; o pacote
+  principal ficou igual. "Já comprometido" virou o primeiro bloco da seção "Daqui para frente".
+
+- [ ] **2.10 Por que o gasto mudou** (pedida pelo usuário, depois da 2.8)
+  Decompõe a diferença do "Saiu" para o mês anterior em motivos que somam exatamente a diferença:
+  parcelas de compras anteriores e o decidido no mês por categoria, com o maior lançamento de cada
+  alta (`docs/fase-2.md`, 2.7). `GET /dashboard/variation`. No topo da Análise, com uma linha no
+  Resumo.
+  *Pronto quando:* testes de domínio escritos antes, com o exemplo da 2.7 e a propriedade da soma
+  exata; integração com o exemplo e isolamento; Vitest das frases; tela conferida nos dois modos e
+  em 320, 390 e 1280px.
+
 ---
 
 ## Hospedagem para uso próprio

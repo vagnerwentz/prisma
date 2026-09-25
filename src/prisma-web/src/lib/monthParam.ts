@@ -19,6 +19,12 @@ export function useMonthParam(): [YearMonth, (next: YearMonth) => void] {
   return [month, setMonth]
 }
 
+// Destino que leva o mês junto (Resumo, Análise e lista, docs/fase-2.md, 4): trocar de tela não
+// perde o mês escolhido. Mês ausente ou inválido não vai; a tela abre no mês de hoje.
+export function withMonth(path: string, mes: string | null): string {
+  return parseMonthParam(mes) ? `${path}?mes=${mes}` : path
+}
+
 export function toMonthParam({ year, month }: YearMonth): string {
   return `${year}-${String(month).padStart(2, '0')}`
 }

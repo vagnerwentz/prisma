@@ -350,6 +350,10 @@ fechado fora de desenvolvimento (`Registration:Open`); libere e-mails em
   conferida nos dois modos.
 - **Desempenho:** nada de importar conjuntos inteiros de ícones; telas secundárias com `lazy`;
   confira o tamanho do pacote principal no `npm run build` ao adicionar dependência.
+- **Resumo × Análise:** o Resumo (`/`) é de relance (destaque, Entrou/Saiu/Investido, Hoje); o que
+  explica o mês vai na Análise (`/analise`), e o que olha para a frente, na seção "Daqui para frente"
+  dela. Bloco novo entra na tela da pergunta que responde, não no fim do Resumo. O `?mes=` passa
+  entre as telas (`withMonth`).
 - **Telas de erro:** `ErrorScreen` com a cena `BrokenPrism` (espectro desalinhado que se
   recompõe ao passar o ponteiro na ação), para erro inesperado (`ErrorBoundary`), versão nova
   publicada com o app aberto e endereço inexistente. Ficam no pacote principal, porque precisam

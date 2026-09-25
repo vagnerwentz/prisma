@@ -1,5 +1,6 @@
-import { LayoutDashboard, List, Plus, Wallet } from 'lucide-react'
-import { Link, NavLink } from 'react-router'
+import { ChartPie, LayoutDashboard, List, Plus, Wallet } from 'lucide-react'
+import { Link, NavLink, useSearchParams } from 'react-router'
+import { withMonth } from '@/lib/monthParam'
 import { cn } from '@/lib/utils'
 
 const itemClass = ({ isActive }: { isActive: boolean }) =>
@@ -9,15 +10,18 @@ const itemClass = ({ isActive }: { isActive: boolean }) =>
   )
 
 export function BottomNav() {
+  // Resumo, Lançamentos e Análise mostram o mesmo mês: a barra leva o escolhido junto.
+  const [searchParams] = useSearchParams()
+  const mes = searchParams.get('mes')
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-border/60 bg-background/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
-      {/* Cinco colunas iguais com o "+" no centro: duas abas à esquerda, Contas ocupa as duas da direita. */}
+      {/* Cinco colunas iguais com o "+" no centro: duas abas de cada lado. */}
       <div className="mx-auto grid max-w-md grid-cols-5 items-center px-2">
-        <NavLink to="/" end className={itemClass}>
+        <NavLink to={withMonth('/', mes)} end className={itemClass}>
           <LayoutDashboard className="size-5" />
           Resumo
         </NavLink>
-        <NavLink to="/lancamentos" className={itemClass}>
+        <NavLink to={withMonth('/lancamentos', mes)} className={itemClass}>
           <List className="size-5" />
           Lançamentos
         </NavLink>
@@ -41,7 +45,11 @@ export function BottomNav() {
             </span>
           </span>
         </Link>
-        <NavLink to="/contas" className={(state) => cn(itemClass(state), 'col-span-2')}>
+        <NavLink to={withMonth('/analise', mes)} className={itemClass}>
+          <ChartPie className="size-5" />
+          Análise
+        </NavLink>
+        <NavLink to="/contas" className={itemClass}>
           <Wallet className="size-5" />
           Contas
         </NavLink>
