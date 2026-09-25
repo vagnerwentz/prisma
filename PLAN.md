@@ -45,7 +45,7 @@ Estas estão fechadas. Não reabrir sem conversa explícita.
 |---|---|---|
 | **0** | Fundação: solução, Docker, Postgres, testes de arquitetura | concluída; as etapas no próprio `PLAN.md` bastaram |
 | **1** | Núcleo: auth, contas, categorias, transações, parcelamento, transferências | `docs/fase-1.md` |
-| **2** | Dashboard: receitas, despesas, sobra, investido, por categoria, comparativo mensal | a escrever |
+| **2** | Dashboard: receitas, despesas, sobra, investido, por categoria, comparativo mensal | `docs/fase-2.md` |
 | **3** | Entrada inteligente: QR Code da NFC-e, CNPJ/CNAE, merchants, regras que aprendem | a escrever |
 | **4** | Importação: OFX, fatura do Itaú em PDF, deduplicação | a escrever |
 | **5** | PWA instalável, orçamentos por categoria, metas, E2E com Playwright | a escrever |
@@ -220,13 +220,42 @@ Detalhamento completo em `docs/fase-1.md`.
 
 ---
 
-## Fases 2 a 5
+## Fase 2 — Dashboard
+
+Cada etapa entrega API e tela juntas, para o resumo crescer à vista.
+
+- [x] **2.1 Resumo do mês como tela inicial**
+  `GET /dashboard/summary`: receitas, despesas, sobra e investido por `SettlementDate`
+  (`docs/fase-2.md`, 2.1). A tela Resumo passa a ser `/`, com navegação por mês; a lista de
+  lançamentos vai para `/lancamentos`.
+  *Pronto quando:* testes de domínio (antes) e de integração com o exemplo da seção 2; pagamento
+  de fatura não duplica o gasto; despesa excluída some e volta ao restaurar; dois usuários não se
+  enxergam; tela conferida nos modos claro e escuro.
+
+- [ ] **2.2 Gastos por categoria**
+  `GET /dashboard/categories`: despesas do mês pela categoria raiz, "Sem categoria" à parte
+  (`docs/fase-2.md`, 2.2). Barras na cor da categoria; tocar abre a lista filtrada.
+  *Pronto quando:* integração com as categorias do exemplo; participação arredondada coberta
+  por teste no frontend; tela conferida nos dois modos.
+
+- [ ] **2.3 Comparativo mensal**
+  `GET /dashboard/history`: 6 meses terminando no escolhido (`docs/fase-2.md`, 2.3). Gráfico
+  de barras com Recharts, carregado sob demanda; variação das despesas contra o mês anterior.
+  *Pronto quando:* testes de domínio para meses vazios e virada de ano; variação percentual
+  coberta no frontend; pacote principal sem o Recharts; tela conferida nos dois modos.
+
+- [ ] **2.4 Próximas faturas e saldo em contas**
+  `GET /dashboard/upcoming-statements`: a próxima fatura não paga de cada cartão ativo; "Em
+  contas" soma os saldos da 1.16 (`docs/fase-2.md`, 2.4).
+  *Pronto quando:* integração com fatura paga, fatura zerada e cartão inativo ficando de fora;
+  tela conferida nos dois modos.
+
+---
+
+## Fases 3 a 5
 
 Escopo em uma linha cada, para orientar decisões sem antecipar detalhe.
 
-- **Fase 2 — Dashboard.** Resumo mensal por `SettlementDate`: receitas, despesas, sobra,
-  investido, gastos por categoria, comparativo com meses anteriores, próximas faturas.
-  Consultas com projeção direta, sem carregar entidades.
 - **Fase 3 — Entrada inteligente.** Leitura do QR Code da NFC-e, extração do CNPJ pela
   chave de acesso, consulta de nome fantasia e CNAE, entidade `Merchant` normalizada e
   `CategorizationRule` que aprende com as correções do usuário.

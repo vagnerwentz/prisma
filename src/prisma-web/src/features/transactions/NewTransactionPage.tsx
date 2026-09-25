@@ -190,7 +190,7 @@ function Composer({
           .join(' · '),
       })
       // Abre o mês da compra: um lançamento antigo não some da vista.
-      navigate(`/?mes=${values.purchaseDate.slice(0, 7)}`, { replace: true })
+      navigate(`/lancamentos?mes=${values.purchaseDate.slice(0, 7)}`, { replace: true })
     } catch (error) {
       form.setError('root', {
         message: error instanceof ApiError ? error.message : 'Não foi possível conectar. Tente novamente.',
@@ -355,7 +355,7 @@ function TransferComposer({ accounts, onEntry }: { accounts: Account[]; onEntry:
       const from = eligible.find((a) => a.id === values.fromAccountId)?.name
       const to = eligible.find((a) => a.id === values.toAccountId)?.name
       toast.success('Transferência lançada', { description: `${from} → ${to} · ${formatCents(values.amountCents)}` })
-      navigate(`/?mes=${values.date.slice(0, 7)}`, { replace: true })
+      navigate(`/lancamentos?mes=${values.date.slice(0, 7)}`, { replace: true })
     } catch (error) {
       form.setError('root', {
         message: error instanceof ApiError ? error.message : 'Não foi possível conectar. Tente novamente.',

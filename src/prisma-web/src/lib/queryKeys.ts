@@ -3,3 +3,4 @@
 export const transactionsKey = ['transactions'] as const
 export const statementsKey = ['statements'] as const
 export const balancesKey = ['accounts', 'balances'] as const
+export const dashboardKey = ['dashboard'] as const

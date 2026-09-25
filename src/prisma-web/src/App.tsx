@@ -3,11 +3,14 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { AppLayout } from '@/components/AppLayout'
 import { PrismLogo } from '@/components/brand/PrismLogo'
 import { RedirectIfAuthenticated, RequireAuth } from '@/features/auth/guards'
-import { TransactionsPage } from '@/features/transactions/TransactionsPage'
+import { SummaryPage } from '@/features/dashboard/SummaryPage'
 
-// A lista (tela inicial) vai no pacote principal; as demais telas são baixadas quando abertas.
+// O resumo (tela inicial) vai no pacote principal; as demais telas são baixadas quando abertas.
 const LoginPage = lazy(() => import('@/features/auth/LoginPage').then((m) => ({ default: m.LoginPage })))
 const RegisterPage = lazy(() => import('@/features/auth/RegisterPage').then((m) => ({ default: m.RegisterPage })))
+const TransactionsPage = lazy(() =>
+  import('@/features/transactions/TransactionsPage').then((m) => ({ default: m.TransactionsPage })),
+)
 const NewTransactionPage = lazy(() =>
   import('@/features/transactions/NewTransactionPage').then((m) => ({ default: m.NewTransactionPage })),
 )
@@ -36,7 +39,8 @@ export function App() {
           <Route element={<RequireAuth />}>
             <Route path="/lancar" element={<NewTransactionPage />} />
             <Route element={<AppLayout />}>
-              <Route path="/" element={<TransactionsPage />} />
+              <Route path="/" element={<SummaryPage />} />
+              <Route path="/lancamentos" element={<TransactionsPage />} />
               <Route path="/contas" element={<AccountsPage />} />
               <Route path="/contas/:id" element={<AccountDetailPage />} />
             </Route>

@@ -1,0 +1,11 @@
+# Dashboard (Fase 2). Exige sessão: rode antes o Login de auth.http.
+# month no formato aaaa-mm; sem ele, o mês de hoje. Tudo pela data de caixa (SettlementDate).
+
+### Resumo do mês: receitas, despesas, sobra e investido
+GET {{baseUrl}}/dashboard/summary?month=2026-10
+
+### Resumo do mês atual
+GET {{baseUrl}}/dashboard/summary
+
+### Erro: mês fora do formato (400)
+GET {{baseUrl}}/dashboard/summary?month=10-2026
