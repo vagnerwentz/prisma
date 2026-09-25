@@ -161,6 +161,9 @@ export function AmountField({
   label?: string
   compact?: boolean
 }) {
+  // Valor que já veio preenchido (lançar de novo, estorno, edição): o primeiro dígito o substitui,
+  // em vez de entrar no fim como numa calculadora (R$ 62,00 + "4" viraria R$ 6.200,04).
+  const pristine = useRef(true)
   return (
     <div className="flex w-full flex-col items-center gap-1">
       <input
@@ -170,7 +173,13 @@ export function AmountField({
         autoFocus={autoFocus}
         placeholder={formatCents(0)}
         value={value === 0 ? '' : formatCents(value)}
-        onChange={(event) => onChange(parseCentsInput(event.target.value))}
+        onFocus={(event) => {
+          if (pristine.current && value > 0) event.target.select()
+        }}
+        onChange={(event) => {
+          pristine.current = false
+          onChange(parseCentsInput(event.target.value))
+        }}
         className={cn(
           'peer w-full bg-transparent text-center font-display leading-tight tabular-nums caret-transparent outline-none selection:bg-transparent placeholder:text-muted-foreground/40',
           amountSize(value, compact),

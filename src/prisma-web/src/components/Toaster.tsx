@@ -10,6 +10,7 @@ export function Toaster() {
         classNames: {
           toast: '!rounded-2xl !border-border !bg-popover !text-popover-foreground !shadow-lg',
           description: '!text-muted-foreground',
+          actionButton: 'toast-action',
         },
       }}
     />

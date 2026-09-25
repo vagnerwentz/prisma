@@ -271,6 +271,15 @@ Cada etapa entrega API e tela juntas, para o resumo crescer à vista.
   *Pronto quando:* "Estornar" preenchido e saldo a favor cobertos no Vitest; telas conferidas nos
   dois modos e em 320, 390 e 1280px.
 
+- [x] **2.7 Lançar de novo** (pedida pelo usuário, depois da Fase 2)
+  Repetir um lançamento pelo painel ("Lançar de novo") ou pelo aviso de "salvo", com o `/lancar`
+  preenchido e editável, data de hoje; sem requisição (`docs/fase-1.md`, 5.1). O valor preenchido
+  é substituído pelo primeiro dígito digitado (vale também para estorno e edição). Ações
+  secundárias ganham cor por faixa do espectro.
+  *Pronto quando:* Vitest cobre o preenchimento (compra parcelada com total e parcelas, conta
+  desativada, receita que cairia no cartão, estorno fora); telas conferidas nos dois modos e em
+  320px.
+
 ---
 
 ## Hospedagem para uso próprio
@@ -316,7 +325,7 @@ e-mail continuam nas pendências, para quando o cadastro abrir.
   sessão ficou fixo no caminho `/`: herdando o `/api`, convivia com o cookie antigo e a sessão caía
   logo depois do login (achado pelo usuário no teste pela tela).
 
-- [ ] **CI no GitHub Actions** (pedida pelo usuário, antes da H.2)
+- [x] **CI no GitHub Actions** (pedida pelo usuário, antes da H.2)
   `.github/workflows/ci.yml`: a cada push na `main` e a cada pull request para ela, o backend roda
   `dotnet test` (a integração sobe o próprio Postgres com Testcontainers, no Docker do runner) e o
   frontend roda lint, Vitest e build, em paralelo.

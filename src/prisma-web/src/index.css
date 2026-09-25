@@ -210,6 +210,16 @@
         box-shadow: 0 0 14px -3px #8b5cf6;
     }
 
+    /* Ação dentro de um aviso ("Desfazer", "Lançar de novo"): o espectro frio, como a fatura aberta. */
+    .toast-action {
+        background: var(--spectrum-cool) !important;
+        color: white !important;
+        border-radius: 9999px !important;
+        font-weight: 500 !important;
+        padding-inline: 0.75rem !important;
+        box-shadow: 0 0 12px -4px #8b5cf6;
+    }
+
     /* Superfície: separa o bloco do papel por tom e sombra suave, sem contorno. Muitos traços
        finos cansam a vista; o contorno fica para campos e para o espectro. */
     .surface {
@@ -322,3 +332,19 @@
         opacity: 1;
     }
 }
+
+/* Ação secundária com a cor de uma faixa do espectro, no tom dos ladrilhos (acompanha o tema).
+   Cada ação tem a sua faixa: lançar de novo é luz nova (violeta); estorno é o azul do "saldo a
+   favor", o dinheiro que volta. Editar continua em tinta e excluir, neutro. Fica fora das camadas
+   de propósito: os utilitários do Button (bg-primary, hover) venceriam a camada components. */
+.tinted-action {
+    --tint-bg: oklch(from var(--tint) var(--tile-l) calc(var(--tile-c) * 1.6) h);
+    background: var(--tint-bg);
+    color: oklch(from var(--tint) var(--tile-fg-l) var(--tile-fg-c) h);
+    box-shadow: inset 0 0 0 1px oklch(from var(--tint) l c h / 0.3);
+}
+.tinted-action:hover {
+    background: color-mix(in oklch, var(--tint-bg), var(--foreground) 6%);
+}
+.tinted-action[data-tint="repeat"] { --tint: #8b5cf6; }
+.tinted-action[data-tint="refund"] { --tint: #3b82f6; }

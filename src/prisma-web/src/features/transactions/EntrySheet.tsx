@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ArrowLeft, ChevronRight, Pencil, Trash2, Undo2 } from 'lucide-react'
+import { ArrowLeft, ChevronRight, CopyPlus, Pencil, Trash2, Undo2 } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useForm, useWatch, type Path, type PathValue, type UseFormRegisterReturn } from 'react-hook-form'
 import { useNavigate } from 'react-router'
@@ -31,6 +31,7 @@ import {
   useUpdateTransaction,
   type Transaction,
 } from './queries'
+import { repeatDraftOf } from './repeat'
 import type { TimelineEntry } from './timeline'
 
 type AnyEntry = TimelineEntry<Transaction>
@@ -94,6 +95,9 @@ function Details({ entry, accounts, labels, onClose, onEdit }: Common & { onEdit
   // Na compra parcelada, cada parcela traz o estornado da compra inteira (docs/fase-2.md, 2.5).
   const refunded = first.refundedCents ?? 0
   const refundable = first.type === 'Expense' ? (first.refundableCents ?? 0) : 0
+  const canRefund = first.type === 'Expense' && refundable > 0
+  // "Lançar de novo" (docs/fase-1.md, 5.1): despesa ou receita, com o que o painel já mostra.
+  const repeat = repeatDraftOf(entry)
   const navigate = useNavigate()
   const remove = useRemove(
     entry.kind === 'purchase' ? { kind: 'purchase', id: entry.purchaseId } : { kind: 'single', id: first.id },
@@ -148,19 +152,35 @@ function Details({ entry, accounts, labels, onClose, onEdit }: Common & { onEdit
           )}
         </dl>
 
-        {first.type === 'Expense' && refundable > 0 && (
-          <div className="mx-4 mb-5">
-            <Button
-              variant="outline"
-              className="h-11 w-full rounded-2xl"
-              onClick={() => {
-                onClose()
-                navigate(`/lancar?estorno=${first.id}`)
-              }}
-            >
-              <Undo2 />
-              {refunded > 0 ? `Estornar mais (restam ${formatCents(refundable)})` : 'Estornar'}
-            </Button>
+        {(repeat || canRefund) && (
+          // Ações secundárias, cada uma na sua faixa do espectro; lado a lado quando cabem.
+          <div className="mx-4 mb-5 flex flex-wrap gap-2">
+            {repeat && (
+              <Button
+                data-tint="repeat"
+                className="tinted-action h-11 flex-1 rounded-2xl"
+                onClick={() => {
+                  onClose()
+                  navigate('/lancar', { state: { repeat } })
+                }}
+              >
+                <CopyPlus />
+                Lançar de novo
+              </Button>
+            )}
+            {canRefund && (
+              <Button
+                data-tint="refund"
+                className="tinted-action h-11 flex-1 rounded-2xl"
+                onClick={() => {
+                  onClose()
+                  navigate(`/lancar?estorno=${first.id}`)
+                }}
+              >
+                <Undo2 />
+                {refunded > 0 ? `Estornar mais (restam ${formatCents(refundable)})` : 'Estornar'}
+              </Button>
+            )}
           </div>
         )}
         {first.type === 'Expense' && refunded > 0 && refundable === 0 && (

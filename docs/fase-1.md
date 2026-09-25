@@ -348,6 +348,32 @@ Escopo mínimo, mobile-first. Código em inglês, textos em pt-BR.
 
 Dashboard e gráficos ficam para a Fase 2.
 
+### 5.1 Lançar de novo (pedida depois da Fase 2)
+
+Repetir um lançamento sem digitar tudo outra vez. Decisões com o usuário: nada de seção fixa de
+atalhos no `/lancar` (polui a tela mais usada); a repetição parte de um lançamento que você
+escolheu.
+
+1. **Onde aparece:** no painel de uma despesa ou receita (avulsa ou compra parcelada) e no aviso
+   "Lançamento salvo", que fica 8 s com a ação. Nunca em estorno nem em transferência.
+2. **Nada é salvo ao tocar:** abre o `/lancar` preenchido, com o aviso "Lançando de novo"; tudo é
+   editável, e o X do aviso começa um lançamento em branco.
+3. **O que vem copiado:** tipo, descrição, categoria, conta, meio de pagamento e valor. Na compra
+   parcelada, o valor é o **total** e as parcelas são as mesmas (o que você vê no painel); fora
+   dela, à vista.
+4. **Data:** hoje, sempre. Quem repete, repete agora.
+5. **Conta desativada ou inexistente:** vale a conta padrão do formulário (a última usada); o meio
+   de pagamento passa a ser o padrão dela, parcelas só se ela for cartão, e receita num cartão vira
+   despesa.
+6. **Valor preenchido:** o primeiro dígito digitado **substitui** o valor, em vez de se juntar a
+   ele (vale também para o estorno e para a edição). Um aviso sob o valor lembra que ele veio da
+   última vez.
+7. **Sem requisição:** o painel e o aviso já têm os dados na tela e os passam ao formulário.
+
+*Exemplo:* "Mercado" de R$ 300,00 em 3x no Nubank (Alimentação, crédito). "Lançar de novo" abre
+R$ 300,00, 3x, Nubank, Alimentação, crédito, "Mercado", com a data de hoje. Com o Nubank
+desativado e o Itaú como conta padrão: R$ 300,00, à vista, Itaú, Pix (o padrão da corrente).
+
 ---
 
 ## 6. Fora de escopo nesta fase

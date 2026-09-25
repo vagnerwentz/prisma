@@ -1,8 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ArrowDown, ChevronDown, Undo2, X } from 'lucide-react'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { ArrowDown, ChevronDown, CopyPlus, Undo2, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useForm, useWatch, type Path, type PathValue } from 'react-hook-form'
-import { Link, useNavigate, useSearchParams } from 'react-router'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { AccountTile, EntryTile } from '@/components/brand/Tiles'
@@ -21,6 +21,7 @@ import { describeInstallments, formatCents } from '@/lib/money'
 import { readLastAccountId, saveLastAccountId } from '@/lib/preferences'
 import { AmountField, CategoryPicker, Chip, ChipRow, DateChooser, Section, TypeToggle, type EntryType } from './fields'
 import { useCreateTransaction, useCreateTransfer, useTransaction, type Transaction } from './queries'
+import { isRepeatDraft, repeatValues, type RepeatDraft } from './repeat'
 
 const maxInstallments = 24
 
@@ -48,6 +49,12 @@ export function NewTransactionPage() {
   const [searchParams] = useSearchParams()
   const refundOfId = searchParams.get('estorno')
   const refundOf = useTransaction(refundOfId)
+  // "Lançar de novo" chega pelo estado da navegação, com os dados que a tela anterior já tinha
+  // (docs/fase-1.md, 5.1). Cada navegação tem a sua chave: o formulário recomeça a cada uma.
+  const location = useLocation()
+  const state: unknown = location.state
+  const repeat =
+    typeof state === 'object' && state !== null && 'repeat' in state && isRepeatDraft(state.repeat) ? state.repeat : undefined
 
   if (accounts.isPending || categories.isPending || (refundOfId && refundOf.isPending)) {
     return (
@@ -92,13 +99,13 @@ export function NewTransactionPage() {
       return <Composer key={refundOf.data.id} accounts={[account]} categories={categories.data} refundOf={refundOf.data} />
   }
 
-  return <Composers accounts={activeAccounts} categories={categories.data} />
+  return <Composers key={location.key} accounts={activeAccounts} categories={categories.data} repeat={repeat} />
 }
 
 // Receita, despesa e estorno num formulário; transferência em outro (duas pontas, sem categoria).
 // Sair da transferência pelo seletor abre o formulário já no tipo tocado (despesa, receita ou estorno).
-function Composers({ accounts, categories }: { accounts: Account[]; categories: CategoryNode[] }) {
-  const [shown, setShown] = useState<EntryType | 'Transfer'>('Expense')
+function Composers({ accounts, categories, repeat }: { accounts: Account[]; categories: CategoryNode[]; repeat?: RepeatDraft }) {
+  const [shown, setShown] = useState<EntryType | 'Transfer'>(repeat?.type ?? 'Expense')
   return shown === 'Transfer' ? (
     <TransferComposer accounts={accounts} onEntry={setShown} />
   ) : (
@@ -107,6 +114,8 @@ function Composers({ accounts, categories }: { accounts: Account[]; categories: 
       accounts={accounts}
       categories={categories}
       initialType={shown}
+      // Voltar da transferência para outro tipo começa em branco.
+      repeat={repeat?.type === shown ? repeat : undefined}
       onTransfer={() => setShown('Transfer')}
     />
   )
@@ -135,6 +144,7 @@ function Composer({
   categories,
   onTransfer,
   refundOf,
+  repeat,
   initialType = 'Expense',
 }: {
   accounts: Account[]
@@ -143,6 +153,8 @@ function Composer({
   onTransfer?: () => void
   // Estornar uma compra: tipo, conta e vínculo fixos; valor, categoria e descrição já preenchidos.
   refundOf?: Transaction
+  // Lançar de novo: tudo preenchido e editável, com a data de hoje.
+  repeat?: RepeatDraft
 }) {
   const navigate = useNavigate()
   const createTransaction = useCreateTransaction()
@@ -164,17 +176,19 @@ function Composer({
           installments: 1,
           description: `Estorno: ${refundOf.description || 'compra'}`.slice(0, 200),
         }
-      : {
-          // Receita não vai para o cartão: se a conta lembrada for um cartão, começa como despesa.
-          type: initialType === 'Income' && initialAccount.type === 'CreditCard' ? 'Expense' : initialType,
-          amountCents: 0,
-          accountId: initialAccount.id,
-          categoryId: '',
-          method: defaultPaymentMethod(initialAccount.type),
-          purchaseDate: today,
-          installments: 1,
-          description: '',
-        },
+      : repeat
+        ? repeatValues(repeat, accounts, initialAccount, today)
+        : {
+            // Receita não vai para o cartão: se a conta lembrada for um cartão, começa como despesa.
+            type: initialType === 'Income' && initialAccount.type === 'CreditCard' ? 'Expense' : initialType,
+            amountCents: 0,
+            accountId: initialAccount.id,
+            categoryId: '',
+            method: defaultPaymentMethod(initialAccount.type),
+            purchaseDate: today,
+            installments: 1,
+            description: '',
+          },
   })
   const { errors, isSubmitting } = form.formState
   const [type, amountCents, accountId, categoryId, purchaseDate, installments, method, description] = useWatch({
@@ -193,13 +207,18 @@ function Composer({
   const { root: selectedRoot, label: selectedCategory } = resolveCategory(roots, categoryId)
   const brand = findBrand(description)
 
-  // Trocar a conta ajusta o meio de pagamento; o cartão não recebe receita (docs/fase-1.md).
+  // Trocar a conta ajusta o meio de pagamento; o cartão não recebe receita (docs/fase-1.md). Ao
+  // lançar de novo, a conta de partida mantém o meio e as parcelas copiados.
+  const adjustedAccount = useRef<string | undefined>(undefined)
   useEffect(() => {
-    if (!account || refundOf) return
+    if (!account || refundOf || adjustedAccount.current === account.id) return
+    const first = adjustedAccount.current === undefined
+    adjustedAccount.current = account.id
+    if (first && repeat) return
     form.setValue('method', defaultPaymentMethod(account.type))
     if (account.type === 'CreditCard' && form.getValues('type') === 'Income') form.setValue('type', 'Expense')
     if (account.type !== 'CreditCard') form.setValue('installments', 1)
-  }, [account, form, refundOf])
+  }, [account, form, refundOf, repeat])
 
   // Estorno não vai para conta de investimento: volta para uma conta aceita.
   useEffect(() => {
@@ -225,6 +244,19 @@ function Composer({
         refundedTransactionId: refundOf?.id ?? null,
       })
       if (!refundOf) saveLastAccountId(values.accountId)
+      // "Lançar de novo" no próprio aviso: para lançar a fatura em lote (docs/fase-1.md, 5.1).
+      const again: RepeatDraft | undefined =
+        values.type === 'Refund'
+          ? undefined
+          : {
+              type: values.type,
+              amountCents: values.amountCents,
+              accountId: values.accountId,
+              categoryId: values.categoryId,
+              method: values.method,
+              description: values.description.trim(),
+              installments: isCard ? values.installments : 1,
+            }
       toast.success(isRefund ? 'Estorno lançado' : 'Lançamento salvo', {
         description: [
           values.description.trim() || null,
@@ -232,6 +264,10 @@ function Composer({
         ]
           .filter(Boolean)
           .join(' · '),
+        ...(again && {
+          duration: 8000,
+          action: { label: 'Lançar de novo', onClick: () => navigate('/lancar', { state: { repeat: again } }) },
+        }),
       })
       // Abre o mês da compra: um lançamento antigo não some da vista.
       navigate(`/lancamentos?mes=${values.purchaseDate.slice(0, 7)}`, { replace: true })
@@ -268,6 +304,7 @@ function Composer({
         )}
 
         {refundOf && <RefundOfBanner purchase={refundOf} />}
+        {repeat && <RepeatBanner description={repeat.description} />}
 
         <div className="flex flex-col items-center gap-5">
           {!refundOf && (
@@ -289,6 +326,11 @@ function Composer({
           {isRefund && (
             <p className="-mt-3 max-w-xs text-center text-xs text-muted-foreground">
               Abate uma despesa. No cartão, entra na fatura aberta na data do estorno.
+            </p>
+          )}
+          {repeat && !isRefund && amountCents === repeat.amountCents && (
+            <p className="-mt-3 max-w-xs text-center text-xs text-muted-foreground">
+              Mesmo valor da última vez. Digite para trocar.
             </p>
           )}
         </div>
@@ -376,6 +418,27 @@ function RefundOfBanner({ purchase }: { purchase: Transaction }) {
         </span>
       </div>
       <Button asChild variant="ghost" size="icon" className="rounded-full" aria-label="Lançar sem estornar a compra">
+        <Link to="/lancar" replace>
+          <X />
+        </Link>
+      </Button>
+    </div>
+  )
+}
+
+// De onde veio o preenchimento. Tocar no X desiste e abre um lançamento em branco.
+function RepeatBanner({ description }: { description: string }) {
+  return (
+    <div data-tint="repeat" className="tinted-action flex items-center gap-3 rounded-2xl py-2.5 pr-2 pl-4 text-sm">
+      <CopyPlus className="size-4 shrink-0" />
+      <span className="min-w-0 flex-1 truncate font-medium">Lançando de novo{description ? `: ${description}` : ''}</span>
+      <Button
+        asChild
+        variant="ghost"
+        size="icon"
+        className="rounded-full text-current hover:bg-transparent"
+        aria-label="Começar em branco"
+      >
         <Link to="/lancar" replace>
           <X />
         </Link>

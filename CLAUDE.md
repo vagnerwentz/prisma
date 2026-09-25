@@ -338,6 +338,10 @@ fechado fora de desenvolvimento (`Registration:Open`); libere e-mails em
 - **Assinaturas:** logo `PrismLogo` (SVG próprio), filete `spectrum-line` sob títulos, anel
   `spectrum-ring` no item selecionado, halo `--halo` (só tons frios: complementares desfocados
   viram marrom).
+- **Ações com cor:** ação secundária leva a faixa do espectro que a representa (`.tinted-action`
+  com `data-tint`): lançar de novo em violeta, estornar no azul do "saldo a favor". Editar fica em
+  tinta e excluir, neutro. Ação dentro de aviso ("Desfazer", "Lançar de novo") usa o espectro frio
+  (`.toast-action`).
 - **Tipografia:** `font-display` (Instrument Serif) em valores grandes e títulos; Geist no resto.
 - **Marcas:** `findBrand` reconhece a marca pela descrição ou nome da conta. Logo do
   `simple-icons` quando existe; monograma na cor da marca quando a marca saiu do projeto (Amazon,
