@@ -108,14 +108,23 @@ GET /dashboard/upcoming-statements        → a próxima fatura não paga de cad
 
 - `/` é o Resumo, com o mês na URL (`/?mes=2026-10`) e setas para navegar, como a lista de
   lançamentos. A lista vai para `/lancamentos?mes=`.
-- **Topo:** sobra do mês em destaque (`font-display`); receitas, despesas e investido abaixo.
-  Receita em `text-spectrum`, despesa em tinta com "−" (`CLAUDE.md`, 7.1).
+- **Topo:** sobra do mês em destaque (`font-display`), com ⓘ que explica a visão de caixa; "Entrou",
+  "Saiu" e "Investido" abaixo. Receita em `text-spectrum`, despesa em tinta (`CLAUDE.md`, 7.1); o
+  rótulo já diz a direção, então só sobra e investido levam "−" quando negativos. Sem receita no
+  mês, o título é "Saldo de …" e a barra de gasto some.
 - **Por categoria:** barras horizontais na cor de cada categoria, com ícone, valor e %.
 - **Comparativo:** gráfico de barras (Recharts, carregado sob demanda) com receitas e despesas dos
   6 meses.
 - **Próximas faturas** e **Em contas:** cartões pequenos que levam ao detalhe da conta.
 - Tocar numa categoria abre a lista de lançamentos do mês filtrada por ela.
-- Conferido nos modos claro e escuro, no celular.
+- **Estilo do dashboard** (ajustado com o usuário na 2.1; as demais telas seguem como estão):
+  blocos são superfícies (`.surface`: tom e sombra suave, sem contorno de 1px); serifada só no
+  nome do mês e no valor principal, os outros valores em Geist seminegrito; um espectro por tela
+  (o filete sob o mês; o destaque usa o halo frio, não o anel); rótulos na cor do texto, cinza só
+  para o secundário.
+- **Responsivo:** no celular, blocos em duas colunas; a partir de 640px, em três. Nada de rolagem
+  lateral em 320px; no computador, a coluna fica centralizada sem esticar os blocos.
+- Conferido nos modos claro e escuro, no celular (320 e 390px) e no computador.
 
 ---
 

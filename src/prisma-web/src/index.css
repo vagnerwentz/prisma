@@ -208,6 +208,18 @@
         box-shadow: 0 0 14px -3px #8b5cf6;
     }
 
+    /* Superfície: separa o bloco do papel por tom e sombra suave, sem contorno. Muitos traços
+       finos cansam a vista; o contorno fica para campos e para o espectro. */
+    .surface {
+        background: var(--card);
+        box-shadow: 0 1px 2px oklch(0.21 0.025 285 / 5%), 0 6px 20px -10px oklch(0.21 0.025 285 / 14%);
+    }
+    @media (prefers-color-scheme: dark) {
+        .surface {
+            box-shadow: inset 0 1px 0 oklch(1 0 0 / 5%);
+        }
+    }
+
     .font-display {
         font-family: var(--font-display);
         font-weight: 400;

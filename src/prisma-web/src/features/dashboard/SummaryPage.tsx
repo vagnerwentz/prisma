@@ -1,5 +1,5 @@
-import { ArrowDownLeft, ArrowUpRight, ChevronRight, Sprout } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { ChevronRight, HandCoins, Info, Receipt, Sprout } from 'lucide-react'
+import { useState, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { MonthSwitcher, toMonthParam, useMonthParam } from '@/components/MonthSwitcher'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatMonth } from '@/lib/dates'
 import { formatCents } from '@/lib/money'
+import { cn } from '@/lib/utils'
 import { useMonthlySummary, type MonthlySummary } from './queries'
 
 // Tela inicial: o mês de relance, pela data de caixa (docs/fase-2.md, 4).
@@ -38,82 +39,149 @@ export function SummaryPage() {
 
 function Overview({ summary, monthName, monthParam }: { summary: MonthlySummary; monthName: string; monthParam: string }) {
   const { incomeCents, expenseCents, leftoverCents, investedCents } = summary
+  const [explaining, setExplaining] = useState(false)
   const empty = incomeCents === 0 && expenseCents === 0 && investedCents === 0
-  // Quanto da receita já foi gasto: a barra enche até o limite e para.
-  const spentShare = incomeCents > 0 ? Math.min(expenseCents / incomeCents, 1) : expenseCents > 0 ? 1 : 0
+  // Sem receita lançada, "faltou" soaria como alarme: muita gente só registra os gastos.
+  const title =
+    incomeCents === 0 ? `Saldo de ${monthName}` : leftoverCents < 0 ? `Faltou em ${monthName}` : `Sobra de ${monthName}`
+  const spentShare = incomeCents > 0 ? expenseCents / incomeCents : 0
 
   return (
     <>
-      <section className="spectrum-ring flex flex-col gap-4 rounded-3xl p-5">
-        <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          {leftoverCents < 0 ? `Faltou em ${monthName}` : `Sobra de ${monthName}`}
+      {/* Um espectro por tela: o filete sob o mês. O destaque ganha só o halo frio ao fundo. */}
+      <section className="surface relative flex flex-col gap-4 overflow-hidden rounded-3xl p-5 sm:p-6">
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -top-24 -right-20 size-64 rounded-full opacity-25 blur-3xl dark:opacity-30"
+          style={{ background: 'var(--halo)' }}
+        />
+        <div className="relative flex items-center justify-between gap-2">
+          <span className="text-sm font-medium text-foreground/75">{title}</span>
+          <button
+            type="button"
+            aria-label="Como o resumo é calculado"
+            aria-expanded={explaining}
+            onClick={() => setExplaining((open) => !open)}
+            className="-m-2 rounded-full p-2 text-muted-foreground transition-colors hover:text-foreground aria-expanded:text-foreground"
+          >
+            <Info className="size-4" />
+          </button>
+        </div>
+        <span className="relative font-display text-[clamp(2.75rem,12vw,3.5rem)] leading-none tabular-nums">
+          {signed(leftoverCents)}
         </span>
-        <span className="font-display text-5xl leading-none tabular-nums">{signed(leftoverCents)}</span>
-        {!empty && (
-          <div className="flex flex-col gap-2">
-            <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+        {incomeCents > 0 && (
+          <div className="relative flex flex-col gap-2">
+            <div className="h-2 overflow-hidden rounded-full bg-muted">
               <div
                 className="h-full rounded-full"
-                style={{ width: `${spentShare * 100}%`, background: 'var(--spectrum-cool)' }}
+                style={{ width: `${Math.min(spentShare, 1) * 100}%`, background: 'var(--spectrum-cool)' }}
               />
             </div>
-            <span className="text-sm text-muted-foreground">
-              {incomeCents > 0
-                ? `Gastou ${Math.round((expenseCents / incomeCents) * 100)}% do que entrou`
-                : 'Nenhuma receita no mês'}
-            </span>
+            <span className="text-sm font-medium text-foreground/75">Gastou {Math.round(spentShare * 100)}% do que entrou</span>
           </div>
+        )}
+        {explaining && (
+          <p className="relative text-sm leading-relaxed text-muted-foreground">
+            Pela data de caixa: compras no cartão contam no mês do vencimento da fatura. Transferências, inclusive o pagamento da
+            fatura, não são receita nem despesa. Sobra é o que entrou menos o que saiu; investir não diminui a sobra.
+          </p>
         )}
       </section>
 
       {empty ? (
-        <div className="flex flex-col items-center gap-4 rounded-3xl border border-dashed px-6 py-10 text-center">
-          <p className="text-sm text-muted-foreground">Nada lançado para {monthName}.</p>
+        <div className="surface flex flex-col items-center gap-4 rounded-3xl px-6 py-10 text-center">
+          <p className="text-sm font-medium text-foreground/75">Nada lançado para {monthName}.</p>
           <Button asChild className="rounded-full">
             <Link to="/lancar">Fazer um lançamento</Link>
           </Button>
         </div>
       ) : (
-        <dl className="flex flex-col divide-y rounded-2xl border bg-card">
-          <Figure icon={<ArrowDownLeft />} label="Receitas">
-            {incomeCents > 0 ? <span className="text-spectrum font-semibold">+{formatCents(incomeCents)}</span> : formatCents(0)}
+        // Celular: Entrou e Saiu lado a lado, Investido embaixo em linha. A partir de 640px, três colunas.
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <Figure icon={<HandCoins />} tint={incomeTint} label="Entrou">
+            {incomeCents > 0 ? <span className="text-spectrum">{formatCents(incomeCents)}</span> : formatCents(0)}
           </Figure>
-          <Figure icon={<ArrowUpRight />} label="Despesas">
-            {signed(-expenseCents)}
+          <Figure icon={<Receipt />} label="Saiu">
+            {formatCents(expenseCents)}
           </Figure>
-          <Figure icon={<Sprout />} label="Investido" hint={investedCents < 0 ? 'resgatou mais do que aplicou' : undefined}>
+          <Figure
+            icon={<Sprout />}
+            tint={investedTint}
+            label="Investido"
+            hint={investedCents < 0 ? 'resgatou mais do que aplicou' : undefined}
+            wide
+          >
             {signed(investedCents)}
           </Figure>
-        </dl>
+        </div>
       )}
 
       <Link
         to={`/lancamentos?mes=${monthParam}`}
-        className="flex items-center justify-between rounded-2xl border bg-card px-4 py-3 text-sm font-medium transition-colors hover:bg-muted/40 active:bg-muted/70"
+        className="surface flex items-center justify-between rounded-2xl px-4 py-3.5 text-sm font-medium transition-colors hover:bg-muted/40 active:bg-muted/70"
       >
         Ver lançamentos de {monthName}
         <ChevronRight className="size-4 text-muted-foreground" />
       </Link>
-
-      <p className="px-1 text-xs leading-relaxed text-muted-foreground">
-        Pela data de caixa: compras no cartão contam no mês do vencimento da fatura, e transferências (inclusive o pagamento da
-        fatura) não são receita nem despesa.
-      </p>
     </>
   )
 }
 
-function Figure({ icon, label, hint, children }: { icon: ReactNode; label: string; hint?: string; children: ReactNode }) {
+// Cores do espectro, com parcimônia: entrada é luz fria; saída fica em tinta neutra (CLAUDE.md, 7.1).
+const incomeTint = '#22d3ee'
+const investedTint = '#8b5cf6'
+
+function Tile({ icon, tint }: { icon: ReactNode; tint?: string }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-3.5">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground [&_svg]:size-4">
-        {icon}
-      </span>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <dt className="text-sm">{label}</dt>
+    <span
+      className={cn(
+        'flex size-10 shrink-0 items-center justify-center rounded-full [&_svg]:size-5',
+        tint ? 'category-tile' : 'bg-muted text-foreground',
+      )}
+      style={tint ? ({ '--tile': tint } as CSSProperties) : undefined}
+    >
+      {icon}
+    </span>
+  )
+}
+
+// `wide`: no celular ocupa a linha inteira, com o valor à direita; a partir de 640px vira coluna.
+function Figure({
+  icon,
+  tint,
+  label,
+  hint,
+  wide,
+  children,
+}: {
+  icon: ReactNode
+  tint?: string
+  label: string
+  hint?: string
+  wide?: boolean
+  children: ReactNode
+}) {
+  return (
+    <div
+      className={cn(
+        'surface flex min-w-0 gap-3 rounded-2xl p-4',
+        wide ? 'col-span-2 flex-row items-center sm:col-span-1 sm:flex-col sm:items-start' : 'flex-col',
+      )}
+    >
+      <Tile icon={icon} tint={tint} />
+      <div className={cn('flex min-w-0 flex-col gap-0.5', wide && 'flex-1 sm:flex-none')}>
+        <span className="text-sm font-medium text-foreground/75">{label}</span>
         {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
       </div>
-      <dd className="text-right text-base font-medium tabular-nums">{children}</dd>
+      <span
+        className={cn(
+          'truncate text-[clamp(1.05rem,4.8vw,1.35rem)] leading-tight font-semibold tracking-tight tabular-nums',
+          wide ? 'sm:-mt-2' : '-mt-2',
+        )}
+      >
+        {children}
+      </span>
     </div>
   )
 }

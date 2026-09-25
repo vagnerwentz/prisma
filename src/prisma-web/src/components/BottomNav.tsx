@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 
 const itemClass = ({ isActive }: { isActive: boolean }) =>
   cn(
-    'flex flex-1 flex-col items-center gap-1 py-2.5 text-[0.7rem] font-medium transition-colors',
+    'flex min-w-0 flex-1 flex-col items-center gap-1 py-2.5 text-[0.7rem] font-medium transition-colors max-[360px]:text-[0.6rem]',
     isActive ? 'text-foreground' : 'text-muted-foreground',
   )
 
