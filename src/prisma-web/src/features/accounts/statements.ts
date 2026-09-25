@@ -1,4 +1,5 @@
 import { formatMonth } from '@/lib/dates'
+import { formatCents } from '@/lib/money'
 
 export type StatementLike = {
   id: string
@@ -24,13 +25,22 @@ export function groupStatements<T extends StatementLike>(statements: T[], today:
   return { current, upcoming, past }
 }
 
-export type StatementStatus = 'Aberta' | 'Fechada' | 'Paga' | 'Futura'
+export type StatementStatus = 'Aberta' | 'Fechada' | 'Paga' | 'Futura' | 'Saldo a favor'
 
 // Sem pagamento de fatura (etapa 1.10), fatura fechada não vira "vencida": seria alarme falso.
+// Fechada com total negativo (estorno maior que as compras) não tem o que pagar: é saldo a favor
+// (docs/fase-2.md, 2.5, regra 9).
 export function statementStatus(statement: StatementLike, today: string, currentId: string | undefined): StatementStatus {
   if (statement.isPaid) return 'Paga'
-  if (statement.closingDate < today) return 'Fechada'
+  if (statement.closingDate < today) return statement.totalCents < 0 ? 'Saldo a favor' : 'Fechada'
   return statement.id === currentId ? 'Aberta' : 'Futura'
+}
+
+// Total da fatura para exibir: negativo vira "Saldo a favor", sem sinal.
+export function statementTotal(totalCents: number): { label: string | null; text: string } {
+  return totalCents < 0
+    ? { label: 'Saldo a favor', text: formatCents(-totalCents) }
+    : { label: null, text: formatCents(totalCents) }
 }
 
 // A referência é o mês do vencimento: "2026-10" → "Outubro de 2026".

@@ -57,6 +57,14 @@ public static class UpdateInstallmentPurchase
 
             var installments = await db.Transactions.Where(t => t.InstallmentPurchaseId == id).ToListAsync(ct);
 
+            // Compra já estornada não fica menor do que o estornado (docs/fase-2.md, 2.5, regra 7).
+            if (installments.Count > 0)
+            {
+                var refunded = await RefundAmounts.RefundedOf(db, installments[0], exceptRefundId: null, ct);
+                if (Refund.CheckPurchaseKeepsRefunds(req.TotalAmountCents, refunded) is { } refundError)
+                    return refundError;
+            }
+
             // As faturas das parcelas (para saber quais estão pagas) e as que podem receber
             // parcelas: o cálculo parte de um ciclo antes do mês da compra, antiga ou nova.
             var statementIds = installments.Select(t => t.StatementId).ToList();

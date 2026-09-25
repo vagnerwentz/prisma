@@ -1,8 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ArrowDown, ChevronDown, X } from 'lucide-react'
+import { ArrowDown, ChevronDown, Undo2, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useForm, useWatch, type Path, type PathValue } from 'react-hook-form'
-import { Link, useNavigate } from 'react-router'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { AccountTile, EntryTile } from '@/components/brand/Tiles'
@@ -20,12 +20,12 @@ import { todayInSaoPaulo } from '@/lib/dates'
 import { describeInstallments, formatCents } from '@/lib/money'
 import { readLastAccountId, saveLastAccountId } from '@/lib/preferences'
 import { AmountField, CategoryPicker, Chip, ChipRow, DateChooser, Section, TypeToggle } from './fields'
-import { useCreateTransaction, useCreateTransfer } from './queries'
+import { useCreateTransaction, useCreateTransfer, useTransaction, type Transaction } from './queries'
 
 const maxInstallments = 24
 
 const schema = z.object({
-  type: z.enum(['Expense', 'Income']),
+  type: z.enum(['Expense', 'Income', 'Refund']),
   amountCents: z.number().int().min(1, 'Informe o valor.'),
   accountId: z.string().min(1, 'Escolha a conta.'),
   categoryId: z.string(),
@@ -44,8 +44,12 @@ export function NewTransactionPage() {
   const accounts = useAccounts()
   const categories = useCategories()
   const activeAccounts = useMemo(() => (accounts.data ?? []).filter((a) => a.isActive), [accounts.data])
+  // "Estornar" no painel de uma despesa abre /lancar?estorno=<id> (docs/fase-2.md, 2.5 e 4).
+  const [searchParams] = useSearchParams()
+  const refundOfId = searchParams.get('estorno')
+  const refundOf = useTransaction(refundOfId)
 
-  if (accounts.isPending || categories.isPending) {
+  if (accounts.isPending || categories.isPending || (refundOfId && refundOf.isPending)) {
     return (
       <Shell>
         <div className="flex flex-col items-center gap-6 px-4 pt-8">
@@ -56,7 +60,7 @@ export function NewTransactionPage() {
       </Shell>
     )
   }
-  if (accounts.isError || categories.isError) {
+  if (accounts.isError || categories.isError || refundOf.isError) {
     return (
       <Shell>
         <div className="p-4">
@@ -81,10 +85,17 @@ export function NewTransactionPage() {
     )
   }
 
+  if (refundOf.data) {
+    // A conta da compra, mesmo que tenha sido desativada depois: o estorno fica nela.
+    const account = (accounts.data ?? []).find((a) => a.id === refundOf.data.accountId)
+    if (account)
+      return <Composer key={refundOf.data.id} accounts={[account]} categories={categories.data} refundOf={refundOf.data} />
+  }
+
   return <Composers accounts={activeAccounts} categories={categories.data} />
 }
 
-// Receita e despesa num formulário; transferência em outro (duas pontas, sem categoria).
+// Receita, despesa e estorno num formulário; transferência em outro (duas pontas, sem categoria).
 function Composers({ accounts, categories }: { accounts: Account[]; categories: CategoryNode[] }) {
   const [transfer, setTransfer] = useState(false)
   return transfer ? (
@@ -116,10 +127,13 @@ function Composer({
   accounts,
   categories,
   onTransfer,
+  refundOf,
 }: {
   accounts: Account[]
   categories: CategoryNode[]
-  onTransfer: () => void
+  onTransfer?: () => void
+  // Estornar uma compra: tipo, conta e vínculo fixos; valor, categoria e descrição já preenchidos.
+  refundOf?: Transaction
 }) {
   const navigate = useNavigate()
   const createTransaction = useCreateTransaction()
@@ -130,16 +144,27 @@ function Composer({
     accounts.find((a) => a.id === readLastAccountId()) ?? accounts.find((a) => a.type === 'Checking') ?? accounts[0]
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      type: 'Expense',
-      amountCents: 0,
-      accountId: initialAccount.id,
-      categoryId: '',
-      method: defaultPaymentMethod(initialAccount.type),
-      purchaseDate: today,
-      installments: 1,
-      description: '',
-    },
+    defaultValues: refundOf
+      ? {
+          type: 'Refund',
+          amountCents: refundOf.refundableCents ?? refundOf.amountCents,
+          accountId: refundOf.accountId,
+          categoryId: refundOf.categoryId ?? '',
+          method: refundOf.method,
+          purchaseDate: today,
+          installments: 1,
+          description: `Estorno: ${refundOf.description || 'compra'}`.slice(0, 200),
+        }
+      : {
+          type: 'Expense',
+          amountCents: 0,
+          accountId: initialAccount.id,
+          categoryId: '',
+          method: defaultPaymentMethod(initialAccount.type),
+          purchaseDate: today,
+          installments: 1,
+          description: '',
+        },
   })
   const { errors, isSubmitting } = form.formState
   const [type, amountCents, accountId, categoryId, purchaseDate, installments, method, description] = useWatch({
@@ -151,17 +176,25 @@ function Composer({
 
   const account = accounts.find((a) => a.id === accountId)
   const isCard = account?.type === 'CreditCard'
-  const roots = categories.filter((c) => c.type === type)
+  const isRefund = type === 'Refund'
+  // Estorno abate despesa: usa as categorias de despesa e não vai para investimento (2.5).
+  const roots = categories.filter((c) => c.type === (isRefund ? 'Expense' : type))
+  const choices = isRefund ? accounts.filter((a) => a.type !== 'Investment') : accounts
   const { root: selectedRoot, label: selectedCategory } = resolveCategory(roots, categoryId)
   const brand = findBrand(description)
 
-  // Trocar a conta ajusta o meio de pagamento; o cartão só aceita despesa (docs/fase-1.md).
+  // Trocar a conta ajusta o meio de pagamento; o cartão não recebe receita (docs/fase-1.md).
   useEffect(() => {
-    if (!account) return
+    if (!account || refundOf) return
     form.setValue('method', defaultPaymentMethod(account.type))
-    if (account.type === 'CreditCard') form.setValue('type', 'Expense')
-    else form.setValue('installments', 1)
-  }, [account, form])
+    if (account.type === 'CreditCard' && form.getValues('type') === 'Income') form.setValue('type', 'Expense')
+    if (account.type !== 'CreditCard') form.setValue('installments', 1)
+  }, [account, form, refundOf])
+
+  // Estorno não vai para conta de investimento: volta para uma conta aceita.
+  useEffect(() => {
+    if (isRefund && account?.type === 'Investment' && choices[0]) form.setValue('accountId', choices[0].id)
+  }, [isRefund, account, choices, form])
 
   // Categoria de receita não serve para despesa, e vice-versa.
   useEffect(() => {
@@ -178,10 +211,11 @@ function Composer({
         categoryId: values.categoryId || null,
         method: values.method,
         description: values.description.trim() || null,
-        installments: isCard ? values.installments : 1,
+        installments: isCard && !isRefund ? values.installments : 1,
+        refundedTransactionId: refundOf?.id ?? null,
       })
-      saveLastAccountId(values.accountId)
-      toast.success('Lançamento salvo', {
+      if (!refundOf) saveLastAccountId(values.accountId)
+      toast.success(isRefund ? 'Estorno lançado' : 'Lançamento salvo', {
         description: [
           values.description.trim() || null,
           created.length > 1 ? describeInstallments(values.amountCents, created.length) : formatCents(values.amountCents),
@@ -209,7 +243,9 @@ function Composer({
             disabled={isSubmitting}
             className="mx-auto flex h-12 w-full max-w-md rounded-2xl text-base"
           >
-            {isSubmitting ? 'Lançando…' : amountCents > 0 ? `Lançar ${formatCents(amountCents)}` : 'Lançar'}
+            {isSubmitting
+              ? 'Lançando…'
+              : `${isRefund ? 'Lançar estorno' : 'Lançar'}${amountCents > 0 ? ` ${formatCents(amountCents)}` : ''}`}
           </Button>
         </div>
       }
@@ -221,8 +257,18 @@ function Composer({
           </Alert>
         )}
 
+        {refundOf && <RefundOfBanner purchase={refundOf} />}
+
         <div className="flex flex-col items-center gap-5">
-          <TypeToggle value={type} incomeDisabled={isCard} onChange={(value) => set('type', value)} onTransfer={onTransfer} />
+          {!refundOf && (
+            <TypeToggle
+              value={type}
+              incomeDisabled={isCard}
+              onChange={(value) => set('type', value)}
+              onTransfer={onTransfer}
+              withRefund
+            />
+          )}
           <AmountField
             value={amountCents}
             onChange={(cents) => set('amountCents', cents)}
@@ -230,6 +276,11 @@ function Composer({
             error={errors.amountCents?.message}
             autoFocus
           />
+          {isRefund && (
+            <p className="-mt-3 max-w-xs text-center text-xs text-muted-foreground">
+              Abate uma despesa. No cartão, entra na fatura aberta na data do estorno.
+            </p>
+          )}
         </div>
 
         <Section title="Descrição" aside={brand ? `${brand.name} reconhecido` : 'opcional'}>
@@ -247,7 +298,7 @@ function Composer({
 
         <Section title="Conta">
           <ChipRow>
-            {accounts.map((a) => (
+            {choices.map((a) => (
               <Chip key={a.id} selected={a.id === accountId} onClick={() => set('accountId', a.id)}>
                 <AccountTile name={a.name} type={a.type} size="sm" />
                 {a.name}
@@ -256,7 +307,7 @@ function Composer({
           </ChipRow>
         </Section>
 
-        {isCard && (
+        {isCard && !isRefund && (
           <Section
             title="Parcelas"
             aside={installments > 1 && amountCents >= installments ? describeInstallments(amountCents, installments) : undefined}
@@ -298,6 +349,28 @@ function Composer({
         </details>
       </form>
     </Shell>
+  )
+}
+
+// O que está sendo estornado, com o quanto já voltou. Tocar no X desiste e abre o lançamento comum.
+function RefundOfBanner({ purchase }: { purchase: Transaction }) {
+  const refunded = purchase.refundedCents ?? 0
+  const total = refunded + (purchase.refundableCents ?? 0)
+  return (
+    <div className="flex items-center gap-3 rounded-2xl bg-muted/60 py-2.5 pr-2 pl-4 text-sm">
+      <Undo2 className="size-4 shrink-0 text-muted-foreground" />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate font-medium">Estornando {purchase.description || 'uma compra'}</span>
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {refunded > 0 ? `Já estornado ${formatCents(refunded)} de ${formatCents(total)}` : `Compra de ${formatCents(total)}`}
+        </span>
+      </div>
+      <Button asChild variant="ghost" size="icon" className="rounded-full" aria-label="Lançar sem estornar a compra">
+        <Link to="/lancar" replace>
+          <X />
+        </Link>
+      </Button>
+    </div>
   )
 }
 

@@ -26,6 +26,11 @@ public sealed record MonthlySummary(long IncomeCents, long ExpenseCents, long Ca
                     expense += entry.AmountCents;
                     if (entry.AccountType == AccountType.CreditCard) cardExpense += entry.AmountCents;
                     break;
+                // Estorno abate despesa, nunca é receita (docs/fase-2.md, 2.5, regra 11).
+                case TransactionType.Refund:
+                    expense -= entry.AmountCents;
+                    if (entry.AccountType == AccountType.CreditCard) cardExpense -= entry.AmountCents;
+                    break;
                 case TransactionType.Transfer:
                     var sign = entry.Direction switch
                     {

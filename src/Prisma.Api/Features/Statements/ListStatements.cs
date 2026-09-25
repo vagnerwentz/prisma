@@ -8,8 +8,8 @@ namespace Prisma.Api.Features.Statements;
 
 public static class ListStatements
 {
-    // TotalCents soma as compras ativas da fatura (o filtro global ignora as excluídas); a entrada
-    // do pagamento, Transfer, não conta (docs/fase-1.md, 2.3).
+    // TotalCents: compras ativas menos estornos da fatura (o filtro global ignora os excluídos); a
+    // entrada do pagamento, Transfer, não conta (docs/fase-1.md, 2.3). Negativo é saldo a favor.
     public sealed record StatementResponse(
         Guid Id,
         string Reference,
@@ -32,7 +32,8 @@ public static class ListStatements
                 .OrderByDescending(s => s.DueDate)
                 .Select(s => new StatementResponse(
                     s.Id, s.Reference, s.ClosingDate, s.DueDate, s.IsPaid, s.DatesEditedManually,
-                    db.Transactions.Where(t => t.StatementId == s.Id && t.Type != TransactionType.Transfer).Sum(t => t.AmountCents)))
+                    db.Transactions.Where(t => t.StatementId == s.Id && t.Type != TransactionType.Transfer)
+                        .Sum(t => t.Type == TransactionType.Refund ? -t.AmountCents : t.AmountCents)))
                 .ToListAsync(ct);
         }
     }

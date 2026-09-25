@@ -24,6 +24,7 @@ public sealed class AccountBalanceTests
     [Theory]
     [InlineData(TransactionType.Income, null, 5000)]
     [InlineData(TransactionType.Expense, null, -5000)]
+    [InlineData(TransactionType.Refund, null, 5000)]
     [InlineData(TransactionType.Transfer, TransferDirection.In, 5000)]
     [InlineData(TransactionType.Transfer, TransferDirection.Out, -5000)]
     public void Each_kind_of_transaction_moves_the_balance_in_its_direction(
@@ -80,6 +81,17 @@ public sealed class AccountBalanceTests
     public void Available_credit_is_the_limit_minus_what_is_owed(long limit, long owed, long expected)
     {
         CreditCardBalance.Of(limit, owed).ShouldBe(new CreditCardBalance(owed, expected));
+    }
+
+    // docs/fase-2.md, 2.5, regras 9 e 10: fatura com saldo a favor conta zero; o crédito não passa
+    // para as outras faturas nem aumenta o limite.
+    [Fact]
+    public void Owed_counts_each_unpaid_statement_from_zero()
+    {
+        CreditCardBalance.OfStatements(500000, [11000]).ShouldBe(new CreditCardBalance(11000, 489000));
+        CreditCardBalance.OfStatements(100000, [-10000]).ShouldBe(new CreditCardBalance(0, 100000));
+        CreditCardBalance.OfStatements(100000, [-10000, 30000, 0]).ShouldBe(new CreditCardBalance(30000, 70000));
+        CreditCardBalance.OfStatements(null, []).ShouldBe(new CreditCardBalance(0, null));
     }
 
     [Fact]

@@ -19,6 +19,8 @@ public sealed class DashboardTests(PostgresFixture postgres)
 
     private sealed record CategoryTotalDto(Guid? CategoryId, string? Name, string? Icon, string? Color, long AmountCents);
 
+    private sealed record CategoriesDto(List<CategoryTotalDto> Categories, long HiddenRefundCents);
+
     private sealed record ListedDto(Guid Id, long AmountCents);
 
     private sealed record SummaryDto(
@@ -141,8 +143,12 @@ public sealed class DashboardTests(PostgresFixture postgres)
         (await Summary(e.Client, "2026-10")).IncomeCents.ShouldBe(800000);
     }
 
-    private static async Task<List<CategoryTotalDto>> Categories(HttpClient client, string month) =>
-        (await client.GetFromJsonAsync<List<CategoryTotalDto>>($"/dashboard/categories?month={month}"))!;
+    private static async Task<List<CategoryTotalDto>> Categories(HttpClient client, string month)
+    {
+        var response = (await client.GetFromJsonAsync<CategoriesDto>($"/dashboard/categories?month={month}"))!;
+        response.HiddenRefundCents.ShouldBe(0); // sem estornos neste exemplo
+        return response.Categories;
+    }
 
     [Fact]
     public async Task Spec_example_expenses_by_root_category()

@@ -19,7 +19,7 @@ import { Chip, ChipRow, DateChooser, Section } from '@/features/transactions/fie
 import { useDeleteTransaction, usePayStatement, useRestoreTransaction } from '@/features/transactions/queries'
 import { paymentMethodLabels, type PaymentMethod } from './labels'
 import { useAccounts, useStatementTransactions, useUpdateStatement, type Statement } from './queries'
-import { statementTitle, type StatementStatus } from './statements'
+import { statementTitle, statementTotal, type StatementStatus } from './statements'
 
 // Uma fatura: total, datas, as compras que entraram nela e o ajuste das datas (o banco antecipa
 // ou adia o fechamento em fim de semana e feriado; docs/fase-1.md).
@@ -67,6 +67,7 @@ function Details({
     .sort((a, b) => b.purchaseDate.localeCompare(a.purchaseDate))
   const undo = useUndoPayment()
   const canPay = status === 'Fechada' && statement.totalCents > 0
+  const total = statementTotal(statement.totalCents)
 
   return (
     <>
@@ -76,7 +77,8 @@ function Details({
           <SheetTitle className="font-display text-3xl leading-tight font-normal">
             {statementTitle(statement.reference)}
           </SheetTitle>
-          <span className="font-display text-5xl leading-none tabular-nums">{formatCents(statement.totalCents)}</span>
+          {total.label && <span className="-mb-1 text-sm font-medium text-foreground/75">{total.label}</span>}
+          <span className="font-display text-5xl leading-none tabular-nums">{total.text}</span>
         </header>
         <div className="spectrum-line mx-6 opacity-70" />
 
@@ -89,7 +91,7 @@ function Details({
 
         <section className="mx-4 mb-5 flex flex-col gap-2">
           <h3 className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Compras {transactions.isSuccess && `(${items.length})`}
+            Lançamentos {transactions.isSuccess && `(${items.length})`}
           </h3>
           {transactions.isPending && <Skeleton className="h-24 w-full rounded-2xl" />}
           {transactions.isError && (
@@ -99,7 +101,7 @@ function Details({
           )}
           {transactions.isSuccess && items.length === 0 && (
             <p className="rounded-2xl border border-dashed px-4 py-5 text-center text-sm text-muted-foreground">
-              Nenhuma compra nesta fatura.
+              Nenhum lançamento nesta fatura.
             </p>
           )}
           {items.length > 0 && (
@@ -115,9 +117,12 @@ function Details({
                       <p className="text-xs text-muted-foreground tabular-nums">
                         {formatShortDate(t.purchaseDate)}
                         {t.installmentNumber && ` · parcela ${t.installmentNumber}`}
+                        {t.type === 'Refund' && ' · estorno'}
                       </p>
                     </div>
-                    <span className="text-sm tabular-nums">{formatCents(t.amountCents)}</span>
+                    <span className="text-sm tabular-nums">
+                      {t.type === 'Refund' ? `+${formatCents(t.amountCents)}` : formatCents(t.amountCents)}
+                    </span>
                   </li>
                 )
               })}
@@ -359,7 +364,7 @@ function messageOf(error: unknown): string {
 }
 
 // Sem verde/vermelho (CLAUDE.md, 7.1): aberta ganha o espectro; o resto é neutro.
-const statusIcons = { Fechada: Lock, Paga: Check, Futura: CalendarClock } as const
+const statusIcons = { Fechada: Lock, Paga: Check, Futura: CalendarClock, 'Saldo a favor': Undo2 } as const
 
 export function StatusBadge({ status }: { status: StatementStatus }) {
   const Icon = status === 'Aberta' ? null : statusIcons[status]

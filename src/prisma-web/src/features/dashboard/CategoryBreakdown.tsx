@@ -3,29 +3,34 @@ import { Link } from 'react-router'
 import { CategoryTile } from '@/components/brand/Tiles'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatCents } from '@/lib/money'
-import { shareOf } from './categories'
+import { hiddenRefundsNotice, shareOf } from './categories'
 import { useCategoryTotals, type CategoryTotal } from './queries'
 
 const uncategorizedColor = '#94a3b8'
 
-// Despesas do mês pela categoria raiz (docs/fase-2.md, 2.2). Cada linha abre a lista que soma o
-// mesmo valor: pela data de caixa, só despesas daquela categoria.
-export function CategoryBreakdown({ month, totalCents }: { month: string; totalCents: number }) {
+// Despesas do mês pela categoria raiz, já com os estornos abatidos (docs/fase-2.md, 2.2 e 2.5). Cada
+// linha abre a lista que soma o mesmo valor: pela data de caixa, despesas e estornos da categoria.
+// A participação é sobre as categorias exibidas: a que o estorno zerou some e vira o aviso.
+export function CategoryBreakdown({ month }: { month: string }) {
   const totals = useCategoryTotals(month)
 
   if (totals.isPending) return <Skeleton className="h-48 w-full rounded-2xl" />
-  if (totals.isError || totals.data.length === 0) return null
+  if (totals.isError || totals.data.categories.length === 0) return null
 
-  const largest = totals.data[0].amountCents
+  const { categories, hiddenRefundCents } = totals.data
+  const largest = categories[0].amountCents
+  const shownTotal = categories.reduce((sum, c) => sum + c.amountCents, 0)
+  const notice = hiddenRefundsNotice(hiddenRefundCents)
 
   return (
     <section className="flex flex-col gap-3">
       <h2 className="px-1 text-sm font-medium text-foreground/75">Onde foi o dinheiro</h2>
       <ul className="surface flex flex-col rounded-2xl py-1.5">
-        {totals.data.map((item) => (
-          <Row key={item.categoryId ?? 'sem'} item={item} month={month} totalCents={totalCents} largestCents={largest} />
+        {categories.map((item) => (
+          <Row key={item.categoryId ?? 'sem'} item={item} month={month} totalCents={shownTotal} largestCents={largest} />
         ))}
       </ul>
+      {notice && <p className="px-1 text-xs text-muted-foreground">{notice}</p>}
     </section>
   )
 }

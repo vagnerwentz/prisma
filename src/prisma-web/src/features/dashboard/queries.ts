@@ -3,7 +3,7 @@ import { api, unwrap, type Schemas } from '@/lib/api'
 import { dashboardKey } from '@/lib/queryKeys'
 
 export type MonthlySummary = Schemas['GetMonthlySummaryResponse']
-export type CategoryTotal = Schemas['ListCategoryTotalsResponse']
+export type CategoryTotal = Schemas['ListCategoryTotalsItem']
 
 // Receitas, despesas, sobra e investido do mês pela data de caixa (docs/fase-2.md, 2.1).
 export function useMonthlySummary(month: string) {
@@ -13,7 +13,8 @@ export function useMonthlySummary(month: string) {
   })
 }
 
-// Despesas do mês pela categoria raiz, maior primeiro; sem categoria vem com id e nome nulos.
+// Despesas do mês pela categoria raiz, estornos abatidos, maior primeiro; sem categoria vem com id e
+// nome nulos. hiddenRefundCents: estorno que sumiu com categorias zeradas (docs/fase-2.md, 2.5).
 export function useCategoryTotals(month: string) {
   return useQuery({
     queryKey: [...dashboardKey, 'categories', month],

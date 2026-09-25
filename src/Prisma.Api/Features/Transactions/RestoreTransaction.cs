@@ -26,7 +26,12 @@ public static class RestoreTransaction
             if (transaction.CheckCanChangeIndividually() is { } error)
                 return error;
 
-            if (transaction.StatementId is { } statementId)
+            if (transaction.Type == TransactionType.Refund)
+            {
+                if (await CheckRefundCanBeRestored(transaction, ct) is { } refundError)
+                    return refundError;
+            }
+            else if (transaction.StatementId is { } statementId)
             {
                 var statements = await db.Statements.Where(s => s.Id == statementId).ToListAsync(ct);
                 if (CardPurchase.CheckCanRestore([transaction], statements) is { } paidError)
@@ -43,6 +48,22 @@ public static class RestoreTransaction
             transaction.Restore(categoryStillExists);
             await db.SaveChangesAsync(ct);
             return TransactionResponse.From(transaction);
+        }
+
+        // Restaurar o estorno segue as regras de criar (docs/fase-2.md, 2.5, regra 15): a fatura dele
+        // não pode estar paga e, com a compra ainda ativa, o limite dela vale.
+        private async Task<Error?> CheckRefundCanBeRestored(Transaction refund, CancellationToken ct)
+        {
+            var statements = refund.StatementId is { } statementId
+                ? await db.Statements.Where(s => s.Id == statementId).ToListAsync(ct)
+                : [];
+
+            long? refundable = null;
+            if (refund.RefundedTransactionId is { } purchaseId
+                && await db.Transactions.SingleOrDefaultAsync(t => t.Id == purchaseId, ct) is { } purchase)
+                refundable = (await RefundAmounts.Target(db, purchase, refund.Id, ct)).RefundableCents;
+
+            return Refund.CheckCanRestore(refund, refundable, statements);
         }
     }
 

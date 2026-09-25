@@ -195,6 +195,8 @@
     }
     .status-badge[data-status="Fechada"] { --status: #f59e0b; }
     .status-badge[data-status="Paga"] { --status: #22d3ee; }
+    /* Saldo a favor: estorno maior que as compras; nada a pagar (docs/fase-2.md, 2.5). */
+    .status-badge[data-status="Saldo a favor"] { --status: #3b82f6; }
     .status-badge[data-status="Futura"] {
         --status: #8b5cf6;
         background: transparent;

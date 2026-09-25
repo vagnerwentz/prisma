@@ -34,20 +34,26 @@ public static class ListAccountBalances
                 .Select(g => new { g.Key.AccountId, g.Key.Type, g.Key.TransferDirection, g.Key.IsSettled, Cents = g.Sum(t => t.AmountCents) })
                 .ToListAsync(ct);
 
-            // Compras em faturas não pagas: a entrada do pagamento é Transfer e fica de fora.
-            var owed = await db.Transactions
+            // Total de cada fatura não paga (compras − estornos; o pagamento é Transfer e fica de fora).
+            // O domínio conta cada uma a partir de zero: saldo a favor não abate as outras
+            // (docs/fase-2.md, 2.5, regras 9 e 10).
+            var unpaid = (await db.Statements
                 .AsNoTracking()
-                .Where(t => t.Type == TransactionType.Expense
-                            && db.Statements.Any(s => s.Id == t.StatementId && !s.IsPaid))
-                .GroupBy(t => t.AccountId)
-                .Select(g => new { AccountId = g.Key, Cents = g.Sum(t => t.AmountCents) })
-                .ToDictionaryAsync(x => x.AccountId, x => x.Cents, ct);
+                .Where(s => !s.IsPaid)
+                .Select(s => new
+                {
+                    s.AccountId,
+                    TotalCents = db.Transactions.Where(t => t.StatementId == s.Id && t.Type != TransactionType.Transfer)
+                        .Sum(t => t.Type == TransactionType.Refund ? -t.AmountCents : t.AmountCents),
+                })
+                .ToListAsync(ct))
+                .ToLookup(s => s.AccountId, s => s.TotalCents);
 
             return accounts.Select(a =>
             {
                 if (a.Type == AccountType.CreditCard)
                 {
-                    var card = CreditCardBalance.Of(a.CreditLimitCents, owed.GetValueOrDefault(a.Id));
+                    var card = CreditCardBalance.OfStatements(a.CreditLimitCents, unpaid[a.Id]);
                     return new Response(a.Id, null, null, card.OwedCents, card.AvailableCreditCents);
                 }
 

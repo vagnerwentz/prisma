@@ -35,6 +35,7 @@ Nada de código misto. `Transaction.SettlementDate` ao lado de `CreatedAt`, nunc
 | Data de caixa | `SettlementDate` | quando o dinheiro sai de fato |
 | Compra parcelada | `InstallmentPurchase` | |
 | Parcela | `Installment` / `InstallmentNumber` | |
+| Estorno | `TransactionType.Refund` | abate despesa, nunca é receita |
 | Estabelecimento | `Merchant` | |
 | Meio de pagamento | `PaymentMethod` | |
 | Valor em centavos | `AmountCents` | |
@@ -237,6 +238,8 @@ não precisa.** `Category` com nome e cor não merece teste unitário;
 - Compra às 23h30 em São Paulo não cai no dia seguinte.
 - Transferência não aparece em receita nem em despesa; pagamento de fatura não duplica
   o gasto do mês.
+- Estorno abate a despesa do mês em que cai e nunca conta como receita; no cartão, entra
+  na fatura aberta na data do estorno.
 - Editar a parcela 3 de 10 não altera as demais.
 - Dois usuários distintos nunca enxergam dados um do outro (integração).
 - Transação com soft delete some da listagem e do dashboard, mas é restaurável.

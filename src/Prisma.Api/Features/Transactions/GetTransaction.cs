@@ -17,9 +17,10 @@ public static class GetTransaction
                 .Select(TransactionResponse.Projection)
                 .SingleOrDefaultAsync(ct);
 
-            return transaction is null
-                ? new Error(ErrorType.NotFound, "Transação não encontrada.")
-                : transaction;
+            if (transaction is null)
+                return new Error(ErrorType.NotFound, "Transação não encontrada.");
+
+            return (await RefundAmounts.Fill(db, [transaction], ct))[0];
         }
     }
 

@@ -2,11 +2,13 @@ export type ExpenseChange = { percent: number; direction: 'more' | 'less' | 'sam
 
 // Variação das despesas contra o mês anterior, em % inteiro (docs/fase-2.md, 2.3). Sem despesa no
 // mês anterior não há base de comparação: devolve null e a tela não mostra porcentagem.
+// Estornos podem deixar o mês negativo (docs/fase-2.md, 2.5): conta como zero, no máximo 100% a menos.
 export function expenseChange(currentCents: number, previousCents: number): ExpenseChange | null {
   if (previousCents <= 0) return null
-  const percent = Math.round((Math.abs(currentCents - previousCents) / previousCents) * 100)
+  const current = Math.max(currentCents, 0)
+  const percent = Math.round((Math.abs(current - previousCents) / previousCents) * 100)
   if (percent === 0) return { percent: 0, direction: 'same' }
-  return { percent, direction: currentCents > previousCents ? 'more' : 'less' }
+  return { percent, direction: current > previousCents ? 'more' : 'less' }
 }
 
 export function describeExpenseChange(change: ExpenseChange, previousMonthName: string): string {

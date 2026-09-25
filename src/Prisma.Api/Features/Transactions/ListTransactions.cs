@@ -22,7 +22,7 @@ public static class ListTransactions
         [FromQuery(Name = "search")] string? Search,
         [FromQuery(Name = "statementId")] Guid? StatementId,
         [FromQuery(Name = "dateBasis")] DateBasis? DateBasis,
-        [FromQuery(Name = "type")] TransactionType? Type,
+        [FromQuery(Name = "type")] TransactionType[]? Type,
         [FromQuery(Name = "uncategorized")] bool? Uncategorized);
 
     public sealed class Handler(AppDbContext db)
@@ -46,8 +46,9 @@ public static class ListTransactions
                     ? transactions.Where(t => t.SettlementDate <= to)
                     : transactions.Where(t => t.PurchaseDate <= to);
 
-            if (query.Type is { } type)
-                transactions = transactions.Where(t => t.Type == type);
+            // Repetível: o detalhamento de uma categoria pede despesas e estornos (docs/fase-2.md, 2.5, regra 13).
+            if (query.Type is { Length: > 0 } types)
+                transactions = transactions.Where(t => types.Contains(t.Type));
 
             if (query.Uncategorized == true)
                 transactions = transactions.Where(t => t.CategoryId == null);
@@ -74,11 +75,12 @@ public static class ListTransactions
                 transactions = transactions.Where(t => EF.Functions.ILike(t.Description, pattern, @"\"));
             }
 
-            return await transactions
+            var list = await transactions
                 .OrderByDescending(t => t.PurchaseDate)
                 .ThenByDescending(t => t.CreatedAt)
                 .Select(TransactionResponse.Projection)
                 .ToListAsync(ct);
+            return Result<IReadOnlyList<TransactionResponse>>.Success(await RefundAmounts.Fill(db, list, ct));
         }
 
         private static string EscapeLike(string value) =>

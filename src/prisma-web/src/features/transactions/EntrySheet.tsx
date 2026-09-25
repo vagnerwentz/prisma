@@ -1,7 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ArrowLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Pencil, Trash2, Undo2 } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useForm, useWatch, type Path, type PathValue, type UseFormRegisterReturn } from 'react-hook-form'
+import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { AccountTile, EntryTile, TransferTile } from '@/components/brand/Tiles'
@@ -26,6 +27,7 @@ import {
   useRestorePurchase,
   useRestoreTransaction,
   useUpdatePurchase,
+  useTransaction,
   useUpdateTransaction,
   type Transaction,
 } from './queries'
@@ -87,7 +89,12 @@ function Details({ entry, accounts, labels, onClose, onEdit }: Common & { onEdit
   const category = first.categoryId ? labels.get(first.categoryId) : undefined
   const account = accounts.find((a) => a.id === first.accountId)
   const amount = entry.kind === 'single' ? first.amountCents : entry.totalCents
-  const title = first.description || category?.name || 'Sem descrição'
+  const isRefund = first.type === 'Refund'
+  const title = first.description || category?.name || (isRefund ? 'Estorno' : 'Sem descrição')
+  // Na compra parcelada, cada parcela traz o estornado da compra inteira (docs/fase-2.md, 2.5).
+  const refunded = first.refundedCents ?? 0
+  const refundable = first.type === 'Expense' ? (first.refundableCents ?? 0) : 0
+  const navigate = useNavigate()
   const remove = useRemove(
     entry.kind === 'purchase' ? { kind: 'purchase', id: entry.purchaseId } : { kind: 'single', id: first.id },
     `${title} · ${formatCents(amount)}`,
@@ -107,6 +114,7 @@ function Details({ entry, accounts, labels, onClose, onEdit }: Common & { onEdit
             )}
           </div>
           <Amount type={first.type} cents={amount} className="font-display text-5xl leading-none font-normal" />
+          {isRefund && <p className="text-sm text-muted-foreground">Estorno · abate a despesa do mês em que cai</p>}
           {installments.length > 1 && (
             <p className="text-sm text-muted-foreground tabular-nums">{describeInstallments(amount, installments.length)}</p>
           )}
@@ -115,7 +123,7 @@ function Details({ entry, accounts, labels, onClose, onEdit }: Common & { onEdit
         <div className="spectrum-line mx-6 opacity-70" />
 
         <dl className="mx-4 my-5 flex flex-col divide-y rounded-2xl border bg-card text-sm">
-          <InfoRow label="Data da compra">{formatLongDate(first.purchaseDate)}</InfoRow>
+          <InfoRow label={isRefund ? 'Data do estorno' : 'Data da compra'}>{formatLongDate(first.purchaseDate)}</InfoRow>
           {kind === 'card' && <InfoRow label="Fatura que vence em">{formatLongDate(first.settlementDate)}</InfoRow>}
           {account && (
             <InfoRow label="Conta">
@@ -126,7 +134,38 @@ function Details({ entry, accounts, labels, onClose, onEdit }: Common & { onEdit
             </InfoRow>
           )}
           <InfoRow label="Pagamento">{paymentMethodLabels[first.method]}</InfoRow>
+          {isRefund && first.refundedTransactionId && (
+            <InfoRow label="Estorno de">
+              <RefundedPurchase id={first.refundedTransactionId} />
+            </InfoRow>
+          )}
+          {first.type === 'Expense' && refunded > 0 && (
+            <InfoRow label="Estornado">
+              <span className="tabular-nums">
+                {formatCents(refunded)} de {formatCents(refunded + refundable)}
+              </span>
+            </InfoRow>
+          )}
         </dl>
+
+        {first.type === 'Expense' && refundable > 0 && (
+          <div className="mx-4 mb-5">
+            <Button
+              variant="outline"
+              className="h-11 w-full rounded-2xl"
+              onClick={() => {
+                onClose()
+                navigate(`/lancar?estorno=${first.id}`)
+              }}
+            >
+              <Undo2 />
+              {refunded > 0 ? `Estornar mais (restam ${formatCents(refundable)})` : 'Estornar'}
+            </Button>
+          </div>
+        )}
+        {first.type === 'Expense' && refunded > 0 && refundable === 0 && (
+          <p className="mx-4 mb-5 text-center text-xs text-muted-foreground">Compra estornada por inteiro.</p>
+        )}
 
         {installments.length > 0 && (
           <InstallmentList installments={installments} labels={labels} onPick={(id) => onEdit({ view: 'installment', id })} />
@@ -150,6 +189,18 @@ function Details({ entry, accounts, labels, onClose, onEdit }: Common & { onEdit
         </Button>
       </SheetFooterBar>
     </>
+  )
+}
+
+// A compra que o estorno devolve; se ela foi excluída, o estorno continua valendo (regra 15).
+function RefundedPurchase({ id }: { id: string }) {
+  const purchase = useTransaction(id)
+  if (purchase.isPending) return <span className="text-muted-foreground">…</span>
+  if (purchase.isError) return <span className="text-muted-foreground">compra excluída</span>
+  return (
+    <span className="tabular-nums">
+      {purchase.data.description || 'Compra'} · {formatCents(purchase.data.amountCents)}
+    </span>
   )
 }
 
@@ -351,6 +402,8 @@ function Editor(props: EditorProps) {
     const installment = entry.installments.find((t) => t.id === mode.id)
     if (installment) return <InstallmentForm {...props} transaction={installment} count={entry.installments.length} />
   }
+  if (entry.kind === 'single' && entry.transaction.type === 'Refund')
+    return <RefundForm {...props} transaction={entry.transaction} />
   const kind: EditKind = editKind(entry)
   if (kind === 'purchase' && entry.kind === 'purchase') return <PurchaseForm {...props} purchase={entry} />
   if (entry.kind === 'single' && kind === 'card') return <CardForm {...props} transaction={entry.transaction} />
@@ -524,7 +577,7 @@ function SimpleForm({ transaction, accounts, categories, onDone, onClose, onMove
     >
       <form id="edit-entry" onSubmit={submit} noValidate className="contents">
         <div className="flex flex-col items-center gap-4">
-          <TypeToggle value={type} incomeDisabled={false} onChange={(value) => set('type', value)} />
+          <TypeToggle value={type} incomeDisabled={false} onChange={(value) => value !== 'Refund' && set('type', value)} />
           <AmountField
             value={amountCents}
             onChange={(c) => set('amountCents', c)}
@@ -648,6 +701,103 @@ function CardForm({ transaction, categories, onDone, onClose, onMoved }: EditorP
         <Note>
           Mudar a data leva a compra para a fatura do novo ciclo. Conta e meio de pagamento não mudam: para trocá-los, exclua e
           lance de novo.
+        </Note>
+      </form>
+    </EditShell>
+  )
+}
+
+const refundSchema = z.object({
+  amountCents: z.number().int().min(1, 'Informe o valor.'),
+  purchaseDate: z.string().min(1, 'Informe a data.'),
+  categoryId: z.string(),
+  method: z.enum(['Pix', 'Debit', 'Credit', 'Boleto', 'Cash', 'Ted']),
+  description,
+})
+
+// Estorno (docs/fase-2.md, 2.5, regra 14): valor, data, categoria, descrição e meio. Conta e compra
+// estornada não mudam; no cartão, a data nova pode levar o estorno a outra fatura.
+function RefundForm({ transaction, accounts, categories, onDone, onClose, onMoved }: EditorProps & { transaction: Transaction }) {
+  const update = useUpdateTransaction()
+  const saved = useSaved({ onDone, onClose, onMoved })
+  const form = useForm<z.infer<typeof refundSchema>>({
+    resolver: zodResolver(refundSchema),
+    defaultValues: {
+      amountCents: transaction.amountCents,
+      purchaseDate: transaction.purchaseDate,
+      categoryId: transaction.categoryId ?? '',
+      method: transaction.method,
+      description: transaction.description,
+    },
+  })
+  const { errors, isSubmitting } = form.formState
+  const [amountCents, purchaseDate, categoryId, method, text] = useWatch({
+    control: form.control,
+    name: ['amountCents', 'purchaseDate', 'categoryId', 'method', 'description'],
+  })
+  const set = <K extends Path<z.infer<typeof refundSchema>>>(field: K, value: PathValue<z.infer<typeof refundSchema>, K>) =>
+    form.setValue(field, value, { shouldValidate: form.formState.isSubmitted })
+  const account = accounts.find((a) => a.id === transaction.accountId)
+  const isCard = transaction.statementId !== null
+  const roots = categories.filter((c) => c.type === 'Expense')
+  const { label } = resolveCategory(roots, categoryId)
+
+  const submit = form.handleSubmit(async (values) => {
+    try {
+      await update.mutateAsync({
+        id: transaction.id,
+        body: {
+          ...sameAs(transaction, values.categoryId, values.description, values.amountCents),
+          purchaseDate: values.purchaseDate,
+          method: values.method,
+        },
+      })
+      saved(transaction.purchaseDate, values.purchaseDate)
+    } catch (error) {
+      form.setError('root', { message: messageOf(error) })
+    }
+  })
+
+  return (
+    <EditShell title="Editar estorno" onBack={onDone} submitting={isSubmitting} error={errors.root?.message} formId="edit-refund">
+      <form id="edit-refund" onSubmit={submit} noValidate className="contents">
+        <AmountField
+          value={amountCents}
+          onChange={(c) => set('amountCents', c)}
+          income={false}
+          error={errors.amountCents?.message}
+          compact
+        />
+        <DescriptionField
+          field={form.register('description')}
+          value={text}
+          category={label}
+          error={errors.description?.message}
+        />
+        <Section title="Categoria">
+          <CategoryPicker roots={roots} value={categoryId} onChange={(id) => set('categoryId', id)} />
+        </Section>
+        <Section
+          title="Data do estorno"
+          aside={isCard ? `fatura atual vence ${formatShortDate(transaction.settlementDate)}` : undefined}
+        >
+          <DateChooser value={purchaseDate} onChange={(date) => set('purchaseDate', date)} error={errors.purchaseDate?.message} />
+        </Section>
+        {!isCard && (
+          <Section title="Meio">
+            <ChipRow>
+              {simpleMethods.map((m) => (
+                <Chip key={m} selected={m === method} onClick={() => set('method', m)}>
+                  {paymentMethodLabels[m]}
+                </Chip>
+              ))}
+            </ChipRow>
+          </Section>
+        )}
+        <Note>
+          {account ? `Fica em ${account.name}. ` : ''}
+          {isCard ? 'Mudar a data leva o estorno para a fatura aberta na nova data. ' : ''}
+          Para trocar a conta ou a compra estornada, exclua e lance de novo.
         </Note>
       </form>
     </EditShell>

@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 
 // Peças do lançamento rápido, compartilhadas com a edição no painel do lançamento.
 
-export type EntryType = 'Expense' | 'Income'
+export type EntryType = 'Expense' | 'Income' | 'Refund'
 
 export function Section({ title, aside, children }: { title: string; aside?: string; children: ReactNode }) {
   return (
@@ -80,20 +80,32 @@ export function TypeToggle({
   incomeDisabled,
   onChange,
   onTransfer,
+  withRefund,
 }: {
   value: EntryType | 'Transfer'
   incomeDisabled: boolean
   onChange: (value: EntryType) => void
   // No lançamento rápido, "Transferência" troca o formulário (docs/fase-1.md, 2.3).
   onTransfer?: () => void
+  // "Estorno" só no lançamento novo; na edição o tipo do estorno não muda (docs/fase-2.md, 2.5).
+  withRefund?: boolean
 }) {
   const option = (selected: boolean, extra?: string) =>
     cn(
       'rounded-full px-4 py-1.5 transition-colors',
       selected ? (extra ?? 'bg-foreground text-background') : 'text-muted-foreground',
     )
+  const count = 2 + (withRefund ? 1 : 0) + (onTransfer ? 1 : 0)
   return (
-    <div className={cn('grid rounded-full border bg-card p-1 text-sm font-medium', onTransfer ? 'grid-cols-3' : 'grid-cols-2')}>
+    // Quatro opções não cabem numa linha em 320px: no celular viram 2 × 2.
+    <div
+      className={cn(
+        'grid border bg-card p-1 text-sm font-medium',
+        count === 4 ? 'grid-cols-2 gap-y-1 rounded-3xl sm:grid-cols-4 sm:rounded-full' : 'rounded-full',
+        count === 3 && 'grid-cols-3',
+        count === 2 && 'grid-cols-2',
+      )}
+    >
       <button
         type="button"
         aria-pressed={value === 'Expense'}
@@ -111,6 +123,16 @@ export function TypeToggle({
       >
         Receita
       </button>
+      {withRefund && (
+        <button
+          type="button"
+          aria-pressed={value === 'Refund'}
+          onClick={() => onChange('Refund')}
+          className={option(value === 'Refund')}
+        >
+          Estorno
+        </button>
+      )}
       {onTransfer && (
         <button type="button" aria-pressed={value === 'Transfer'} onClick={onTransfer} className={option(value === 'Transfer')}>
           Transferência

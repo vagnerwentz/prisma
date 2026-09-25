@@ -27,6 +27,9 @@ public sealed class Transaction : Entity
     public TransferDirection? TransferDirection { get; private set; }
     public TransactionSource Source { get; private init; }
 
+    // Estorno ligado à compra que ele devolve (docs/fase-2.md, 2.5, regra 7).
+    public Guid? RefundedTransactionId { get; private init; }
+
     // Receita ou despesa fora do cartão: o dinheiro sai (ou entra) no dia da compra.
     public static Result<Transaction> CreateSimple(
         Guid userId, Account account, TransactionType type, long amountCents, DateOnly purchaseDate,
@@ -87,6 +90,9 @@ public sealed class Transaction : Entity
         if (StatementId is not null)
             return Invalid("Lançamento em cartão de crédito usa a compra no cartão.");
 
+        if (Type == TransactionType.Refund)
+            return Invalid("Estorno usa a edição de estorno.");
+
         if (ValidateSimple(account, type, amountCents, category, method, description) is { } error)
             return error;
 
@@ -121,6 +127,39 @@ public sealed class Transaction : Entity
             InstallmentPurchaseId = installmentPurchaseId,
             InstallmentNumber = installmentNumber,
         };
+
+    // Criado só por Refund, que valida antes. Sem fatura, o caixa é a própria data; no cartão, o
+    // vencimento da fatura aberta na data do estorno (docs/fase-2.md, 2.5, regra 4).
+    internal static Transaction CreateRefund(
+        Guid userId, Account account, long amountCents, DateOnly date, Statement? statement,
+        Category? category, PaymentMethod method, string description, Guid? refundedTransactionId) =>
+        new()
+        {
+            UserId = userId,
+            Source = TransactionSource.Manual,
+            AccountId = account.Id,
+            Type = TransactionType.Refund,
+            Method = method,
+            AmountCents = amountCents,
+            PurchaseDate = date,
+            StatementId = statement?.Id,
+            SettlementDate = statement?.DueDate ?? date,
+            CategoryId = category?.Id,
+            Description = description,
+            RefundedTransactionId = refundedTransactionId,
+        };
+
+    // Edição do estorno, validada por Refund.
+    internal void ApplyRefund(long amountCents, DateOnly date, Statement? statement, Category? category, PaymentMethod method, string description)
+    {
+        AmountCents = amountCents;
+        PurchaseDate = date;
+        StatementId = statement?.Id;
+        SettlementDate = statement?.DueDate ?? date;
+        CategoryId = category?.Id;
+        Method = method;
+        Description = description;
+    }
 
     public static readonly Error TransferIsNotEdited =
         new(ErrorType.Validation, "Transferência não é editada. Exclua e lance de novo.");
@@ -175,6 +214,9 @@ public sealed class Transaction : Entity
     {
         if (type == TransactionType.Transfer)
             return Invalid("Transferência entre contas usa a operação de transferência.");
+
+        if (type == TransactionType.Refund)
+            return Invalid("Estorno usa o lançamento de estorno.");
 
         if (account.Type == AccountType.CreditCard)
             return Invalid("Lançamento em cartão de crédito usa a compra no cartão.");

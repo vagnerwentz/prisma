@@ -19,6 +19,8 @@ public sealed class TransactionConfiguration : IEntityTypeConfiguration<Transact
             // Transferência tem par e direção; nada mais tem (docs/fase-1.md, 2.3).
             table.HasCheckConstraint("ck_transactions_transfer_legs",
                 "(type = 'Transfer') = (transfer_pair_id IS NOT NULL AND transfer_direction IS NOT NULL)");
+            table.HasCheckConstraint("ck_transactions_refund_link",
+                "refunded_transaction_id IS NULL OR type = 'Refund'");
         });
 
         builder.Property(t => t.Type).HasConversion<string>().HasMaxLength(20);
@@ -32,6 +34,9 @@ public sealed class TransactionConfiguration : IEntityTypeConfiguration<Transact
         builder.HasOne<Category>().WithMany().HasForeignKey(t => t.CategoryId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Statement>().WithMany().HasForeignKey(t => t.StatementId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<InstallmentPurchase>().WithMany().HasForeignKey(t => t.InstallmentPurchaseId)
+            .OnDelete(DeleteBehavior.Restrict);
+        // Estorno ligado à compra que devolve (docs/fase-2.md, 2.5, regra 7). Só estorno tem vínculo.
+        builder.HasOne<Transaction>().WithMany().HasForeignKey(t => t.RefundedTransactionId)
             .OnDelete(DeleteBehavior.Restrict);
 
         // Índices de docs/fase-1.md, mais PurchaseDate, que é o período da listagem.

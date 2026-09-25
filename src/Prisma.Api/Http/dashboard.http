@@ -7,7 +7,8 @@ GET {{baseUrl}}/dashboard/summary?month=2026-10
 ### Resumo do mês atual
 GET {{baseUrl}}/dashboard/summary
 
-### Despesas do mês por categoria raiz, maior primeiro (sem categoria: id e nome nulos)
+### Despesas do mês por categoria raiz, maior primeiro (sem categoria: id e nome nulos). Estornos abatem;
+# categoria com líquido ≤ 0 some e hiddenRefundCents diz quanto de estorno sumiu com ela
 GET {{baseUrl}}/dashboard/categories?month=2026-10
 
 ### Comparativo: os 6 meses que terminam no mês, mais antigo primeiro

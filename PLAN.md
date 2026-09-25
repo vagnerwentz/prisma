@@ -257,6 +257,19 @@ Cada etapa entrega API e tela juntas, para o resumo crescer à vista.
   *Pronto quando:* teste de corrida do pagamento e testes do 401 e das respostas de erro;
   telas conferidas nos dois modos e em 320, 390 e 1280px.
 
+- [x] **2.5 Estorno: regras e API** (pedida pelo usuário)
+  Tipo `Refund`, que abate despesa e nunca é receita; no cartão, cai na fatura aberta na data do
+  estorno; vínculo opcional com a compra, limitado ao valor dela; fatura negativa é saldo a favor;
+  resumo, categorias, comparativo e saldos líquidos (`docs/fase-2.md`, 2.5).
+  *Pronto quando:* testes de domínio escritos antes, com os valores do exemplo da 2.5; integração
+  com o exemplo inteiro, limite do vínculo, fatura paga, restauração e isolamento.
+
+- [x] **2.6 Estorno: telas**
+  "Estorno" em `/lancar`, "Estornar" no painel da despesa, estorno na lista e na fatura, saldo a
+  favor e aviso das categorias escondidas (`docs/fase-2.md`, 4).
+  *Pronto quando:* "Estornar" preenchido e saldo a favor cobertos no Vitest; telas conferidas nos
+  dois modos e em 320, 390 e 1280px.
+
 ---
 
 ## Fases 3 a 5
@@ -303,5 +316,5 @@ Decidir quando a fase correspondente chegar:
   (inclusive as futuras, abertas pelas parcelas). Proposta: recalcular as não editadas e não
   pagas, e o `SettlementDate` das parcelas delas; `DatesEditedManually` já permite distinguir.
   (quando fizer falta)
-- Estorno no cartão (crédito que abate a fatura). Hoje o cartão aceita só despesa. (Fase 4,
-  quando a importação de fatura trouxer estornos, ou antes se fizer falta)
+- Cancelar as parcelas futuras de uma compra parcelada estornada (a 2.5 faz só o crédito único).
+  (quando fizer falta)

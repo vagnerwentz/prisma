@@ -1,3 +1,4 @@
 namespace Prisma.Domain.Transactions;
 
-public enum TransactionType { Income, Expense, Transfer }
+// Refund (estorno) abate despesa e nunca é receita (docs/fase-2.md, 2.5).
+public enum TransactionType { Income, Expense, Transfer, Refund }

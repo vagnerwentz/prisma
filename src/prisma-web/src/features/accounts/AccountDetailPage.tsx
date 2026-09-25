@@ -23,7 +23,7 @@ import {
   type Statement,
 } from './queries'
 import { StatementSheet, StatusBadge } from './StatementSheet'
-import { groupStatements, statementStatus, statementTitle, type StatementStatus } from './statements'
+import { groupStatements, statementStatus, statementTitle, statementTotal, type StatementStatus } from './statements'
 
 export function AccountDetailPage() {
   const { id } = useParams()
@@ -272,7 +272,12 @@ function Statements({ account }: { account: Account }) {
                 fecha {dayMonth(current.closingDate)} · vence {dayMonth(current.dueDate)}
               </span>
             </div>
-            <span className="font-display text-4xl leading-none tabular-nums">{formatCents(current.totalCents)}</span>
+            <span className="flex flex-col items-end gap-1">
+              {statementTotal(current.totalCents).label && (
+                <span className="text-xs font-medium text-foreground/75">{statementTotal(current.totalCents).label}</span>
+              )}
+              <span className="font-display text-4xl leading-none tabular-nums">{statementTotal(current.totalCents).text}</span>
+            </span>
           </div>
         </button>
       ) : (
@@ -320,7 +325,7 @@ function StatementList({
                 </p>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1">
-                <span className="tabular-nums">{formatCents(s.totalCents)}</span>
+                <span className="tabular-nums">{statementTotal(s.totalCents).text}</span>
                 <StatusBadge status={statusOf(s)} />
               </div>
               <ChevronRight className="size-4 shrink-0 text-muted-foreground" />

@@ -29,15 +29,15 @@ export function TransactionsPage() {
   const [month, setMonth] = useMonthParam()
   const range = monthRange(month)
 
-  // Vindo de uma categoria do resumo (?categoria=<id> ou sem): só despesas dela, pela data de
-  // caixa, para a lista somar o mesmo valor do resumo (docs/fase-2.md, 2.2).
+  // Vindo de uma categoria do resumo (?categoria=<id> ou sem): só despesas e estornos dela, pela
+  // data de caixa, para a lista somar o mesmo valor do resumo (docs/fase-2.md, 2.2 e 2.5).
   const [searchParams, setSearchParams] = useSearchParams()
   const category = searchParams.get('categoria')
   const filters: TransactionFilters = category
     ? {
         ...range,
         dateBasis: 'Settlement',
-        type: 'Expense',
+        type: ['Expense', 'Refund'],
         ...(category === 'sem' ? { uncategorized: true } : { categoryId: category }),
       }
     : range
@@ -126,8 +126,14 @@ function EntryRow({ entry, lookups, onOpen }: { entry: TimelineEntry<Transaction
   const amount = entry.kind === 'single' ? first.amountCents : entry.totalCents
   const installments = entry.kind === 'purchase' ? entry.installments.length : 0
 
-  const title = first.description || category?.name || 'Sem descrição'
-  const details = [category && category.name !== title ? category.name : null, account].filter(Boolean)
+  const isRefund = first.type === 'Refund'
+  const title = first.description || category?.name || (isRefund ? 'Estorno' : 'Sem descrição')
+  // Estorno se reconhece na linha (docs/fase-2.md, 2.5): o valor tem "+" em tinta, não no espectro.
+  const details = [
+    isRefund && title !== 'Estorno' ? 'Estorno' : null,
+    category && category.name !== title ? category.name : null,
+    account,
+  ].filter(Boolean)
 
   return (
     <li className="[&+&]:border-t">

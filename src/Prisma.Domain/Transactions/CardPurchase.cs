@@ -113,6 +113,9 @@ public static class CardPurchase
         if (transaction.StatementId is null)
             return Invalid("Lançamento fora do cartão usa a edição simples.");
 
+        if (transaction.Type == TransactionType.Refund)
+            return Invalid("Estorno usa a edição de estorno.");
+
         if (account.Id != transaction.AccountId || type != transaction.Type || method != transaction.Method)
             return Invalid("Em compra no cartão, conta, tipo e meio de pagamento não mudam. Exclua e lance de novo.");
 
@@ -185,7 +188,7 @@ public static class CardPurchase
 
     // Fatura de cada parcela a partir de uma data de compra: reaproveita as faturas gravadas (e as
     // datas editadas delas) e abre as que faltam, como na criação.
-    private sealed class StatementPlacement(Account card, IReadOnlyCollection<Statement> statements, DateOnly purchaseDate)
+    internal sealed class StatementPlacement(Account card, IReadOnlyCollection<Statement> statements, DateOnly purchaseDate)
     {
         private readonly Dictionary<string, Statement> _byReference = statements.ToDictionary(s => s.Reference);
         private readonly List<StatementDates> _existingDates = statements.Select(s => s.Dates).ToList();

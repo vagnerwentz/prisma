@@ -22,7 +22,9 @@ public static class CreateTransaction
         Guid? CategoryId,
         PaymentMethod Method,
         string? Description,
-        int? Installments);
+        int? Installments,
+        // Só no estorno: a compra que ele devolve (docs/fase-2.md, 2.5, regra 7).
+        Guid? RefundedTransactionId = null);
 
     public sealed class Validator : AbstractValidator<Request>
     {
@@ -47,6 +49,12 @@ public static class CreateTransaction
 
             var (account, category) = references.Value;
             var installments = req.Installments ?? 1;
+
+            if (req.Type == TransactionType.Refund)
+                return await CreateRefund(req, account, category, installments, ct);
+
+            if (req.RefundedTransactionId is not null)
+                return new Error(ErrorType.Validation, "Só o estorno aponta a compra estornada.");
 
             if (account.Type == AccountType.CreditCard)
                 return await CreateCardPurchase(req, account, category, installments, ct);
@@ -87,6 +95,40 @@ public static class CreateTransaction
             await db.SaveChangesAsync(ct);
 
             return purchase.Value.Installments.Select(TransactionResponse.From).ToList();
+        }
+
+        // Estorno (docs/fase-2.md, 2.5): no cartão, entra na fatura aberta na data do estorno.
+        private async Task<Result<IReadOnlyList<TransactionResponse>>> CreateRefund(
+            Request req, Account account, Domain.Categories.Category? category, int installments, CancellationToken ct)
+        {
+            if (installments != 1)
+                return new Error(ErrorType.Validation, "Estorno não tem parcelas.");
+
+            RefundTarget? target = null;
+            if (req.RefundedTransactionId is { } purchaseId)
+            {
+                var purchase = await db.Transactions.SingleOrDefaultAsync(t => t.Id == purchaseId, ct);
+                if (purchase is null)
+                    return new Error(ErrorType.Validation, "Compra estornada não encontrada.");
+                target = await RefundAmounts.Target(db, purchase, exceptRefundId: null, ct);
+            }
+
+            // Como na compra: o cálculo parte de um ciclo antes do mês do estorno.
+            var from = req.PurchaseDate.AddMonths(-2);
+            var statements = account.Type == AccountType.CreditCard
+                ? await db.Statements.Where(s => s.AccountId == account.Id && s.ClosingDate >= from).ToListAsync(ct)
+                : [];
+
+            var refund = Refund.Create(
+                currentUser.UserId, account, req.AmountCents, req.PurchaseDate, category, req.Method,
+                req.Description, target, statements);
+            if (!refund.IsSuccess)
+                return refund.Error;
+
+            db.Statements.AddRange(refund.Value.OpenedStatements);
+            db.Transactions.Add(refund.Value.Refund);
+            await db.SaveChangesAsync(ct);
+            return new[] { TransactionResponse.From(refund.Value.Refund) };
         }
     }
 

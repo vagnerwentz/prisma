@@ -9,6 +9,11 @@ describe('expenseChange', () => {
     expect(expenseChange(0, 30000)).toEqual({ percent: 100, direction: 'less' })
   })
 
+  // Mês só com estornos tem despesa negativa (docs/fase-2.md, 2.5): no máximo 100% a menos.
+  it('never goes beyond 100% less when refunds make the month negative', () => {
+    expect(expenseChange(-9000, 80000)).toEqual({ percent: 100, direction: 'less' })
+  })
+
   it('is the same when the rounded change is zero', () => {
     expect(expenseChange(30000, 30000)).toEqual({ percent: 0, direction: 'same' })
     expect(expenseChange(100001, 100000)).toEqual({ percent: 0, direction: 'same' })

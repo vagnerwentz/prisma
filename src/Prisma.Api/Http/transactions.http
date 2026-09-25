@@ -131,3 +131,66 @@ Content-Type: application/json
 
 ### Erro: período invertido (400)
 GET {{baseUrl}}/transactions?from=2026-04-01&to=2026-03-01
+
+# --- Estorno (docs/fase-2.md, 2.5): abate despesa, nunca é receita. No cartão, entra na fatura
+# aberta na data do estorno. A lista mostra refundedCents e refundableCents nas despesas.
+
+### Estornar parte da despesa criada acima (ligado a ela; mesma conta; até o valor da compra)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "accountId": "{{txAccountId}}",
+  "type": "Refund",
+  "amountCents": 1000,
+  "purchaseDate": "2026-03-12",
+  "categoryId": "{{bakeryId}}",
+  "method": "Pix",
+  "description": "Estorno: Pão de queijo",
+  "refundedTransactionId": "{{transactionId}}"
+}
+
+> {% client.global.set("refundId", response.body[0].id); %}
+
+### Estorno avulso (a compra não foi lançada)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "accountId": "{{txAccountId}}",
+  "type": "Refund",
+  "amountCents": 2500,
+  "purchaseDate": "2026-03-15",
+  "method": "Pix",
+  "description": "Cobrança indevida devolvida"
+}
+
+### Editar o estorno (conta e vínculo não mudam)
+PATCH {{baseUrl}}/transactions/{{refundId}}
+Content-Type: application/json
+
+{
+  "accountId": "{{txAccountId}}",
+  "type": "Refund",
+  "amountCents": 1500,
+  "purchaseDate": "2026-03-12",
+  "categoryId": "{{bakeryId}}",
+  "method": "Pix",
+  "description": "Estorno: Pão de queijo"
+}
+
+### Despesas e estornos de março pela data de caixa (type é repetível)
+GET {{baseUrl}}/transactions?from=2026-03-01&to=2026-03-31&dateBasis=Settlement&type=Expense&type=Refund
+
+### Erro: estorno acima do que resta da compra (400, "Restam R$ ... para estornar.")
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "accountId": "{{txAccountId}}",
+  "type": "Refund",
+  "amountCents": 999999,
+  "purchaseDate": "2026-03-12",
+  "method": "Pix",
+  "refundedTransactionId": "{{transactionId}}"
+}

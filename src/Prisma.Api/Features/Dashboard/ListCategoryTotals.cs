@@ -3,19 +3,24 @@ using Microsoft.EntityFrameworkCore;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Http;
 using Prisma.Domain;
+using Prisma.Domain.Dashboard;
 using Prisma.Domain.Transactions;
 
 namespace Prisma.Api.Features.Dashboard;
 
 // Despesas do mês pela categoria raiz, pela SettlementDate (docs/fase-2.md, 2.2). A subcategoria
 // soma na categoria pai; sem categoria, CategoryId e Name vêm nulos (a tela escreve "Sem categoria").
+// Estornos abatem a categoria deles; a que fica zero ou negativa some, e HiddenRefundCents diz
+// quanto de estorno sumiu com elas (docs/fase-2.md, 2.5, regra 12).
 public static class ListCategoryTotals
 {
-    public sealed record Response(Guid? CategoryId, string? Name, string? Icon, string? Color, long AmountCents);
+    public sealed record Item(Guid? CategoryId, string? Name, string? Icon, string? Color, long AmountCents);
+
+    public sealed record Response(IReadOnlyList<Item> Categories, long HiddenRefundCents);
 
     public sealed class Handler(AppDbContext db, IClock clock)
     {
-        public async Task<Result<IReadOnlyList<Response>>> Execute(string? month, CancellationToken ct)
+        public async Task<Result<Response>> Execute(string? month, CancellationToken ct)
         {
             var resolved = DashboardMonth.FirstDay(month, clock);
             if (!resolved.IsSuccess) return resolved.Error!;
@@ -25,9 +30,10 @@ public static class ListCategoryTotals
 
             var byCategory = await db.Transactions
                 .AsNoTracking()
-                .Where(t => t.Type == TransactionType.Expense && t.SettlementDate >= first && t.SettlementDate <= last)
-                .GroupBy(t => t.CategoryId)
-                .Select(g => new { CategoryId = g.Key, Cents = g.Sum(t => t.AmountCents) })
+                .Where(t => (t.Type == TransactionType.Expense || t.Type == TransactionType.Refund)
+                            && t.SettlementDate >= first && t.SettlementDate <= last)
+                .GroupBy(t => new { t.CategoryId, t.Type })
+                .Select(g => new { g.Key.CategoryId, g.Key.Type, Cents = g.Sum(t => t.AmountCents) })
                 .ToListAsync(ct);
 
             // Poucas dezenas de categorias por usuário: sobe cada uma até a raiz em memória.
@@ -36,16 +42,21 @@ public static class ListCategoryTotals
                 .Select(c => new { c.Id, c.ParentCategoryId, c.Name, c.Icon, c.Color })
                 .ToDictionaryAsync(c => c.Id, ct);
 
-            return byCategory
-                .GroupBy(x => x.CategoryId is { } id && categories.TryGetValue(id, out var c) ? c.ParentCategoryId ?? c.Id : (Guid?)null)
-                .Select(g =>
+            Guid? RootOf(Guid? id) =>
+                id is { } categoryId && categories.TryGetValue(categoryId, out var c) ? c.ParentCategoryId ?? c.Id : null;
+
+            var totals = CategoryTotals.Of(byCategory.Select(x => new CategoryAmount(RootOf(x.CategoryId), x.Type, x.Cents)));
+
+            var items = totals.Shown
+                .Select(net =>
                 {
-                    var root = g.Key is { } rootId ? categories.GetValueOrDefault(rootId) : null;
-                    return new Response(root?.Id, root?.Name, root?.Icon, root?.Color, g.Sum(x => x.Cents));
+                    var root = net.RootId is { } rootId ? categories.GetValueOrDefault(rootId) : null;
+                    return new Item(root?.Id, root?.Name, root?.Icon, root?.Color, net.AmountCents);
                 })
                 .OrderByDescending(r => r.AmountCents)
                 .ThenBy(r => r.Name)
                 .ToList();
+            return new Response(items, totals.HiddenRefundCents);
         }
     }
 
@@ -55,6 +66,6 @@ public static class ListCategoryTotals
             var result = await handler.Execute(month, ct);
             return result.IsSuccess ? Results.Ok(result.Value) : result.Error.ToProblem();
         })
-            .Produces<IReadOnlyList<Response>>(200)
+            .Produces<Response>(200)
             .ProducesProblem(400);
 }

@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { groupStatements, statementStatus, statementTitle } from './statements'
+import { groupStatements, statementStatus, statementTitle, statementTotal } from './statements'
 
 // Cartão que fecha dia 5 e vence dia 12 (mesmo cenário do backend, docs/fase-1.md).
-const s = (reference: string, closing: string, due: string, totalCents: number, extra: Partial<{ isPaid: boolean; datesEditedManually: boolean }> = {}) => ({
+const s = (
+  reference: string,
+  closing: string,
+  due: string,
+  totalCents: number,
+  extra: Partial<{ isPaid: boolean; datesEditedManually: boolean }> = {},
+) => ({
   id: reference,
   reference,
   closingDate: closing,
@@ -63,6 +69,9 @@ describe('statementStatus', () => {
     [april, '2026-04-06', 'Fechada'],
     [may, '2026-04-01', 'Futura'],
     [s('2026-03', '2026-03-05', '2026-03-12', 1000, { isPaid: true }), '2026-04-01', 'Paga'],
+    // Estorno maior que as compras (docs/fase-2.md, 2.5, regra 9): fechada e negativa é saldo a favor.
+    [s('2026-04', '2026-04-05', '2026-04-12', -10000), '2026-04-06', 'Saldo a favor'],
+    [s('2026-04', '2026-04-05', '2026-04-12', -10000), '2026-04-01', 'Aberta'],
   ])('%o em %s → %s', (statement, today, expected) => {
     const current = groupStatements([july, may, april], today).current
     expect(statementStatus(statement, today, current?.id)).toBe(expected)
@@ -73,5 +82,14 @@ describe('statementTitle', () => {
   // A referência é o mês do vencimento (docs/fase-1.md).
   it('usa o mês do vencimento', () => {
     expect(statementTitle('2026-10')).toBe('Outubro de 2026')
+  })
+})
+
+describe('statementTotal', () => {
+  // Total negativo não é valor a pagar: é saldo a favor, mostrado sem sinal.
+  it('mostra o saldo a favor sem sinal', () => {
+    expect(statementTotal(-10000)).toEqual({ label: 'Saldo a favor', text: 'R$\u00a0100,00' })
+    expect(statementTotal(11000)).toEqual({ label: null, text: 'R$\u00a0110,00' })
+    expect(statementTotal(0)).toEqual({ label: null, text: 'R$\u00a00,00' })
   })
 })

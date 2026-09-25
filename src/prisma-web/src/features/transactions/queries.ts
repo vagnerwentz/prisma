@@ -16,6 +16,15 @@ export function useTransactions(filters: TransactionFilters) {
   })
 }
 
+// Um lançamento, com o estornado e o que ainda pode ser estornado (a tela "Estornar").
+export function useTransaction(id: string | null) {
+  return useQuery({
+    queryKey: [...transactionsKey, 'detail', id],
+    enabled: id !== null,
+    queryFn: async () => unwrap(await api.GET('/transactions/{id}', { params: { path: { id: id! } } })),
+  })
+}
+
 export type NewTransaction = Schemas['CreateTransactionRequest']
 
 export function useCreateTransaction() {

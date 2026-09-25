@@ -4,6 +4,9 @@ using Prisma.Api.Features.Statements;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Http;
 using Prisma.Domain;
+using Prisma.Domain.Accounts;
+using Prisma.Domain.Categories;
+using Prisma.Domain.Statements;
 using Prisma.Domain.Transactions;
 
 namespace Prisma.Api.Features.Transactions;
@@ -46,6 +49,18 @@ public static class UpdateTransaction
 
             var (account, category) = references.Value;
 
+            if (transaction.Type == TransactionType.Refund)
+                return await UpdateRefund(transaction, req, account, category, ct);
+
+            // Despesa já estornada: tipo e conta ficam, e o valor não desce abaixo do estornado
+            // (docs/fase-2.md, 2.5, regra 7). A parcela isolada não muda de valor nem de conta.
+            if (transaction.Type == TransactionType.Expense && transaction.InstallmentPurchaseId is null)
+            {
+                var refunded = await RefundAmounts.RefundedOf(db, transaction, exceptRefundId: null, ct);
+                if (Refund.CheckPurchaseEdit(transaction, req.Type, account.Id, req.AmountCents, refunded) is { } refundError)
+                    return refundError;
+            }
+
             if (transaction.StatementId is null)
             {
                 var updated = transaction.UpdateSimple(
@@ -76,6 +91,38 @@ public static class UpdateTransaction
 
             await db.SaveChangesAsync(ct);
             return TransactionResponse.From(transaction);
+        }
+
+        // Estorno: valor, data, categoria, descrição e meio; conta e vínculo não mudam (regra 14).
+        private async Task<Result<TransactionResponse>> UpdateRefund(
+            Transaction refund, Request req, Account account, Category? category, CancellationToken ct)
+        {
+            if (req.Type != TransactionType.Refund)
+                return new Error(ErrorType.Validation, "No estorno, o tipo não muda. Exclua e lance de novo.");
+
+            // Compra ainda ativa: o limite conta os outros estornos dela, não este.
+            long? refundable = null;
+            if (refund.RefundedTransactionId is { } purchaseId
+                && await db.Transactions.SingleOrDefaultAsync(t => t.Id == purchaseId, ct) is { } purchase)
+                refundable = (await RefundAmounts.Target(db, purchase, refund.Id, ct)).RefundableCents;
+
+            List<Statement> statements = [];
+            if (refund.StatementId is not null)
+            {
+                var from = Min(refund.PurchaseDate, req.PurchaseDate).AddMonths(-2);
+                statements = await db.Statements
+                    .Where(s => s.AccountId == refund.AccountId && (s.ClosingDate >= from || s.Id == refund.StatementId))
+                    .ToListAsync(ct);
+            }
+
+            var edited = Refund.Edit(
+                refund, account, req.AmountCents, req.PurchaseDate, category, req.Method, req.Description, refundable, statements);
+            if (!edited.IsSuccess)
+                return edited.Error;
+
+            db.Statements.AddRange(edited.Value);
+            await db.SaveChangesAsync(ct);
+            return TransactionResponse.From(refund);
         }
     }
 

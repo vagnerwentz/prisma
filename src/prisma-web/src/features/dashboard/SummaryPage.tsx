@@ -63,12 +63,15 @@ function Overview({
   // só registra os gastos. Então o destaque mostra os gastos (docs/fase-2.md, 4).
   const withoutIncome = incomeCents === 0 && expenseCents > 0
   const title = withoutIncome ? `Gastos de ${monthName}` : leftoverCents < 0 ? `Faltou em ${monthName}` : `Sobra de ${monthName}`
+  // Estornos maiores que os gastos deixam o "Saiu" negativo (docs/fase-2.md, 2.5, regra 11).
   const cardNote =
-    cardExpenseCents <= 0
-      ? undefined
-      : cardExpenseCents === expenseCents
-        ? 'Tudo em faturas de cartão'
-        : `${formatCents(cardExpenseCents)} em faturas de cartão`
+    expenseCents < 0
+      ? 'Os estornos passaram dos gastos do mês'
+      : cardExpenseCents <= 0
+        ? undefined
+        : cardExpenseCents === expenseCents
+          ? 'Tudo em faturas de cartão'
+          : `${formatCents(cardExpenseCents)} em faturas de cartão`
   const spentShare = incomeCents > 0 ? expenseCents / incomeCents : 0
 
   return (
@@ -112,7 +115,8 @@ function Overview({
         {explaining && (
           <p className="relative text-sm leading-relaxed text-muted-foreground">
             Pela data de caixa: compras no cartão contam no mês do vencimento da fatura. Transferências, inclusive o pagamento da
-            fatura, não são receita nem despesa. Sobra é o que entrou menos o que saiu; investir não diminui a sobra.
+            fatura, não são receita nem despesa. Estornos abatem as despesas do mês em que caem. Sobra é o que entrou menos o que
+            saiu; investir não diminui a sobra.
           </p>
         )}
       </section>
@@ -131,7 +135,7 @@ function Overview({
             {incomeCents > 0 ? <span className="text-spectrum">{formatCents(incomeCents)}</span> : formatCents(0)}
           </Figure>
           <Figure icon={<Receipt />} label="Saiu" note={cardNote}>
-            {formatCents(expenseCents)}
+            {signed(expenseCents)}
           </Figure>
           <Figure
             icon={<Sprout />}
@@ -149,9 +153,9 @@ function Overview({
         <TodayPanel />
       </Suspense>
 
-      {expenseCents > 0 && (
+      {!empty && (
         <Suspense fallback={<Skeleton className="h-48 w-full rounded-2xl" />}>
-          <CategoryBreakdown month={monthParam} totalCents={expenseCents} />
+          <CategoryBreakdown month={monthParam} />
         </Suspense>
       )}
 

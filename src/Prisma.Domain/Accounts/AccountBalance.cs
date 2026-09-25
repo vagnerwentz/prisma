@@ -21,11 +21,12 @@ public sealed record AccountBalance(long CurrentCents, long ProjectedCents)
         return new AccountBalance(current, projected);
     }
 
-    // Receita e transferência recebida entram; despesa e transferência enviada (inclusive o
+    // Receita, estorno e transferência recebida entram; despesa e transferência enviada (inclusive o
     // pagamento de fatura) saem.
     private static long SignOf(TransactionType type, TransferDirection? direction) => type switch
     {
         TransactionType.Income => 1,
+        TransactionType.Refund => 1, // o dinheiro volta (docs/fase-2.md, 2.5, regra 10)
         TransactionType.Expense => -1,
         TransactionType.Transfer => direction switch
         {
@@ -43,4 +44,10 @@ public sealed record CreditCardBalance(long OwedCents, long? AvailableCreditCent
 {
     public static CreditCardBalance Of(long? creditLimitCents, long owedCents) =>
         new(owedCents, creditLimitCents - owedCents);
+
+    // Falta pagar = soma das faturas não pagas, cada uma contada a partir de zero: a fatura com saldo
+    // a favor (total negativo) não passa o crédito para as outras nem aumenta o limite
+    // (docs/fase-2.md, 2.5, regras 9 e 10).
+    public static CreditCardBalance OfStatements(long? creditLimitCents, IEnumerable<long> unpaidStatementTotals) =>
+        Of(creditLimitCents, unpaidStatementTotals.Sum(total => Math.Max(total, 0)));
 }

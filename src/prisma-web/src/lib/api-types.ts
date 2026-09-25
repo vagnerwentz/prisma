@@ -990,7 +990,7 @@ export interface paths {
                     search?: string;
                     statementId?: string;
                     dateBasis?: components["schemas"]["DateBasis"];
-                    type?: components["schemas"]["TransactionType"];
+                    type?: components["schemas"]["TransactionType"][];
                     uncategorized?: boolean;
                 };
                 header?: never;
@@ -1310,7 +1310,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ListCategoryTotalsResponse"][];
+                        "application/json": components["schemas"]["ListCategoryTotalsResponse"];
                     };
                 };
                 /** @description Bad Request */
@@ -1478,6 +1478,8 @@ export interface components {
             description: null | string;
             /** Format: int32 */
             installments: null | number;
+            /** Format: uuid */
+            refundedTransactionId?: null | string;
         };
         CreateTransferRequest: {
             /** Format: uuid */
@@ -1538,7 +1540,7 @@ export interface components {
             color: null | string;
             subcategories: components["schemas"]["CategoryResponse"][];
         };
-        ListCategoryTotalsResponse: {
+        ListCategoryTotalsItem: {
             /** Format: uuid */
             categoryId: null | string;
             name: null | string;
@@ -1546,6 +1548,11 @@ export interface components {
             color: null | string;
             /** Format: int64 */
             amountCents: number;
+        };
+        ListCategoryTotalsResponse: {
+            categories: components["schemas"]["ListCategoryTotalsItem"][];
+            /** Format: int64 */
+            hiddenRefundCents: number;
         };
         ListStatementsStatementResponse: {
             /** Format: uuid */
@@ -1644,11 +1651,17 @@ export interface components {
             transferPairId: null | string;
             transferDirection: null | components["schemas"]["TransferDirection"];
             source: components["schemas"]["TransactionSource"];
+            /** Format: uuid */
+            refundedTransactionId: null | string;
+            /** Format: int64 */
+            refundedCents: null | number;
+            /** Format: int64 */
+            refundableCents: null | number;
         };
         /** @enum {unknown} */
         TransactionSource: "Manual" | "OfxImport" | "PdfImport" | "Nfce";
         /** @enum {unknown} */
-        TransactionType: "Income" | "Expense" | "Transfer";
+        TransactionType: "Income" | "Expense" | "Transfer" | "Refund";
         /** @enum {unknown} */
         TransferDirection: "Out" | "In" | null;
         UpdateAccountRequest: {

@@ -112,6 +112,37 @@ public sealed class MonthlySummaryTests
         summary.CardExpenseCents.ShouldBe(20000);
     }
 
+    private static SummaryEntry Refund(long cents, AccountType account = AccountType.Checking) =>
+        new(TransactionType.Refund, null, account, cents);
+
+    // Exemplo da seção 2.5 de docs/fase-2.md: estorno abate despesa, nunca é receita.
+    [Fact]
+    public void Refunds_reduce_the_expense_of_the_month_and_never_count_as_income()
+    {
+        var october = MonthlySummary.Of(
+        [
+            Expense(60000, AccountType.CreditCard), // jantar, fatura que vence 05/10
+            Expense(25000),                         // mercado no débito
+            Refund(5000),                           // estorno do mercado
+        ]);
+        october.ShouldBe(new MonthlySummary(0, 80000, 60000, -80000, 0));
+
+        var november = MonthlySummary.Of(
+        [
+            Expense(30000, AccountType.CreditCard), Expense(20000, AccountType.CreditCard), // sapato e fone
+            Refund(15000, AccountType.CreditCard), Refund(4000, AccountType.CreditCard), Refund(30000, AccountType.CreditCard),
+        ]);
+        november.ShouldBe(new MonthlySummary(0, 1000, 1000, -1000, 0));
+    }
+
+    [Fact]
+    public void A_month_with_only_refunds_has_negative_expense()
+    {
+        var summary = MonthlySummary.Of([Income(100000), Refund(5000, AccountType.CreditCard)]);
+
+        summary.ShouldBe(new MonthlySummary(100000, -5000, -5000, 105000, 0));
+    }
+
     [Fact]
     public void A_transfer_without_direction_is_rejected()
     {

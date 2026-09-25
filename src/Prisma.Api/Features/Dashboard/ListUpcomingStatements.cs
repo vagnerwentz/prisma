@@ -29,7 +29,8 @@ public static class ListUpcomingStatements
                     s => s.AccountId, a => a.Id, (s, a) => new
                     {
                         s.AccountId, CardName = a.Name, s.Id, s.DueDate, s.IsPaid,
-                        TotalCents = db.Transactions.Where(t => t.StatementId == s.Id && t.Type != TransactionType.Transfer).Sum(t => t.AmountCents),
+                        TotalCents = db.Transactions.Where(t => t.StatementId == s.Id && t.Type != TransactionType.Transfer)
+                            .Sum(t => t.Type == TransactionType.Refund ? -t.AmountCents : t.AmountCents),
                     })
                 .ToListAsync(ct);
 
