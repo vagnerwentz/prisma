@@ -1,5 +1,6 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Prisma.Api.Features.Statements;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Http;
 using Prisma.Domain;
@@ -30,7 +31,10 @@ public static class UpdateTransaction
 
     public sealed class Handler(AppDbContext db)
     {
-        public async Task<Result<TransactionResponse>> Execute(Guid id, Request req, CancellationToken ct)
+        public Task<Result<TransactionResponse>> Execute(Guid id, Request req, CancellationToken ct) =>
+            ConcurrentStatementOpening.Retry(db, () => Update(id, req, ct));
+
+        private async Task<Result<TransactionResponse>> Update(Guid id, Request req, CancellationToken ct)
         {
             var transaction = await db.Transactions.SingleOrDefaultAsync(t => t.Id == id, ct);
             if (transaction is null)

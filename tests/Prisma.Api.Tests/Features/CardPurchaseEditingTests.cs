@@ -133,6 +133,89 @@ public sealed class CardPurchaseEditingTests(PostgresFixture postgres)
         (await s.Statements()).Select(st => st.TotalCents).ShouldBe([12001, 12001, 12001, 12000, 12000, 12000, 12000, 12000, 12000, 12000]);
     }
 
+    // --- Duas operações ao mesmo tempo abrindo a mesma fatura (toque duplo, dois aparelhos) ---
+    // As duas leem que a fatura do mês ainda não existe e tentam criá-la; o índice único deixa
+    // passar só uma. A outra precisa usar a fatura recém-criada, não falhar. Várias rodadas,
+    // porque a corrida nem sempre acontece.
+
+    private static async Task<List<TransactionDto>> Created(HttpResponseMessage response)
+    {
+        response.StatusCode.ShouldBe(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
+        return (await response.Content.ReadFromJsonAsync<List<TransactionDto>>())!;
+    }
+
+    [Fact]
+    public async Task Two_purchases_at_once_share_the_statement_they_both_open()
+    {
+        var (factory, s) = await Start();
+        await using var _ = factory;
+        using var __ = s;
+
+        for (var month = 1; month <= 6; month++)
+        {
+            var date = $"2027-{month:00}-10";
+            Task<HttpResponseMessage> Buy() => s.Client.PostAsJsonAsync("/transactions", new
+            {
+                accountId = s.CardId, type = "Expense", amountCents = 1000, purchaseDate = date, method = "Credit", installments = 1,
+            });
+
+            var responses = await Task.WhenAll(Buy(), Buy());
+
+            var first = (await Created(responses[0])).Single();
+            var second = (await Created(responses[1])).Single();
+            second.StatementId.ShouldBe(first.StatementId);
+        }
+        (await s.Statements()).Select(st => st.Reference).ShouldBe(Enumerable.Range(2, 6).Select(m => $"2027-{m:00}"));
+    }
+
+    [Fact]
+    public async Task Two_purchases_moved_at_once_to_a_new_month_share_its_statement()
+    {
+        var (factory, s) = await Start();
+        await using var _ = factory;
+        using var __ = s;
+        var a = (await s.Buy(1000, 1)).Single();
+        var b = (await s.Buy(2000, 1)).Single();
+
+        for (var month = 1; month <= 6; month++)
+        {
+            var date = $"2028-{month:00}-10";
+            Task<HttpResponseMessage> Move(TransactionDto t) => s.Client.PatchAsJsonAsync($"/transactions/{t.Id}", new
+            {
+                accountId = s.CardId, type = "Expense", amountCents = t.AmountCents, purchaseDate = date, method = "Credit",
+                description = t.Description,
+            });
+
+            var responses = await Task.WhenAll(Move(a), Move(b));
+
+            responses.ShouldAllBe(r => r.StatusCode == HttpStatusCode.OK);
+            var moved = (await s.Transactions()).Where(t => t.PurchaseDate == DateOnly.Parse(date)).ToList();
+            moved.Count.ShouldBe(2);
+            moved.Select(t => t.StatementId).Distinct().ShouldHaveSingleItem();
+        }
+    }
+
+    [Fact]
+    public async Task Two_purchases_extended_at_once_share_the_statements_they_open()
+    {
+        var (factory, s) = await Start();
+        await using var _ = factory;
+        using var __ = s;
+        var a = (await s.Buy(30000, 3))[0].InstallmentPurchaseId!.Value;
+        var b = (await s.Buy(60000, 3))[0].InstallmentPurchaseId!.Value;
+
+        foreach (var count in new[] { 6, 9, 12, 15 })
+        {
+            var responses = await Task.WhenAll(s.PatchPurchase(a, 30000, count), s.PatchPurchase(b, 60000, count));
+
+            responses.ShouldAllBe(r => r.StatusCode == HttpStatusCode.OK);
+        }
+        var statements = await s.Statements();
+        statements.Count.ShouldBe(15);
+        statements.Select(st => st.Reference).Distinct().Count().ShouldBe(15);
+        statements.Sum(st => st.TotalCents).ShouldBe(90000);
+    }
+
     [Fact]
     public async Task Fewer_installments_remove_the_last_ones()
     {

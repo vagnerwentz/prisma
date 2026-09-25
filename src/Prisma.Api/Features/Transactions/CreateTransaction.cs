@@ -1,5 +1,6 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Prisma.Api.Features.Statements;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Auth;
 using Prisma.Api.Infrastructure.Http;
@@ -35,7 +36,10 @@ public static class CreateTransaction
     public sealed class Handler(AppDbContext db, ICurrentUser currentUser)
     {
         // Sempre uma lista: uma transação no lançamento simples, uma por parcela no cartão.
-        public async Task<Result<IReadOnlyList<TransactionResponse>>> Execute(Request req, CancellationToken ct)
+        public Task<Result<IReadOnlyList<TransactionResponse>>> Execute(Request req, CancellationToken ct) =>
+            ConcurrentStatementOpening.Retry(db, () => Create(req, ct));
+
+        private async Task<Result<IReadOnlyList<TransactionResponse>>> Create(Request req, CancellationToken ct)
         {
             var references = await TransactionReferences.Load(db, req.AccountId, req.CategoryId, ct);
             if (!references.IsSuccess)
