@@ -12,10 +12,11 @@ import { formatCents } from '@/lib/money'
 import { cn } from '@/lib/utils'
 import { AccountForm } from './AccountForm'
 import { accountTypeLabels } from './labels'
-import { useAccounts, type Account } from './queries'
+import { useAccountBalances, useAccounts, type Account, type AccountBalance } from './queries'
 
 export function AccountsPage() {
   const accounts = useAccounts()
+  const balances = useAccountBalances()
   const navigate = useNavigate()
   const [creating, setCreating] = useState(false)
   // Ativas primeiro; as inativas continuam na lista, para consultar o histórico.
@@ -58,7 +59,7 @@ export function AccountsPage() {
       {sorted.length > 0 && (
         <ul className="overflow-hidden rounded-2xl border bg-card">
           {sorted.map((account) => (
-            <AccountRow key={account.id} account={account} />
+            <AccountRow key={account.id} account={account} balance={balances.data?.get(account.id)} />
           ))}
         </ul>
       )}
@@ -80,7 +81,7 @@ export function AccountsPage() {
   )
 }
 
-function AccountRow({ account }: { account: Account }) {
+function AccountRow({ account, balance }: { account: Account; balance: AccountBalance | undefined }) {
   const details = [account.type === 'CreditCard' ? 'Cartão' : accountTypeLabels[account.type]]
   if (account.type === 'CreditCard') details.push(`fecha dia ${account.closingDay}`, `vence dia ${account.dueDay}`)
 
@@ -103,14 +104,26 @@ function AccountRow({ account }: { account: Account }) {
           </p>
           <p className="truncate text-sm text-muted-foreground">{details.join(' · ')}</p>
         </div>
-        {account.type !== 'CreditCard' && (
-          <div className="shrink-0 text-right">
-            <p className="text-[0.65rem] tracking-wide text-muted-foreground uppercase">Saldo inicial</p>
-            <p className="text-sm tabular-nums">{formatCents(account.initialBalanceCents)}</p>
-          </div>
-        )}
+        {balance && <BalanceFigure account={account} balance={balance} />}
         <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
       </Link>
     </li>
+  )
+}
+
+// Conta: saldo atual. Cartão: limite disponível, ou o que falta pagar quando não há limite.
+function BalanceFigure({ account, balance }: { account: Account; balance: AccountBalance }) {
+  const [label, cents] =
+    account.type !== 'CreditCard'
+      ? ['Saldo', balance.balanceCents]
+      : balance.availableCreditCents != null
+        ? ['Disponível', balance.availableCreditCents]
+        : ['A pagar', balance.owedCents]
+  if (cents == null) return null
+  return (
+    <div className="shrink-0 text-right">
+      <p className="text-[0.65rem] tracking-wide text-muted-foreground uppercase">{label}</p>
+      <p className="font-medium tabular-nums">{formatCents(cents)}</p>
+    </div>
   )
 }

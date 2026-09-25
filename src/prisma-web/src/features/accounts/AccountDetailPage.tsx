@@ -13,7 +13,15 @@ import { formatShortDate, todayInSaoPaulo } from '@/lib/dates'
 import { formatCents } from '@/lib/money'
 import { AccountForm } from './AccountForm'
 import { accountTypeLabels } from './labels'
-import { useAccounts, useDeleteAccount, useStatements, useUpdateAccount, type Account, type Statement } from './queries'
+import {
+  useAccountBalances,
+  useAccounts,
+  useDeleteAccount,
+  useStatements,
+  useUpdateAccount,
+  type Account,
+  type Statement,
+} from './queries'
 import { StatementSheet, StatusBadge } from './StatementSheet'
 import { groupStatements, statementStatus, statementTitle, type StatementStatus } from './statements'
 
@@ -48,6 +56,7 @@ export function AccountDetailPage() {
 function Detail({ account }: { account: Account }) {
   const isCard = account.type === 'CreditCard'
   const [editing, setEditing] = useState(false)
+  const balance = useAccountBalances().data?.get(account.id)
 
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 pt-3 pb-32">
@@ -72,12 +81,30 @@ function Detail({ account }: { account: Account }) {
       </header>
       <div className="spectrum-line -mt-2 opacity-80" />
 
+      {!isCard && balance?.balanceCents != null && (
+        <section className="spectrum-ring flex flex-col gap-2 rounded-3xl p-5">
+          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Saldo atual</span>
+          <span className="font-display text-5xl leading-none tabular-nums">{formatCents(balance.balanceCents)}</span>
+          {balance.projectedBalanceCents != null && balance.projectedBalanceCents !== balance.balanceCents && (
+            <span className="text-sm text-muted-foreground">
+              previsto{' '}
+              <span className="font-medium text-foreground tabular-nums">{formatCents(balance.projectedBalanceCents)}</span> com
+              os lançamentos futuros
+            </span>
+          )}
+        </section>
+      )}
+
       <dl className="flex flex-col divide-y rounded-2xl border bg-card text-sm">
         {isCard ? (
           <>
             <Info label="Fechamento">todo dia {account.closingDay}</Info>
             <Info label="Vencimento">todo dia {account.dueDay}</Info>
             <Info label="Limite">{account.creditLimitCents ? formatCents(account.creditLimitCents) : 'não informado'}</Info>
+            {balance?.owedCents != null && <Info label="A pagar (faturas em aberto)">{formatCents(balance.owedCents)}</Info>}
+            {balance?.availableCreditCents != null && (
+              <Info label="Limite disponível">{formatCents(balance.availableCreditCents)}</Info>
+            )}
           </>
         ) : (
           <Info label="Saldo inicial">{formatCents(account.initialBalanceCents)}</Info>

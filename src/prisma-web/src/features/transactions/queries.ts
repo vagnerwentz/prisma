@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, unwrap, type Schemas } from '@/lib/api'
-import { statementsKey, transactionsKey } from '@/lib/queryKeys'
+import { balancesKey, statementsKey, transactionsKey } from '@/lib/queryKeys'
 
 export type Transaction = Schemas['TransactionResponse']
 
@@ -22,11 +22,12 @@ export function useCreateTransaction() {
   })
 }
 
-// Lançamentos e totais das faturas andam juntos.
+// Lançamentos, totais das faturas e saldos das contas andam juntos.
 function invalidateMoney(queryClient: ReturnType<typeof useQueryClient>) {
   return Promise.all([
     queryClient.invalidateQueries({ queryKey: transactionsKey }),
     queryClient.invalidateQueries({ queryKey: statementsKey }),
+    queryClient.invalidateQueries({ queryKey: balancesKey }),
   ])
 }
 

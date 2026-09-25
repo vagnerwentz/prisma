@@ -661,6 +661,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/accounts/balances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ListAccountBalancesResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/accounts/{id}": {
         parameters: {
             query?: never;
@@ -1290,6 +1325,18 @@ export interface components {
             errors?: {
                 [key: string]: string[];
             };
+        };
+        ListAccountBalancesResponse: {
+            /** Format: uuid */
+            accountId: string;
+            /** Format: int64 */
+            balanceCents: null | number;
+            /** Format: int64 */
+            projectedBalanceCents: null | number;
+            /** Format: int64 */
+            owedCents: null | number;
+            /** Format: int64 */
+            availableCreditCents: null | number;
         };
         ListCategoriesCategoryNode: {
             /** Format: uuid */

@@ -4,6 +4,9 @@
 ### Listar contas
 GET {{baseUrl}}/accounts
 
+### Saldos: atual e previsto nas contas; a pagar e limite disponível no cartão
+GET {{baseUrl}}/accounts/balances
+
 ### Criar conta corrente
 POST {{baseUrl}}/accounts
 Content-Type: application/json

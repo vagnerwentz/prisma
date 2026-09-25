@@ -210,6 +210,14 @@ Detalhamento completo em `docs/fase-1.md`.
   *Pronto quando:* integração com dois usuários prova que nenhum endpoint vaza dado do
   outro, inclusive em consulta por id direto (deve dar 404, não 403).
 
+- [x] **1.16 Saldo das contas** — *pedida pelo usuário depois da 1.11*
+  A tela de contas mostrava só o saldo inicial: pagar fatura ou receber transferência não mudava
+  nada. Saldo atual e previsto nas contas; "a pagar" e limite disponível no cartão
+  (`docs/fase-1.md`, 2.5). Só consulta, sem mudança no banco.
+  *Pronto quando:* testes de domínio para o sinal de cada tipo de transação, o corte por data e o
+  limite disponível; integração com o exemplo da regra 2.5; a lista e o detalhe da conta mostram
+  os valores, conferidos nos modos claro e escuro.
+
 ---
 
 ## Fases 2 a 5

@@ -209,6 +209,26 @@ com mensagem sugerindo realocar antes.
 Cada categoria padrão nasce com ícone (nome do Lucide) e cor: cada categoria é uma faixa
 do espectro e as subcategorias herdam a cor da categoria pai (etapa 1.13).
 
+### 2.5 Saldo da conta (etapa 1.16)
+
+Conta corrente, carteira e investimento:
+
+- **Saldo atual** = saldo inicial + receitas − despesas + transferências recebidas −
+  transferências enviadas, contando as transações com `SettlementDate` até hoje (`IClock.Today`).
+  O pagamento de fatura é uma transferência enviada: sai da conta de origem na data do pagamento.
+- **Saldo previsto** = a mesma conta, incluindo as transações com `SettlementDate` depois de hoje.
+- Transação excluída não conta.
+
+Exemplo: saldo inicial R$ 1.000,00; salário de R$ 3.000,00; Pix de R$ 45,90; transferência de
+R$ 200,00 para a carteira; fatura de R$ 100,00 paga → saldo atual **R$ 3.654,10**. Uma despesa de
+R$ 70,00 marcada para a semana que vem deixa o saldo previsto em **R$ 3.584,10**.
+
+Cartão de crédito não tem saldo:
+
+- **A pagar** = soma das compras em faturas não pagas, inclusive as parcelas futuras.
+- **Limite disponível** = limite − a pagar. Sem limite informado, não há limite disponível. Pode
+  ficar negativo, se as compras passarem do limite: o Prisma registra, não bloqueia.
+
 ---
 
 ## 3. Endpoints
@@ -224,6 +244,7 @@ POST   /auth/reset-password
 GET    /auth/me
 
 GET    /accounts
+GET    /accounts/balances         → saldo atual e previsto; no cartão, a pagar e limite disponível
 POST   /accounts
 PATCH  /accounts/{id}
 DELETE /accounts/{id}
@@ -302,6 +323,8 @@ Escritos **junto** com a implementação; os de dinheiro e data, **antes** dela.
 - Excluir uma ponta da transferência faz soft delete nas duas.
 - Soft delete some da listagem; restaurar traz de volta.
 - **Dois usuários:** nenhum endpoint vaza dado do outro; acesso por id direto retorna 404.
+- Saldo: o exemplo da regra 2.5, com transferência, pagamento de fatura, lançamento futuro e
+  lançamento excluído; pagar a fatura baixa o "a pagar" do cartão.
 
 ### Arquitetura
 

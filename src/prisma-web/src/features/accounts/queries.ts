@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, unwrap, type Schemas } from '@/lib/api'
-import { statementsKey, transactionsKey } from '@/lib/queryKeys'
+import { balancesKey, statementsKey, transactionsKey } from '@/lib/queryKeys'
 
 export type Account = Schemas['AccountResponse']
 export type NewAccount = Schemas['CreateAccountRequest']
 export type AccountChanges = Schemas['UpdateAccountRequest']
 export type Statement = Schemas['ListStatementsStatementResponse']
+export type AccountBalance = Schemas['ListAccountBalancesResponse']
 
 export const accountsKey = ['accounts'] as const
 
@@ -13,6 +14,16 @@ export function useAccounts() {
   return useQuery({
     queryKey: accountsKey,
     queryFn: async () => unwrap(await api.GET('/accounts')),
+  })
+}
+
+// Saldo atual e previsto das contas; no cartão, o que falta pagar e o limite disponível
+// (docs/fase-1.md, 2.5). Fica sob accountsKey: editar a conta (saldo inicial, limite) atualiza.
+export function useAccountBalances() {
+  return useQuery({
+    queryKey: balancesKey,
+    queryFn: async () => unwrap(await api.GET('/accounts/balances')),
+    select: (balances) => new Map(balances.map((b) => [b.accountId, b])),
   })
 }
 

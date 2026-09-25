@@ -8,6 +8,7 @@ public static class AccountsModule
     {
         services.AddScoped<CreateAccount.Handler>();
         services.AddScoped<ListAccounts.Handler>();
+        services.AddScoped<ListAccountBalances.Handler>();
         services.AddScoped<UpdateAccount.Handler>();
         services.AddScoped<DeleteAccount.Handler>();
 
@@ -21,6 +22,7 @@ public static class AccountsModule
         var group = app.MapGroup("/accounts");
         CreateAccount.Map(group);
         ListAccounts.Map(group);
+        ListAccountBalances.Map(group);
         UpdateAccount.Map(group);
         DeleteAccount.Map(group);
     }
