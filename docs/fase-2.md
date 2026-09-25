@@ -68,6 +68,25 @@ quais faturas vêm pela frente.
   maior que zero. Mostra cartão, mês, vencimento e total; no topo, a soma de todas.
 - **Em contas:** soma dos saldos atuais das contas ativas que não são cartão (regra 2.5 da Fase 1).
   Reaproveita `GET /accounts/balances`.
+- Os dois blocos olham para **hoje** (`IClock.Today`), não para o mês escolhido no Resumo.
+- O total da fatura é o mesmo da tela do cartão (compras ativas; o pagamento não conta). Fatura
+  zerada, por exemplo porque a única compra foi excluída, é pulada: vale a seguinte com valor.
+- Fatura vencida e não paga fica fora: aqui só o que ainda vai vencer. As faturas saem pelo
+  vencimento, a mais próxima primeiro.
+
+Exemplo, hoje 15/10/2026:
+
+| Cartão | Faturas | Próxima |
+|---|---|---|
+| Visa (fecha dia 26, vence dia 5) | 05/10 paga; 05/11 R$ 300,00 | 05/11, R$ 300,00 |
+| Master (fecha dia 10, vence dia 20) | 20/10 paga; 20/11 R$ 100,00; 20/12 R$ 100,00 | 20/11, R$ 100,00 |
+| Elo (fecha dia 5, vence dia 15) | 15/09 R$ 50,00, vencida; 15/10 R$ 80,00 | 15/10, R$ 80,00 (vence hoje) |
+| Nubank (fecha dia 10, vence dia 20) | 20/10 zerada; 20/11 R$ 40,00 | 20/11, R$ 40,00 |
+| Inter, inativo | 05/11 R$ 999,00 | fica de fora |
+
+Ordem: Elo, Visa, Master, Nubank (Master e Nubank empatam no vencimento: desempata pelo nome do
+cartão). A fatura do Master de 20/10 já fechou em 10/10 e foi paga antes de vencer: fatura aberta
+não pode ser paga (Fase 1). Soma: **R$ 520,00**.
 
 ### Exemplo (usado nos testes)
 

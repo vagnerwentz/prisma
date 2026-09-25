@@ -21,3 +21,6 @@ GET {{baseUrl}}/transactions?from=2026-10-01&to=2026-10-31&dateBasis=Settlement&
 
 ### Erro: mês fora do formato (400)
 GET {{baseUrl}}/dashboard/summary?month=10-2026
+
+### Próximas faturas: a próxima não paga de cada cartão ativo, vencendo hoje ou depois (não usa month)
+GET {{baseUrl}}/dashboard/upcoming-statements

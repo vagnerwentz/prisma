@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, unwrap, type Schemas } from '@/lib/api'
-import { balancesKey, statementsKey, transactionsKey } from '@/lib/queryKeys'
+import { balancesKey, dashboardKey, statementsKey, transactionsKey } from '@/lib/queryKeys'
 
 export type Account = Schemas['AccountResponse']
 export type NewAccount = Schemas['CreateAccountRequest']
@@ -41,7 +41,12 @@ export function useUpdateAccount() {
   return useMutation({
     mutationFn: async ({ id, body }: { id: string; body: AccountChanges }) =>
       unwrap(await api.PATCH('/accounts/{id}', { params: { path: { id } }, body })),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: accountsKey }),
+    // Nome e ativo/inativo mudam as próximas faturas do Resumo.
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: accountsKey }),
+        queryClient.invalidateQueries({ queryKey: dashboardKey }),
+      ]),
   })
 }
 
@@ -73,7 +78,8 @@ export function useStatementTransactions(statementId: string) {
   })
 }
 
-// Editar as datas recalcula o vencimento das compras da fatura: recarrega faturas e lançamentos.
+// Editar as datas recalcula o vencimento das compras da fatura: recarrega faturas, lançamentos
+// e o Resumo, que soma pela data de caixa.
 export function useUpdateStatement() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -83,6 +89,7 @@ export function useUpdateStatement() {
       Promise.all([
         queryClient.invalidateQueries({ queryKey: statementsKey }),
         queryClient.invalidateQueries({ queryKey: transactionsKey }),
+        queryClient.invalidateQueries({ queryKey: dashboardKey }),
       ]),
   })
 }

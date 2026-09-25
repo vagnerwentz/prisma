@@ -7,6 +7,7 @@ public static class DashboardModule
         services.AddScoped<GetMonthlySummary.Handler>();
         services.AddScoped<ListCategoryTotals.Handler>();
         services.AddScoped<GetMonthlyHistory.Handler>();
+        services.AddScoped<ListUpcomingStatements.Handler>();
         return services;
     }
 
@@ -16,5 +17,6 @@ public static class DashboardModule
         GetMonthlySummary.Map(group);
         ListCategoryTotals.Map(group);
         GetMonthlyHistory.Map(group);
+        ListUpcomingStatements.Map(group);
     }
 }

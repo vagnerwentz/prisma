@@ -28,3 +28,13 @@ export function useMonthlyHistory(month: string) {
     queryFn: async () => unwrap(await api.GET('/dashboard/history', { params: { query: { month } } })),
   })
 }
+
+export type UpcomingStatement = Schemas['ListUpcomingStatementsItem']
+
+// A próxima fatura não paga de cada cartão ativo, olhando para hoje (docs/fase-2.md, 2.4).
+export function useUpcomingStatements() {
+  return useQuery({
+    queryKey: [...dashboardKey, 'upcoming-statements'],
+    queryFn: async () => unwrap(await api.GET('/dashboard/upcoming-statements')),
+  })
+}

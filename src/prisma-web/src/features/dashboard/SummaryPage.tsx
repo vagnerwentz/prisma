@@ -15,6 +15,8 @@ import { useMonthlySummary, type MonthlySummary } from './queries'
 const CategoryBreakdown = lazy(() => import('./CategoryBreakdown').then((m) => ({ default: m.CategoryBreakdown })))
 // O gráfico traz o Recharts: também sob demanda.
 const HistoryChart = lazy(() => import('./HistoryChart'))
+// Saldo em contas e próximas faturas: os ladrilhos de conta trazem os logos de marca.
+const TodayPanel = lazy(() => import('./TodayPanel'))
 
 // Tela inicial: o mês de relance, pela data de caixa (docs/fase-2.md, 4).
 export function SummaryPage() {
@@ -142,6 +144,10 @@ function Overview({
           </Figure>
         </div>
       )}
+
+      <Suspense fallback={<Skeleton className="h-40 w-full rounded-2xl" />}>
+        <TodayPanel />
+      </Suspense>
 
       {expenseCents > 0 && (
         <Suspense fallback={<Skeleton className="h-48 w-full rounded-2xl" />}>

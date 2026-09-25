@@ -244,7 +244,7 @@ Cada etapa entrega API e tela juntas, para o resumo crescer à vista.
   *Pronto quando:* testes de domínio para meses vazios e virada de ano; variação percentual
   coberta no frontend; pacote principal sem o Recharts; tela conferida nos dois modos.
 
-- [ ] **2.4 Próximas faturas e saldo em contas**
+- [x] **2.4 Próximas faturas e saldo em contas**
   `GET /dashboard/upcoming-statements`: a próxima fatura não paga de cada cartão ativo; "Em
   contas" soma os saldos da 1.16 (`docs/fase-2.md`, 2.4).
   *Pronto quando:* integração com fatura paga, fatura zerada e cartão inativo ficando de fora;
