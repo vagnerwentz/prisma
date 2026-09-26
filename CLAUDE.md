@@ -359,8 +359,12 @@ fechado fora de desenvolvimento (`Registration:Open`); libere e-mails em
 - **Marcas:** `findBrand` reconhece a marca pela descrição ou nome da conta. Logo do
   `simple-icons` quando existe; monograma na cor da marca quando a marca saiu do projeto (Amazon,
   bancos brasileiros). Nunca desenhe um logo à mão.
-- **Modo escuro** segue o sistema só com CSS (`prefers-color-scheme`). Toda tela nova é
-  conferida nos dois modos.
+- **Modo escuro** segue o sistema até a pessoa escolher claro ou escuro (botão do cabeçalho, ou o
+  menu da conta, que também volta a seguir o sistema). O CSS lê só `[data-theme="dark"]` no `<html>`
+  (variante `dark:` inclusive), nunca `prefers-color-scheme`; `lib/theme.ts` define o atributo, e o
+  script do `index.html` o aplica antes da primeira pintura. A escolha fica no `localStorage`
+  (`prisma.theme`): é preferência de tela, não dado financeiro. Toda tela nova é conferida nos dois
+  modos.
 - **Desempenho:** nada de importar conjuntos inteiros de ícones; telas secundárias com `lazy`;
   confira o tamanho do pacote principal no `npm run build` ao adicionar dependência.
 - **Resumo × Análise:** o Resumo (`/`) é de relance (destaque, Entrou/Saiu/Investido, Hoje); o que

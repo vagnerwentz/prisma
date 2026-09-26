@@ -340,6 +340,15 @@ discordam (texto em gradiente, halo e o número em destaque do Resumo ficam).
   mostra "Fecha 26 · vence 5", que não é mais cortado ao lado do saldo.
   *Pronto quando:* sem rolagem lateral em 320px; conferido nos dois modos.
 
+- [x] **2.14 Troca de tema** (pedida pelo usuário)
+  Botão no cabeçalho: um sol com um raio por faixa do espectro, que recolhe os raios e vira lua; o
+  tema novo se abre num círculo a partir do botão (View Transitions; sem ela, ou com menos movimento,
+  a troca é imediata). No menu da conta, "Seguir o sistema", "Claro" e "Escuro". O CSS passou a ler
+  `data-theme` no `<html>`, aplicado antes da primeira pintura.
+  *Pronto quando:* Vitest da resolução do tema e do raio da revelação; no navegador, o sistema
+  escuro aplica o escuro, o botão troca e a escolha sobrevive a recarregar, e "Seguir o sistema"
+  apaga a escolha.
+
 ---
 
 ## Hospedagem para uso próprio

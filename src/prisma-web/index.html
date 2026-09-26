@@ -6,8 +6,19 @@
     <title>Prisma</title>
     <meta name="description" content="Controle financeiro pessoal: PIX, cartão, parcelas e faturas." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="theme-color" content="#faf8f3" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#15121f" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#faf8f3" />
+    <!-- Tema antes da primeira pintura (lib/theme.ts): a escolha salva, ou o sistema. -->
+    <script>
+      ;(function () {
+        var choice = null
+        try {
+          choice = localStorage.getItem('prisma.theme')
+        } catch (e) {}
+        var dark = choice === 'dark' || (choice !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', dark ? '#15121f' : '#faf8f3')
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

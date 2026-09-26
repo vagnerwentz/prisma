@@ -1,16 +1,20 @@
-import { LogOut } from 'lucide-react'
+import { LogOut, Monitor, Moon, Sun } from 'lucide-react'
 import { Outlet, useMatch, useNavigate } from 'react-router'
 import { BottomNav } from '@/components/BottomNav'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { Wordmark } from '@/components/brand/PrismLogo'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useCurrentUser, useLogout } from '@/features/auth/queries'
+import { centerOf, switchTheme, useTheme, type ThemeChoice } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 
 export function AppLayout() {
@@ -21,7 +25,10 @@ export function AppLayout() {
       <header className="sticky top-0 z-20 border-b border-border/60 bg-background/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
         <div className={cn('mx-auto flex h-14 max-w-2xl items-center justify-between px-4', wide && 'lg:max-w-5xl')}>
           <Wordmark />
-          <UserMenu />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <UserMenu />
+          </div>
         </div>
       </header>
       <Outlet />
@@ -35,6 +42,7 @@ function UserMenu() {
   const logout = useLogout()
   const navigate = useNavigate()
   const initial = user?.email.charAt(0).toUpperCase() ?? '·'
+  const { choice } = useTheme()
 
   return (
     <DropdownMenu>
@@ -53,6 +61,21 @@ function UserMenu() {
           <span className="block truncate text-sm">{user?.email}</span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {/* O botão do cabeçalho troca claro e escuro; aqui também se volta a seguir o sistema. */}
+        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Tema</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={choice}>
+          {themeOptions.map(({ value, label, Icon }) => (
+            <DropdownMenuRadioItem
+              key={value}
+              value={value}
+              onSelect={(event) => switchTheme(value, centerOf(event.currentTarget as Element))}
+            >
+              <Icon />
+              {label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
         <DropdownMenuItem
           disabled={logout.isPending}
           onSelect={async () => {
@@ -67,3 +90,9 @@ function UserMenu() {
     </DropdownMenu>
   )
 }
+
+const themeOptions: { value: ThemeChoice; label: string; Icon: typeof Sun }[] = [
+  { value: 'system', label: 'Seguir o sistema', Icon: Monitor },
+  { value: 'light', label: 'Claro', Icon: Sun },
+  { value: 'dark', label: 'Escuro', Icon: Moon },
+]
