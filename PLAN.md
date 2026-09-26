@@ -449,7 +449,40 @@ e-mail continuam nas pendências, para quando o cadastro abrir.
   frontend roda lint, Vitest e build, em paralelo.
   *Pronto quando:* a primeira execução no GitHub fica verde.
 
-- [ ] **H.2 Deploy no Railway**
+*Estado em 2026-09-26:* o app está no ar no Railway desde 2026-09-25 (connection string montada com
+`${{Postgres.PGHOST}}` etc., cadastro liberado por e-mail, porta 8080) e já tem usuários além do dono
+(o pai usa a produção). Faltavam backup, "Wait for CI" e instruções; a senha do banco apareceu numa
+conversa e o TCP Proxy do Postgres ficou ligado. A H.2 foi dividida em três (decisões com o usuário):
+
+- [x] **H.2a Conta e acesso**
+  Plano Hobby antes do fim do teste (o teste acaba em 30 dias ou US$ 5 e cai no Free, com US$ 1/mês;
+  volumes de conta de teste são apagados 30 dias depois) e limite de gasto. Usuário próprio da API no
+  banco, `prisma_app`, dono das tabelas do app e sem superusuário (`postgres` só para administração);
+  senha nova para os dois, gerada fora da conversa; TCP Proxy desligado (ligar só quando precisar do
+  DBeaver). 2FA no Railway, no GitHub e no e-mail. "Wait for CI" no deploy.
+  *Pronto quando:* o script do `prisma_app` foi testado numa cópia do banco local (a API sobe e aplica
+  migration como `prisma_app`); em produção, login, lançamento e resumo funcionam com o `prisma_app`;
+  a senha antiga do `postgres` não entra mais; o TCP Proxy está desligado.
+  *Feito (2026-09-26, pelo usuário, com o roteiro de `docs/operacao.md`):* API em produção como
+  `prisma_app` (login, lançamento e resumo conferidos no celular); senha nova do `postgres`, a antiga
+  recusada; TCP Proxy desligado com o app funcionando; "Wait for CI" ligado; 2FA no GitHub e no
+  e-mail. **Pendentes do usuário:** plano Hobby (continua no Free, com US$ 1/mês, que não sustenta a
+  API e o Postgres o mês todo; volume de conta vinda do teste é apagado 30 dias depois do fim do
+  crédito), limite de gasto e 2FA no Railway.
+
+- [ ] **H.2b Backup fora do Railway**
+  O backup nativo do Railway (se o plano incluir) só restaura no mesmo projeto e some junto com o
+  volume. Serviço agendado no próprio projeto: `pg_dump` diário pela rede privada, criptografado com
+  `age` (chave pública no serviço, privada só com o usuário) e enviado ao Cloudflare R2. Roteiro de
+  restauração em `docs/`.
+  *Pronto quando:* um dump do R2 foi descriptografado, restaurado no Postgres local e conferido
+  (contagens e o resumo de um mês iguais aos da produção).
+
+- [ ] **H.2c Operação**
+  Roteiro para senha esquecida (sem e-mail ainda), monitor de disponibilidade em `/api/health`,
+  backup manual antes de migration arriscada e instruções no `CLAUDE.md`, seção 7.
+
+- **H.2 Deploy no Railway** (texto original, coberto pelas etapas acima)
   Projeto com o serviço da API (build pelo `Dockerfile`, deploy a cada push na `main` só com o CI
   verde: "Wait for CI") e o
   Postgres do Railway; connection string montada a partir das variáveis do Postgres (as chaves
