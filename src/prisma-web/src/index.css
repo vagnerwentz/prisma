@@ -465,3 +465,121 @@
         transition: opacity 150ms ease-out;
     }
 }
+
+/* Mostrar senha (PasswordField): a luz branca entra pela direita do feixe e se decompõe no espectro
+   atrás dela, atravessando o texto; as letras aparecem por onde ela passa (máscara em --reveal) e
+   surgem acesas; o campo ganha um halo do espectro que se dissipa. --reveal-span é a fração do campo
+   que o texto ocupa, medida no toque. Um momento só por toque; esconder não anima. */
+@property --reveal {
+    syntax: "<percentage>";
+    inherits: false;
+    initial-value: 200%;
+}
+.password-reveal {
+    mask-image: linear-gradient(
+        90deg,
+        #000 calc(var(--reveal) * var(--reveal-span, 1) - 8%),
+        transparent calc(var(--reveal) * var(--reveal-span, 1))
+    );
+    animation:
+        password-reveal 650ms cubic-bezier(0.45, 0, 0.2, 1),
+        password-letters 1100ms var(--ease-out);
+}
+@keyframes password-reveal {
+    from { --reveal: 0%; }
+    to { --reveal: 112%; }
+}
+@keyframes password-letters {
+    0%, 35% { text-shadow: 0 0 10px #8b5cf6, 0 0 18px #22d3ee; }
+    100% { text-shadow: 0 0 0 transparent; }
+}
+.password-sweep {
+    position: absolute;
+    inset-block: -2px;
+    left: 0;
+    width: calc(var(--reveal-span, 1) * 60%);
+    min-width: 4.5rem;
+    pointer-events: none;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        #f43f5e 14%,
+        #f59e0b 28%,
+        #84cc16 42%,
+        #22d3ee 56%,
+        #3b82f6 68%,
+        #8b5cf6 80%,
+        #ffffff 91%,
+        transparent 100%
+    );
+    opacity: 0;
+    filter: blur(2px) saturate(1.3);
+    animation: password-sweep 650ms cubic-bezier(0.45, 0, 0.2, 1);
+}
+[data-theme="dark"] .password-sweep {
+    mix-blend-mode: plus-lighter;
+}
+@keyframes password-sweep {
+    0% { transform: translateX(-100%); opacity: 0.95; }
+    80% { opacity: 0.85; }
+    100% { transform: translateX(175%); opacity: 0; }
+}
+.password-lit {
+    animation: password-halo 1100ms var(--ease-out);
+}
+@keyframes password-halo {
+    0%, 30% {
+        box-shadow:
+            0 0 0 1px #8b5cf6,
+            0 0 18px -2px rgba(139, 92, 246, 0.75),
+            0 0 34px -6px rgba(34, 211, 238, 0.6);
+    }
+    100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* O olho: fechado é uma pálpebra baixa com cílios; aberto, a pupila é o anel do espectro. */
+.password-eye-lid,
+.password-eye-pupil,
+.password-eye-lashes {
+    transform-box: view-box;
+    transform-origin: 12px 12px;
+    transition:
+        transform 280ms var(--ease-out),
+        opacity 200ms var(--ease-out);
+}
+.password-eye[data-open="false"] .password-eye-lid {
+    transform: scaleY(0.14);
+}
+.password-eye[data-open="false"] .password-eye-pupil {
+    transform: scale(0.4);
+    opacity: 0;
+}
+.password-eye[data-open="true"] .password-eye-pupil {
+    animation: password-pupil 420ms var(--ease-out);
+}
+@keyframes password-pupil {
+    0% { transform: scale(0.4); }
+    60% { transform: scale(1.25); }
+    100% { transform: scale(1); }
+}
+.password-eye[data-open="true"] .password-eye-lashes {
+    transform: translateY(-2px);
+    opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .password-reveal,
+    .password-sweep,
+    .password-lit,
+    .password-eye[data-open="true"] .password-eye-pupil {
+        animation: none;
+    }
+    .password-sweep {
+        display: none;
+    }
+    .password-eye-lid,
+    .password-eye-pupil,
+    .password-eye-lashes {
+        transition: none;
+    }
+}

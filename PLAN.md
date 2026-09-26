@@ -364,6 +364,18 @@ discordam (texto em gradiente, halo e o número em destaque do Resumo ficam).
   protótipo: a sugestão também não desfaz a categoria escolhida, e a seta com a lista fechada abre já
   destacando a primeira.
 
+- [x] **2.16 Mostrar a senha** (pedida pelo usuário)
+  No login e no cadastro, um olho à direita do campo (`PasswordField`). Mostrar é o momento da marca:
+  um feixe de luz branca que se decompõe no espectro inteiro atravessa o texto (650 ms, só o trecho do
+  texto; no escuro ele soma luz ao fundo), as letras aparecem acesas por onde ele passa e o campo ganha
+  um halo do espectro que se dissipa; o olho fechado, uma pálpebra com cílios, abre com a pupila no
+  espectro e um pulso. Esconder é imediato. Ajustado com o usuário: a primeira versão, com uma faixa
+  fria e desfocada, ficou fraca. O toque não tira o foco do campo (o teclado do celular fica) e o cursor fica onde estava;
+  ao enviar, a senha volta a ficar oculta (gerenciador de senhas e troca de tela); sem correção
+  automática com a senha visível; com menos movimento, sem animação.
+  *Pronto quando:* conferido no navegador, nos dois modos: foco, cursor e valor mantidos, oculta ao
+  enviar, rótulo e `aria-pressed` do botão.
+
 ---
 
 ## Hospedagem para uso próprio

@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { PrismLogo } from '@/components/brand/PrismLogo'
+import { PasswordField } from '@/components/PasswordField'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ApiError } from '@/lib/api'
@@ -120,11 +121,10 @@ export function AuthForm({ mode, onSubmit }: Props) {
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="password">Senha</Label>
-            <Input
+            <PasswordField
               id="password"
-              type="password"
               autoComplete={text.passwordAutocomplete}
-              className="h-11 rounded-xl"
+              className="h-11"
               aria-invalid={!!errors.password}
               {...form.register('password')}
             />
