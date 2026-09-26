@@ -12,6 +12,12 @@
     --font-heading: var(--font-sans);
     --font-display: 'Instrument Serif', ui-serif, Georgia, serif;
     --font-sans: 'Geist Variable', sans-serif;
+    /* Movimento (CLAUDE.md, 7.1): curvas fortes, como tokens. ease-out para o que entra e sai,
+       ease-in-out para o que se move na tela, drawer para os painéis que sobem de baixo. Viram os
+       utilitários ease-out, ease-in-out e ease-drawer do Tailwind. */
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -348,3 +354,63 @@
 }
 .tinted-action[data-tint="repeat"] { --tint: #8b5cf6; }
 .tinted-action[data-tint="refund"] { --tint: #3b82f6; }
+
+/* Painel que sobe de baixo (BottomSheet): vem da borda, com a curva de gaveta do iOS, e sai mais
+   rápido do que entrou. Fora das camadas para vencer as animações prontas do Sheet do shadcn. No
+   computador o painel flutua a 1rem da borda, então desce um pouco mais para sumir. */
+.bottom-sheet[data-state="open"] {
+    animation: sheet-in 420ms var(--ease-drawer);
+}
+.bottom-sheet[data-state="closed"] {
+    animation: sheet-out 260ms var(--ease-drawer) forwards;
+}
+[data-slot="sheet-overlay"][data-state="open"] {
+    animation: overlay-in 420ms var(--ease-drawer);
+}
+[data-slot="sheet-overlay"][data-state="closed"] {
+    animation: overlay-out 260ms var(--ease-drawer) forwards;
+}
+@keyframes sheet-in {
+    from { transform: translateY(calc(100% + 2rem)); }
+}
+@keyframes sheet-out {
+    to { transform: translateY(calc(100% + 2rem)); }
+}
+@keyframes overlay-in {
+    from { opacity: 0; }
+}
+@keyframes overlay-out {
+    to { opacity: 0; }
+}
+
+/* Barra que mede um valor (categorias, parcelas, "Gastou X% do que entrou"): ocupa a largura toda e
+   mostra só --fill dela. Ao trocar de mês, a barra corre até o valor novo em vez de trocar de
+   repente; clip-path não refaz o layout e preserva as pontas arredondadas. */
+.meter-fill {
+    width: 100%;
+    clip-path: inset(0 calc(100% - var(--fill, 0%)) 0 0 round 9999px);
+    transition: clip-path 360ms var(--ease-out);
+}
+
+/* Menos movimento: nada se desloca, só aparece e some. Os painéis viram um fade curto; as entradas
+   prontas (tw-animate) perdem o deslize e a escala, mas mantêm a opacidade. */
+@media (prefers-reduced-motion: reduce) {
+    .bottom-sheet[data-state="open"] {
+        animation: overlay-in 200ms ease-out;
+    }
+    .bottom-sheet[data-state="closed"] {
+        animation: overlay-out 150ms ease-out forwards;
+    }
+    .animate-in,
+    .animate-out {
+        --tw-enter-translate-x: 0;
+        --tw-enter-translate-y: 0;
+        --tw-enter-scale: 1;
+        --tw-exit-translate-x: 0;
+        --tw-exit-translate-y: 0;
+        --tw-exit-scale: 1;
+    }
+    .meter-fill {
+        transition: none;
+    }
+}

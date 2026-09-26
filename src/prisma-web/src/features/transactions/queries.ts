@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, unwrap, type Schemas } from '@/lib/api'
 import type { paths } from '@/lib/api-types'
 import { balancesKey, dashboardKey, statementsKey, transactionsKey } from '@/lib/queryKeys'
@@ -12,6 +12,8 @@ export type TransactionFilters = NonNullable<paths['/transactions']['get']['para
 export function useTransactions(filters: TransactionFilters) {
   return useQuery({
     queryKey: [...transactionsKey, filters],
+    // Trocar de mês ou de filtro mantém a lista anterior, esmaecida, até a nova chegar.
+    placeholderData: keepPreviousData,
     queryFn: async () => unwrap(await api.GET('/transactions', { params: { query: filters } })),
   })
 }

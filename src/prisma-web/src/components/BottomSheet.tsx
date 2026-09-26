@@ -14,7 +14,7 @@ export function BottomSheet({ open, onClose, children }: { open: boolean; onClos
           event.preventDefault()
           ;(event.currentTarget as HTMLElement).focus()
         }}
-        className="mx-auto max-h-[92dvh] w-full max-w-lg gap-0 rounded-t-[1.75rem] border-x bg-background p-0 outline-none sm:bottom-4 sm:rounded-[1.75rem] sm:border-b"
+        className="bottom-sheet mx-auto max-h-[92dvh] w-full max-w-lg gap-0 rounded-t-[1.75rem] border-x bg-background p-0 outline-none sm:bottom-4 sm:rounded-[1.75rem] sm:border-b"
       >
         <span aria-hidden className="mx-auto mt-2.5 mb-1 h-1 w-10 shrink-0 rounded-full bg-border" />
         {children}

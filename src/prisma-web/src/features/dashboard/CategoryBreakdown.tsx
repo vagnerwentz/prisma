@@ -1,4 +1,5 @@
 import { ChevronRight } from 'lucide-react'
+import type { CSSProperties } from 'react'
 import { Link } from 'react-router'
 import { CategoryTile } from '@/components/brand/Tiles'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -66,8 +67,13 @@ function Row({
           <div className="flex items-center gap-3">
             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full rounded-full"
-                style={{ width: `${width}%`, background: `oklch(from ${color} var(--tile-fg-l) var(--tile-fg-c) h)` }}
+                className="meter-fill h-full"
+                style={
+                  {
+                    '--fill': `${width}%`,
+                    background: `oklch(from ${color} var(--tile-fg-l) var(--tile-fg-c) h)`,
+                  } as CSSProperties
+                }
               />
             </div>
             <span className="w-9 shrink-0 text-right text-xs text-muted-foreground tabular-nums">

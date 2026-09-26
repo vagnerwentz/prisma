@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Link } from 'react-router'
 import { MonthSwitcher } from '@/components/MonthSwitcher'
+import { StaleFade } from '@/components/StaleFade'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -50,51 +51,53 @@ export function AnalysisPage() {
         </Alert>
       )}
 
-      {summary.isSuccess && empty && (
-        <>
-          <div className="surface flex flex-col items-center gap-4 rounded-3xl px-6 py-10 text-center">
-            <p className="text-sm font-medium text-foreground/75">Nada lançado para {monthName}.</p>
-            <Button asChild className="rounded-full">
-              <Link to="/lancar">Fazer um lançamento</Link>
-            </Button>
-          </div>
-          {ahead}
-        </>
-      )}
+      <StaleFade stale={summary.isPlaceholderData} className="flex flex-col gap-6">
+        {summary.isSuccess && empty && (
+          <>
+            <div className="surface flex flex-col items-center gap-4 rounded-3xl px-6 py-10 text-center">
+              <p className="text-sm font-medium text-foreground/75">Nada lançado para {monthName}.</p>
+              <Button asChild className="rounded-full">
+                <Link to="/lancar">Fazer um lançamento</Link>
+              </Button>
+            </div>
+            {ahead}
+          </>
+        )}
 
-      {summary.isSuccess && !empty && (
-        // O "por que mudou" abre a tela, na largura toda: explica o número que trouxe a pessoa até aqui.
-        <Suspense fallback={<Skeleton className="h-52 w-full rounded-2xl" />}>
-          <VariationBlock month={param} />
-        </Suspense>
-      )}
+        {summary.isSuccess && !empty && (
+          // O "por que mudou" abre a tela, na largura toda: explica o número que trouxe a pessoa até aqui.
+          <Suspense fallback={<Skeleton className="h-52 w-full rounded-2xl" />}>
+            <VariationBlock month={param} />
+          </Suspense>
+        )}
 
-      {summary.isSuccess && !empty && (
-        // Celular: uma coluna, na ordem da especificação (order-*). A partir de 1024px, duas colunas:
-        // os wrappers deixam de ser "contents" e viram colunas, cada uma com os seus blocos.
-        <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start">
-          <div className="contents lg:flex lg:flex-col lg:gap-6">
-            <div className="order-1">
-              <Suspense fallback={<Skeleton className="h-48 w-full rounded-2xl" />}>
-                <CategoryBreakdown month={param} />
-              </Suspense>
+        {summary.isSuccess && !empty && (
+          // Celular: uma coluna, na ordem da especificação (order-*). A partir de 1024px, duas colunas:
+          // os wrappers deixam de ser "contents" e viram colunas, cada uma com os seus blocos.
+          <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start">
+            <div className="contents lg:flex lg:flex-col lg:gap-6">
+              <div className="order-1">
+                <Suspense fallback={<Skeleton className="h-48 w-full rounded-2xl" />}>
+                  <CategoryBreakdown month={param} />
+                </Suspense>
+              </div>
+              <div className="order-3">
+                <Suspense fallback={<Skeleton className="h-64 w-full rounded-2xl" />}>
+                  <HistoryChart month={param} onSelect={setMonth} />
+                </Suspense>
+              </div>
             </div>
-            <div className="order-3">
-              <Suspense fallback={<Skeleton className="h-64 w-full rounded-2xl" />}>
-                <HistoryChart month={param} onSelect={setMonth} />
-              </Suspense>
+            <div className="contents lg:flex lg:flex-col lg:gap-6">
+              <div className="order-2">
+                <Suspense fallback={<Skeleton className="h-56 w-full rounded-2xl" />}>
+                  <InheritedInstallments month={param} monthName={monthName} />
+                </Suspense>
+              </div>
+              {ahead && <div className="order-4">{ahead}</div>}
             </div>
           </div>
-          <div className="contents lg:flex lg:flex-col lg:gap-6">
-            <div className="order-2">
-              <Suspense fallback={<Skeleton className="h-56 w-full rounded-2xl" />}>
-                <InheritedInstallments month={param} monthName={monthName} />
-              </Suspense>
-            </div>
-            {ahead && <div className="order-4">{ahead}</div>}
-          </div>
-        </div>
-      )}
+        )}
+      </StaleFade>
     </main>
   )
 }

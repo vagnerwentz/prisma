@@ -1,5 +1,5 @@
 import { ChevronRight } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router'
 import { EntryTile } from '@/components/brand/Tiles'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -49,7 +49,7 @@ export function InheritedInstallments({ month, monthName }: { month: string; mon
                 role="img"
                 aria-label={`${share}% de compras anteriores`}
               >
-                <div className="h-full rounded-full bg-foreground/85" style={{ width: `${share}%` }} />
+                <div className="meter-fill h-full bg-foreground/85" style={{ '--fill': `${share}%` } as CSSProperties} />
               </div>
               <dl className="grid grid-cols-2 gap-3 text-sm">
                 <Legend tone="bg-foreground/85" label="Compras anteriores" cents={inheritedCents} note={`${share}%`} />

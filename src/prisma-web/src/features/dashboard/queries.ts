@@ -1,14 +1,19 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { api, unwrap, type Schemas } from '@/lib/api'
 import { dashboardKey } from '@/lib/queryKeys'
 
 export type MonthlySummary = Schemas['GetMonthlySummaryResponse']
 export type CategoryTotal = Schemas['ListCategoryTotalsItem']
 
+// As consultas por mês mantêm o mês anterior na tela enquanto o novo carrega (placeholderData): trocar
+// de mês é a ação mais frequente, e o esqueleto piscando a cada toque fazia a página pular. A tela
+// esmaece o que é do mês anterior (StaleFade).
+
 // Receitas, despesas, sobra e investido do mês pela data de caixa (docs/fase-2.md, 2.1).
 export function useMonthlySummary(month: string) {
   return useQuery({
     queryKey: [...dashboardKey, 'summary', month],
+    placeholderData: keepPreviousData,
     queryFn: async () => unwrap(await api.GET('/dashboard/summary', { params: { query: { month } } })),
   })
 }
@@ -18,6 +23,7 @@ export function useMonthlySummary(month: string) {
 export function useCategoryTotals(month: string) {
   return useQuery({
     queryKey: [...dashboardKey, 'categories', month],
+    placeholderData: keepPreviousData,
     queryFn: async () => unwrap(await api.GET('/dashboard/categories', { params: { query: { month } } })),
   })
 }
@@ -26,6 +32,7 @@ export function useCategoryTotals(month: string) {
 export function useMonthlyHistory(month: string) {
   return useQuery({
     queryKey: [...dashboardKey, 'history', month],
+    placeholderData: keepPreviousData,
     queryFn: async () => unwrap(await api.GET('/dashboard/history', { params: { query: { month } } })),
   })
 }
@@ -46,6 +53,7 @@ export type InheritedInstallment = Schemas['GetInheritedInstallmentsItem']
 export function useInheritedInstallments(month: string) {
   return useQuery({
     queryKey: [...dashboardKey, 'inherited', month],
+    placeholderData: keepPreviousData,
     queryFn: async () => unwrap(await api.GET('/dashboard/inherited', { params: { query: { month } } })),
   })
 }
@@ -65,6 +73,7 @@ export type SpendingVariation = Schemas['GetSpendingVariationResponse']
 export function useSpendingVariation(month: string) {
   return useQuery({
     queryKey: [...dashboardKey, 'variation', month],
+    placeholderData: keepPreviousData,
     queryFn: async () => unwrap(await api.GET('/dashboard/variation', { params: { query: { month } } })),
   })
 }

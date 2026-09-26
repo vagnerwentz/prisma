@@ -2,6 +2,7 @@ import { ChartPie, ChevronRight, HandCoins, Info, List, Receipt, Sprout } from '
 import { lazy, Suspense, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { MonthSwitcher } from '@/components/MonthSwitcher'
+import { StaleFade } from '@/components/StaleFade'
 import { toMonthParam, useMonthParam } from '@/lib/monthParam'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -38,7 +39,11 @@ export function SummaryPage() {
           <AlertDescription>Não foi possível carregar o resumo. Tente novamente.</AlertDescription>
         </Alert>
       )}
-      {summary.isSuccess && <Overview summary={summary.data} monthName={monthName} monthParam={param} />}
+      {summary.isSuccess && (
+        <StaleFade stale={summary.isPlaceholderData} className="flex flex-col gap-6">
+          <Overview summary={summary.data} monthName={monthName} monthParam={param} />
+        </StaleFade>
+      )}
     </main>
   )
 }
@@ -93,8 +98,8 @@ function Overview({ summary, monthName, monthParam }: { summary: MonthlySummary;
           <div className="relative flex flex-col gap-2">
             <div className="h-2 overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full rounded-full"
-                style={{ width: `${Math.min(spentShare, 1) * 100}%`, background: 'var(--spectrum-cool)' }}
+                className="meter-fill h-full"
+                style={{ '--fill': `${Math.min(spentShare, 1) * 100}%`, background: 'var(--spectrum-cool)' } as CSSProperties}
               />
             </div>
             <span className="text-sm font-medium text-foreground/75">Gastou {Math.round(spentShare * 100)}% do que entrou</span>
