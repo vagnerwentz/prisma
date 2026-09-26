@@ -376,6 +376,28 @@ discordam (texto em gradiente, halo e o número em destaque do Resumo ficam).
   *Pronto quando:* conferido no navegador, nos dois modos: foco, cursor e valor mantidos, oculta ao
   enviar, rótulo e `aria-pressed` do botão.
 
+- [x] **2.17 Valor com cara de campo** (pedida pelo usuário, depois de testes com outras pessoas)
+  Duas pessoas passaram batido pelo valor em `/lancar`: sem contorno, sem cursor e com o rótulo só
+  para leitor de tela, o "R$ 0,00" parecia texto. Agora: rótulo "Valor" visível, linha neutra sempre à
+  mostra (vira o filete do espectro no foco), "R$ 0,00" mais forte, cursor fino do espectro à direita
+  dos dígitos e "Toque para digitar" enquanto vazio e sem foco. "Lançar" sem valor leva o foco ao
+  campo no próprio toque (no iPhone, o teclado abre) e o destaca em erro, sem bloquear o resto
+  do formulário; um passo a passo que travasse o formulário foi descartado por atrasar quem já sabe
+  usar. Vale para os painéis de edição, que usam o mesmo `AmountField`.
+  Tempero, escolhido pelo usuário: vazio e sem foco, um feixe do espectro corre pela linha a cada
+  4 s (passada de 900 ms; repetir sem parar foi escolha do usuário) para chamar o olho onde a pessoa
+  passava batido; cada dígito digitado entra subindo de leve
+  (160 ms). Com menos movimento, nenhum dos dois.
+  *Decidido (com o usuário):* o valor fica no topo. O pai do usuário sugeriu levá-lo ao rodapé, acima
+  do botão; testado lado a lado (`?valor=rodape`, já removido): o rodapé fixo ocupava ~190px (quase
+  um terço da tela em 320×640), escondia que a tela rola até data e parcelas e arriscava ficar atrás
+  do teclado do iPhone. A ideia dele foi para o botão: com o valor vazio, ele diz "Digite o valor"
+  ("Digite o valor do estorno" no estorno) e o toque leva ao campo; com valor, "Lançar R$ 45,90".
+  Próximo passo discutido: teclado numérico próprio (2.18), porque o Safari não abre o teclado do
+  sistema sem um toque da pessoa.
+  *Pronto quando:* conferido no navegador nos dois modos e em 320, 390 e 1280px: foco ao tocar em
+  "Lançar" vazio, erro em destaque, cursor visível e o formulário sem saltar ao digitar.
+
 ---
 
 ## Hospedagem para uso próprio

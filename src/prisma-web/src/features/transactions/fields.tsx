@@ -1,5 +1,5 @@
 import { CalendarDays } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode, type Ref } from 'react'
 import { CategoryTile } from '@/components/brand/Tiles'
 import { FieldError } from '@/components/FieldError'
 import { Input } from '@/components/ui/input'
@@ -142,8 +142,10 @@ export function TypeToggle({
   )
 }
 
-// Valor em destaque. Sem cursor piscando: os dígitos entram pela direita, e o foco aparece no
-// filete espectral.
+// Valor em destaque. O campo nativo fica invisível por cima do número: o cursor do sistema seria
+// gigante nesse tamanho, então um cursor fino do espectro pisca à direita dos dígitos. Rótulo, linha
+// sempre visível e "Toque para digitar" deixam claro que é um campo (antes, parecia texto). Vazio e sem
+// foco, um feixe do espectro corre pela linha a cada 4 s para chamar o olho.
 export function AmountField({
   value,
   onChange,
@@ -152,6 +154,7 @@ export function AmountField({
   autoFocus,
   label = 'Valor',
   compact,
+  ref,
 }: {
   value: number
   onChange: (cents: number) => void
@@ -160,37 +163,80 @@ export function AmountField({
   autoFocus?: boolean
   label?: string
   compact?: boolean
+  ref?: Ref<HTMLInputElement>
 }) {
+  const id = useId()
   // Valor que já veio preenchido (lançar de novo, estorno, edição): o primeiro dígito o substitui,
   // em vez de entrar no fim como numa calculadora (R$ 62,00 + "4" viraria R$ 6.200,04).
   const pristine = useRef(true)
+  const empty = value === 0
+  // O dígito recém-digitado entra subindo; apagar ou trocar o valor por fora não anima.
+  const [previous, setPrevious] = useState(value)
+  const [grew, setGrew] = useState(false)
+  if (value !== previous) {
+    setPrevious(value)
+    setGrew(value > previous)
+  }
+  const text = formatCents(value)
   return (
-    <div className="flex w-full flex-col items-center gap-1">
-      <input
-        aria-label={label}
-        inputMode="numeric"
-        autoComplete="off"
-        autoFocus={autoFocus}
-        placeholder={formatCents(0)}
-        value={value === 0 ? '' : formatCents(value)}
-        onFocus={(event) => {
-          if (pristine.current && value > 0) event.target.select()
-        }}
-        onChange={(event) => {
-          pristine.current = false
-          onChange(parseCentsInput(event.target.value))
-        }}
+    <div className="group flex w-full flex-col items-center gap-1.5">
+      <label htmlFor={id} className={cn('text-sm font-medium text-foreground/75', error && 'text-destructive')}>
+        {label}
+      </label>
+      <div
         className={cn(
-          'peer w-full bg-transparent text-center font-display leading-tight tabular-nums caret-transparent outline-none selection:bg-transparent placeholder:text-muted-foreground/40',
+          'relative flex w-full items-center justify-center font-display leading-tight tabular-nums',
           amountSize(value, compact),
-          income && value > 0 && 'text-spectrum',
         )}
-      />
+      >
+        <input
+          ref={ref}
+          id={id}
+          inputMode="numeric"
+          autoComplete="off"
+          autoFocus={autoFocus}
+          aria-invalid={error ? true : undefined}
+          value={empty ? '' : formatCents(value)}
+          onFocus={(event) => {
+            if (pristine.current && value > 0) event.target.select()
+          }}
+          onChange={(event) => {
+            pristine.current = false
+            onChange(parseCentsInput(event.target.value))
+          }}
+          className="absolute inset-0 w-full cursor-text bg-transparent text-center text-transparent caret-transparent outline-none selection:bg-transparent"
+        />
+        <span aria-hidden className={cn('pointer-events-none', empty ? 'text-muted-foreground/70' : income && 'text-spectrum')}>
+          {grew ? text.slice(0, -1) : text}
+        </span>
+        {grew && (
+          <span key={value} aria-hidden className={cn('amount-digit-in pointer-events-none', income && 'amount-digit-income')}>
+            {text.slice(-1)}
+          </span>
+        )}
+        <span aria-hidden className="amount-caret pointer-events-none hidden group-focus-within:inline-block" />
+      </div>
       <span
         aria-hidden
-        className="h-0.5 w-28 scale-x-[0.57] rounded-full bg-[image:var(--spectrum)] opacity-0 transition-[transform,opacity] duration-200 ease-out peer-focus:scale-x-100 peer-focus:opacity-100"
-      />
-      <FieldError message={error} />
+        className={cn('relative h-0.5 w-40 rounded-full [clip-path:inset(-8px_0)]', error ? 'bg-destructive' : 'bg-border')}
+      >
+        {empty && !error && <span className="amount-sweep group-focus-within:hidden" />}
+        {!error && (
+          <span className="absolute inset-0 scale-x-[0.57] rounded-full bg-[image:var(--spectrum)] opacity-0 transition-[transform,opacity] duration-200 ease-out group-focus-within:scale-x-100 group-focus-within:opacity-100" />
+        )}
+      </span>
+      {/* Espaço fixo para a dica ou o erro: o formulário abaixo não pula ao digitar o primeiro número. */}
+      <div className="flex min-h-5 items-center">
+        {error ? (
+          <FieldError message={error} />
+        ) : (
+          empty && (
+            <p className="text-xs text-muted-foreground transition-opacity duration-150 ease-out group-focus-within:opacity-0">
+              Toque para digitar
+            </p>
+          )
+        )}
+      </div>
     </div>
   )
 }

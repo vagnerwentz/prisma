@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ArrowDown, ChevronDown, CopyPlus, Undo2, X } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode, type RefObject } from 'react'
 import { useForm, useWatch, type Path, type PathValue } from 'react-hook-form'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
@@ -283,6 +283,7 @@ function Composer({
     if (categoryId && !selectedRoot) form.setValue('categoryId', '')
   }, [categoryId, selectedRoot, form])
 
+  const amountRef = useRef<HTMLInputElement>(null)
   const submit = form.handleSubmit(async (values) => {
     try {
       const created = await createTransaction.mutateAsync({
@@ -344,12 +345,21 @@ function Composer({
           >
             {isSubmitting
               ? 'Lançando…'
-              : `${isRefund ? 'Lançar estorno' : 'Lançar'}${amountCents > 0 ? ` ${formatCents(amountCents)}` : ''}`}
+              : amountCents === 0
+                ? isRefund
+                  ? 'Digite o valor do estorno'
+                  : 'Digite o valor'
+                : `${isRefund ? 'Lançar estorno' : 'Lançar'} ${formatCents(amountCents)}`}
           </Button>
         </div>
       }
     >
-      <form id="new-transaction" onSubmit={submit} noValidate className="flex flex-col gap-7 px-4 pt-5 pb-8">
+      <form
+        id="new-transaction"
+        onSubmit={(event) => submitWithAmount(event, amountCents, amountRef, submit)}
+        noValidate
+        className="flex flex-col gap-7 px-4 pt-5 pb-8"
+      >
         {errors.root && (
           <Alert variant="destructive">
             <AlertDescription>{errors.root.message}</AlertDescription>
@@ -375,6 +385,7 @@ function Composer({
             income={type === 'Income'}
             error={errors.amountCents?.message}
             autoFocus
+            ref={amountRef}
           />
           {isRefund && (
             <p className="-mt-3 max-w-xs text-center text-xs text-muted-foreground">
@@ -549,6 +560,7 @@ function TransferComposer({ accounts, onEntry }: { accounts: Account[]; onEntry:
   const set = <K extends Path<TransferValues>>(field: K, value: PathValue<TransferValues, K>) =>
     form.setValue(field, value, { shouldValidate: form.formState.isSubmitted })
 
+  const amountRef = useRef<HTMLInputElement>(null)
   const submit = form.handleSubmit(async (values) => {
     try {
       await createTransfer.mutateAsync({
@@ -592,12 +604,23 @@ function TransferComposer({ accounts, onEntry }: { accounts: Account[]; onEntry:
             disabled={isSubmitting || eligible.length < 2}
             className="mx-auto flex h-12 w-full max-w-md rounded-2xl text-base"
           >
-            {isSubmitting ? 'Transferindo…' : amountCents > 0 ? `Transferir ${formatCents(amountCents)}` : 'Transferir'}
+            {isSubmitting
+              ? 'Transferindo…'
+              : amountCents > 0
+                ? `Transferir ${formatCents(amountCents)}`
+                : eligible.length < 2
+                  ? 'Transferir'
+                  : 'Digite o valor'}
           </Button>
         </div>
       }
     >
-      <form id="new-transfer" onSubmit={submit} noValidate className="flex flex-col gap-7 px-4 pt-5 pb-8">
+      <form
+        id="new-transfer"
+        onSubmit={(event) => submitWithAmount(event, amountCents, amountRef, submit)}
+        noValidate
+        className="flex flex-col gap-7 px-4 pt-5 pb-8"
+      >
         {errors.root && (
           <Alert variant="destructive">
             <AlertDescription>{errors.root.message}</AlertDescription>
@@ -611,6 +634,7 @@ function TransferComposer({ accounts, onEntry }: { accounts: Account[]; onEntry:
             income={false}
             error={errors.amountCents?.message}
             autoFocus
+            ref={amountRef}
           />
           <p className="-mt-3 text-xs text-muted-foreground">Entre contas suas. Não conta como receita nem despesa.</p>
         </div>
@@ -654,4 +678,16 @@ function TransferComposer({ accounts, onEntry }: { accounts: Account[]; onEntry:
       </form>
     </Shell>
   )
+}
+
+// Sem valor, o botão ("Digite o valor") leva ao campo: o foco precisa vir no próprio toque, senão o iPhone não abre
+// o teclado. A validação continua mostrando "Informe o valor.".
+function submitWithAmount(
+  event: FormEvent<HTMLFormElement>,
+  amountCents: number,
+  amountRef: RefObject<HTMLInputElement | null>,
+  submit: (event: FormEvent<HTMLFormElement>) => Promise<void>,
+) {
+  if (amountCents === 0) amountRef.current?.focus()
+  void submit(event)
 }
