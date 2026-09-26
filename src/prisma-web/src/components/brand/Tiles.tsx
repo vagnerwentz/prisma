@@ -1,4 +1,4 @@
-import { ArrowLeftRight, CreditCard } from 'lucide-react'
+import { ArrowLeftRight, CreditCard, PenLine } from 'lucide-react'
 import { createElement, type CSSProperties } from 'react'
 import type { AccountType } from '@/features/accounts/labels'
 import { findBrand, readableTextOn, type BrandMark } from '@/lib/brands/merchants'
@@ -94,6 +94,17 @@ export function TransferTile({ payment, size = 'md' }: { payment?: boolean; size
   return (
     <span className={cn('flex shrink-0 items-center justify-center border bg-background text-foreground', box[size])}>
       <Icon aria-hidden strokeWidth={1.75} />
+    </span>
+  )
+}
+
+// Descrição ainda sem marca nem categoria: um lápis parado, no lugar que o logo ou o ícone da categoria
+// vão ocupar. O espaço fica sempre ocupado, então o texto não pula quando a marca é reconhecida; e não
+// é um círculo tracejado, que parecia carregando.
+export function DraftTile({ size = 'md' }: { size?: Size }) {
+  return (
+    <span className={cn('flex shrink-0 items-center justify-center bg-secondary text-muted-foreground', box[size])}>
+      <PenLine aria-hidden strokeWidth={1.75} />
     </span>
   )
 }

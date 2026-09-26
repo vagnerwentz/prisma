@@ -195,6 +195,14 @@
             opacity: 0;
         }
     }
+    /* Vazio e sem foco: o cursor fica aceso e parado, o sinal de "digite aqui". */
+    .amount-caret-still {
+        display: inline-block;
+        animation: none;
+    }
+    .group:focus-within .amount-caret-still {
+        animation: amount-caret-blink 1.1s steps(1) infinite;
+    }
     @media (prefers-reduced-motion: reduce) {
         .amount-caret {
             animation: none;
@@ -217,54 +225,9 @@
         }
     }
 
-    /* Feixe do espectro que corre pela linha do valor vazio, a cada 4 s enquanto ele estiver vazio e
-       sem foco (decisão do usuário): mostra onde digitar. Ciclo de 4,9 s = 0,9 s de passada + 4 s de
-       pausa. Uma cópia
-       desfocada faz o brilho; a linha recorta nas pontas (clip-path) e deixa o brilho vazar em cima. */
-    .amount-sweep {
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-    }
-    .amount-sweep::before,
-    .amount-sweep::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        left: 0;
-        width: 45%;
-        border-radius: 9999px;
-        background: linear-gradient(90deg, transparent, #8b5cf6, #3b82f6, #22d3ee, #84cc16, #f59e0b, #f43f5e, transparent);
-        opacity: 0;
-        animation: amount-sweep 4900ms var(--ease-in-out) 350ms infinite both;
-    }
-    .amount-sweep::after {
-        top: -3px;
-        bottom: -3px;
-        filter: blur(4px);
-    }
-    @keyframes amount-sweep {
-        0% {
-            transform: translateX(-100%);
-            opacity: 0;
-        }
-        2.75%,
-        15.6% {
-            opacity: 1;
-        }
-        18.4%,
-        100% {
-            transform: translateX(222%);
-            opacity: 0;
-        }
-    }
     @media (prefers-reduced-motion: reduce) {
         .amount-digit-in {
             animation: none;
-        }
-        .amount-sweep {
-            display: none;
         }
     }
 

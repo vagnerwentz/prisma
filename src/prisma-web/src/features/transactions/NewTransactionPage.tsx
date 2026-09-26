@@ -1,11 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ArrowDown, ChevronDown, CopyPlus, Undo2, X } from 'lucide-react'
+import { ArrowDown, CopyPlus, Undo2, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode, type RefObject } from 'react'
 import { useForm, useWatch, type Path, type PathValue } from 'react-hook-form'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { z } from 'zod'
-import { AccountTile, EntryTile } from '@/components/brand/Tiles'
+import { AccountTile, DraftTile, EntryTile } from '@/components/brand/Tiles'
 import { FieldError } from '@/components/FieldError'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -399,7 +399,7 @@ function Composer({
           )}
         </div>
 
-        <Section title="Descrição" aside={brand ? `${brand.name} reconhecido` : 'opcional'}>
+        <Section title="Descrição" aside={brand ? `${brand.name} reconhecido` : undefined}>
           <DescriptionCombobox
             value={description}
             onChange={(text) => set('description', text)}
@@ -407,7 +407,9 @@ function Composer({
             vocabulary={vocabulary ?? []}
             type={type}
             today={today}
-            leading={<EntryTile description={description} category={selectedCategory} />}
+            leading={
+              brand || selectedCategory ? <EntryTile description={description} category={selectedCategory} /> : <DraftTile />
+            }
             tileFor={(s, size) => (
               <EntryTile description={s.description} category={s.categoryId ? labels.get(s.categoryId) : undefined} size={size} />
             )}
@@ -454,23 +456,18 @@ function Composer({
           <DateChooser value={purchaseDate} onChange={(date) => set('purchaseDate', date)} error={errors.purchaseDate?.message} />
         </Section>
 
-        {/* Fechado, mostra a forma escolhida: dá para conferir sem abrir. */}
-        <details className="group surface rounded-2xl open:pb-4">
-          <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 text-sm">
-            <span className="text-muted-foreground">Pagamento</span>
-            <span className="ml-auto font-medium">{paymentMethodLabels[method]}</span>
-            <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" />
-          </summary>
-          <div className="px-4">
+        {/* No cartão, o meio é sempre crédito: não há o que escolher. */}
+        {!isCard && (
+          <Section title="Pagamento">
             <ChipRow>
-              {(isCard ? (['Credit'] as PaymentMethod[]) : simpleMethods).map((m) => (
+              {simpleMethods.map((m) => (
                 <Chip key={m} selected={m === method} onClick={() => set('method', m)}>
                   {paymentMethodLabels[m]}
                 </Chip>
               ))}
             </ChipRow>
-          </div>
-        </details>
+          </Section>
+        )}
       </form>
     </Shell>
   )
@@ -652,9 +649,9 @@ function TransferComposer({ accounts, onEntry }: { accounts: Account[]; onEntry:
               {accountChips(toAccountId, 'toAccountId')}
               <FieldError message={errors.toAccountId?.message} />
             </Section>
-            <Section title="Descrição" aside="opcional">
+            <Section title="Descrição">
               <Input
-                placeholder="Ex.: Aporte, saque, reserva"
+                placeholder="Ex.: aporte, reserva (opcional)"
                 autoComplete="off"
                 className="h-12 rounded-2xl"
                 {...form.register('description')}

@@ -93,7 +93,7 @@ export function DescriptionCombobox({
         {leading}
         <input
           value={value}
-          placeholder="Ex.: Uber, iFood, Pão de Açúcar"
+          placeholder="Ex.: Uber, iFood (opcional)"
           autoComplete="off"
           spellCheck={false}
           maxLength={200}

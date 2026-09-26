@@ -323,6 +323,10 @@ fica no caminho `/`, nunca herdando o `/api`: dois cookies de mesmo nome em cami
 convivem, e o ASP.NET lê o último (o velho), derrubando a sessão logo depois do login. Cadastro
 fechado fora de desenvolvimento (`Registration:Open`); libere e-mails em
 `Registration__AllowedEmails__0`. A connection string vem de `ConnectionStrings__Default`.
+Em produção a API entra no banco como `prisma_app` (dono das tabelas, sem superusuário; criado por
+`ops/postgres/app-user.sql`), e o `postgres` fica só para administração. O TCP Proxy do Postgres fica
+desligado. Roteiros de operação (senhas, backup, restauração) em `docs/operacao.md`; senha nunca passa
+por conversa, arquivo versionado ou histórico do shell.
 
 ---
 
@@ -353,6 +357,13 @@ fechado fora de desenvolvimento (`Registration:Open`); libere e-mails em
   saída). Ação frequente (trocar de mês, filtrar) não anima: mantém o dado anterior esmaecido
   (`placeholderData` + `StaleFade`). Todo movimento respeita `prefers-reduced-motion` sem apagar o
   retorno visual. Barras que medem valor usam `.meter-fill`.
+- **Nada com cara de carregando fora do carregamento.** Brilho que corre (o gesto do *skeleton*), texto
+  esmaecido no lugar do conteúdo e círculo tracejado leem como "carregando" (achado com testes de
+  usuários na 2.18). Campo vazio se mostra com cursor aceso e texto na cor normal; espaço reservado
+  para ícone leva um ícone parado (ex.: o lápis da descrição), nunca vazio que muda de largura.
+- **Formulário em três níveis de texto:** título de seção pequeno e discreto (`text-xs`,
+  `muted-foreground`), conteúdo que se toca (chips, categorias) na cor do texto, e o valor em
+  destaque. Uma mensagem por intenção: não repetir em rótulo, dica e botão o mesmo "digite o valor".
 - **Skills de design** (`.claude/skills`, locais, fora do git): as do Emil Kowalski e a Impeccable são
   consultivas. Onde discordarem desta seção (texto em gradiente, halo, número em destaque), vale esta
   seção.

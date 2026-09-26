@@ -16,7 +16,7 @@ export function Section({ title, aside, children }: { title: string; aside?: str
   return (
     <section className="flex flex-col gap-2.5">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-sm font-medium text-foreground/75">{title}</h2>
+        <h2 className="text-xs font-medium text-muted-foreground">{title}</h2>
         {aside && <span className="text-xs text-muted-foreground tabular-nums">{aside}</span>}
       </div>
       {children}
@@ -66,7 +66,7 @@ export function Chip({
       onClick={onClick}
       className={cn(
         'flex h-10 shrink-0 items-center gap-2 rounded-full border px-3.5 text-sm whitespace-nowrap transition-colors active:scale-[0.97]',
-        selected ? 'spectrum-ring font-medium' : 'bg-card text-muted-foreground hover:text-foreground',
+        selected ? 'spectrum-ring font-medium' : 'bg-card text-foreground/80 hover:text-foreground',
         className,
       )}
     >
@@ -142,10 +142,10 @@ export function TypeToggle({
   )
 }
 
-// Valor em destaque. O campo nativo fica invisível por cima do número: o cursor do sistema seria
-// gigante nesse tamanho, então um cursor fino do espectro pisca à direita dos dígitos. Rótulo, linha
-// sempre visível e "Toque para digitar" deixam claro que é um campo (antes, parecia texto). Vazio e sem
-// foco, um feixe do espectro corre pela linha a cada 4 s para chamar o olho.
+// Valor em destaque, lido como número a preencher: "R$" pequeno, dígitos na cor do texto e um cursor
+// fino à direita, parado enquanto vazio (o sinal de "digite aqui") e piscando com o campo em foco. O
+// campo nativo fica invisível por cima; o cursor do sistema seria gigante nesse tamanho. Nada de brilho
+// correndo nem cinza esmaecido: os dois pareciam carregamento (2.18).
 export function AmountField({
   value,
   onChange,
@@ -177,10 +177,10 @@ export function AmountField({
     setPrevious(value)
     setGrew(value > previous)
   }
-  const text = formatCents(value)
+  const [currency, digits] = splitCurrency(formatCents(value))
   return (
-    <div className="group flex w-full flex-col items-center gap-1.5">
-      <label htmlFor={id} className={cn('text-sm font-medium text-foreground/75', error && 'text-destructive')}>
+    <div className="group flex w-full flex-col items-center gap-2">
+      <label htmlFor={id} className="sr-only">
         {label}
       </label>
       <div
@@ -206,39 +206,37 @@ export function AmountField({
           }}
           className="absolute inset-0 w-full cursor-text bg-transparent text-center text-transparent caret-transparent outline-none selection:bg-transparent"
         />
-        <span aria-hidden className={cn('pointer-events-none', empty ? 'text-muted-foreground/70' : income && 'text-spectrum')}>
-          {grew ? text.slice(0, -1) : text}
+        <span aria-hidden className="pointer-events-none flex items-baseline">
+          <span className="mr-[0.18em] font-sans text-[0.36em] font-medium text-muted-foreground">{currency}</span>
+          <span className={cn(income && !empty && 'text-spectrum')}>{grew ? digits.slice(0, -1) : digits}</span>
+          {grew && (
+            <span key={value} className={cn('amount-digit-in', income && 'amount-digit-income')}>
+              {digits.slice(-1)}
+            </span>
+          )}
         </span>
-        {grew && (
-          <span key={value} aria-hidden className={cn('amount-digit-in pointer-events-none', income && 'amount-digit-income')}>
-            {text.slice(-1)}
-          </span>
-        )}
-        <span aria-hidden className="amount-caret pointer-events-none hidden group-focus-within:inline-block" />
+        <span
+          aria-hidden
+          className={cn(
+            'amount-caret pointer-events-none',
+            empty ? 'amount-caret-still' : 'hidden group-focus-within:inline-block',
+          )}
+        />
       </div>
-      <span
-        aria-hidden
-        className={cn('relative h-0.5 w-40 rounded-full [clip-path:inset(-8px_0)]', error ? 'bg-destructive' : 'bg-border')}
-      >
-        {empty && !error && <span className="amount-sweep group-focus-within:hidden" />}
+      <span aria-hidden className={cn('relative h-0.5 w-40 rounded-full', error ? 'bg-destructive' : 'bg-border')}>
         {!error && (
           <span className="absolute inset-0 scale-x-[0.57] rounded-full bg-[image:var(--spectrum)] opacity-0 transition-[transform,opacity] duration-200 ease-out group-focus-within:scale-x-100 group-focus-within:opacity-100" />
         )}
       </span>
-      {/* Espaço fixo para a dica ou o erro: o formulário abaixo não pula ao digitar o primeiro número. */}
-      <div className="flex min-h-5 items-center">
-        {error ? (
-          <FieldError message={error} />
-        ) : (
-          empty && (
-            <p className="text-xs text-muted-foreground transition-opacity duration-150 ease-out group-focus-within:opacity-0">
-              Toque para digitar
-            </p>
-          )
-        )}
-      </div>
+      <FieldError message={error} />
     </div>
   )
+}
+
+// "R$ 1.234,56" → ["R$", "1.234,56"]: o símbolo vai menor, os dígitos em destaque.
+function splitCurrency(text: string): [string, string] {
+  const at = text.search(/\s/)
+  return at < 0 ? ['', text] : [text.slice(0, at), text.slice(at + 1)]
 }
 
 // O valor encolhe conforme cresce, para caber na largura do celular.
@@ -286,9 +284,7 @@ export function CategoryPicker({
                   className={cn(selected && 'ring-2 ring-background')}
                 />
               </span>
-              <span
-                className={cn('line-clamp-2 text-[0.7rem] leading-tight', selected ? 'font-semibold' : 'text-muted-foreground')}
-              >
+              <span className={cn('line-clamp-2 text-xs leading-tight', selected ? 'font-semibold' : 'text-foreground/80')}>
                 {root.name}
               </span>
             </button>

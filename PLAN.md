@@ -398,6 +398,24 @@ discordam (texto em gradiente, halo e o número em destaque do Resumo ficam).
   *Pronto quando:* conferido no navegador nos dois modos e em 320, 390 e 1280px: foco ao tocar em
   "Lançar" vazio, erro em destaque, cursor visível e o formulário sem saltar ao digitar.
 
+- [x] **2.18 Lançar mais limpo** (pedida pelo usuário, depois da 2.17)
+  A tela parecia poluída e com cara de carregando. Três sinais de "carregando" saíram: o feixe que
+  corria pela linha (o mesmo gesto do *skeleton*), o "R$ 0,00" esmaecido e o ladrilho tracejado à
+  esquerda da descrição (parecia um spinner). No lugar dele, um lápis parado que vira o ícone da
+  categoria ou o logo da marca reconhecida, sem o texto pular (sem nada ali, o logo aparecer no meio da
+  digitação empurrava o texto; ajustado com o usuário). O valor
+  virou número a preencher: "R$" pequeno, dígitos na cor do texto e um cursor fino aceso ao lado,
+  parado enquanto vazio e piscando no foco. Sem mensagens repetidas: saem o rótulo visível "Valor" e o
+  "Toque para digitar" (o botão já diz "Digite o valor"); o "opcional" vai para dentro do campo. Três
+  níveis de texto: títulos de seção pequenos e discretos, conteúdo (chips e categorias) na cor do
+  texto, o valor em destaque. Pagamento deixa de ser uma linha que abre e vira chips, como a data (no
+  cartão, some: é sempre crédito).
+  *Adiado, discutido com o usuário:* o tipo numa linha só (menor alvo de toque e menos visível para
+  quem usa pouco; volta se o topo ainda pesar) e a seleção em tinta no lugar do anel do espectro (é
+  regra de identidade, `CLAUDE.md` 7.1; se vier, vale para o app todo).
+  *Pronto quando:* conferido no navegador nos dois modos e em 320 e 390px: nenhum sinal de
+  carregamento com a tela parada, cursor aceso ao lado do valor vazio, Pagamento em chips.
+
 ---
 
 ## Hospedagem para uso próprio
