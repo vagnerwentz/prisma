@@ -349,6 +349,21 @@ discordam (texto em gradiente, halo e o número em destaque do Resumo ficam).
   escuro aplica o escuro, o botão troca e a escolha sobrevive a recarregar, e "Seguir o sistema"
   apaga a escolha.
 
+- [x] **2.15 Autocompletar da descrição** (pedida pelo usuário, com protótipo aprovado)
+  Em `/lancar`, sugestões de descrições já usadas, com categoria, conta e meio da última vez
+  (`docs/fase-2.md`, 2.8). `GET /transactions/descriptions` devolve o vocabulário uma vez; o filtro e
+  a ordem rodam no aparelho, sem requisição por tecla. A sugestão nunca desfaz uma escolha da pessoa
+  nem preenche o valor.
+  *Pronto quando:* testes de domínio escritos antes, com o exemplo da 2.8; integração com o exemplo e
+  isolamento; Vitest da ordenação e do preenchimento; tela conferida pelo teclado, nos dois modos e em
+  320, 390 e 1280px.
+  *Feito:* `DescriptionHistory` no domínio (7 testes) e `GET /transactions/descriptions` (integração
+  com o exemplo e isolamento). A consulta segue o índice `(user_id, purchase_date)` com teto de 5.000
+  linhas: 28 ms para um usuário com 26,8 mil lançamentos, uma vez por sessão. No frontend, a busca é
+  local (13 testes Vitest) e o pacote principal não mudou (Lançar já é carregada sob demanda). Além do
+  protótipo: a sugestão também não desfaz a categoria escolhida, e a seta com a lista fechada abre já
+  destacando a primeira.
+
 ---
 
 ## Hospedagem para uso próprio

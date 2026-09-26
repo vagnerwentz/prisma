@@ -315,6 +315,74 @@ Motivos, nessa ordem: Parcelas +R$ 600,00 (começou: Passagem); Lazer −R$ 450,
 (o maior foi Farmácia, R$ 150,00); Alimentação −R$ 150,00 (empata com Saúde em módulo: a alta
 vem antes). Soma: 600 − 450 + 150 − 150 = **+R$ 150,00**.
 
+
+### 2.8 Autocompletar da descrição (etapa 2.15)
+
+Pedida pelo usuário depois da 2.14, com um protótipo aprovado. Ao digitar a descrição em `/lancar`,
+o app sugere descrições já usadas, com a categoria, a conta e o meio da última vez. Escrever a mesma
+loja sempre do mesmo jeito melhora o logo reconhecido, a análise por categoria e, na Fase 3, as regras.
+
+**O vocabulário** (backend, `GET /transactions/descriptions`): uma requisição por sessão; o filtro
+roda no aparelho, sem requisição a cada tecla.
+
+1. Entram despesas e receitas com `PurchaseDate` nos **últimos 12 meses** (de hoje menos 12 meses, pelo
+   `IClock`, em diante) e descrição não vazia. Transferência, estorno e excluído ficam fora.
+2. **Compra parcelada conta uma vez:** só a parcela 1 entra, com o valor **total** da compra (é o que
+   se digita em Lançar). As outras parcelas não inflam a contagem.
+3. **Agrupamento:** a chave é a descrição sem espaços nas pontas, com espaços internos colapsados, em
+   minúsculas e sem acento ("Farmácia São João" e "farmacia  sao joao" são a mesma). Despesa e receita
+   com a mesma descrição são grupos distintos.
+4. **Do grupo, vale o lançamento mais recente** (maior `PurchaseDate`; empate, o criado por último):
+   a grafia exibida, a categoria, a conta, o meio e o valor. Mais a contagem de lançamentos e a data do
+   último uso.
+5. **Ordem:** mais usado primeiro; empate, o usado mais recentemente; depois pela descrição. No máximo
+   **300** grupos.
+
+**A sugestão** (frontend, função pura):
+
+6. Só aparecem descrições do tipo escolhido (despesa ou receita); estorno e transferência não sugerem.
+7. **Correspondência**, sem distinguir acento nem maiúscula, nesta ordem: início da descrição ("if" →
+   "iFood"), início de uma palavra ("açu" → "Pão de Açúcar"), qualquer trecho (a partir de 2 letras).
+   Desempate pelo uso: contagem × peso da recência (usado há até 30 dias: 2; até 90: 1; mais: 0,5);
+   depois o usado mais recentemente; depois pela descrição. No máximo **5**.
+8. **Recentes:** com o campo vazio e focado, as **6** de maior uso (a mesma conta de peso), em chips.
+9. **Escolher preenche:** a descrição (a grafia do grupo), a categoria, a conta e o meio. **Nunca
+   desfaz uma escolha da pessoa:** categoria ou conta que ela já tocou neste lançamento ficam. Conta
+   ou categoria que não existem mais (excluída, inativa) não são preenchidas. O **valor nunca é
+   preenchido**; o último aparece como dica ("última: R$ 42,90").
+10. O texto digitado **nunca é completado nem trocado sozinho**; nenhuma sugestão vem destacada sem a
+    pessoa pedir, então Enter com a lista aberta não escolhe por engano.
+
+#### Exemplo (usado nos testes)
+
+Hoje é 25/09/2026. Nubank é o cartão, Itaú a corrente.
+
+| Lançamento | Entra? |
+|---|---|
+| iFood, despesa, 20/09/2026, Nubank, Crédito, Alimentação, R$ 42,90 | sim |
+| ifood (com espaço no fim), despesa, 10/09/2026, Itaú, Pix, Lazer, R$ 35,00 | sim, no mesmo grupo |
+| Farmácia São João, despesa, 05/09/2026, Itaú, Pix, Saúde, R$ 64,80 | sim |
+| farmacia  sao joao, despesa, 01/08/2026, Itaú, Pix, Saúde, R$ 30,00 | sim, no mesmo grupo |
+| Salário, receita, 05/09/2026, Itaú, Pix, Salário, R$ 8.200,00 | sim |
+| Notebook, R$ 6.000,00 em 10x no Nubank, 15/03/2026, Compras | uma vez, com R$ 6.000,00 |
+| Estorno de iFood, 12/09/2026 | não (estorno) |
+| Saque do Itaú para a carteira, 05/09/2026 | não (transferência) |
+| Cinema, 14/09/2026, excluído | não |
+| Mercado, 24/09/2025 | não (mais de 12 meses) |
+| Despesa sem descrição, 18/09/2026 | não |
+
+Vocabulário, nesta ordem:
+
+| Descrição | Tipo | Categoria | Conta | Meio | Último valor | Usos | Último uso |
+|---|---|---|---|---|---|---|---|
+| iFood | Despesa | Alimentação | Nubank | Crédito | R$ 42,90 | 2 | 20/09/2026 |
+| Farmácia São João | Despesa | Saúde | Itaú | Pix | R$ 64,80 | 2 | 05/09/2026 |
+| Salário | Receita | Salário | Itaú | Pix | R$ 8.200,00 | 1 | 05/09/2026 |
+| Notebook | Despesa | Compras | Nubank | Crédito | R$ 6.000,00 | 1 | 15/03/2026 |
+
+Na tela, em despesa: "if" → iFood; "sao" → Farmácia São João (início de palavra); "note" → Notebook;
+"ar" → Farmácia São João (trecho). Em receita, "sa" → Salário e nada de despesa.
+
 ---
 
 ## 3. Endpoints
@@ -327,6 +395,12 @@ GET /dashboard/upcoming-statements        → a próxima fatura não paga de cad
 GET /dashboard/inherited?month=2026-10    → parcelas de compras anteriores no mês (2.6)
 GET /dashboard/committed                  → os 6 meses seguintes ao de hoje e a última parcela (2.6)
 GET /dashboard/variation?month=2026-09    → diferença do "Saiu" para o mês anterior e os motivos (2.7)
+```
+
+Autocompletar (etapa 2.15, seção 2.8):
+
+```
+GET /transactions/descriptions   → descrições dos últimos 12 meses, agrupadas, mais usadas primeiro
 ```
 
 A resposta da variação é estruturada (mês, mês anterior, os dois "Saiu", a diferença e a lista de
@@ -465,6 +539,25 @@ que é análise, e no computador ocupa uma coluna estreita. Cada tela passa a re
   categorias" levam ladrilho neutro e não abrem lista. A partir de 1024px, cabeçalho à esquerda e
   motivos à direita.
 
+
+**Autocompletar da descrição (etapa 2.15):**
+
+- Em `/lancar`, o campo Descrição vira um *combobox* (padrão WAI-ARIA: `role="combobox"`, `listbox`,
+  `aria-activedescendant`). Setas navegam (com a lista fechada, abrem já na primeira), Enter escolhe,
+  Esc fecha mantendo o texto, Tab e tocar fora fecham. Com a lista aberta, Enter nunca lança o
+  formulário: escolhe a destacada ou só fecha a lista. No celular, ao abrir, o campo sobe para a lista
+  não ficar sob o teclado.
+- Campo vazio e focado: "Recentes" em chips com o ladrilho (logo da marca ou categoria). Digitando: até
+  5 linhas com ladrilho, a descrição com o trecho encontrado sublinhado em violeta, "categoria · conta"
+  e "última R$ X" à direita.
+- Um aviso para o leitor de tela diz quantas sugestões há, só quando a pessoa para de digitar; a opção
+  ativa é lida pelo próprio `aria-activedescendant`; ao escolher, diz o que foi preenchido e o que foi
+  mantido.
+- O que a sugestão preencheu ganha o rótulo "sugerida" ao lado do título da seção, até a pessoa mudar.
+- A lista aparece com opacidade e 4px de deslocamento em 150 ms; filtrar a cada tecla não anima; com
+  menos movimento, nada anima (`CLAUDE.md`, 7.1).
+- Conferido nos modos claro e escuro, em 320, 390 e 1280px, e pelo teclado.
+
 ---
 
 ## 5. Testes obrigatórios da fase
@@ -514,6 +607,17 @@ que é análise, e no computador ocupa uma coluna estreita. Cada tela passa a re
   "Sem categoria"; propriedade (CsCheck): para quaisquer dois meses, Σ motivos = diferença.
 - **Integração:** o exemplo pelos endpoints; isolamento entre usuários; mês inválido é 400.
 - **Frontend:** as frases de cada motivo e do cabeçalho, com e sem porcentagem.
+
+
+### Autocompletar da descrição (etapa 2.15)
+
+- **Domínio, antes da implementação:** o exemplo da seção 2.8 (agrupamento sem acento e sem espaços,
+  o mais recente vence, parcela contada uma vez com o total, ordem); despesa e receita separadas; limite
+  de 300.
+- **Integração:** o exemplo pelos endpoints, com estorno, transferência, excluído e o mês de 12 meses
+  atrás de fora; isolamento entre usuários.
+- **Frontend:** correspondência (início, palavra, trecho, acento), desempate pelo uso, Recentes, filtro
+  por tipo; o preenchimento não desfaz conta nem categoria tocadas e ignora as que não existem mais.
 
 ### Frontend (Vitest)
 

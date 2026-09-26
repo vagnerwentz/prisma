@@ -18,6 +18,16 @@ export function useTransactions(filters: TransactionFilters) {
   })
 }
 
+// Vocabulário do autocompletar (docs/fase-2.md, 2.8): uma requisição ao abrir Lançar; o filtro por
+// tecla é local. Fica sob transactionsKey, então lançar algo novo o atualiza (invalidateMoney).
+export function useDescriptionSuggestions() {
+  return useQuery({
+    queryKey: [...transactionsKey, 'descriptions'],
+    queryFn: async () => unwrap(await api.GET('/transactions/descriptions')),
+    staleTime: 5 * 60_000,
+  })
+}
+
 // Um lançamento, com o estornado e o que ainda pode ser estornado (a tela "Estornar").
 export function useTransaction(id: string | null) {
   return useQuery({

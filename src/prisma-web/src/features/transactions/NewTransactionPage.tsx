@@ -13,15 +13,17 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { defaultPaymentMethod, paymentMethodLabels, type PaymentMethod } from '@/features/accounts/labels'
 import { useAccounts, type Account } from '@/features/accounts/queries'
-import { resolveCategory, useCategories, type CategoryNode } from '@/features/categories/queries'
+import { categoryLabels, resolveCategory, useCategories, type CategoryNode } from '@/features/categories/queries'
 import { ApiError } from '@/lib/api'
 import { findBrand } from '@/lib/brands/merchants'
 import { todayInSaoPaulo } from '@/lib/dates'
 import { describeInstallments, formatCents } from '@/lib/money'
 import { readLastAccountId, saveLastAccountId } from '@/lib/preferences'
 import { AmountField, CategoryPicker, Chip, ChipRow, DateChooser, Section, TypeToggle, type EntryType } from './fields'
-import { useCreateTransaction, useCreateTransfer, useTransaction, type Transaction } from './queries'
+import { useCreateTransaction, useCreateTransfer, useDescriptionSuggestions, useTransaction, type Transaction } from './queries'
+import { DescriptionCombobox } from './DescriptionCombobox'
 import { isRepeatDraft, repeatValues, type RepeatDraft } from './repeat'
+import { suggestionFill, type DescriptionSuggestion } from './suggestions'
 
 const maxInstallments = 24
 
@@ -207,6 +209,57 @@ function Composer({
   const { root: selectedRoot, label: selectedCategory } = resolveCategory(roots, categoryId)
   const brand = findBrand(description)
 
+  // Autocompletar (docs/fase-2.md, 2.8). A sugestão nunca desfaz uma escolha da pessoa: conta e
+  // categoria tocadas neste lançamento ficam. No "Lançar de novo", as copiadas contam como escolhidas.
+  const vocabulary = useDescriptionSuggestions().data
+  const touched = useRef({ accountTouched: !!repeat, categoryTouched: !!repeat })
+  const [suggested, setSuggested] = useState({ account: false, category: false })
+  const labels = useMemo(() => categoryLabels(categories), [categories])
+  const accountNames = useMemo(() => new Map(accounts.map((a) => [a.id, a.name])), [accounts])
+  const chooseAccount = (id: string) => {
+    touched.current.accountTouched = true
+    setSuggested((s) => ({ ...s, account: false }))
+    set('accountId', id)
+  }
+  const chooseCategory = (id: string) => {
+    touched.current.categoryTouched = true
+    setSuggested((s) => ({ ...s, category: false }))
+    set('categoryId', id)
+  }
+  const applySuggestion = (suggestion: DescriptionSuggestion): string => {
+    const fill = suggestionFill(suggestion, touched.current, choices, (id) => !!resolveCategory(roots, id).root, {
+      accountId,
+      categoryId,
+    })
+    set('description', fill.description)
+    const filled: string[] = []
+    if (fill.categoryId) {
+      set('categoryId', fill.categoryId)
+      filled.push(`categoria ${labels.get(fill.categoryId)?.name ?? ''}`)
+    }
+    const next = fill.accountId ? accounts.find((a) => a.id === fill.accountId) : undefined
+    if (next && fill.method) {
+      // Marca a conta como já ajustada, senão o efeito de troca de conta voltaria o meio ao padrão.
+      adjustedAccount.current = next.id
+      set('accountId', next.id)
+      set('method', fill.method)
+      if (next.type !== 'CreditCard') set('installments', 1)
+      filled.push(`conta ${next.name}, ${paymentMethodLabels[fill.method]}`)
+    }
+    setSuggested({ account: !!next, category: !!fill.categoryId })
+    const kept = [
+      fill.keptAccount && `conta ${accountNames.get(accountId) ?? ''}`,
+      fill.keptCategory && `categoria ${labels.get(categoryId)?.name ?? ''}`,
+    ].filter(Boolean)
+    return [
+      `${fill.description} escolhido.`,
+      filled.length > 0 && `Preenchido: ${filled.join(' e ')}.`,
+      kept.length > 0 && `Mantido o que você escolheu: ${kept.join(' e ')}.`,
+    ]
+      .filter(Boolean)
+      .join(' ')
+  }
+
   // Trocar a conta ajusta o meio de pagamento; o cartão não recebe receita (docs/fase-1.md). Ao
   // lançar de novo, a conta de partida mantém o meio e as parcelas copiados.
   const adjustedAccount = useRef<string | undefined>(undefined)
@@ -336,22 +389,30 @@ function Composer({
         </div>
 
         <Section title="Descrição" aside={brand ? `${brand.name} reconhecido` : 'opcional'}>
-          <label className="flex items-center gap-3 rounded-2xl border bg-card py-2 pr-3 pl-2 focus-within:ring-2 focus-within:ring-ring/50">
-            <EntryTile description={description} category={selectedCategory} />
-            <input
-              placeholder="Ex.: Uber, iFood, Pão de Açúcar"
-              autoComplete="off"
-              className="h-10 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
-              {...form.register('description')}
-            />
-          </label>
+          <DescriptionCombobox
+            value={description}
+            onChange={(text) => set('description', text)}
+            onChoose={applySuggestion}
+            vocabulary={vocabulary ?? []}
+            type={type}
+            today={today}
+            leading={<EntryTile description={description} category={selectedCategory} />}
+            tileFor={(s, size) => (
+              <EntryTile description={s.description} category={s.categoryId ? labels.get(s.categoryId) : undefined} size={size} />
+            )}
+            detailsOf={(s) =>
+              [s.categoryId ? labels.get(s.categoryId)?.name : 'Sem categoria', accountNames.get(s.accountId)]
+                .filter(Boolean)
+                .join(' · ')
+            }
+          />
           <FieldError message={errors.description?.message} />
         </Section>
 
-        <Section title="Conta">
+        <Section title="Conta" aside={suggested.account ? 'sugerida' : undefined}>
           <ChipRow>
             {choices.map((a) => (
-              <Chip key={a.id} selected={a.id === accountId} onClick={() => set('accountId', a.id)}>
+              <Chip key={a.id} selected={a.id === accountId} onClick={() => chooseAccount(a.id)}>
                 <AccountTile name={a.name} type={a.type} size="sm" />
                 {a.name}
               </Chip>
@@ -374,8 +435,8 @@ function Composer({
           </Section>
         )}
 
-        <Section title="Categoria">
-          <CategoryPicker roots={roots} value={categoryId} onChange={(id) => set('categoryId', id)} />
+        <Section title="Categoria" aside={suggested.category ? 'sugerida' : undefined}>
+          <CategoryPicker roots={roots} value={categoryId} onChange={chooseCategory} />
         </Section>
 
         <Section title="Data">

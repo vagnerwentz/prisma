@@ -1249,6 +1249,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/transactions/descriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ListDescriptionsItem"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/dashboard/summary": {
         parameters: {
             query?: never;
@@ -1765,6 +1800,21 @@ export interface components {
             categories: components["schemas"]["ListCategoryTotalsItem"][];
             /** Format: int64 */
             hiddenRefundCents: number;
+        };
+        ListDescriptionsItem: {
+            description: string;
+            type: components["schemas"]["TransactionType"];
+            /** Format: uuid */
+            categoryId: null | string;
+            /** Format: uuid */
+            accountId: string;
+            method: components["schemas"]["PaymentMethod"];
+            /** Format: int64 */
+            lastAmountCents: number;
+            /** Format: int32 */
+            count: number;
+            /** Format: date */
+            lastUsedOn: string;
         };
         ListStatementsStatementResponse: {
             /** Format: uuid */
