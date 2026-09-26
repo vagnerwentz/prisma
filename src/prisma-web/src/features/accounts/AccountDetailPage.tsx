@@ -83,7 +83,7 @@ function Detail({ account }: { account: Account }) {
 
       {!isCard && balance?.balanceCents != null && (
         <section className="spectrum-ring flex flex-col gap-2 rounded-3xl p-5">
-          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Saldo atual</span>
+          <span className="text-sm font-medium text-foreground/75">Saldo atual</span>
           <span className="font-display text-5xl leading-none tabular-nums">{formatCents(balance.balanceCents)}</span>
           {balance.projectedBalanceCents != null && balance.projectedBalanceCents !== balance.balanceCents && (
             <span className="text-sm text-muted-foreground">
@@ -95,7 +95,7 @@ function Detail({ account }: { account: Account }) {
         </section>
       )}
 
-      <dl className="flex flex-col divide-y rounded-2xl border bg-card text-sm">
+      <dl className="surface flex flex-col divide-y divide-border/60 rounded-2xl text-sm">
         {isCard ? (
           <>
             <Info label="Fechamento">todo dia {account.closingDay}</Info>
@@ -176,7 +176,7 @@ function Actions({ account, onEdit }: { account: Account; onEdit: () => void }) 
 
   if (confirming) {
     return (
-      <div className="flex flex-col gap-3 rounded-2xl border bg-card p-4">
+      <div className="surface flex flex-col gap-3 rounded-2xl p-4">
         <p className="text-sm">
           Excluir <strong>{account.name}</strong>? Só é possível se a conta não tiver lançamentos.
         </p>
@@ -262,7 +262,7 @@ function Statements({ account }: { account: Account }) {
           className="spectrum-ring flex flex-col gap-3 rounded-3xl p-5 text-left"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Fatura atual</span>
+            <span className="text-sm font-medium text-foreground/75">Fatura atual</span>
             <StatusBadge status={statusOf(current)} />
           </div>
           <div className="flex items-end justify-between gap-3">
@@ -308,10 +308,10 @@ function StatementList({
   if (items.length === 0) return null
   return (
     <div className="flex flex-col gap-2">
-      <h2 className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">{title}</h2>
-      <ul className="overflow-hidden rounded-2xl border bg-card">
+      <h2 className="px-1 text-sm font-medium text-foreground/75">{title}</h2>
+      <ul className="surface overflow-hidden rounded-2xl">
         {items.map((s) => (
-          <li key={s.id} className="[&+&]:border-t">
+          <li key={s.id} className="[&+&]:border-t [&+&]:border-border/60">
             <button
               type="button"
               onClick={() => onOpen(s.id)}

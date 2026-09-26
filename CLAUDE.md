@@ -343,6 +343,19 @@ fechado fora de desenvolvimento (`Registration:Open`); libere e-mails em
   tinta e excluir, neutro. Ação dentro de aviso ("Desfazer", "Lançar de novo") usa o espectro frio
   (`.toast-action`).
 - **Tipografia:** `font-display` (Instrument Serif) em valores grandes e títulos; Geist no resto.
+- **Superfície e contorno:** bloco de conteúdo é `.surface` (tom e sombra suave, sem contorno), em
+  qualquer tela; contorno só no que se preenche ou escolhe (campo, chip, seletor, botão secundário).
+  Divisória interna em `border-border/60`. Títulos e rótulos em caixa normal, nunca em maiúsculas
+  espaçadas (exceção: o selo de status da fatura).
+- **Movimento:** só para mostrar mudança de estado, nunca decoração. Curvas dos tokens (`ease-out`,
+  `ease-in-out`, `ease-drawer`), nada de `ease-in` nem de `transition-all`; animar `transform`,
+  `opacity` ou `clip-path`, não largura. Até 300 ms na interface (painel: 420 ms na entrada, 260 ms na
+  saída). Ação frequente (trocar de mês, filtrar) não anima: mantém o dado anterior esmaecido
+  (`placeholderData` + `StaleFade`). Todo movimento respeita `prefers-reduced-motion` sem apagar o
+  retorno visual. Barras que medem valor usam `.meter-fill`.
+- **Skills de design** (`.claude/skills`, locais, fora do git): as do Emil Kowalski e a Impeccable são
+  consultivas. Onde discordarem desta seção (texto em gradiente, halo, número em destaque), vale esta
+  seção.
 - **Marcas:** `findBrand` reconhece a marca pela descrição ou nome da conta. Logo do
   `simple-icons` quando existe; monograma na cor da marca quando a marca saiu do projeto (Amazon,
   bancos brasileiros). Nunca desenhe um logo à mão.

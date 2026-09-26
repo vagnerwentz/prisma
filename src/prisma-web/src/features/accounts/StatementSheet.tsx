@@ -82,7 +82,7 @@ function Details({
         </header>
         <div className="spectrum-line mx-6 opacity-70" />
 
-        <dl className="mx-4 my-5 flex flex-col divide-y rounded-2xl border bg-card text-sm">
+        <dl className="surface mx-4 my-5 flex flex-col divide-y divide-border/60 rounded-2xl text-sm">
           <Row label="Fechamento">{formatLongDate(statement.closingDate)}</Row>
           <Row label="Vencimento">{formatLongDate(statement.dueDate)}</Row>
           {statement.datesEditedManually && <Row label="Datas">ajustadas à mão</Row>}
@@ -90,7 +90,7 @@ function Details({
         </dl>
 
         <section className="mx-4 mb-5 flex flex-col gap-2">
-          <h3 className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          <h3 className="px-1 text-sm font-medium text-foreground/75">
             Lançamentos {transactions.isSuccess && `(${items.length})`}
           </h3>
           {transactions.isPending && <Skeleton className="h-24 w-full rounded-2xl" />}
@@ -105,7 +105,7 @@ function Details({
             </p>
           )}
           {items.length > 0 && (
-            <ul className="flex flex-col divide-y rounded-2xl border bg-card">
+            <ul className="surface flex flex-col divide-y divide-border/60 rounded-2xl">
               {items.map((t) => {
                 const category = t.categoryId ? labels.get(t.categoryId) : undefined
                 const title = t.description || category?.name || 'Sem descrição'
@@ -376,10 +376,8 @@ export function StatusBadge({ status }: { status: StatementStatus }) {
       {Icon ? (
         <Icon />
       ) : (
-        <span className="relative flex size-1.5">
-          <span className="absolute inline-flex size-full animate-ping rounded-full bg-white/80" />
-          <span className="relative inline-flex size-1.5 rounded-full bg-white" />
-        </span>
+        // Ponto parado: o selo aparece toda vez que se abre uma fatura, e um pulso sem fim puxaria o olho.
+        <span className="inline-flex size-1.5 rounded-full bg-white" />
       )}
       {status}
     </span>

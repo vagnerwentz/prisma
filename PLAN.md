@@ -312,6 +312,34 @@ Cada etapa entrega API e tela juntas, para o resumo crescer à vista.
   bloco sob demanda (1,3 kB gzip); no Resumo, a linha substitui o atalho "Ver análise". Decisões da
   tela registradas em `docs/fase-2.md`, 4.
 
+### Acabamento visual (pedido pelo usuário, depois da 2.10)
+
+Revisão com as skills de design do Emil Kowalski (animação) e da Impeccable (crítica e auditoria),
+instaladas só neste projeto e consultivas: a identidade da seção 7.1 do `CLAUDE.md` vence quando elas
+discordam (texto em gradiente, halo e o número em destaque do Resumo ficam).
+
+- [x] **2.11 Movimento**
+  Tokens de curva (`--ease-out`, `--ease-in-out`, `--ease-drawer`). O painel de baixo sobe da borda com
+  a curva de gaveta (420 ms) e sai mais rápido (260 ms). Trocar de mês mantém os números anteriores
+  esmaecidos até o mês novo chegar (`placeholderData` + `StaleFade`), sem o esqueleto piscando; as
+  barras correm até o valor novo (`.meter-fill`, com `clip-path`). Sem `transition-all` no botão, o
+  filete do valor anima `transform`, o selo "Aberta" parou de pulsar. Menos movimento: nada se
+  desloca, os painéis viram um fade curto.
+  *Pronto quando:* a animação computada do painel é a nova, e o fade com `prefers-reduced-motion`;
+  trocar de mês não mostra esqueleto; lint, Vitest e build verdes.
+
+- [x] **2.12 Uma linguagem visual**
+  Bloco de conteúdo é superfície (`.surface`, sem contorno) em todas as telas, não só no dashboard:
+  lista de lançamentos, contas, detalhe da conta, painéis do lançamento e da fatura. Contorno fica
+  para o que se preenche ou escolhe (campo, chip, seletor, botão secundário). Títulos em caixa normal
+  (`text-sm font-medium`), sem maiúsculas espaçadas; o selo de status continua em maiúsculas.
+  *Pronto quando:* telas conferidas nos dois modos e em 320, 390 e 1280px.
+
+- [x] **2.13 Densidade de Lançamentos e Contas**
+  O mês numa superfície só, com o dia como subtítulo (antes, um cartão por dia). Em Contas, o cartão
+  mostra "Fecha 26 · vence 5", que não é mais cortado ao lado do saldo.
+  *Pronto quando:* sem rolagem lateral em 320px; conferido nos dois modos.
+
 ---
 
 ## Hospedagem para uso próprio

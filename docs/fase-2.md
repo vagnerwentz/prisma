@@ -376,7 +376,7 @@ ainda pode ser estornado; na parcelada, sobre o total da compra), para a tela pr
 - Tocar numa categoria abre a lista de lançamentos filtrada por ela, pela data de caixa
   (`/lancamentos?mes=2026-10&categoria=<id>`, ou `&categoria=sem`), com um aviso do filtro e um
   botão para limpá-lo.
-- **Estilo do dashboard** (ajustado com o usuário na 2.1; as demais telas seguem como estão):
+- **Estilo do dashboard** (ajustado com o usuário na 2.1; na 2.12 passou a valer para todas as telas):
   blocos são superfícies (`.surface`: tom e sombra suave, sem contorno de 1px); serifada só no
   nome do mês e no valor principal, os outros valores em Geist seminegrito; um espectro por tela
   (o filete sob o mês; o destaque usa o halo frio, não o anel); rótulos na cor do texto, cinza só

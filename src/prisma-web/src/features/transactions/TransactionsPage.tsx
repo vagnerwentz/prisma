@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { MonthSwitcher } from '@/components/MonthSwitcher'
+import { StaleFade } from '@/components/StaleFade'
 import { useMonthParam } from '@/lib/monthParam'
 import { useAccounts } from '@/features/accounts/queries'
 import { categoryLabels, useCategories, type CategoryLabel } from '@/features/categories/queries'
@@ -89,18 +90,31 @@ export function TransactionsPage() {
 
       {transactions.isSuccess && days.length === 0 && <EmptyMonth month={month} />}
 
-      {days.map((day) => (
-        <section key={day.date} className="flex flex-col gap-2">
-          <h2 className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            {formatDayHeading(day.date, today)}
-          </h2>
-          <ul className="overflow-hidden rounded-2xl border bg-card shadow-[0_1px_2px_rgb(0_0_0/0.03)]">
-            {day.entries.map((entry) => (
-              <EntryRow key={entryKey(entry)} entry={entry} lookups={lookups} onOpen={() => setSelectedKey(entryKey(entry))} />
+      {/* O mês numa superfície só, com o dia como subtítulo: um cartão por dia deixava um mês esparso
+          com uns cinco lançamentos por tela. */}
+      <StaleFade stale={transactions.isPlaceholderData}>
+        {days.length > 0 && (
+          <div className="surface overflow-clip rounded-2xl py-1">
+            {days.map((day) => (
+              <section key={day.date} className="[&+&]:border-t [&+&]:border-border/60">
+                <h2 className="px-4 pt-3 pb-0.5 text-xs font-medium text-muted-foreground">
+                  {formatDayHeading(day.date, today)}
+                </h2>
+                <ul>
+                  {day.entries.map((entry) => (
+                    <EntryRow
+                      key={entryKey(entry)}
+                      entry={entry}
+                      lookups={lookups}
+                      onOpen={() => setSelectedKey(entryKey(entry))}
+                    />
+                  ))}
+                </ul>
+              </section>
             ))}
-          </ul>
-        </section>
-      ))}
+          </div>
+        )}
+      </StaleFade>
 
       {selectedKey && accounts.data && categories.data && (
         <Suspense>
@@ -136,7 +150,7 @@ function EntryRow({ entry, lookups, onOpen }: { entry: TimelineEntry<Transaction
   ].filter(Boolean)
 
   return (
-    <li className="[&+&]:border-t">
+    <li>
       <button
         type="button"
         onClick={onOpen}
@@ -171,7 +185,7 @@ function TransferRow({
   const leg = entry.out ?? entry.in
   const route = [entry.out, entry.in].map((t) => (t ? lookups.accounts.get(t.accountId) : '…')).join(' → ')
   return (
-    <li className="[&+&]:border-t">
+    <li>
       <button
         type="button"
         onClick={onOpen}
@@ -190,11 +204,11 @@ function TransferRow({
 
 function ListSkeleton() {
   return (
-    <div className="flex flex-col gap-2" aria-busy aria-label="Carregando lançamentos">
-      <Skeleton className="h-3 w-20" />
-      <div className="overflow-hidden rounded-2xl border bg-card">
+    <div className="surface flex flex-col rounded-2xl py-1" aria-busy aria-label="Carregando lançamentos">
+      <Skeleton className="mx-4 mt-3 mb-0.5 h-3 w-20" />
+      <div>
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="flex items-center gap-3 px-4 py-3 [&+&]:border-t">
+          <div key={i} className="flex items-center gap-3 px-4 py-3">
             <Skeleton className="size-10 rounded-xl" />
             <div className="flex flex-1 flex-col gap-2">
               <Skeleton className="h-3.5 w-1/2" />

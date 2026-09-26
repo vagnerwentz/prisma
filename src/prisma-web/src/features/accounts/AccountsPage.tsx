@@ -57,7 +57,7 @@ export function AccountsPage() {
         </div>
       )}
       {sorted.length > 0 && (
-        <ul className="overflow-hidden rounded-2xl border bg-card">
+        <ul className="surface overflow-hidden rounded-2xl">
           {sorted.map((account) => (
             <AccountRow key={account.id} account={account} balance={balances.data?.get(account.id)} />
           ))}
@@ -82,11 +82,15 @@ export function AccountsPage() {
 }
 
 function AccountRow({ account, balance }: { account: Account; balance: AccountBalance | undefined }) {
-  const details = [account.type === 'CreditCard' ? 'Cartão' : accountTypeLabels[account.type]]
-  if (account.type === 'CreditCard') details.push(`fecha dia ${account.closingDay}`, `vence dia ${account.dueDay}`)
+  // Cartão: fechamento e vencimento, sem repetir "Cartão" (o "Disponível" e o logo já dizem). Curto
+  // e com espaço inseparável dentro de cada dado, para a linha quebrar só entre eles em 320px.
+  const details =
+    account.type === 'CreditCard'
+      ? [`Fecha\u00a0${account.closingDay}`, `vence\u00a0${account.dueDay}`]
+      : [accountTypeLabels[account.type]]
 
   return (
-    <li className="[&+&]:border-t">
+    <li className="[&+&]:border-t [&+&]:border-border/60">
       <Link
         to={`/contas/${account.id}`}
         className={cn(
@@ -102,7 +106,8 @@ function AccountRow({ account, balance }: { account: Account; balance: AccountBa
               <span className="rounded-full border px-2 text-[0.65rem] font-normal text-muted-foreground">inativa</span>
             )}
           </p>
-          <p className="truncate text-sm text-muted-foreground">{details.join(' · ')}</p>
+          {/* Quebra em vez de cortar: fechamento e vencimento são o que se procura aqui. */}
+          <p className="text-sm text-pretty text-muted-foreground">{details.join(' · ')}</p>
         </div>
         {balance && <BalanceFigure account={account} balance={balance} />}
         <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
@@ -122,7 +127,7 @@ function BalanceFigure({ account, balance }: { account: Account; balance: Accoun
   if (cents == null) return null
   return (
     <div className="shrink-0 text-right">
-      <p className="text-[0.65rem] tracking-wide text-muted-foreground uppercase">{label}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
       <p className="font-medium tabular-nums">{formatCents(cents)}</p>
     </div>
   )

@@ -383,7 +383,7 @@ function Composer({
         </Section>
 
         {/* Fechado, mostra a forma escolhida: dá para conferir sem abrir. */}
-        <details className="group rounded-2xl border bg-card open:pb-4">
+        <details className="group surface rounded-2xl open:pb-4">
           <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 text-sm">
             <span className="text-muted-foreground">Pagamento</span>
             <span className="ml-auto font-medium">{paymentMethodLabels[method]}</span>

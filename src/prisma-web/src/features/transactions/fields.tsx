@@ -16,7 +16,7 @@ export function Section({ title, aside, children }: { title: string; aside?: str
   return (
     <section className="flex flex-col gap-2.5">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{title}</h2>
+        <h2 className="text-sm font-medium text-foreground/75">{title}</h2>
         {aside && <span className="text-xs text-muted-foreground tabular-nums">{aside}</span>}
       </div>
       {children}
@@ -188,7 +188,7 @@ export function AmountField({
       />
       <span
         aria-hidden
-        className="h-0.5 w-16 rounded-full bg-[image:var(--spectrum)] opacity-0 transition-all duration-300 peer-focus:w-28 peer-focus:opacity-100"
+        className="h-0.5 w-28 scale-x-[0.57] rounded-full bg-[image:var(--spectrum)] opacity-0 transition-[transform,opacity] duration-200 ease-out peer-focus:scale-x-100 peer-focus:opacity-100"
       />
       <FieldError message={error} />
     </div>

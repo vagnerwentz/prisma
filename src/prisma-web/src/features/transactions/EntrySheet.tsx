@@ -126,7 +126,7 @@ function Details({ entry, accounts, labels, onClose, onEdit }: Common & { onEdit
 
         <div className="spectrum-line mx-6 opacity-70" />
 
-        <dl className="mx-4 my-5 flex flex-col divide-y rounded-2xl border bg-card text-sm">
+        <dl className="surface mx-4 my-5 flex flex-col divide-y divide-border/60 rounded-2xl text-sm">
           <InfoRow label={isRefund ? 'Data do estorno' : 'Data da compra'}>{formatLongDate(first.purchaseDate)}</InfoRow>
           {kind === 'card' && <InfoRow label="Fatura que vence em">{formatLongDate(first.settlementDate)}</InfoRow>}
           {account && (
@@ -252,8 +252,8 @@ function InstallmentList({
 
   return (
     <section className="mx-4 mb-5 flex flex-col gap-2">
-      <h3 className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Parcelas</h3>
-      <ol className="flex flex-col divide-y rounded-2xl border bg-card">
+      <h3 className="px-1 text-sm font-medium text-foreground/75">Parcelas</h3>
+      <ol className="surface flex flex-col divide-y divide-border/60 rounded-2xl">
         {installments.map((t) => {
           const isNext = t === next
           const past = t.settlementDate < today
@@ -363,7 +363,7 @@ function TransferDetails({ entry, accounts, onClose }: { entry: TransferEntry; a
           <p className="text-sm text-muted-foreground">Não entra em receita nem despesa</p>
         </header>
         <div className="spectrum-line mx-6 opacity-70" />
-        <dl className="mx-4 my-5 flex flex-col divide-y rounded-2xl border bg-card text-sm">
+        <dl className="surface mx-4 my-5 flex flex-col divide-y divide-border/60 rounded-2xl text-sm">
           {from && (
             <InfoRow label="De">
               <span className="flex items-center gap-2">
