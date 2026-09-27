@@ -26,6 +26,11 @@ public static partial class AppLog
     [LoggerMessage(1004, LogLevel.Warning, "Rate limit hit on {Method} {Route}")]
     public static partial void RateLimited(this ILogger logger, string method, string route);
 
+    // A pilha do navegador vai como exceção (BrowserError), no campo `exception`, fora da frase.
+    [LoggerMessage(1005, LogLevel.Warning, "Browser error on {Screen} ({Kind}, version {AppVersion}): {ErrorMessage}")]
+    public static partial void ClientError(
+        this ILogger logger, BrowserError error, string screen, string kind, string appVersion, string errorMessage);
+
     [LoggerMessage(2000, LogLevel.Information, "User {UserId} registered")]
     public static partial void UserRegistered(this ILogger logger, Guid userId);
 

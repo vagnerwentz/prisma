@@ -9,6 +9,7 @@ using Prisma.Api.Features.Accounts;
 using Prisma.Api.Features.Auth;
 using Prisma.Api.Features.Categories;
 using Prisma.Api.Features.Dashboard;
+using Prisma.Api.Features.Diagnostics;
 using Prisma.Api.Features.Statements;
 using Prisma.Api.Features.Transactions;
 using Prisma.Api.Features.Transfers;
@@ -69,6 +70,7 @@ builder.Services.AddTransactionFeatures();
 builder.Services.AddCardFeatures();
 builder.Services.AddTransferFeatures();
 builder.Services.AddDashboardFeatures();
+builder.Services.AddDiagnosticsFeatures();
 
 builder.Services.AddHealthChecks()
     .AddCheck<DatabaseHealthCheck>("database");
@@ -125,5 +127,6 @@ app.MapTransactionEndpoints();
 app.MapCardEndpoints();
 app.MapTransferEndpoints();
 app.MapDashboardEndpoints();
+app.MapDiagnosticsEndpoints();
 
 app.Run();

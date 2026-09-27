@@ -9,6 +9,9 @@ import { defineConfig } from 'vite'
 const lan = process.env.PRISMA_LAN === '1'
 
 export default defineConfig({
+  // Versão do app nos relatos de erro do navegador (etapa H.3b): o momento do build, que diz de qual
+  // deploy o erro veio.
+  define: { __APP_VERSION__: JSON.stringify(new Date().toISOString().slice(0, 16) + 'Z') },
   plugins: [react(), tailwindcss(), ...(lan ? [basicSsl()] : [])],
   resolve: {
     alias: { '@': path.resolve(import.meta.dirname, './src') },

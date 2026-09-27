@@ -71,11 +71,17 @@ importam: `level`, `message`, `eventName`, `traceId`, `userId`, `route`, `status
 | Só os erros | `@level:error` |
 | Tentativas de login erradas | `@eventName:LoginFailed` ou `@eventName:LoginUnknownEmail` |
 | Rate limit disparando | `@eventName:RateLimited` |
+| Telas que quebraram no navegador de alguém | `@eventName:ClientError` (com `@userId:…` para uma pessoa) |
 | Requisições de uma rota | `@route:/statements/{id}/pay` |
 
 Um `traceId` identifica **uma requisição**: todos os logs dela têm o mesmo. Erros em requisições
 diferentes (o Resumo faz várias ao abrir) têm `traceId`s diferentes; para vê-los juntos, filtre pelo
 `userId` e olhe o mesmo minuto.
+
+O `ClientError` traz a tela (`screen`), o tipo (`crash`: a tela quebrou; `silent`: erro num clique ou
+numa promessa, sem nada na tela), a versão do build e a pilha no campo `exception`. A pilha vem com os
+nomes compactados do build de produção (`index-….js:1:23456`): a mensagem, a tela e o horário costumam
+bastar.
 
 Os logs nunca têm valor, descrição, nome de conta, e-mail, senha ou token (`CLAUDE.md`, seção 8). O
 Railway guarda 7 dias no Hobby e 3 no Free.

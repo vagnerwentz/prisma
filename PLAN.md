@@ -535,7 +535,7 @@ conversa e o TCP Proxy do Postgres ficou ligado. A H.2 foi dividida em três (de
   linha da requisição. Login com e-mail desconhecido virou evento próprio (`LoginUnknownEmail`), para a
   frase não sair com "user (null)". Roteiro de investigação em `docs/operacao.md`, seção 3.
 
-- [ ] **H.3b Erros do navegador no servidor**
+- [x] **H.3b Erros do navegador no servidor**
   *Decisão (com o usuário, 2026-09-26):* o `traceId` **não** aparece na tela. Erro esperado já tem
   mensagem clara; API fora do ar e erro do navegador nem têm `traceId`; e, com poucas pessoas, o
   `userId` e o minuto do erro bastam para achar tudo no Railway. O `traceId` continua na resposta de erro
@@ -549,6 +549,14 @@ conversa e o TCP Proxy do Postgres ficou ligado. A H.2 foi dividida em três (de
   *Pronto quando:* integração do endpoint (registra com o `userId`, recusa corpo grande, rate limit,
   anônimo também registra) e teste de arquitetura cobrindo o evento novo; Vitest do que o navegador
   envia (sem dados além dos permitidos); no navegador, um erro provocado em `/dev/erro` chega ao log.
+  *Feito:* `ReportClientError` (validação de tamanho, tipo e tela; a consulta e o fragmento saem do
+  caminho) e o evento `ClientError`, com a pilha do navegador como exceção do log (`BrowserError`), no
+  campo `exception`: o gerador do `[LoggerMessage]` descarta parâmetro fora da frase. Rate limit próprio
+  (10 por minuto por IP). No navegador, `reportClientError` (uma vez por erro, envio que falha é
+  engolido) no `ErrorBoundary` e nos eventos `error` e `unhandledrejection`; versão = momento do build.
+  Conferido com a API servindo um build de desenvolvimento: `/dev/erro` (crash), erro num `setTimeout`
+  e promessa rejeitada chegaram ao log. As mensagens de erro inesperado e de falta de conexão já eram
+  genéricas e em pt-BR: não mudaram.
 
 - **H.2 Deploy no Railway** (texto original, coberto pelas etapas acima)
   Projeto com o serviço da API (build pelo `Dockerfile`, deploy a cada push na `main` só com o CI

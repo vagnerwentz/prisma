@@ -1,6 +1,7 @@
 import { Component, type ReactNode } from 'react'
 import { useLocation } from 'react-router'
 import { ErrorScreen } from '@/components/ErrorScreen'
+import { reportClientError } from '@/lib/clientErrors'
 import { crashKind } from '@/lib/crash'
 
 type Props = { resetKey: string; children: ReactNode }
@@ -13,6 +14,11 @@ class Boundary extends Component<Props, State> {
 
   static getDerivedStateFromError(error: unknown): Partial<State> {
     return { error, failed: true }
+  }
+
+  // A tela que quebrou vai ao log do servidor (etapa H.3b); a de versão nova não é bug e fica de fora.
+  componentDidCatch(error: unknown) {
+    void reportClientError(error, 'crash')
   }
 
   static getDerivedStateFromProps(props: Props, state: State): Partial<State> | null {

@@ -268,6 +268,11 @@ não precisa.** `Category` com nome e cor não merece teste unitário;
   `userId` (escopo); a resposta de erro devolve o mesmo `traceId`. Produção escreve uma linha JSON por
   evento (`JsonLineConsoleFormatter`, formato do Railway); desenvolvimento, texto numa linha. Trocar de
   provedor (Serilog, OpenTelemetry para Datadog/CloudWatch) é mexer só na inicialização.
+  Erro do navegador (tela quebrada no `ErrorBoundary`, erro ou promessa não tratados) vai ao servidor
+  por `reportClientError` (`lib/clientErrors.ts` → `POST /api/client-errors`) e vira o evento
+  `ClientError`, com o `userId` da sessão: só mensagem, pilha, tela sem consulta, tipo e versão. Erro
+  da API, falta de conexão e versão nova publicada não são relatados. O `traceId` não aparece na tela
+  (decisão para poucos usuários; rever se o projeto crescer, `PLAN.md`, H.3b).
 - Tabelas e colunas em `snake_case` no Postgres, mapeadas a partir dos nomes em inglês.
 - Endpoints em inglês e no plural: `/transactions`, `/accounts`, `/statements`.
 - **Mensagens de erro e textos de interface em pt-BR**, ainda que o código à volta

@@ -11,6 +11,9 @@ public static class AuthSetup
 {
     public const string RateLimitPolicy = "auth";
 
+    // Relatos de erro do navegador (etapa H.3b): abertos sem login, então limitados por IP.
+    public const string ClientErrorsRateLimitPolicy = "client-errors";
+
     public static IServiceCollection AddAuth(this IServiceCollection services, IConfiguration configuration)
     {
         // Chaves do cookie no Postgres. O nome fixo impede que o isolamento padrão, pela pasta do
@@ -85,6 +88,17 @@ public static class AuthSetup
                     {
                         PermitLimit = permitLimit,
                         Window = window,
+                        QueueLimit = 0,
+                    }));
+
+            var clientErrorsLimit = configuration.GetValue("RateLimiting:ClientErrors:PermitLimit", 10);
+            options.AddPolicy(ClientErrorsRateLimitPolicy, context =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = clientErrorsLimit,
+                        Window = TimeSpan.FromMinutes(1),
                         QueueLimit = 0,
                     }));
 
