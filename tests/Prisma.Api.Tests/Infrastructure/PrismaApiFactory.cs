@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Mvc.Testing.Handlers;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Prisma.Domain;
 
 namespace Prisma.Api.Tests.Infrastructure;
@@ -11,7 +12,8 @@ namespace Prisma.Api.Tests.Infrastructure;
 public sealed class PrismaApiFactory(
     string connectionString,
     IReadOnlyDictionary<string, string>? settings = null,
-    IClock? clock = null)
+    IClock? clock = null,
+    LogSink? logs = null)
     : WebApplicationFactory<Program>
 {
     public const string Password = "senha-forte-123";
@@ -32,6 +34,9 @@ public sealed class PrismaApiFactory(
 
         if (clock is not null)
             builder.ConfigureTestServices(services => services.AddSingleton(clock));
+
+        if (logs is not null)
+            builder.ConfigureLogging(logging => logging.AddProvider(logs));
     }
 
     // HTTPS porque o cookie de sessão é Secure: por HTTP o cliente não o reenviaria. Os testes

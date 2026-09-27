@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Console;
 using Npgsql;
 using Prisma.Api.Features.Accounts;
 using Prisma.Api.Features.Auth;
@@ -13,6 +15,7 @@ using Prisma.Api.Features.Transfers;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Auth;
 using Prisma.Api.Infrastructure.Http;
+using Prisma.Api.Infrastructure.Logging;
 using Prisma.Domain;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -48,7 +51,15 @@ builder.Services.AddOpenApi(options => options.CreateSchemaReferenceId = type =>
         ? $"{type.Type.DeclaringType!.Name}{type.Type.Name}"
         : OpenApiOptions.CreateDefaultSchemaReferenceId(type));
 
-builder.Services.AddProblemDetails();
+// Logs: o código fala só com o ILogger e os eventos de AppLog. A saída vem da configuração
+// (Logging:Console:FormatterName): JSON de uma linha em produção, texto legível em desenvolvimento.
+builder.Logging.AddConsoleFormatter<JsonLineConsoleFormatter, ConsoleFormatterOptions>();
+
+// Toda resposta de erro leva o traceId da requisição, o mesmo dos logs dela: com ele, acha-se no
+// Railway tudo o que aconteceu naquela chamada (@traceId:…).
+builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = context =>
+    context.ProblemDetails.Extensions["traceId"] =
+        Activity.Current?.TraceId.ToHexString() ?? context.HttpContext.TraceIdentifier);
 builder.Services.AddExceptionHandler<ProblemExceptionHandler>();
 builder.Services.AddAuth(builder.Configuration);
 builder.Services.AddAuthFeatures();
@@ -80,10 +91,14 @@ var app = builder.Build();
 if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
 {
     using var scope = app.Services.CreateScope();
-    await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.MigrateAsync();
+    var database = scope.ServiceProvider.GetRequiredService<AppDbContext>().Database;
+    var pending = (await database.GetPendingMigrationsAsync()).Count();
+    await database.MigrateAsync();
+    app.Logger.MigrationsApplied(pending);
 }
 
 app.UseForwardedHeaders();
+app.UseRequestLogging();
 
 // Exceção não tratada e resposta de erro sem corpo (404 de rota inexistente, 401 do cookie) saem
 // como ProblemDetails, o formato que o frontend lê.
@@ -95,6 +110,7 @@ app.UseFrontendAndApiPrefix();
 app.UseRouting();
 
 app.UseAuthentication();
+app.UseUserLogScope();
 app.UseAuthorization();
 app.UseRateLimiter();
 

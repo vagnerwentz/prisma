@@ -58,3 +58,24 @@ Se o passo 3 der errado (a API não sobe), volte a `ConnectionStrings__Default` 
 - **2FA** no Railway, no GitHub e no e-mail dessas contas.
 - **"Wait for CI"** no serviço da API (*Settings* → *Deploy*): push com CI vermelho não vai para a
   produção.
+
+## 3. Investigar um problema pelos logs (H.3a)
+
+Em produção, cada evento é uma linha JSON que o Railway filtra (serviço da API → *Logs*). Os campos que
+importam: `level`, `message`, `eventName`, `traceId`, `userId`, `route`, `statusCode`, `elapsedMs`.
+
+| Pergunta | Filtro no Railway |
+|---|---|
+| O que aconteceu na requisição do erro (o `traceId` vem na resposta de erro) | `@traceId:4bf92f…` |
+| Tudo o que uma pessoa fez | `@userId:01a0…` (o id vem nos próprios logs, como o `UserRegistered`, ou na tabela de usuários) |
+| Só os erros | `@level:error` |
+| Tentativas de login erradas | `@eventName:LoginFailed` ou `@eventName:LoginUnknownEmail` |
+| Rate limit disparando | `@eventName:RateLimited` |
+| Requisições de uma rota | `@route:/statements/{id}/pay` |
+
+Um `traceId` identifica **uma requisição**: todos os logs dela têm o mesmo. Erros em requisições
+diferentes (o Resumo faz várias ao abrir) têm `traceId`s diferentes; para vê-los juntos, filtre pelo
+`userId` e olhe o mesmo minuto.
+
+Os logs nunca têm valor, descrição, nome de conta, e-mail, senha ou token (`CLAUDE.md`, seção 8). O
+Railway guarda 7 dias no Hobby e 3 no Free.

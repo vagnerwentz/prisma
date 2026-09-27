@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
+using Prisma.Api.Infrastructure.Logging;
 
 namespace Prisma.Api.Infrastructure.Http;
 
@@ -26,7 +27,9 @@ public sealed class ProblemExceptionHandler(IProblemDetailsService problemDetail
         };
 
         if (status == StatusCodes.Status500InternalServerError)
-            logger.LogError(exception, "Erro não tratado em {Method} {Path}", context.Request.Method, context.Request.Path);
+            logger.UnhandledException(exception, context.Request.Method, AppLog.RouteOf(context));
+        else if (status == StatusCodes.Status409Conflict)
+            logger.ConcurrencyConflict(context.Request.Method, AppLog.RouteOf(context));
 
         context.Response.StatusCode = status;
         return await problemDetails.TryWriteAsync(new ProblemDetailsContext

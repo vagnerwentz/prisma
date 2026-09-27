@@ -513,6 +513,43 @@ conversa e o TCP Proxy do Postgres ficou ligado. A H.2 foi dividida em três (de
   Roteiro para senha esquecida (sem e-mail ainda), monitor de disponibilidade em `/api/health`,
   backup manual antes de migration arriscada e instruções no `CLAUDE.md`, seção 7.
 
+- [x] **H.3a Logs estruturados no backend** (pedida pelo usuário, 2026-09-26)
+  *Decisões (com o usuário):* só o `ILogger` nativo, sem Serilog (dependência nova e segunda
+  configuração; trocar de provedor depois é mexer só na inicialização, porque o código fala com o
+  `ILogger`); mensagens em inglês (en-US), propriedades em inglês; o `traceId` pode aparecer ao cliente.
+  Produção escreve uma linha JSON por evento, no formato que o Railway filtra (`level`, `message` e as
+  propriedades no primeiro nível: `@level:error`, `@traceId:…`, `@userId:…`); desenvolvimento, texto
+  legível numa linha. Uma linha por requisição da API (método, rota modelo, status, duração, `userId`),
+  e eventos declarados num lugar só com `[LoggerMessage]` (login, cadastro, rate limit, conflito,
+  exceção, migrations, conta criada, fatura paga), sem valor, descrição, e-mail, senha ou token (regra 8).
+  O `traceId` da requisição vai na resposta de erro (ProblemDetails) para achar os logs dela.
+  *Pronto quando:* teste unitário do formatador (uma linha, campos, só `traceId`/`spanId`/`userId` dos
+  escopos); teste de arquitetura que recusa evento com propriedade sensível e `LogX` fora dos eventos
+  declarados (CA1848 e CA2254 como erro); integração: linha por requisição com rota, status e usuário,
+  o `traceId` da resposta de erro igual ao do log, login errado sem e-mail nem senha em nenhum log, 500
+  com a exceção, e rate limit registrado.
+  *Feito:* `AppLog` (13 eventos, ids por faixa), `JsonLineConsoleFormatter` (horário pelo `IClock`),
+  `UseRequestLogging` e `UseUserLogScope`, `traceId` em todo ProblemDetails. As travas foram provadas
+  com violação proposital: `LogInformation` direto e interpolação derrubam o build; um evento com
+  `email` derruba o teste de arquitetura. Na saída real, o `traceId` da resposta de erro é o mesmo da
+  linha da requisição. Login com e-mail desconhecido virou evento próprio (`LoginUnknownEmail`), para a
+  frase não sair com "user (null)". Roteiro de investigação em `docs/operacao.md`, seção 3.
+
+- [ ] **H.3b Erros do navegador no servidor**
+  *Decisão (com o usuário, 2026-09-26):* o `traceId` **não** aparece na tela. Erro esperado já tem
+  mensagem clara; API fora do ar e erro do navegador nem têm `traceId`; e, com poucas pessoas, o
+  `userId` e o minuto do erro bastam para achar tudo no Railway. O `traceId` continua na resposta de erro
+  da API, fora da interface. **Rever se o projeto crescer** (muitos usuários, suporte que não conhece
+  quem reclama): aí um código na tela de erro inesperado passa a valer.
+  O buraco real é o erro do navegador (a tela quebra e nada chega ao servidor): `POST /api/client-errors`,
+  com rate limit, recebendo só mensagem, pilha, tela (rota) e versão do app, nunca dados da tela;
+  registrado como `Warning` pelo `AppLog`, já com o `userId` da sessão. Chamado pelo `ErrorBoundary` e
+  por erros e promessas não tratados. Mensagens do frontend conferidas: erro inesperado genérico e
+  honesto; sem conexão com mensagem própria.
+  *Pronto quando:* integração do endpoint (registra com o `userId`, recusa corpo grande, rate limit,
+  anônimo também registra) e teste de arquitetura cobrindo o evento novo; Vitest do que o navegador
+  envia (sem dados além dos permitidos); no navegador, um erro provocado em `/dev/erro` chega ao log.
+
 - **H.2 Deploy no Railway** (texto original, coberto pelas etapas acima)
   Projeto com o serviço da API (build pelo `Dockerfile`, deploy a cada push na `main` só com o CI
   verde: "Wait for CI") e o

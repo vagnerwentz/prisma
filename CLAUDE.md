@@ -258,6 +258,16 @@ não precisa.** `Category` com nome e cor não merece teste unitário;
 - **Concorrência:** entidade que dois pedidos simultâneos podem corromper (hoje, `Statement`:
   pagar duas vezes a mesma fatura) usa a coluna `xmin` do Postgres como token
   (`Property<uint>("Version").IsRowVersion()`), com teste de corrida.
+- **Logs:** o código fala só com o `ILogger` nativo, nunca com Serilog nem `Log.Information` estático.
+  Todo evento é declarado em `Infrastructure/Logging/AppLog.cs` com `[LoggerMessage]` (id único,
+  mensagem em inglês, propriedades nomeadas); chamar `logger.LogX(...)` direto ou montar a mensagem com
+  interpolação quebra o build (CA1848 e CA2254 como erro em `src/Prisma.Api/.editorconfig`). Níveis:
+  `Information` para o que se quer contar (login, conta criada, fatura paga), `Warning` para recusa ou
+  abuso (login errado, rate limit, conflito 409), `Error` para exceção. Cada requisição da API gera uma
+  linha (`RequestFinished`: rota modelo, status, duração) e todo log da requisição leva `traceId` e
+  `userId` (escopo); a resposta de erro devolve o mesmo `traceId`. Produção escreve uma linha JSON por
+  evento (`JsonLineConsoleFormatter`, formato do Railway); desenvolvimento, texto numa linha. Trocar de
+  provedor (Serilog, OpenTelemetry para Datadog/CloudWatch) é mexer só na inicialização.
 - Tabelas e colunas em `snake_case` no Postgres, mapeadas a partir dos nomes em inglês.
 - Endpoints em inglês e no plural: `/transactions`, `/accounts`, `/statements`.
 - **Mensagens de erro e textos de interface em pt-BR**, ainda que o código à volta
@@ -398,7 +408,8 @@ por conversa, arquivo versionado ou histórico do shell.
 - Senha pelo hasher do Identity. Não implemente hash à mão.
 - Sessão em cookie `httpOnly` + `Secure` + `SameSite=Lax`. **Nunca JWT em localStorage.**
 - Rate limit em login e recuperação de senha.
-- Nunca logar valor, descrição de transação, e-mail ou token.
+- Nunca logar valor, descrição de transação, nome, e-mail, senha ou token: só ids, tipos e motivos. Um
+  teste de arquitetura recusa evento de `AppLog` com parâmetro de nome sensível.
 - Segredos via User Secrets em desenvolvimento e variáveis de ambiente em produção.
   Nada de connection string ou client secret commitado.
 

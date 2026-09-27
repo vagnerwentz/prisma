@@ -1,0 +1,6 @@
+# Logs só pelos eventos declarados em Infrastructure/Logging/AppLog.cs (CLAUDE.md, seção 6):
+# CA1848 recusa logger.LogInformation(...) direto; CA2254 recusa mensagem montada com interpolação,
+# que apagaria as propriedades do log estruturado.
+[*.cs]
+dotnet_diagnostic.CA1848.severity = error
+dotnet_diagnostic.CA2254.severity = error

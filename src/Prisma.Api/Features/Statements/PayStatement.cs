@@ -4,6 +4,7 @@ using Prisma.Api.Features.Transactions;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Auth;
 using Prisma.Api.Infrastructure.Http;
+using Prisma.Api.Infrastructure.Logging;
 using Prisma.Domain;
 using Prisma.Domain.Transactions;
 
@@ -23,7 +24,7 @@ public static class PayStatement
         }
     }
 
-    public sealed class Handler(AppDbContext db, ICurrentUser currentUser)
+    public sealed class Handler(AppDbContext db, ICurrentUser currentUser, ILogger<Handler> logger)
     {
         public async Task<Result<IReadOnlyList<TransactionResponse>>> Execute(Guid id, Request req, CancellationToken ct)
         {
@@ -46,6 +47,7 @@ public static class PayStatement
 
             db.Transactions.AddRange(legs.Value.Out, legs.Value.In);
             await db.SaveChangesAsync(ct);
+            logger.StatementPaid(statement.Id, card.Id, from.Id);
             return new[] { TransactionResponse.From(legs.Value.Out), TransactionResponse.From(legs.Value.In) };
         }
     }

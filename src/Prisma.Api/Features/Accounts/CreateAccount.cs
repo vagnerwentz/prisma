@@ -2,6 +2,7 @@ using FluentValidation;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Auth;
 using Prisma.Api.Infrastructure.Http;
+using Prisma.Api.Infrastructure.Logging;
 using Prisma.Domain;
 using Prisma.Domain.Accounts;
 
@@ -23,7 +24,7 @@ public static class CreateAccount
             RuleFor(x => x.Type).IsInEnum().WithMessage("Tipo de conta inválido.");
     }
 
-    public sealed class Handler(AppDbContext db, ICurrentUser currentUser)
+    public sealed class Handler(AppDbContext db, ICurrentUser currentUser, ILogger<Handler> logger)
     {
         public async Task<Result<AccountResponse>> Execute(Request req, CancellationToken ct)
         {
@@ -35,6 +36,7 @@ public static class CreateAccount
 
             db.Accounts.Add(created.Value);
             await db.SaveChangesAsync(ct);
+            logger.AccountCreated(created.Value.Id, created.Value.Type);
             return AccountResponse.From(created.Value);
         }
     }

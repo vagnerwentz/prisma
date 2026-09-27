@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
+using Prisma.Api.Infrastructure.Logging;
 
 namespace Prisma.Api.Infrastructure.Auth;
 
@@ -89,6 +90,10 @@ public static class AuthSetup
 
             options.OnRejected = async (context, cancellationToken) =>
             {
+                context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("Prisma.Api.RateLimiting")
+                    .RateLimited(context.HttpContext.Request.Method, AppLog.RouteOf(context.HttpContext));
+
                 if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
                     context.HttpContext.Response.Headers.RetryAfter = ((int)retryAfter.TotalSeconds).ToString();
 

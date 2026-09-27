@@ -2,6 +2,7 @@ using FluentValidation;
 using Microsoft.AspNetCore.Identity;
 using Prisma.Api.Infrastructure.Auth;
 using Prisma.Api.Infrastructure.Http;
+using Prisma.Api.Infrastructure.Logging;
 using Prisma.Domain;
 
 namespace Prisma.Api.Features.Auth;
@@ -21,7 +22,7 @@ public static class Login
         }
     }
 
-    public sealed class Handler(UserManager<AppUser> users, SignInManager<AppUser> signIn)
+    public sealed class Handler(UserManager<AppUser> users, SignInManager<AppUser> signIn, ILogger<Handler> logger)
     {
         // Mesma mensagem para e-mail inexistente e senha errada: não revela quem tem conta.
         private static readonly Error InvalidCredentials =
@@ -31,17 +32,27 @@ public static class Login
         {
             var user = await users.FindByEmailAsync(req.Email.Trim());
             if (user is null)
+            {
+                logger.LoginUnknownEmail();
                 return InvalidCredentials;
+            }
 
             var signedIn = await signIn.PasswordSignInAsync(user, req.Password, isPersistent: true, lockoutOnFailure: true);
 
             if (signedIn.IsLockedOut)
+            {
+                logger.LoginLockedOut(user.Id);
                 return new Error(ErrorType.TooManyAttempts,
                     "Conta bloqueada temporariamente por excesso de tentativas. Tente novamente em alguns minutos.");
+            }
 
             if (!signedIn.Succeeded)
+            {
+                logger.LoginFailed(user.Id, "WrongPassword");
                 return InvalidCredentials;
+            }
 
+            logger.LoginSucceeded(user.Id);
             return new Response(user.Id, user.Email!);
         }
     }

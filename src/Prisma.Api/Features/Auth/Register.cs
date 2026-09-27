@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Auth;
 using Prisma.Api.Infrastructure.Http;
+using Prisma.Api.Infrastructure.Logging;
 using Prisma.Domain;
 using Prisma.Domain.Categories;
 
@@ -33,13 +34,17 @@ public static class Register
         UserManager<AppUser> users,
         SignInManager<AppUser> signIn,
         IHttpContextAccessor httpContextAccessor,
-        IOptions<RegistrationOptions> registration)
+        IOptions<RegistrationOptions> registration,
+        ILogger<Handler> logger)
     {
         public async Task<Result<Response>> Execute(Request req, CancellationToken ct)
         {
             var email = req.Email.Trim();
             if (!registration.Value.Allows(email))
+            {
+                logger.RegistrationRejected("NotAllowed");
                 return new Error(ErrorType.Forbidden, "O cadastro está fechado por enquanto.");
+            }
 
             var user = new AppUser { UserName = email, Email = email };
 
@@ -53,6 +58,7 @@ public static class Register
                     e.Code is nameof(IdentityErrorDescriber.DuplicateEmail)
                         or nameof(IdentityErrorDescriber.DuplicateUserName));
                 var message = string.Join(" ", created.Errors.Select(e => e.Description).Distinct());
+                logger.RegistrationRejected(string.Join(",", created.Errors.Select(e => e.Code).Distinct()));
                 return new Error(isDuplicate ? ErrorType.Conflict : ErrorType.Validation, message);
             }
 
@@ -66,6 +72,7 @@ public static class Register
 
             // Cadastro já entra logado: sem confirmação de e-mail por enquanto (ver PLAN.md).
             await signIn.SignInAsync(user, isPersistent: true);
+            logger.UserRegistered(user.Id);
             return new Response(user.Id, email);
         }
     }
