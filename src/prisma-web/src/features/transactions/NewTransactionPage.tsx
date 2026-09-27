@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ArrowDown, CopyPlus, Undo2, X } from 'lucide-react'
+import { ArrowDown, CopyPlus, Plus, Undo2, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode, type RefObject } from 'react'
 import { useForm, useWatch, type Path, type PathValue } from 'react-hook-form'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { defaultPaymentMethod, paymentMethodLabels, type PaymentMethod } from '@/features/accounts/labels'
+import { NewAccountSheet } from '@/features/accounts/NewAccountSheet'
 import { useAccounts, type Account } from '@/features/accounts/queries'
 import { categoryLabels, resolveCategory, useCategories, type CategoryNode } from '@/features/categories/queries'
 import { ApiError } from '@/lib/api'
@@ -19,6 +20,7 @@ import { findBrand } from '@/lib/brands/merchants'
 import { todayInSaoPaulo } from '@/lib/dates'
 import { describeInstallments, formatCents } from '@/lib/money'
 import { readLastAccountId, saveLastAccountId } from '@/lib/preferences'
+import { accountGate } from './accountGate'
 import { AmountField, CategoryPicker, Chip, ChipRow, DateChooser, Section, TypeToggle, type EntryType } from './fields'
 import { useCreateTransaction, useCreateTransfer, useDescriptionSuggestions, useTransaction, type Transaction } from './queries'
 import { DescriptionCombobox } from './DescriptionCombobox'
@@ -80,19 +82,8 @@ export function NewTransactionPage() {
       </Shell>
     )
   }
-  if (activeAccounts.length === 0) {
-    return (
-      <Shell>
-        <div className="flex flex-col items-center gap-4 px-6 pt-16 text-center">
-          <p className="font-display text-3xl">Primeiro, uma conta</p>
-          <p className="text-muted-foreground">Lançamentos acontecem numa conta: corrente, cartão, carteira…</p>
-          <Button asChild className="rounded-full">
-            <Link to="/contas">Criar conta</Link>
-          </Button>
-        </div>
-      </Shell>
-    )
-  }
+  const gate = accountGate(accounts.data ?? [])
+  if (gate !== 'ready') return <NoActiveAccount gate={gate} />
 
   if (refundOf.data) {
     // A conta da compra, mesmo que tenha sido desativada depois: o estorno fica nela.
@@ -102,6 +93,44 @@ export function NewTransactionPage() {
   }
 
   return <Composers key={location.key} accounts={activeAccounts} categories={categories.data} repeat={repeat} />
+}
+
+// Sem conta ativa não há onde lançar. A conta nasce aqui mesmo, num painel: ao salvar, a lista de contas
+// se atualiza e esta tela vira o formulário de lançamento com a conta nova (antes, o botão levava a
+// Contas, que repetia o mesmo aviso e, depois de criar, abria o detalhe da conta: o lançamento se perdia).
+function NoActiveAccount({ gate }: { gate: 'none' | 'inactive' }) {
+  const [creating, setCreating] = useState(false)
+  return (
+    <Shell>
+      <div className="flex flex-col items-center gap-4 px-6 pt-16 text-center">
+        {gate === 'none' ? (
+          <>
+            <p className="font-display text-3xl">Primeiro, uma conta</p>
+            <p className="text-pretty text-muted-foreground">
+              Para lançar, crie a conta de onde o dinheiro sai ou onde ele entra: corrente, cartão, carteira…
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="font-display text-3xl">Suas contas estão desativadas</p>
+            <p className="text-pretty text-muted-foreground">Reative uma em Contas ou crie outra para lançar.</p>
+          </>
+        )}
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button className="rounded-full" onClick={() => setCreating(true)}>
+            <Plus />
+            Criar conta
+          </Button>
+          {gate === 'inactive' && (
+            <Button asChild variant="secondary" className="rounded-full">
+              <Link to="/contas">Ver contas</Link>
+            </Button>
+          )}
+        </div>
+      </div>
+      <NewAccountSheet open={creating} onClose={() => setCreating(false)} onCreated={() => setCreating(false)} />
+    </Shell>
+  )
 }
 
 // Receita, despesa e estorno num formulário; transferência em outro (duas pontas, sem categoria).

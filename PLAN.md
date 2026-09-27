@@ -416,6 +416,19 @@ discordam (texto em gradiente, halo e o número em destaque do Resumo ficam).
   *Pronto quando:* conferido no navegador nos dois modos e em 320 e 390px: nenhum sinal de
   carregamento com a tela parada, cursor aceso ao lado do valor vazio, Pagamento em chips.
 
+- [x] **2.19 Primeira conta sem desvio** (pedida pelo usuário, com investigação antes)
+  Sem conta, o "+" mostrava "Primeiro, uma conta" com um link para Contas, que repetia o mesmo aviso;
+  eram três botões "Criar conta" seguidos e, ao salvar, Contas abria o detalhe da conta nova: o
+  lançamento se perdia. Agora a conta nasce no próprio Lançar, num painel (`NewAccountSheet`, o mesmo
+  de Contas, que segue abrindo o detalhe ao criar); ao salvar, o cache das contas se atualiza e a tela
+  vira o formulário de lançamento com a conta nova escolhida e o foco no valor. Contas só desativadas
+  deixaram de ouvir "Primeiro, uma conta": a mensagem diz que estão desativadas, com "Criar conta" e
+  "Ver contas" (é lá que se reativa). O texto dos dois estados vazios ficou separado de propósito:
+  contextos diferentes (lançar × lista de contas).
+  *Pronto quando:* Vitest da regra (`accountGate`: nenhuma, só desativadas, pronta); no navegador,
+  com usuários novos: do "+" ao lançamento salvo sem sair do Lançar, contas desativadas com a mensagem
+  certa e Contas ainda abrindo o detalhe depois de criar; nos dois modos e em 320px.
+
 ---
 
 ## Hospedagem para uso próprio
@@ -554,3 +567,9 @@ Decidir quando a fase correspondente chegar:
   (quando fizer falta)
 - Cancelar as parcelas futuras de uma compra parcelada estornada (a 2.5 faz só o crédito único).
   (quando fizer falta)
+- Cartão × conta corrente (conferido em 2026-09-26): o cartão não pertence a uma conta, e está certo;
+  cada fatura escolhe de onde sai o dinheiro (qualquer conta ativa que não seja cartão; Pix, boleto,
+  débito ou TED). Melhorias futuras: conta de pagamento padrão no cartão (opcional, pré-selecionada
+  no "Pagar fatura") e débito automático de verdade (registrar o pagamento sozinho no vencimento,
+  a partir dessa conta; exige tarefa agendada no backend e regra para fatura que muda depois do
+  fechamento). (quando fizer falta)

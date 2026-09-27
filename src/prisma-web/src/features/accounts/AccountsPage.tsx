@@ -1,17 +1,15 @@
 import { ChevronRight, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { BottomSheet } from '@/components/BottomSheet'
 import { AccountTile } from '@/components/brand/Tiles'
 import { PrismLogo } from '@/components/brand/PrismLogo'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatCents } from '@/lib/money'
 import { cn } from '@/lib/utils'
-import { AccountForm } from './AccountForm'
 import { accountTypeLabels } from './labels'
+import { NewAccountSheet } from './NewAccountSheet'
 import { useAccountBalances, useAccounts, type Account, type AccountBalance } from './queries'
 
 export function AccountsPage() {
@@ -64,19 +62,14 @@ export function AccountsPage() {
         </ul>
       )}
 
-      <BottomSheet open={creating} onClose={() => setCreating(false)}>
-        <header className="px-4 pt-2 pb-3">
-          <SheetTitle className="font-display text-2xl font-normal">Nova conta</SheetTitle>
-        </header>
-        <AccountForm
-          formId="new-account"
-          submitLabel="Criar conta"
-          onSaved={(account) => {
-            setCreating(false)
-            navigate(`/contas/${account.id}`)
-          }}
-        />
-      </BottomSheet>
+      <NewAccountSheet
+        open={creating}
+        onClose={() => setCreating(false)}
+        onCreated={(account) => {
+          setCreating(false)
+          navigate(`/contas/${account.id}`)
+        }}
+      />
     </main>
   )
 }
