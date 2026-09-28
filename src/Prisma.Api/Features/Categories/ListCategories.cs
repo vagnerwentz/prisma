@@ -19,10 +19,13 @@ public static class ListCategories
     private static readonly StringComparer PortugueseOrder =
         StringComparer.Create(CultureInfo.GetCultureInfo("pt-BR"), ignoreCase: true);
 
-    public sealed class Handler(AppDbContext db)
+    public sealed class Handler(AppDbContext db, CategoryCatalog catalog)
     {
         public async Task<IReadOnlyList<CategoryNode>> Execute(CancellationToken ct)
         {
+            // Categorias novas do catálogo chegam aqui, uma vez por versão (docs/fase-2.md, 2.11).
+            await catalog.EnsureCurrent(ct);
+
             var all = await db.Categories
                 .AsNoTracking()
                 .Select(CategoryResponse.Projection)

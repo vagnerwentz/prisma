@@ -46,7 +46,7 @@ public static class Register
                 return new Error(ErrorType.Forbidden, "O cadastro está fechado por enquanto.");
             }
 
-            var user = new AppUser { UserName = email, Email = email };
+            var user = new AppUser { UserName = email, Email = email, CategoryCatalogVersion = DefaultCategories.Version };
 
             // Usuário e categorias padrão nascem juntos ou não nascem.
             await using var transaction = await db.Database.BeginTransactionAsync(ct);

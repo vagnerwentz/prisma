@@ -42,6 +42,7 @@ Nada de código misto. `Transaction.SettlementDate` ao lado de `CreatedAt`, nunc
 | Conta corrente | `AccountType.Checking` | |
 | Carteira / dinheiro | `AccountType.Cash` | |
 | Regra de categorização | `CategorizationRule` | |
+| Catálogo de categorias padrão | `DefaultCategories` | versionado (`Version`); cada categoria com `TemplateKey` estável |
 | Descrição original | `RawDescription` | texto cru da importação |
 | Compra presa a uma fatura | `StatementPinned` | movida à mão; o recálculo não a devolve |
 | Recálculo das faturas | `StatementReconciliation` | decide a fatura de cada compra no cartão |
@@ -138,6 +139,9 @@ validação de invariante pertencem ao `Prisma.Domain`.
 - **Comandos** passam pelo domínio, com entidades rastreadas.
 - **Consultas** usam `AsNoTracking()` com projeção direta para DTO, ou SQL à mão
   quando o dashboard exigir. Nunca carregue entidade de domínio só para somar valor.
+- **Única consulta que grava:** `GET /categories` entrega ao usuário as categorias das versões novas do
+  catálogo (`CategoryCatalog`, uma vez por versão, só para ele; `docs/fase-2.md`, 2.11). Sincronizar no
+  login não bastaria: a sessão é persistente.
 
 ---
 
@@ -223,7 +227,8 @@ infraestrutura (NetArchTest), e nenhum tipo fora da implementação de
 `Prisma.Domain.IClock` lê o relógio do sistema: `DateTime.Now`/`UtcNow`/`Today` e
 `DateTimeOffset.Now`/`UtcNow`. Essa segunda regra inspeciona o IL com Mono.Cecil (que
 vem junto com o NetArchTest), porque o NetArchTest só enxerga dependência de tipo, não
-de membro.
+de membro. Também confere que todo ícone do catálogo de categorias (`DefaultCategories`) está no mapa
+fechado do front (`categoryIcons.ts`); ícone novo no catálogo entra nos dois lugares.
 
 **Fixtures de parser** (Fase 4): arquivos reais de OFX e de fatura em PDF,
 anonimizados, com o resultado esperado versionado ao lado. Quando o banco mudar o

@@ -43,9 +43,10 @@ public sealed class CategoriesTests(PostgresFixture postgres)
 
         var tree = await Tree(client);
 
-        tree.Count(n => n.Type == "Expense").ShouldBe(10);
+        // docs/fase-1.md, 2.4, mais Seguros com 3 subcategorias (docs/fase-2.md, 2.11, versão 2 do catálogo).
+        tree.Count(n => n.Type == "Expense").ShouldBe(11);
         tree.Count(n => n.Type == "Income").ShouldBe(5);
-        tree.Sum(n => n.Subcategories.Count).ShouldBe(31);
+        tree.Sum(n => n.Subcategories.Count).ShouldBe(34);
 
         // "Outros" existe nos dois tipos.
         tree.Where(n => n.Name == "Outros").Select(n => n.Type).ShouldBe(["Income", "Expense"], ignoreOrder: true);

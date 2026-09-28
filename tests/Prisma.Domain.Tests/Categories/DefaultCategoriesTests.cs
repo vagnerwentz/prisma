@@ -6,7 +6,8 @@ namespace Prisma.Domain.Tests.Categories;
 
 public sealed class DefaultCategoriesTests
 {
-    // Transcrito de docs/fase-1.md, seção 2.4. É a especificação, não o código.
+    // Transcrito de docs/fase-1.md, seção 2.4, e docs/fase-2.md, 2.11 (Seguros, versão 2 do catálogo).
+    // É a especificação, não o código.
     private static readonly (TransactionType Type, string Name, string[] Subcategories)[] Spec =
     [
         (TransactionType.Expense, "Moradia", ["Aluguel", "Condomínio", "Energia", "Água", "Internet", "Gás"]),
@@ -17,6 +18,7 @@ public sealed class DefaultCategoriesTests
         (TransactionType.Expense, "Lazer", ["Streaming", "Viagem", "Bares", "Cinema"]),
         (TransactionType.Expense, "Compras", ["Roupas", "Eletrônicos", "Casa"]),
         (TransactionType.Expense, "Serviços", ["Assinaturas", "Telefonia"]),
+        (TransactionType.Expense, "Seguros", ["Vida", "Residencial", "Veicular"]),
         (TransactionType.Expense, "Impostos e Tarifas", []),
         (TransactionType.Expense, "Outros", []),
         (TransactionType.Income, "Salário", []),
@@ -90,4 +92,36 @@ public sealed class DefaultCategoriesTests
 
         first.Intersect(second).ShouldBeEmpty();
     }
+
+    // docs/fase-2.md, 2.11, regra 1: toda categoria padrão tem chave estável, única e legível.
+    [Fact]
+    public void Every_default_category_has_a_unique_stable_key()
+    {
+        var categories = DefaultCategories.CreateFor(Guid.NewGuid());
+
+        categories.ShouldAllBe(c => c.TemplateKey != null);
+        categories.Select(c => c.TemplateKey).ShouldBeUnique();
+        categories.ShouldAllBe(c => System.Text.RegularExpressions.Regex.IsMatch(c.TemplateKey!, "^(expense|income)(\\.[a-z-]+)+$"));
+        foreach (var sub in categories.Where(c => c.ParentCategoryId is not null))
+            sub.TemplateKey!.ShouldStartWith(categories.Single(c => c.Id == sub.ParentCategoryId).TemplateKey + ".");
+    }
+
+    [Fact]
+    public void Insurance_is_in_the_catalog_with_its_own_color_and_icons()
+    {
+        var categories = DefaultCategories.CreateFor(Guid.NewGuid());
+
+        var insurance = categories.Single(c => c.TemplateKey == "expense.insurance");
+        insurance.Name.ShouldBe("Seguros");
+        insurance.Color.ShouldBe("#10B981");
+        insurance.Icon.ShouldBe("shield-check");
+        categories.Where(c => c.ParentCategoryId == insurance.Id)
+            .Select(c => (c.TemplateKey, c.Name, c.Icon))
+            .ShouldBe([
+                ("expense.insurance.life", "Vida", "heart-handshake"),
+                ("expense.insurance.home", "Residencial", "house-plus"),
+                ("expense.insurance.vehicle", "Veicular", "car-front"),
+            ], ignoreOrder: true);
+    }
 }
+

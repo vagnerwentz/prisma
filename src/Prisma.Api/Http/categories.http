@@ -1,5 +1,6 @@
 # Categorias. Exige sessão: rode antes o Login de auth.http.
-# Usuário cadastrado a partir da etapa 1.6 já nasce com o conjunto padrão.
+# Usuário cadastrado a partir da etapa 1.6 já nasce com o conjunto padrão. A partir da 2.23, a lista
+# também entrega as categorias das versões novas do catálogo a quem se cadastrou antes (uma vez).
 
 ### Listar a árvore (guarda o id de "Alimentação" e de "Mercado")
 GET {{baseUrl}}/categories

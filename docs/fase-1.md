@@ -194,6 +194,9 @@ Regras (etapa 1.10):
 
 ### 2.4 Categorias padrão (seed do novo usuário)
 
+*A partir da etapa 2.23, o conjunto é um catálogo versionado, e quem já existia recebe as categorias das
+versões novas uma vez (`docs/fase-2.md`, 2.11). Versão 2: Seguros (Vida, Residencial, Veicular).*
+
 Nomes gravados em **pt-BR**, porque são dados exibidos ao usuário, não código.
 
 **Despesas:** Moradia (Aluguel, Condomínio, Energia, Água, Internet, Gás); Alimentação

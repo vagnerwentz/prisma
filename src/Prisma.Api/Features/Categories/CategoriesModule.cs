@@ -6,6 +6,7 @@ public static class CategoriesModule
 {
     public static IServiceCollection AddCategoryFeatures(this IServiceCollection services)
     {
+        services.AddScoped<CategoryCatalog>();
         services.AddScoped<ListCategories.Handler>();
         services.AddScoped<CreateCategory.Handler>();
         services.AddScoped<UpdateCategory.Handler>();

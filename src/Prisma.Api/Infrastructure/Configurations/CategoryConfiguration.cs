@@ -8,6 +8,7 @@ namespace Prisma.Api.Infrastructure.Configurations;
 public sealed class CategoryConfiguration : IEntityTypeConfiguration<Category>
 {
     public const string SiblingNameIndex = "ux_categories_sibling_name";
+    public const string TemplateKeyIndex = "ux_categories_template_key";
 
     public void Configure(EntityTypeBuilder<Category> builder)
     {
@@ -19,6 +20,7 @@ public sealed class CategoryConfiguration : IEntityTypeConfiguration<Category>
         builder.Property(c => c.Type).HasConversion<string>().HasMaxLength(20);
         builder.Property(c => c.Icon).HasMaxLength(Category.IconMaxLength);
         builder.Property(c => c.Color).HasMaxLength(7);
+        builder.Property(c => c.TemplateKey).HasMaxLength(100);
 
         builder.HasOne<AppUser>().WithMany().HasForeignKey(c => c.UserId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Category>().WithMany().HasForeignKey(c => c.ParentCategoryId).OnDelete(DeleteBehavior.Restrict);
@@ -30,5 +32,12 @@ public sealed class CategoryConfiguration : IEntityTypeConfiguration<Category>
             .AreNullsDistinct(false)
             .HasFilter("deleted_at IS NULL")
             .HasDatabaseName(SiblingNameIndex);
+
+        // Cada categoria do catálogo existe uma vez por usuário (docs/fase-2.md, 2.11): duas abas
+        // sincronizando ao mesmo tempo não duplicam.
+        builder.HasIndex(c => new { c.UserId, c.TemplateKey })
+            .IsUnique()
+            .HasFilter("template_key IS NOT NULL AND deleted_at IS NULL")
+            .HasDatabaseName(TemplateKeyIndex);
     }
 }

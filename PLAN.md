@@ -459,6 +459,14 @@ fatura paga > compra presa > datas editadas > previsão.
   *Pronto quando:* integração provando que a prévia lista exatamente o que o salvar move e não grava
   nada; Vitest dos textos; tela conferida com toques reais em 320, 390 e 1280px, nos dois modos.
 
+- [x] **2.23 Catálogo de categorias que evolui** (pedido do dono, antes da 2.21)
+  Categorias padrão com chave estável e versão; cada usuário recebe uma vez as categorias das versões
+  novas, sem perder o que personalizou nem ver voltar o que excluiu. Primeira entrada nova: Seguros
+  (Vida, Residencial, Veicular), pedido do pai do dono (`docs/fase-2.md`, 2.11).
+  *Pronto quando:* testes de domínio antes (as regras da 2.11); integração com usuário antigo, exclusão
+  que não volta, corrida sem duplicar e isolamento; teste que confere os ícones do catálogo contra o
+  mapa do front; tela conferida. *(Feita em 2026-09-28: 544 testes no backend, 223 no Vitest.)*
+
 - [ ] **2.21 Cartão que fecha N dias antes do vencimento**
   O cartão guarda o dia do vencimento e quantos dias antes dele é o melhor dia de compra (informados
   como o app do banco mostra); a compra feita no melhor dia de compra vai para a fatura seguinte;
@@ -631,6 +639,15 @@ Escopo em uma linha cada, para orientar decisões sem antecipar detalhe.
 ## Pendências de produto
 
 Decidir quando a fase correspondente chegar:
+
+- **Tela de categorias** (2026-09-28): a API já cria, renomeia, recolore e exclui categorias, mas o app
+  só as lista para escolher ao lançar; ninguém cria uma categoria própria sem mexer no banco. Adiada
+  pelo dono depois da 2.23. Para acrescentar uma categoria para todos, use o catálogo
+  (`DefaultCategories`: suba `Version` e marque as novas; `docs/fase-2.md`, 2.11).
+- **Revisão do código de categorias** (2026-09-28, propostas fora da 2.23): excluir categoria conferindo
+  com `AnyAsync` em vez de contar tudo; nome único entre irmãs que ignora maiúsculas mas não acentos
+  ("Agua" e "Água" convivem); validade maior da lista de categorias no front (muda pouco); categoria sem
+  ícone conhecido mostra o círculo tracejado, que lê como "carregando" (trocar por um ícone neutro).
 
 - **Premissas do produto a validar** (2026-09-27): `docs/validacao-premissas.md` lista 15 premissas
   (valor, usabilidade, viabilidade, técnica), com consultas SQL prontas, filtros de log e o roteiro das

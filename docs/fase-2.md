@@ -580,6 +580,58 @@ descobre o efeito depois (aviso com a contagem e "Desfazer" por 8 segundos). Ped
   digita; o erro no lugar da lista; o botão com o texto da regra 4. *Aceite:* Vitest dos textos e de
   quando pedir a prévia; conferido com toques reais em 320, 390 e 1280px, nos dois modos.
 
+### 2.11 Catálogo de categorias que evolui (etapa 2.23)
+
+**Por quê.** Cada usuário recebe no cadastro uma cópia das 46 categorias padrão (`DefaultCategories`),
+e é dono delas: renomeia, recolore e exclui sem afetar ninguém. Modelagem mantida (análise de
+2026-09-28: categorias globais exigiriam exceção no filtro de dono e mudariam o histórico de todos).
+O problema é evoluir o padrão: uma categoria nova só chegava a quem se cadastrasse depois. Pedido do
+pai do dono: "Faltou tipos de seguros, como de vida, residenciais, veicular."
+
+**Regras**
+
+1. **Catálogo versionado.** Cada categoria padrão tem uma chave estável (`expense.insurance.life`,
+   nunca renomeada) e a versão em que entrou no catálogo. A versão 1 é o conjunto original; a 2 traz
+   **Seguros** (raiz de despesa) com **Vida**, **Residencial** e **Veicular**.
+2. **Cada usuário guarda a versão do catálogo que já recebeu.** Quem se cadastra recebe o catálogo
+   inteiro e a versão atual; quem já existia está na versão 1.
+3. **Sincronização uma vez por versão, para o próprio usuário.** Quando a pessoa está numa versão
+   antiga, a lista de categorias acrescenta as categorias das versões novas e sobe a versão dela. Como
+   cada versão é aplicada uma vez só, **o que a pessoa excluir não volta**, e o que ela renomear não
+   ganha uma cópia com o nome antigo. Nenhuma leitura de outro usuário: o filtro de dono não tem exceção.
+4. **Adota o que já existe.** Se a pessoa já criou uma categoria com o mesmo nome no mesmo lugar
+   (mesmo tipo e mesma categoria pai), ela recebe a chave em vez de nascer uma duplicada. O mesmo vale
+   para carimbar a chave nas categorias originais que ainda têm o nome padrão.
+5. **Nunca mexe no que a pessoa personalizou** (nome, cor, ícone) nem nas transações já categorizadas.
+6. **Duas abas ao mesmo tempo não duplicam:** índice único de chave por usuário, e a corrida perdida
+   só recarrega a lista.
+7. **Ícone novo só entra com o mapa do front** (`categoryIcons.ts`): um teste do backend lê o mapa e
+   falha se algum ícone do catálogo não estiver nele (antes, o esquecimento só aparecia como o círculo
+   tracejado na tela).
+
+**Plano**
+
+- **Tarefa 1. Catálogo no domínio.** *(Feita: `DefaultCategories.Sync` e `Version`, `Category.TemplateKey`,
+  `DefaultCategories.Icons` para o teste do mapa; 11 testes novos e 6 mutações pegas. Até a tarefa 2, o
+  EF ignora a chave: a coluna ainda não existe.)* `DefaultCategories` com chave e versão por categoria (e uma
+  estrutura só por subcategoria, no lugar dos dois arrays paralelos de nome e ícone); `Category.TemplateKey`;
+  a sincronização como função pura (categorias ativas + versão do usuário → o que acrescentar, o que
+  carimbar, a versão nova). *Aceite (testes antes):* usuário na versão 1 recebe Seguros e as 3
+  subcategorias uma vez; na versão atual, nada muda; renomeada não duplica; excluída não volta; nome
+  igual é adotado; subcategoria vai para a raiz certa mesmo renomeada; cadastro novo = catálogo
+  inteiro e versão atual.
+- **Tarefa 2. Banco e API.** *(Feita: migration `AddCategoryCatalog` (versão 1 para quem já existia,
+  conferida numa cópia do banco local: 35 usuários na versão 1, nenhuma chave), `CategoryCatalog`
+  antes da lista, `CategoryCatalogTests` com 6 casos; 3 mutações pegas, inclusive a corrida.)* Migration: `categories.template_key` (índice único por usuário, entre as
+  ativas) e `users.category_catalog_version` (existentes = 1). O cadastro grava a versão atual; o
+  `GET /categories` sincroniza quando a versão do usuário é antiga. *Aceite (integração):* usuário
+  antigo vê Seguros na primeira lista e só uma vez; exclui Seguros e ela não volta; duas listas ao
+  mesmo tempo não duplicam; isolamento; migration numa cópia do banco local.
+- **Tarefa 3. Ícones no front.** *(Feita: `shield-check`, `heart-handshake`, `house-plus` e `car-front` no
+  mapa; `CategoryIconsTests` (arquitetura) falhou apontando os 4 antes de eles entrarem. Conferido com um
+  usuário antigo do banco local: Seguros apareceu na tela de lançar e ele passou para a versão 2.)* Os 4
+  ícones novos no `categoryIcons.ts` e o teste do backend que confere o mapa. *Aceite:* conferido na tela de lançar, nos dois modos.
+
 ## 3. Endpoints
 
 ```
@@ -639,6 +691,11 @@ ainda pode ser estornado; na parcelada, sobre o total da compra), para a tela pr
 
 - `POST /statements/{id}/date-preview` com `{ "closingDate", "dueDate" }`: as compras que mudariam de
   fatura com essas datas, sem gravar nada. 400 (as mesmas recusas do `PATCH`), 404.
+
+### Etapa 2.23 (seção 2.11)
+
+- `GET /categories` (já existe) passa a entregar as categorias das versões novas do catálogo ao usuário
+  que ainda não as recebeu, uma vez por versão. É a única consulta que grava (`CLAUDE.md`, seção 3).
 
 ## 4. Tela
 
@@ -841,6 +898,15 @@ que é análise, e no computador ocupa uma coluna estreita. Cada tela passa a re
   compra entrando; compra presa fora da lista; recusas iguais às do salvar; fatura paga; isolamento.
 - Vitest: quando pedir a prévia, título da lista, "de → para", valor da parcelada e do estorno, texto do
   botão.
+
+### Catálogo de categorias que evolui (etapa 2.23)
+
+- Domínio, antes da implementação: usuário antigo recebe as categorias novas uma vez; renomeada não
+  duplica; excluída não volta; nome igual no mesmo lugar é adotado, em outro lugar não; duas
+  sincronizações não duplicam; chaves únicas e estáveis.
+- Integração: usuário antigo vê Seguros uma vez; exclusão depois de receber não volta; categoria criada à
+  mão é adotada; duas listas ao mesmo tempo não duplicam; isolamento.
+- Arquitetura: todo ícone do catálogo está no mapa do front.
 
 ### Frontend (Vitest)
 

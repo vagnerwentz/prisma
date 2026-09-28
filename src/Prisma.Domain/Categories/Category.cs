@@ -20,6 +20,10 @@ public sealed partial class Category : Entity
     public string? Icon { get; private set; }
     public string? Color { get; private set; }
 
+    // Chave estável da categoria padrão de onde esta veio (docs/fase-2.md, 2.11), como
+    // "expense.food.groceries". Nula na categoria que a pessoa criou. Não muda quando ela renomeia.
+    public string? TemplateKey { get; private set; }
+
     public static Result<Category> Create(
         Guid userId, string name, TransactionType type, Category? parent, string? icon, string? color)
     {
@@ -48,6 +52,9 @@ public sealed partial class Category : Entity
             Color = NullIfBlank(color),
         };
     }
+
+    // Usado só pelo catálogo (DefaultCategories): a categoria nasce do padrão ou é adotada por ele.
+    internal void StampTemplate(string key) => TemplateKey = key;
 
     // Tipo e categoria pai não são editáveis nesta fase.
     public Result<Category> Update(string name, string? icon, string? color)
