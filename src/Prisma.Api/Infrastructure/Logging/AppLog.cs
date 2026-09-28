@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Prisma.Domain.Accounts;
+using Prisma.Domain.Statements;
 
 namespace Prisma.Api.Infrastructure.Logging;
 
@@ -54,6 +55,9 @@ public static partial class AppLog
 
     [LoggerMessage(3001, LogLevel.Information, "Statement {StatementId} of card {CardId} paid from account {FromAccountId}")]
     public static partial void StatementPaid(this ILogger logger, Guid statementId, Guid cardId, Guid fromAccountId);
+
+    [LoggerMessage(3002, LogLevel.Information, "Purchase {PurchaseId} moved to the {Direction} statement (pinned: {Pinned})")]
+    public static partial void PurchaseMovedToStatement(this ILogger logger, Guid purchaseId, StatementShift direction, bool pinned);
 
     // Rota modelo (/statements/{id}/pay), nunca o caminho cru: ele pode levar ids e consulta. Depois de
     // uma exceção, o ASP.NET tira o endpoint do contexto e o guarda no IExceptionHandlerFeature.

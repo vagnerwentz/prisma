@@ -16,8 +16,72 @@ public sealed record CardPurchaseEditResult(
     IReadOnlyList<Transaction> Removed,
     IReadOnlyList<Statement> OpenedStatements);
 
+// Resultado de mover uma compra de fatura: as transações movidas, as faturas abertas para recebê-las
+// e se a compra ficou presa (não fica quando volta à fatura que a previsão daria).
+public sealed record StatementMove(IReadOnlyList<Transaction> Moved, IReadOnlyList<Statement> Opened, bool Pinned);
+
 public static class CardPurchase
 {
+    // Muda a compra de fatura sem mudar a data dela (docs/fase-2.md, 2.9, regras 2 e 3): à vista, a
+    // transação; parcelada, todas as parcelas, cada uma um ciclo. purchase: as transações ativas da
+    // compra; statements: todas as faturas do cartão.
+    public static Result<StatementMove> MoveStatement(
+        IReadOnlyList<Transaction> purchase, Account card, IReadOnlyCollection<Statement> statements, StatementShift shift)
+    {
+        if (purchase.Count == 0)
+            throw new ArgumentException("A compra não tem transações.", nameof(purchase));
+
+        var group = purchase[0].InstallmentPurchaseId;
+        if (purchase.Any(t => t.InstallmentPurchaseId != group) || (group is null && purchase.Count > 1))
+            throw new ArgumentException("As transações devem ser da mesma compra.", nameof(purchase));
+
+        if (purchase.Any(t => t.Type == TransactionType.Refund))
+            return Invalid("Estorno segue a data dele. Para mudá-lo de fatura, mude a data do estorno.");
+
+        if (purchase.Any(t => t.StatementId is null || t.Type != TransactionType.Expense || t.AccountId != card.Id))
+            return Invalid("Só compras no cartão mudam de fatura.");
+
+        var byId = statements.ToDictionary(s => s.Id);
+        var byReference = statements.ToDictionary(s => s.Reference);
+        if (purchase.Any(t => byId[t.StatementId!.Value].IsPaid))
+            return Invalid("Esta compra está numa fatura paga. Desfaça o pagamento para mudá-la de fatura.");
+
+        var step = shift == StatementShift.Next ? 1 : -1;
+        var targets = purchase.ToDictionary(t => t, t =>
+        {
+            var reference = StatementCalculator.ShiftReference(byId[t.StatementId!.Value].Reference, step);
+            return byReference.TryGetValue(reference, out var existing)
+                ? (Existing: existing, Dates: existing.Dates)
+                : (Existing: (Statement?)null, Dates: StatementCalculator.ForReference(reference, card.ClosingDay!.Value, card.DueDay!.Value));
+        });
+
+        if (targets.Values.Any(t => t.Existing?.IsPaid == true))
+            return Invalid(shift == StatementShift.Next ? "A fatura seguinte já está paga." : "A fatura anterior já está paga.");
+
+        // Validado: a partir daqui nada falha.
+        var opened = new List<Statement>();
+        var destination = targets.ToDictionary(pair => pair.Key, pair =>
+        {
+            if (pair.Value.Existing is { } existing)
+                return existing;
+            var statement = Statement.Open(card.UserId, card.Id, pair.Value.Dates);
+            opened.Add(statement);
+            return statement;
+        });
+
+        // Regra 3: se a primeira parcela cai onde a previsão a poria, a compra volta a ser do cálculo.
+        var first = purchase.OrderBy(t => t.InstallmentNumber ?? 1).First();
+        var dates = statements.Select(s => s.Dates).Concat(opened.Select(s => s.Dates)).ToList();
+        var calculated = StatementCalculator.ForInstallment(
+            first.PurchaseDate, first.InstallmentNumber ?? 1, card.ClosingDay!.Value, card.DueDay!.Value, dates);
+        var pinned = calculated.Reference != destination[first].Reference;
+
+        foreach (var (transaction, statement) in destination)
+            transaction.MoveToStatement(statement, pinned);
+
+        return new StatementMove(purchase, opened, pinned);
+    }
+
     // Editar a compra redistribui as parcelas não pagas e mantém a soma exata (docs/fase-1.md,
     // 2.2). Parcela paga é a que está em fatura paga: mantém o valor e não pode ser removida.
     // Mudar a data leva cada parcela para a fatura do seu ciclo a partir da nova data (etapa 1.14b).
@@ -66,10 +130,15 @@ public static class CardPurchase
         var placement = new StatementPlacement(card, statements, purchaseDate);
 
         // Com data nova, todas as parcelas mudam de fatura; nenhuma pode cair em fatura paga.
-        // Sem data nova, só as parcelas acrescentadas precisam de fatura.
+        // Sem data nova, só as parcelas acrescentadas precisam de fatura. Na compra presa (movida de
+        // fatura, docs/fase-2.md, 2.9), elas seguem a última parcela, para os ciclos continuarem
+        // consecutivos, e ficam presas como as outras.
+        var pinnedLast = !dateChanges && ordered.Any(t => t.StatementPinned) ? ordered[^1] : null;
         var firstPlaced = dateChanges ? 1 : ordered.Count + 1;
         var targets = Enumerable.Range(firstPlaced, Math.Max(installmentCount - firstPlaced + 1, 0))
-            .ToDictionary(n => n, placement.For);
+            .ToDictionary(n => n, n => pinnedLast is not null
+                ? placement.After(statementsById[pinnedLast.StatementId!.Value], n - pinnedLast.InstallmentNumber!.Value)
+                : placement.For(n));
         if (targets.Values.Any(t => t.IsPaid))
             return dateChanges ? MovedIntoPaidStatement : NewInstallmentsIntoPaidStatement;
 
@@ -84,8 +153,13 @@ public static class CardPurchase
 
         var added = new List<Transaction>();
         for (var number = ordered.Count + 1; number <= installmentCount; number++)
-            added.Add(Transaction.CreateCardInstallment(
-                purchase.UserId, card, 1, purchaseDate, targets[number], category, text, purchase.Id, number));
+        {
+            var installment = Transaction.CreateCardInstallment(
+                purchase.UserId, card, 1, purchaseDate, targets[number], category, text, purchase.Id, number);
+            if (pinnedLast is not null)
+                installment.MoveToStatement(targets[number], pinned: true);
+            added.Add(installment);
+        }
 
         var parts = new Money(remaining).SplitInto(Math.Max(unpaidCount, 1));
         var toDistribute = kept.Concat(added).OrderBy(t => t.InstallmentNumber).ToList();
@@ -200,13 +274,24 @@ public static class CardPurchase
         {
             var dates = StatementCalculator.ForInstallment(
                 purchaseDate, installmentNumber, card.ClosingDay!.Value, card.DueDay!.Value, _existingDates);
+            return Existing(dates.Reference) ?? Open(dates);
+        }
 
-            if (!_byReference.TryGetValue(dates.Reference, out var statement))
-            {
-                statement = Statement.Open(card.UserId, card.Id, dates);
-                _byReference.Add(dates.Reference, statement);
-                _opened.Add(statement);
-            }
+        // A fatura "months" ciclos depois de outra, aberta com as datas calculadas se faltar.
+        public Statement After(Statement statement, int months)
+        {
+            var reference = StatementCalculator.ShiftReference(statement.Reference, months);
+            return Existing(reference)
+                   ?? Open(StatementCalculator.ForReference(reference, card.ClosingDay!.Value, card.DueDay!.Value));
+        }
+
+        private Statement? Existing(string reference) => _byReference.GetValueOrDefault(reference);
+
+        private Statement Open(StatementDates dates)
+        {
+            var statement = Statement.Open(card.UserId, card.Id, dates);
+            _byReference.Add(dates.Reference, statement);
+            _opened.Add(statement);
             return statement;
         }
     }
@@ -256,23 +341,13 @@ public static class CardPurchase
             ? InstallmentPurchase.Create(userId, card.Id, text, totalAmountCents, installmentCount, purchaseDate)
             : null;
 
-        var statements = existingStatements.ToDictionary(s => s.Reference);
-        var existingDates = existingStatements.Select(s => s.Dates).ToList();
-        var opened = new List<Statement>();
+        // A mesma escolha de fatura da edição e do estorno (e do recálculo, StatementReconciliation).
+        var placement = new StatementPlacement(card, existingStatements, purchaseDate);
         var installments = new List<Transaction>();
 
         for (var number = 1; number <= installmentCount; number++)
         {
-            var dates = StatementCalculator.ForInstallment(
-                purchaseDate, number, card.ClosingDay!.Value, card.DueDay!.Value, existingDates);
-
-            if (!statements.TryGetValue(dates.Reference, out var statement))
-            {
-                statement = Statement.Open(userId, card.Id, dates);
-                statements.Add(dates.Reference, statement);
-                opened.Add(statement);
-            }
-
+            var statement = placement.For(number);
             if (statement.IsPaid)
                 return PurchaseIntoPaidStatement;
 
@@ -281,7 +356,7 @@ public static class CardPurchase
                 purchase?.Id, purchase is null ? null : number));
         }
 
-        return new CardPurchaseResult(purchase, installments, opened);
+        return new CardPurchaseResult(purchase, installments, placement.Opened);
     }
 
     private static Error? Validate(

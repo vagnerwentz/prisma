@@ -21,6 +21,8 @@ public sealed record TransactionResponse(
     TransferDirection? TransferDirection,
     TransactionSource Source,
     Guid? RefundedTransactionId,
+    // Compra movida à mão para a fatura em que está (docs/fase-2.md, 2.9, regra 2).
+    bool StatementPinned,
     // Só nas despesas, e só na lista e no detalhe (RefundAmounts.Fill): quanto já foi estornado e
     // quanto ainda pode ser; na compra parcelada, sobre o total da compra.
     long? RefundedCents,
@@ -30,7 +32,7 @@ public sealed record TransactionResponse(
         new TransactionResponse(
             t.Id, t.AccountId, t.Type, t.AmountCents, t.PurchaseDate, t.SettlementDate, t.StatementId,
             t.CategoryId, t.Method, t.Description, t.RawDescription, t.InstallmentPurchaseId,
-            t.InstallmentNumber, t.TransferPairId, t.TransferDirection, t.Source, t.RefundedTransactionId,
+            t.InstallmentNumber, t.TransferPairId, t.TransferDirection, t.Source, t.RefundedTransactionId, t.StatementPinned,
             null, null);
 
     private static readonly Func<Transaction, TransactionResponse> Compiled = Projection.Compile();

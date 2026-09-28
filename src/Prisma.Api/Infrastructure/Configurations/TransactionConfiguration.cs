@@ -21,6 +21,9 @@ public sealed class TransactionConfiguration : IEntityTypeConfiguration<Transact
                 "(type = 'Transfer') = (transfer_pair_id IS NOT NULL AND transfer_direction IS NOT NULL)");
             table.HasCheckConstraint("ck_transactions_refund_link",
                 "refunded_transaction_id IS NULL OR type = 'Refund'");
+            // Só compra no cartão fica presa a uma fatura (docs/fase-2.md, 2.9, regra 2).
+            table.HasCheckConstraint("ck_transactions_statement_pinned",
+                "NOT statement_pinned OR (statement_id IS NOT NULL AND type = 'Expense')");
         });
 
         builder.Property(t => t.Type).HasConversion<string>().HasMaxLength(20);

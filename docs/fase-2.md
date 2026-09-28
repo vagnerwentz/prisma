@@ -385,6 +385,201 @@ Na tela, em despesa: "if" → iFood; "sao" → Farmácia São João (início de 
 
 ---
 
+### 2.9 Fatura alinhada ao banco (etapa 2.20)
+
+**Por quê.** O Prisma prevê em qual fatura cada compra cai, mas o banco decide. Duas coisas escapam
+de qualquer previsão (evidência em `docs/validacao-premissas.md`, seção 11): o banco fecha a fatura em
+dias que variam de mês para mês, e uma compra feita perto do fechamento pode ser processada dias
+depois e cair na fatura seguinte (os dois lanches de sexta, 25/09/2026, à noite, foram para a fatura
+de novembro do Itaú, embora a fatura de outubro só fechasse em 27/09). Hoje o Prisma não tem como se
+alinhar: editar as datas de uma fatura só muda a data de caixa, e as compras nunca mudam de fatura.
+Esta etapa é a base; a regra do cartão "N dias antes do vencimento" (2.21) e o vencimento em dia útil
+(2.22) vêm depois e usam o mesmo recálculo.
+
+**Regras**
+
+1. **Quem manda, do mais forte ao mais fraco:** fatura paga (nada entra nem sai, como já é hoje);
+   compra presa pela pessoa a uma fatura (regra 2); datas editadas de uma fatura; a previsão pelo
+   cartão (`docs/fase-1.md`, 2.1). O recálculo nunca desfaz uma escolha de quem está acima.
+2. **Mover uma compra para a fatura seguinte ou anterior.** A compra inteira anda um ciclo: à vista,
+   a transação; parcelada, todas as parcelas juntas, cada uma para o ciclo seguinte (ou anterior) ao
+   seu. A **data da compra não muda** (`CLAUDE.md`, regra 4); muda a fatura e, com ela, o
+   `SettlementDate` (o vencimento da fatura nova). A compra fica **presa**: um recálculo posterior não
+   a devolve. Abre a fatura que faltar. Recusada, com mensagem em pt-BR, se alguma parcela está em
+   fatura paga ou se alguma cairia numa fatura paga. Vale só para compra no cartão: estorno,
+   transferência e lançamento fora do cartão não se movem assim.
+3. **Voltar para a fatura calculada solta a compra.** Se a compra movida volta ao ciclo que a
+   previsão daria, deixa de estar presa (o "Desfazer" do aviso faz isso). **Mudar a data da compra
+   também a solta** (decidido no checkpoint A): ela foi presa por causa da data antiga, e com a data
+   nova a previsão volta a valer.
+4. **Editar as datas de uma fatura move compras.** Depois da edição, o recálculo reposiciona as
+   compras no cartão (e os estornos no cartão, que seguem a data do estorno) que não estão presas nem
+   têm parcela em fatura paga: a compra cujo ciclo mudou anda inteira, como na regra 2. Pagamentos de
+   fatura (transferências) nunca se movem.
+5. **Uma fatura não atravessa as vizinhas.** O novo fechamento tem de ser depois do fechamento da
+   fatura anterior e antes do da seguinte; a vizinha que ainda não existe conta com as datas que o
+   cartão daria a ela, para a ordem das faturas nunca quebrar. O vencimento continua não podendo ser
+   antes do fechamento, e a fatura paga continua sem mudar de datas (essa recusa vem primeiro). Mensagens: "O fechamento tem de ser depois do fechamento da fatura anterior
+   (dd/mm)." e "O fechamento tem de ser antes do fechamento da fatura seguinte (dd/mm)."
+   **Ordem completa (tarefa 8):** vencimento da anterior < fechamento ≤ vencimento < fechamento da
+   seguinte, como todo banco faz. Protege do giro a mais na roda de data do celular: novembro fechando
+   em 27/09 (levaria um mês de compras para dezembro) ou vencendo em 04/12 (levaria o caixa de novembro
+   inteiro para dezembro, sem nenhuma compra mudar de fatura). Mensagens: "O fechamento tem de ser
+   depois do vencimento da fatura anterior (dd/mm)." e "O vencimento tem de ser antes do fechamento da
+   fatura seguinte (dd/mm)."
+6. **Concorrência.** Pôr ou tirar uma compra de uma fatura conta como mudança nela (token `xmin`,
+   como no pagamento): mover uma compra para uma fatura enquanto ela é paga dá 409 para um dos dois,
+   e a fatura paga nunca muda de valor.
+7. **O resto acompanha sozinho:** o total da fatura, a lista da fatura, o Resumo e a Análise leem o
+   `StatementId` e o `SettlementDate`, então mostram a compra no mês novo sem regra própria.
+8. **Fora desta etapa:** a semântica do dia do fechamento (a compra do próprio dia hoje entra na
+   fatura; no Itaú vai para a seguinte) muda na 2.21, junto com a regra "N dias antes".
+
+**Exemplos (usados nos testes).** Cartão "fecha 26, vence 5", como o do dono estava cadastrado.
+
+| Caso | Antes | Depois |
+|---|---|---|
+| Lanches de R$ 30,00 e R$ 25,50 em 25/09/2026, movidos para a seguinte | fatura 2026-10 (fecha 26/09, vence 05/10) | fatura 2026-11 (fecha 26/10, vence 05/11); compra em 25/09; caixa 05/11; presos; o total de 2026-10 cai R$ 55,50; o "Saiu" de outubro cai e o de novembro sobe |
+| "Desfazer" de um lanche | fatura 2026-11, preso | volta à 2026-10, solto (regra 3) |
+| R$ 100,00 em 3x em 20/09/2026, movida para a seguinte | 2026-10, 2026-11, 2026-12 (3334, 3333, 3333) | 2026-11, 2026-12, 2027-01, mesmos valores, soma R$ 100,00 |
+| Mover para a seguinte com parcela em fatura paga | | recusado |
+| Fatura 2026-11 editada para fechar em 27/10 | compra de 27/10 na 2026-12 | vai para a 2026-11 (regra 4) |
+| Fatura 2026-11 editada para fechar em 24/10 | compra de 25/10 na 2026-11 | vai para a 2026-12 |
+| O mesmo, com a compra de 25/10 presa na 2026-11 | | fica na 2026-11 (regra 1) |
+| Fatura 2026-11 editada para fechar em 26/09 | | recusado: não é depois do fechamento da 2026-10 (regra 5) |
+
+**Plano de implementação** (fatias verticais; cada tarefa deixa o sistema funcionando, com os testes
+escritos antes, por ser regra de data e de dinheiro)
+
+*Fase A: domínio*
+
+- **Tarefa 1. Recálculo único da fatura de cada compra.** *(Feita: `StatementReconciliation`; a criação
+  de compra passou a usar a mesma escolha de fatura da edição e do estorno.)* Uma peça do domínio que, dado o cartão, as
+  faturas e as compras (com as parcelas), decide a fatura de cada uma seguindo a regra 1, e devolve o
+  que mudou e as faturas a abrir. Passa a ser usada no lugar do laço repetido da criação de compra.
+  *Aceite:* testes de propriedade (CsCheck): a soma das parcelas nunca muda; as parcelas de uma
+  compra ficam em ciclos consecutivos; nada entra nem sai de fatura paga; sem nenhuma edição nem
+  compra presa, o resultado é igual ao de hoje (os testes existentes de 1.7, 1.9 e 1.14b continuam
+  verdes). *Arquivos:* `Prisma.Domain/Statements` (peça nova), `CardPurchase.cs`, testes em
+  `Prisma.Domain.Tests`. *Tamanho:* M.
+- **Tarefa 2. Mover compra para a fatura seguinte ou anterior** (regras 2 e 3). *(Feita:
+  `CardPurchase.MoveStatement`, `StatementCalculator.ForReference` e a compra presa no recálculo. Até a
+  tarefa 4, o EF ignora a compra presa: a coluna ainda não existe.)* *Aceite:* os casos 1
+  a 4 da tabela; a data da compra nunca muda; mover e voltar solta a compra. *Arquivos:*
+  `Transaction.cs` (compra presa), `CardPurchase.cs`, testes. *Depende de:* 1. *Tamanho:* M.
+- **Tarefa 3. Editar datas movendo compras e respeitando as vizinhas** (regras 4 e 5). *(Feita:
+  `StatementEditing.EditDates` com o cartão, as faturas e as transações dele, devolvendo o que mudou e
+  quantas compras (a parcelada conta uma); a regra 5 em `Statement.EditDates`. O caminho antigo, só
+  com o caixa, fica para o `PATCH` até a tarefa 6, que o remove.)* *Aceite:* os
+  casos 5 a 8 da tabela; estorno no cartão acompanha; transferência não se move. *Arquivos:*
+  `StatementEditing.cs`, `Statement.cs`, testes. *Depende de:* 1. *Tamanho:* M.
+
+*Checkpoint A:* `dotnet test tests/Prisma.Domain.Tests` verde e a suíte inteira sem regressão;
+revisão com o dono antes de mexer no banco. *(Em 2026-09-27: 337 de domínio e 504 no total, verdes;
+aguardando a revisão. Os lanches só podem ser movidos em produção depois da tarefa 5.)* Achados da
+revisão: (1) parcela acrescentada a uma compra presa ia para a fatura calculada, e duas parcelas
+caíam na mesma fatura; corrigido: ela segue a última parcela e fica presa (teste em
+`CardPurchaseMoveTests`); (2) mudar a data de uma compra presa a deixava presa na fatura da data
+nova; decidido que a solta (regra 3), com teste. Checkpoint aprovado pelo dono ("continue").
+
+*Fase B: API e banco*
+
+- **Tarefa 4. Persistir a compra presa.** Coluna nova na tabela de transações, migration e
+  configuração, trocando o `Ignore` provisório da tarefa 2 pelo mapeamento. *(Feita: coluna
+  `statement_pinned`, migration `AddStatementPinned`, com a trava `ck_transactions_statement_pinned`:
+  só despesa no cartão fica presa. Aplicada numa cópia do banco local, com 36 mil transações, todas
+  soltas.)* *Aceite:* migration aplica num banco vazio e numa cópia do banco local; transações
+  existentes nascem soltas. *Tamanho:* S.
+- **Tarefa 5. Endpoint de mover compra.** Recebe a direção (seguinte ou anterior) para uma compra no
+  cartão; toca as faturas envolvidas (regra 6); `.http` atualizado. *(Feita: `MoveStatement`,
+  `StatementTouch` (o `UpdatedAt` da fatura vai para o UPDATE, que confere o `xmin`), evento de log
+  3002, `statementPinned` na resposta das transações; testes em `StatementAlignmentTests`. Sem o toque,
+  o teste de corrida falha em todas as rodadas.)* *Aceite (integração):* o cenário
+  dos lanches de ponta a ponta (total da fatura 2026-10 e 2026-11, lista da fatura, Resumo de outubro
+  e de novembro); parcelada anda inteira; recusa com fatura paga em pt-BR; corrida com o pagamento
+  dá 409 e a fatura paga não muda; outro usuário recebe 404. *Depende de:* 2 e 4. *Tamanho:* M.
+- **Tarefa 6. Editar datas da fatura com o recálculo.** O `PATCH /statements/{id}` passa a mover
+  compras e a aplicar a regra 5 (carregando todas as faturas e transações ativas do cartão); a resposta
+  diz quantas compras mudaram de fatura. Remove o caminho antigo do `StatementEditing`. *(Feita:
+  resposta com `movedPurchases`, 409 no lugar de corromper a fatura paga, também provado com o toque
+  retirado.)* *Aceite
+  (integração):* casos 5 a 8 pela API, com o total das duas faturas envolvidas conferido. *Depende de:*
+  3 e 4. *Tamanho:* S a M.
+
+*Checkpoint B:* `dotnet test` inteiro verde; o cenário dos lanches conferido pelo `.http`. *(Em
+2026-09-27: 518 testes verdes; migration aplicada no banco local; o endpoint conferido numa instância
+local. Conferido pelo dono no Postman, na API local: os dois lanches foram para a fatura seguinte,
+voltaram com "Previous" e foram de novo com "Next".)*
+
+*Fase C: telas*
+
+- **Tarefa 7. Mover pela tela.** *(Feita: no painel da compra, o título "Na fatura de novembro" e os
+  botões "Mover para outubro" / "Mover para dezembro" (verbo + mês de destino, sem setas: "Próxima
+  fatura" com seta lia como navegar, achado do dono), lado a lado com a mesma largura e um embaixo do
+  outro em 320px; só as direções que a API aceitaria (`statementMove.ts`, com Vitest); aviso com
+  "Desfazer" e a nota "Você moveu esta compra para esta fatura." na compra presa. Na lista de
+  lançamentos (que segue a data da compra, decisão do dono: o lanche de 25/09 continua em setembro), a
+  compra movida ganha uma linha "fatura de novembro", própria para caber inteira em 320px. Conferido em 320, 390 e 1280px, nos dois modos, com parcelada, "Desfazer" e fatura paga.)* Tipos da API regerados; no painel de uma compra no cartão, a fatura
+  em que ela está e "Mover para a próxima fatura" / "para a anterior" (escondido se a compra ou o
+  destino estiverem em fatura paga); aviso com "Desfazer"; invalidação de faturas, lançamentos,
+  saldos e Resumo. *Aceite:* Vitest do que decide as ações disponíveis e dos textos; no navegador,
+  os lanches mudam de fatura e o Resumo de outubro e de novembro muda junto. *Tamanho:* M.
+- **Tarefa 8. Ajustar datas com retorno.** No "Ajustar datas" da fatura, as mensagens da regra 5 e o
+  aviso "N compras mudaram de fatura". *(Feita: aviso com o vencimento, quantas compras mudaram e
+  "Desfazer", que volta às datas de antes; a ordem completa da regra 5 no domínio, com testes antes e o
+  caso do iPhone pela API; texto de ajuda novo; saldos recarregados após o ajuste. Conferido em 390px
+  claro e 320px escuro.)* Achado pelo dono: com o painel aberto, o "Desfazer" do aviso precisava de
+  dois toques (o primeiro caía no fundo do painel e o fechava). Corrigido no `BottomSheet` e no
+  `Toaster`, para todos os avisos; conferido com toques reais do mouse, não com `element.click()`. *Aceite:* conferido no navegador. *Depende de:* 6. *Tamanho:* S.
+
+*Checkpoint C:* telas nos dois modos e em 320, 390 e 1280px; o dono cadastra (ou já tem) os dois
+lanches de 25/09 no cartão Itaú e os move para a fatura de novembro; o total de outubro no Prisma é
+comparado com o total da fatura no app do Itaú (as diferenças que sobrarem são compras não lançadas ou movidas).
+
+**Riscos**
+
+| Risco | Impacto | Como tratar |
+|---|---|---|
+| Mover para uma fatura sendo paga ao mesmo tempo | Alto (fatura paga mudaria de valor) | Regra 6, com teste de corrida |
+| O recálculo único mudar o comportamento de hoje sem querer | Alto (compras antigas mudando de fatura) | Propriedade "sem edição nem presa, igual a hoje" e os testes antigos verdes |
+| Editar datas mover mais compras do que a pessoa esperava | Médio | A resposta e o aviso dizem quantas compras mudaram; a regra 5 impede o caso absurdo |
+| Compra presa confundir depois ("por que não voltou?") | Baixo | Voltar ao ciclo calculado solta a compra; o painel mostra que ela foi ajustada à mão |
+
+### 2.10 Prévia do ajuste de datas (etapa 2.20b)
+
+**Por quê.** Na 2.20, ajustar as datas de uma fatura move as compras cujo ciclo mudou, e a pessoa só
+descobre o efeito depois (aviso com a contagem e "Desfazer" por 8 segundos). Pedido do dono: ver
+**antes de salvar** quais compras mudariam de fatura.
+
+**Regras**
+
+1. **Ao vivo, no próprio formulário**, não num diálogo de confirmação: enquanto a pessoa mexe nas
+   datas, a tela mostra as compras que mudariam de fatura, cada uma com nome, data da compra, valor e
+   "de → para" (meses das faturas). A parcelada aparece uma vez, com o valor total e o mês da primeira
+   parcela.
+2. **A prévia e o salvar não podem discordar:** a prévia chama a mesma peça do domínio
+   (`StatementEditing.EditDates`) sobre dados lidos sem rastreamento, e nada é gravado.
+3. **As recusas aparecem antes de salvar:** a mesma mensagem da regra 5 da seção 2.9 surge na hora, e o
+   botão de salvar fica desativado.
+4. **O botão diz o que vai acontecer:** "Salvar datas" quando nada muda de fatura; "Salvar e mover 1
+   compra" / "Salvar e mover N compras".
+5. **A prévia é do momento:** se outra compra entrar entre a prévia e o salvar (outro aparelho), o aviso
+   depois de salvar conta o que de fato mudou, e o "Desfazer" continua.
+
+**Plano**
+
+- **Tarefa 1. Endpoint de prévia.** *(Feita: `PreviewStatementDates`, com o carregamento compartilhado
+  com o `PATCH` em `CardLedger`; a prévia lê sem rastrear. Provado com mutação: se ela copiasse o
+  salvar do `PATCH`, o teste acusa a data gravada.)* `POST /statements/{id}/date-preview` com `{ closingDate, dueDate }`:
+  200 com as compras que mudariam, ou 400/404 como o `PATCH`. *Aceite (integração, antes do código):* a
+  prévia lista exatamente as compras que o `PATCH` depois move; nada muda no banco; recusas em pt-BR;
+  fatura paga recusada; outro usuário recebe 404. `.http` atualizado.
+- **Tarefa 2. Prévia na tela.** *(Feita: `statementPreview.ts` com Vitest, espera de 300 ms, lista
+  esmaecida enquanto recalcula, o "de → para" com a largura toda para não cortar em 320px. Conferido
+  com toques reais: a prévia disse 3 compras, e o aviso depois de salvar também.)* Tipos regerados; a lista no "Ajustar datas", com espera curta enquanto se
+  digita; o erro no lugar da lista; o botão com o texto da regra 4. *Aceite:* Vitest dos textos e de
+  quando pedir a prévia; conferido com toques reais em 320, 390 e 1280px, nos dois modos.
+
 ## 3. Endpoints
 
 ```
@@ -431,6 +626,19 @@ ainda pode ser estornado; na parcelada, sobre o total da compra), para a tela pr
 `installments` precisa ser 1 ou ausente no estorno.
 
 ---
+
+### Etapa 2.20 (seção 2.9)
+
+- `POST /transactions/{id}/move-statement` com `{ "direction": "Next" | "Previous" }`: move a compra no
+  cartão (a transação à vista ou a compra parcelada inteira, a partir de qualquer parcela). Devolve as
+  transações movidas. 400 (recusa da regra 2), 404, 409 (corrida com o pagamento).
+- `PATCH /statements/{id}` (já existe) passa a mover compras (regra 4) e a recusar o fechamento que
+  atravessa as vizinhas (regra 5); a resposta ganha a quantidade de compras que mudaram de fatura.
+
+### Etapa 2.20b (seção 2.10)
+
+- `POST /statements/{id}/date-preview` com `{ "closingDate", "dueDate" }`: as compras que mudariam de
+  fatura com essas datas, sem gravar nada. 400 (as mesmas recusas do `PATCH`), 404.
 
 ## 4. Tela
 
@@ -618,6 +826,21 @@ que é análise, e no computador ocupa uma coluna estreita. Cada tela passa a re
   atrás de fora; isolamento entre usuários.
 - **Frontend:** correspondência (início, palavra, trecho, acento), desempate pelo uso, Recentes, filtro
   por tipo; o preenchimento não desfaz conta nem categoria tocadas e ignora as que não existem mais.
+
+### Fatura alinhada ao banco (etapa 2.20)
+
+- Domínio, antes da implementação: os 8 casos da tabela da seção 2.9; propriedades do recálculo
+  (soma, ciclos consecutivos, fatura paga intocada, sem edição nem presa igual a hoje).
+- Integração: o cenário dos lanches de ponta a ponta (faturas, lista, Resumo de dois meses), a
+  parcelada, as recusas, a corrida com o pagamento, a edição de datas movendo compras e o isolamento.
+- Vitest: ações disponíveis no painel (próxima, anterior, nenhuma) e os textos dos avisos.
+
+### Prévia do ajuste de datas (etapa 2.20b)
+
+- Integração: a prévia lista exatamente o que o salvar move e não grava nada (com mutação provando);
+  compra entrando; compra presa fora da lista; recusas iguais às do salvar; fatura paga; isolamento.
+- Vitest: quando pedir a prévia, título da lista, "de → para", valor da parcelada e do estorno, texto do
+  botão.
 
 ### Frontend (Vitest)
 

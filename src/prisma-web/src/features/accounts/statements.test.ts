@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupStatements, statementStatus, statementTitle, statementTotal } from './statements'
+import { dateEditTexts, groupStatements, statementStatus, statementTitle, statementTotal } from './statements'
 
 // Cartão que fecha dia 5 e vence dia 12 (mesmo cenário do backend, docs/fase-1.md).
 const s = (
@@ -93,3 +93,28 @@ describe('statementTotal', () => {
     expect(statementTotal(0)).toEqual({ label: null, text: 'R$\u00a00,00' })
   })
 })
+
+// Ajustar datas da fatura (docs/fase-2.md, 2.9, tarefa 8): o aviso diz o vencimento e o que mudou de
+// fatura, para um giro a mais na roda de data não passar despercebido.
+describe('dateEditTexts', () => {
+  it('sem compra movida, só o vencimento', () => {
+    expect(dateEditTexts.edited('2026-11-04', 0)).toEqual({
+      title: 'Datas da fatura ajustadas',
+      description: 'Vence em 04/11/2026.',
+    })
+  })
+
+  it('uma compra, no singular', () => {
+    expect(dateEditTexts.edited('2026-11-04', 1).description).toBe('Vence em 04/11/2026. 1 compra mudou de fatura.')
+  })
+
+  it('várias compras, no plural (a parcelada conta uma)', () => {
+    expect(dateEditTexts.edited('2026-11-04', 23).description).toBe('Vence em 04/11/2026. 23 compras mudaram de fatura.')
+  })
+
+  it('desfazer e ajuda, sem ponto e vírgula', () => {
+    expect(dateEditTexts.undone).toBe('Datas de antes de volta')
+    expect(dateEditTexts.help).not.toContain(';')
+  })
+})
+

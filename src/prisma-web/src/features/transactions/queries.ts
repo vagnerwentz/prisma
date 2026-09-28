@@ -78,6 +78,13 @@ export const useUpdatePurchase = () =>
     unwrap(await api.PATCH('/installment-purchases/{id}', { params: { path: { id } }, body })),
   )
 
+// Muda a compra no cartão de fatura, sem mudar a data dela (docs/fase-2.md, 2.9); a parcelada anda
+// inteira a partir de qualquer parcela. Mexe no total das faturas, no caixa e no Resumo.
+export const useMoveStatement = () =>
+  useInvalidatingMutation(async ({ id, direction }: { id: string; direction: Schemas['StatementShift'] }) =>
+    unwrap(await api.POST('/transactions/{id}/move-statement', { params: { path: { id } }, body: { direction } })),
+  )
+
 // Exclusão é soft delete; restaurar é o "Desfazer" do aviso.
 export const useDeleteTransaction = () =>
   useInvalidatingMutation(async (id: string) => {

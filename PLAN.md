@@ -431,6 +431,45 @@ discordam (texto em gradiente, halo e o número em destaque do Resumo ficam).
 
 ---
 
+### Faturas alinhadas ao banco (pedido pelo usuário, depois da 2.19)
+
+O Prisma prevê a fatura de cada compra por dias fixos, mas o banco decide: o cartão Itaú do dono fecha
+7 dias antes do vencimento (já foram 10), e compras perto do fechamento podem cair na fatura seguinte
+(evidência em `docs/validacao-premissas.md`, seção 11). Desenho decidido: prever pela regra do
+cartão, alinhar pela realidade (datas da fatura e compra presa), um único recálculo que respeita
+fatura paga > compra presa > datas editadas > previsão.
+
+- [ ] **2.20 Fatura alinhada ao banco (base)**
+  Mover uma compra (à vista ou parcelada inteira) para a fatura seguinte ou anterior sem mudar a data
+  da compra, ficando presa; editar as datas de uma fatura passa a mover as compras e não pode
+  atravessar as faturas vizinhas; um recálculo único no domínio (`docs/fase-2.md`, 2.9, com o plano
+  de tarefas).
+  *Pronto quando:* testes de domínio escritos antes (os 8 casos da 2.9 e as propriedades do
+  recálculo); integração com o cenário dos lanches de ponta a ponta, a parcelada, as recusas, a
+  corrida com o pagamento e o isolamento; Vitest das ações do painel; telas conferidas nos dois modos
+  e em 320, 390 e 1280px; o dono move os lanches de 25/09 para a fatura de novembro em produção.
+  *Andamento (2026-09-27):* domínio, banco e API prontos (tarefas 1 a 6, 518 testes verdes, sem
+  commit); checkpoint B conferido pelo dono no Postman; tarefas 7 e 8 feitas (522 testes no backend, 216 no
+  Vitest); falta o checkpoint C: mover os lanches em produção, depois do commit e do deploy. Com a
+  2.20b (prévia), 526 testes no backend e 223 no Vitest, tudo sem commit.
+
+- [x] **2.20b Prévia do ajuste de datas** (pedido do dono)
+  No "Ajustar datas" da fatura, a lista ao vivo das compras que mudariam de fatura, as recusas antes de
+  salvar e o botão "Salvar e mover N compras" (`docs/fase-2.md`, 2.10).
+  *Pronto quando:* integração provando que a prévia lista exatamente o que o salvar move e não grava
+  nada; Vitest dos textos; tela conferida com toques reais em 320, 390 e 1280px, nos dois modos.
+
+- [ ] **2.21 Cartão que fecha N dias antes do vencimento**
+  O cartão guarda o dia do vencimento e quantos dias antes dele é o melhor dia de compra (informados
+  como o app do banco mostra); a compra feita no melhor dia de compra vai para a fatura seguinte;
+  cartões existentes convertidos; mudar a regra recalcula as faturas abertas e futuras pelo recálculo
+  da 2.20. Detalhar em `docs/fase-2.md` quando a 2.20 terminar.
+
+- [ ] **2.22 Vencimento em dia útil**
+  A data de caixa passa a ser o vencimento efetivo: próximo dia útil pelo calendário bancário (fins de
+  semana, feriados nacionais fixos e os móveis a partir da Páscoa, inclusive Corpus Christi, que o
+  Itaú tratou como não útil em 04/06/2026). Detalhar quando a 2.21 terminar.
+
 ## Hospedagem para uso próprio
 
 Antes da Fase 3, a pedido: usar o Prisma no dia a dia exige que ele abra fora de casa, com
@@ -557,6 +596,8 @@ conversa e o TCP Proxy do Postgres ficou ligado. A H.2 foi dividida em três (de
   Conferido com a API servindo um build de desenvolvimento: `/dev/erro` (crash), erro num `setTimeout`
   e promessa rejeitada chegaram ao log. As mensagens de erro inesperado e de falta de conexão já eram
   genéricas e em pt-BR: não mudaram.
+  Conferido em produção pelo usuário (2026-09-27): os logs da H.3a e os relatos do navegador aparecem
+  no Railway, filtráveis.
 
 - **H.2 Deploy no Railway** (texto original, coberto pelas etapas acima)
   Projeto com o serviço da API (build pelo `Dockerfile`, deploy a cada push na `main` só com o CI
@@ -591,6 +632,12 @@ Escopo em uma linha cada, para orientar decisões sem antecipar detalhe.
 
 Decidir quando a fase correspondente chegar:
 
+- **Premissas do produto a validar** (2026-09-27): `docs/validacao-premissas.md` lista 15 premissas
+  (valor, usabilidade, viabilidade, técnica), com consultas SQL prontas, filtros de log e o roteiro das
+  sessões com o pai e a noiva. As mais arriscadas: produção sem backup (H.2b), lançar na hora da
+  compra, pagamento de fatura lançado como despesa e dias do cartão. Resultados entram na tabela do
+  documento e, se mudarem o produto, viram decisão aqui.
+
 - Envio de fatura para LLM externo é opt-in explícito do usuário? (Fase 4)
 - Acompanhar rentabilidade de investimento ou só aporte? (Fase 5 ou depois)
 - Hospedagem para cadastro público: o Railway basta, ou os dados devem ficar numa região no
@@ -606,6 +653,12 @@ Decidir quando a fase correspondente chegar:
   e-mail permite pré-sequestro de conta. Regra proposta: só juntar se o Google marcar o
   e-mail como verificado; se a conta local nunca confirmou o e-mail, remover a senha e trocar
   o `security_stamp` ao juntar. (quando o login social voltar à pauta)
+- **Cartão que fecha N dias antes do vencimento** (em discussão, 2026-09-27). O cartão Itaú do dono
+  vence sempre no dia 4 e fecha 7 dias antes (antes eram 10; o banco muda a regra); a compra feita no
+  dia do fechamento já vai para a fatura seguinte; vencimento em dia não útil vai para o próximo dia
+  útil. O modelo atual (dia fixo de fechamento, compra do dia do fechamento entrando na fatura) não
+  representa isso: nenhum dia fixo acerta todos os meses. Evidência em `docs/validacao-premissas.md`,
+  seção 11. Decidido: etapas 2.20 a 2.22 (seção "Faturas alinhadas ao banco").
 - Mudar o dia de fechamento ou de vencimento do cartão não recalcula as faturas já criadas
   (inclusive as futuras, abertas pelas parcelas). Proposta: recalcular as não editadas e não
   pagas, e o `SettlementDate` das parcelas delas; `DatesEditedManually` já permite distinguir.

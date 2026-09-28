@@ -10,6 +10,7 @@ public static class CardModule
     {
         services.AddScoped<ListStatements.Handler>();
         services.AddScoped<UpdateStatement.Handler>();
+        services.AddScoped<PreviewStatementDates.Handler>();
         services.AddScoped<PayStatement.Handler>();
         services.AddSingleton<IValidator<PayStatement.Request>, PayStatement.Validator>();
         services.AddScoped<DeleteInstallmentPurchase.Handler>();
@@ -23,6 +24,7 @@ public static class CardModule
     {
         ListStatements.Map(app);
         UpdateStatement.Map(app);
+        PreviewStatementDates.Map(app);
         PayStatement.Map(app);
         DeleteInstallmentPurchase.Map(app);
         UpdateInstallmentPurchase.Map(app);

@@ -13,9 +13,11 @@ public static class TransactionsModule
         services.AddScoped<DeleteTransaction.Handler>();
         services.AddScoped<RestoreTransaction.Handler>();
         services.AddScoped<ListDescriptions.Handler>();
+        services.AddScoped<MoveStatement.Handler>();
 
         services.AddSingleton<IValidator<CreateTransaction.Request>, CreateTransaction.Validator>();
         services.AddSingleton<IValidator<UpdateTransaction.Request>, UpdateTransaction.Validator>();
+        services.AddSingleton<IValidator<MoveStatement.Request>, MoveStatement.Validator>();
 
         return services;
     }
@@ -30,5 +32,6 @@ public static class TransactionsModule
         DeleteTransaction.Map(group);
         RestoreTransaction.Map(group);
         ListDescriptions.Map(group);
+        MoveStatement.Map(group);
     }
 }

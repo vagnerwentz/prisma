@@ -112,7 +112,8 @@ Content-Type: application/json
   "purchaseDate": "2026-05-10"
 }
 
-### Editar as datas da fatura de abril: vencimento adiado para 13/04 (recalcula o caixa)
+### Editar as datas da fatura de abril: vencimento adiado para 13/04. Recalcula o caixa e move as compras
+### cujo ciclo mudou (etapa 2.20); a resposta traz movedPurchases.
 PATCH {{baseUrl}}/statements/{{aprilStatementId}}
 Content-Type: application/json
 
@@ -127,6 +128,24 @@ Content-Type: application/json
 
 {
   "closingDate": "2026-04-13",
+  "dueDate": "2026-04-12"
+}
+
+### Prévia: as compras que mudariam de fatura com estas datas, sem gravar nada (etapa 2.20b)
+POST {{baseUrl}}/statements/{{aprilStatementId}}/date-preview
+Content-Type: application/json
+
+{
+  "closingDate": "2026-04-06",
+  "dueDate": "2026-04-13"
+}
+
+### Erro: fechamento que alcança o da fatura anterior, março, 05/03 (400)
+PATCH {{baseUrl}}/statements/{{aprilStatementId}}
+Content-Type: application/json
+
+{
+  "closingDate": "2026-03-05",
   "dueDate": "2026-04-12"
 }
 
@@ -176,3 +195,40 @@ Content-Type: application/json
   "purchaseDate": "2026-03-10",
   "method": "Pix"
 }
+
+# ---------- Mover compra de fatura (etapa 2.20, docs/fase-2.md, 2.9) ----------
+# O cartão acima fecha dia 5: a compra de 04/05 cai na fatura 2026-05 (fecha 05/05). O banco pode
+# lançá-la na seguinte; mover muda a fatura e a data de caixa, nunca a data da compra.
+
+### Compra perto do fechamento (201)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "accountId": "{{cardId}}",
+  "type": "Expense",
+  "amountCents": 3000,
+  "purchaseDate": "2026-05-04",
+  "method": "Credit",
+  "description": "Lanche"
+}
+
+> {% client.global.set("snackId", response.body[0].id); %}
+
+### Mover para a fatura seguinte (200; settlementDate no vencimento de junho, statementPinned = true)
+POST {{baseUrl}}/transactions/{{snackId}}/move-statement
+Content-Type: application/json
+
+{ "direction": "Next" }
+
+### Desfazer: voltar para a anterior (200; statementPinned = false, é a fatura que a previsão dá)
+POST {{baseUrl}}/transactions/{{snackId}}/move-statement
+Content-Type: application/json
+
+{ "direction": "Previous" }
+
+### Erro: direção inválida (400)
+POST {{baseUrl}}/transactions/{{snackId}}/move-statement
+Content-Type: application/json
+
+{ "direction": "Sideways" }

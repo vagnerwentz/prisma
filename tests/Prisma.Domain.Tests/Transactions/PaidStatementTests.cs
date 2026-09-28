@@ -112,7 +112,8 @@ public sealed class PaidStatementTests
         var april = bought.OpenedStatements.Single();
         april.MarkAsPaid();
 
-        var result = StatementEditing.EditDates(april, bought.Installments, new DateOnly(2026, 4, 3), new DateOnly(2026, 4, 10));
+        var result = StatementEditing.EditDates(
+            Card, april, [april], bought.Installments, new DateOnly(2026, 4, 3), new DateOnly(2026, 4, 10));
 
         ShouldFailWith(result, "Fatura paga não muda de datas. Desfaça o pagamento para ajustá-las.");
         april.DueDate.ShouldBe(new DateOnly(2026, 4, 12));

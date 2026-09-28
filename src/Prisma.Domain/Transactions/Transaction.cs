@@ -27,6 +27,9 @@ public sealed class Transaction : Entity
     public TransferDirection? TransferDirection { get; private set; }
     public TransactionSource Source { get; private init; }
 
+    // Compra que a pessoa pôs à mão numa fatura (docs/fase-2.md, 2.9, regra 2): o recálculo não a tira dali.
+    public bool StatementPinned { get; private set; }
+
     // Estorno ligado à compra que ele devolve (docs/fase-2.md, 2.5, regra 7).
     public Guid? RefundedTransactionId { get; private init; }
 
@@ -65,11 +68,22 @@ public sealed class Transaction : Entity
 
     // Usado por CardPurchase ao mudar a data da compra: a transação passa para a fatura do novo
     // ciclo e o caixa segue o vencimento dela (CLAUDE.md, regra 4).
+    // Fatura decidida pela data (nova ou recalculada): a compra deixa de estar presa, porque foi presa
+    // por causa da data antiga (docs/fase-2.md, 2.9, regra 3).
     internal void MoveTo(Statement statement, DateOnly purchaseDate)
     {
         PurchaseDate = purchaseDate;
         StatementId = statement.Id;
         SettlementDate = statement.DueDate;
+        StatementPinned = false;
+    }
+
+    // Usado por CardPurchase.MoveStatement: muda a fatura sem mudar a data da compra.
+    internal void MoveToStatement(Statement statement, bool pinned)
+    {
+        StatementId = statement.Id;
+        SettlementDate = statement.DueDate;
+        StatementPinned = pinned;
     }
 
     internal void SettleOn(Statement statement)

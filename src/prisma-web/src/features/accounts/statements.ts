@@ -1,4 +1,4 @@
-import { formatMonth } from '@/lib/dates'
+import { formatMonth, formatShortDate } from '@/lib/dates'
 import { formatCents } from '@/lib/money'
 
 export type StatementLike = {
@@ -47,4 +47,22 @@ export function statementTotal(totalCents: number): { label: string | null; text
 export function statementTitle(reference: string): string {
   const [year, month] = reference.split('-').map(Number)
   return formatMonth({ year, month })
+}
+
+// Ajustar datas da fatura (docs/fase-2.md, 2.9, tarefa 8). O aviso traz o vencimento e quantas compras
+// mudaram de fatura (a parcelada conta uma), para um giro a mais na roda de data saltar aos olhos.
+export const dateEditTexts = {
+  edited(dueDate: string, movedPurchases: number) {
+    const moved =
+      movedPurchases === 1
+        ? ' 1 compra mudou de fatura.'
+        : movedPurchases > 1
+          ? ` ${movedPurchases} compras mudaram de fatura.`
+          : ''
+    return { title: 'Datas da fatura ajustadas', description: `Vence em ${formatShortDate(dueDate)}.${moved}` }
+  },
+  undone: 'Datas de antes de volta',
+  help:
+    'Use quando o banco muda o fechamento ou o vencimento. Compras feitas perto do fechamento podem entrar ou sair ' +
+    'desta fatura. As que você moveu à mão ficam onde estão.',
 }

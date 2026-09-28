@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { BottomSheet, SheetFooterBar } from '@/components/BottomSheet'
 import { AccountTile, EntryTile } from '@/components/brand/Tiles'
 import { FieldError } from '@/components/FieldError'
+import { StaleFade } from '@/components/StaleFade'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,12 +15,14 @@ import { categoryLabels, useCategories } from '@/features/categories/queries'
 import { ApiError } from '@/lib/api'
 import { formatLongDate, formatShortDate, todayInSaoPaulo } from '@/lib/dates'
 import { formatCents } from '@/lib/money'
+import { useDebouncedValue } from '@/lib/useDebouncedValue'
 import { cn } from '@/lib/utils'
 import { Chip, ChipRow, DateChooser, Section } from '@/features/transactions/fields'
 import { useDeleteTransaction, usePayStatement, useRestoreTransaction } from '@/features/transactions/queries'
 import { paymentMethodLabels, type PaymentMethod } from './labels'
-import { useAccounts, useStatementTransactions, useUpdateStatement, type Statement } from './queries'
-import { statementTitle, statementTotal, type StatementStatus } from './statements'
+import { useAccounts, useStatementDatesPreview, useStatementTransactions, useUpdateStatement, type Statement } from './queries'
+import { previewTexts, shouldPreview } from './statementPreview'
+import { dateEditTexts, statementTitle, statementTotal, type StatementStatus } from './statements'
 
 // Uma fatura: total, datas, as compras que entraram nela e o ajuste das datas (o banco antecipa
 // ou adia o fechamento em fim de semana e feriado; docs/fase-1.md).
@@ -173,8 +176,9 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-// PATCH /statements/{id}: a API valida (vencimento não antes do fechamento) e recalcula o
-// vencimento das compras desta fatura.
+// PATCH /statements/{id}: a API valida a ordem das datas entre as faturas vizinhas e move as compras
+// cujo ciclo mudou (docs/fase-2.md, 2.9). O aviso diz quantas mudaram e traz "Desfazer", que volta às
+// datas de antes: o recálculo devolve cada compra ao lugar.
 function EditDates({ statement, onDone }: { statement: Statement; onDone: () => void }) {
   const update = useUpdateStatement()
   const [closingDate, setClosingDate] = useState(statement.closingDate)
@@ -182,16 +186,45 @@ function EditDates({ statement, onDone }: { statement: Statement; onDone: () => 
   const [error, setError] = useState<string>()
   const invalid = closingDate && dueDate && dueDate < closingDate ? 'O vencimento não pode ser antes do fechamento.' : undefined
 
+  // Prévia ao vivo (docs/fase-2.md, 2.10): as compras que mudariam de fatura e as recusas, antes de salvar.
+  // A espera usa um texto, não um objeto: objeto novo a cada desenho reiniciaria a espera para sempre.
+  const wanted = shouldPreview(statement, closingDate, dueDate) ? `${closingDate}|${dueDate}` : null
+  const settled = useDebouncedValue(wanted, 300)
+  const [previewClosing, previewDue] = settled?.split('|') ?? []
+  const preview = useStatementDatesPreview(
+    statement.id,
+    wanted !== null && settled !== null ? { closingDate: previewClosing, dueDate: previewDue } : null,
+  )
+  const current = wanted !== null && settled === wanted && !preview.isPlaceholderData && !preview.isFetching
+  const previewError = wanted !== null && preview.error instanceof ApiError ? preview.error.message : undefined
+  const moved = wanted !== null && !previewError ? preview.data?.movedPurchases : undefined
+
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     if (!closingDate || !dueDate || invalid) return
+    const before = { closingDate: statement.closingDate, dueDate: statement.dueDate }
+    let movedPurchases: number
     try {
-      await update.mutateAsync({ id: statement.id, body: { closingDate, dueDate } })
-      toast.success('Datas da fatura ajustadas', { description: `Vence em ${formatShortDate(dueDate)}.` })
-      onDone()
+      movedPurchases = (await update.mutateAsync({ id: statement.id, body: { closingDate, dueDate } })).movedPurchases
     } catch (e) {
       setError(messageOf(e))
+      return
     }
+    onDone()
+    const text = dateEditTexts.edited(dueDate, movedPurchases)
+    toast.success(text.title, {
+      description: text.description,
+      duration: 8000,
+      action: {
+        label: 'Desfazer',
+        onClick: () => {
+          update
+            .mutateAsync({ id: statement.id, body: before })
+            .then(() => toast.success(dateEditTexts.undone))
+            .catch((error: unknown) => toast.error(messageOf(error)))
+        },
+      },
+    })
   }
 
   return (
@@ -230,18 +263,41 @@ function EditDates({ statement, onDone }: { statement: Statement; onDone: () => 
             />
           </div>
         </div>
-        <FieldError message={invalid} />
-        <p className="rounded-2xl bg-muted/60 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
-          Use quando o banco antecipa ou adia o fechamento (fim de semana, feriado). As compras desta fatura passam a vencer na
-          nova data, e as próximas compras respeitam o novo fechamento.
-        </p>
+        <FieldError message={invalid ?? previewError} />
+        {moved && (
+          <StaleFade stale={!current}>
+            <section className="flex flex-col gap-2">
+              <h3 className="px-1 text-xs text-muted-foreground">{previewTexts.heading(moved.length)}</h3>
+              {moved.length > 0 && (
+                <ul className="surface flex flex-col divide-y divide-border/60 rounded-2xl">
+                  {moved.map((p) => (
+                    // O "de → para" ganha a largura toda: é o que a lista existe para mostrar, e não pode cortar em 320px.
+                    <li key={p.transactionId} className="flex flex-col gap-0.5 px-4 py-2.5">
+                      <div className="flex items-baseline gap-3">
+                        <p className="min-w-0 flex-1 truncate text-sm font-medium">{p.description || 'Sem descrição'}</p>
+                        <span className="shrink-0 text-sm tabular-nums">{previewTexts.amount(p)}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{previewTexts.route(p)}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </StaleFade>
+        )}
+        <p className="rounded-2xl bg-muted/60 px-4 py-3 text-xs leading-relaxed text-muted-foreground">{dateEditTexts.help}</p>
       </div>
       <SheetFooterBar className="grid grid-cols-[auto_1fr] gap-2">
         <Button type="button" size="lg" variant="outline" className="h-12 rounded-2xl" onClick={onDone}>
           Voltar
         </Button>
-        <Button type="submit" size="lg" disabled={update.isPending || !!invalid} className="h-12 rounded-2xl text-base">
-          {update.isPending ? 'Salvando…' : 'Salvar datas'}
+        <Button
+          type="submit"
+          size="lg"
+          disabled={update.isPending || !!invalid || (!!previewError && settled === wanted)}
+          className="h-12 rounded-2xl text-base"
+        >
+          {update.isPending ? 'Salvando…' : previewTexts.save(current ? moved?.length : undefined)}
         </Button>
       </SheetFooterBar>
     </form>

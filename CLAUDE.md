@@ -43,6 +43,8 @@ Nada de código misto. `Transaction.SettlementDate` ao lado de `CreatedAt`, nunc
 | Carteira / dinheiro | `AccountType.Cash` | |
 | Regra de categorização | `CategorizationRule` | |
 | Descrição original | `RawDescription` | texto cru da importação |
+| Compra presa a uma fatura | `StatementPinned` | movida à mão; o recálculo não a devolve |
+| Recálculo das faturas | `StatementReconciliation` | decide a fatura de cada compra no cartão |
 
 ---
 
@@ -163,6 +165,11 @@ Não são preferências. Quebrá-las gera erro de dinheiro que passa despercebid
 
    **O dashboard agrega por `SettlementDate`** (visão de caixa). Decisão tomada.
 
+   **Em qual fatura a compra do cartão cai** é decidido só pelo domínio (`StatementPlacement` na
+   criação, `StatementReconciliation` depois), nesta ordem de força: fatura paga (intocável) > compra
+   presa > datas editadas da fatura > previsão pelo cartão. Nunca troque `StatementId` à mão num
+   handler: a data da compra não muda, e o caixa acompanha o vencimento (`docs/fase-2.md`, 2.9).
+
 5. **Transferência nunca é receita nem despesa.** Pagamento de fatura, aporte em
    investimento e movimentação entre contas geram **duas** transações ligadas por
    `TransferPairId` e são **excluídas** de todo cálculo de receita e despesa. Contar
@@ -257,7 +264,9 @@ não precisa.** `Category` com nome e cor não merece teste unitário;
   detalhe interno; corpo ilegível é 400; `DbUpdateConcurrencyException` é 409).
 - **Concorrência:** entidade que dois pedidos simultâneos podem corromper (hoje, `Statement`:
   pagar duas vezes a mesma fatura) usa a coluna `xmin` do Postgres como token
-  (`Property<uint>("Version").IsRowVersion()`), com teste de corrida.
+  (`Property<uint>("Version").IsRowVersion()`), com teste de corrida. Quem põe ou tira compra de uma
+  fatura sem mudar a fatura em si (mover compra, editar datas) chama `StatementTouch.Touch` nas faturas
+  de origem e de destino, para a corrida com o pagamento dar 409.
 - **Logs:** o código fala só com o `ILogger` nativo, nunca com Serilog nem `Log.Information` estático.
   Todo evento é declarado em `Infrastructure/Logging/AppLog.cs` com `[LoggerMessage]` (id único,
   mensagem em inglês, propriedades nomeadas); chamar `logger.LogX(...)` direto ou montar a mensagem com
@@ -360,7 +369,10 @@ por conversa, arquivo versionado ou histórico do shell.
 - **Ações com cor:** ação secundária leva a faixa do espectro que a representa (`.tinted-action`
   com `data-tint`): lançar de novo em violeta, estornar no azul do "saldo a favor". Editar fica em
   tinta e excluir, neutro. Ação dentro de aviso ("Desfazer", "Lançar de novo") usa o espectro frio
-  (`.toast-action`).
+  (`.toast-action`) e funciona no primeiro toque mesmo com um painel aberto: o `BottomSheet` não se
+  fecha com toque no aviso, e o `Toaster` religa o toque que o Radix desliga fora do painel. Ação é
+  verbo + destino ("Mover para dezembro"); substantivo com seta ("Próxima fatura ›") lê como navegar.
+  Interação se confere com toque real (eventos de mouse), não com `element.click()`, que pula as camadas.
 - **Tipografia:** `font-display` (Instrument Serif) em valores grandes e títulos; Geist no resto.
 - **Superfície e contorno:** bloco de conteúdo é `.surface` (tom e sombra suave, sem contorno), em
   qualquer tela; contorno só no que se preenche ou escolhe (campo, chip, seletor, botão secundário).

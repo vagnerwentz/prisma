@@ -198,4 +198,27 @@ public sealed class StatementCalculatorTests
     public void Rejects_installment_number_below_1() =>
         Should.Throw<ArgumentOutOfRangeException>(() =>
             StatementCalculator.ForInstallment(D(2026, 3, 4), 0, 5, 12, None));
+
+    // --- Datas de uma fatura pela referência (mês do vencimento), para abrir a fatura de destino
+    //     ao mover uma compra (docs/fase-2.md, 2.9, regra 2) ---
+
+    [Fact]
+    public void Reference_of_a_card_that_is_due_after_closing_in_the_next_month() =>
+        StatementCalculator.ForReference("2026-11", 26, 5)
+            .ShouldBe(S("2026-11", D(2026, 10, 26), D(2026, 11, 5)));
+
+    [Fact]
+    public void Reference_of_a_card_that_is_due_in_the_same_month() =>
+        StatementCalculator.ForReference("2026-03", 5, 12)
+            .ShouldBe(S("2026-03", D(2026, 3, 5), D(2026, 3, 12)));
+
+    [Fact]
+    public void Reference_clamps_days_beyond_the_month() =>
+        StatementCalculator.ForReference("2026-03", 31, 10)
+            .ShouldBe(S("2026-03", D(2026, 2, 28), D(2026, 3, 10)));
+
+    [Fact]
+    public void Reference_agrees_with_the_purchase_calculation() =>
+        StatementCalculator.ForReference(StatementCalculator.ForPurchase(D(2026, 9, 25), 26, 5, None).Reference, 26, 5)
+            .ShouldBe(StatementCalculator.ForPurchase(D(2026, 9, 25), 26, 5, None));
 }

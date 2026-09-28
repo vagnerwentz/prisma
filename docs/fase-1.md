@@ -49,7 +49,9 @@ excluída (409, sugerindo mover as transações ou marcar a conta como inativa).
 | `IsPaid` | bool | |
 
 Editar as datas **recalcula o `SettlementDate`** de todas as transações do statement,
-porque o Itaú antecipa ou adia o fechamento em fim de semana e feriado.
+porque o Itaú antecipa ou adia o fechamento em fim de semana e feriado. A partir da etapa 2.20, a
+edição também **move as compras** cujo ciclo mudou e não atravessa as faturas vizinhas
+(`docs/fase-2.md`, 2.9).
 
 Índice único em (`AccountId`, `Reference`).
 

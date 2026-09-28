@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { BottomSheet, SheetFooterBar } from '@/components/BottomSheet'
 import { SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { paymentMethodLabels, type PaymentMethod } from '@/features/accounts/labels'
-import type { Account } from '@/features/accounts/queries'
+import { useStatements, type Account } from '@/features/accounts/queries'
 import { resolveCategory, type CategoryLabel, type CategoryNode } from '@/features/categories/queries'
 import { ApiError } from '@/lib/api'
 import { formatLongDate, formatShortDate, monthOf, todayInSaoPaulo, type YearMonth } from '@/lib/dates'
@@ -24,6 +24,7 @@ import { AmountField, CategoryPicker, Chip, ChipRow, DateChooser, Section, TypeT
 import {
   useDeletePurchase,
   useDeleteTransaction,
+  useMoveStatement,
   useRestorePurchase,
   useRestoreTransaction,
   useUpdatePurchase,
@@ -32,6 +33,7 @@ import {
   type Transaction,
 } from './queries'
 import { repeatDraftOf } from './repeat'
+import { moveOptions, moveTexts, shiftReference, type StatementShift } from './statementMove'
 import type { TimelineEntry } from './timeline'
 
 type AnyEntry = TimelineEntry<Transaction>
@@ -187,6 +189,10 @@ function Details({ entry, accounts, labels, onClose, onEdit }: Common & { onEdit
           <p className="mx-4 mb-5 text-center text-xs text-muted-foreground">Compra estornada por inteiro.</p>
         )}
 
+        {(kind === 'card' || kind === 'purchase') && (
+          <StatementMoveActions transactions={entry.kind === 'single' ? [first] : installments} />
+        )}
+
         {installments.length > 0 && (
           <InstallmentList installments={installments} labels={labels} onPick={(id) => onEdit({ view: 'installment', id })} />
         )}
@@ -209,6 +215,65 @@ function Details({ entry, accounts, labels, onClose, onEdit }: Common & { onEdit
         </Button>
       </SheetFooterBar>
     </>
+  )
+}
+
+// Mudar a compra no cartão de fatura (docs/fase-2.md, 2.9): o banco pode lançar a compra feita perto
+// do fechamento na fatura seguinte. Só aparece o que a API aceitaria (statementMove.ts); o aviso traz
+// "Desfazer", que a devolve e a solta (regra 3).
+function StatementMoveActions({ transactions }: { transactions: Transaction[] }) {
+  const statements = useStatements(transactions[0].accountId, true)
+  const move = useMoveStatement()
+  const options = moveOptions(transactions, statements.data)
+  if (!options || (options.shifts.length === 0 && !options.pinned)) return null
+
+  const run = async (direction: StatementShift) => {
+    const id = transactions[0].id
+    const destination = shiftReference(options.current.reference, direction === 'Next' ? 1 : -1)
+    let moved: Transaction[]
+    try {
+      moved = await move.mutateAsync({ id, direction })
+    } catch (error) {
+      toast.error(messageOf(error))
+      return
+    }
+    const text = moveTexts.moved({ reference: destination, dueDate: moved[0].settlementDate }, moved.length)
+    toast(text.title, {
+      description: text.description,
+      duration: 8000,
+      action: {
+        label: 'Desfazer',
+        onClick: () => {
+          move
+            .mutateAsync({ id, direction: direction === 'Next' ? 'Previous' : 'Next' })
+            .then(() => toast.success(moveTexts.undone))
+            .catch((error: unknown) => toast.error(messageOf(error)))
+        },
+      },
+    })
+  }
+
+  return (
+    <section className="mx-4 mb-5 flex flex-col gap-2">
+      <h3 className="px-1 text-sm font-medium text-foreground/75">{moveTexts.heading(options.current.reference)}</h3>
+      {options.shifts.length > 0 && (
+        // Lado a lado quando cabem; em telas estreitas (320px) um embaixo do outro, sem cortar o texto.
+        <div className="flex flex-wrap gap-2">
+          {options.shifts.map((shift) => (
+            <Button
+              key={shift}
+              variant="outline"
+              className="h-11 min-w-fit flex-[1_1_0%] rounded-2xl"
+              disabled={move.isPending}
+              onClick={() => run(shift)}
+            >
+              {moveTexts.button(shiftReference(options.current.reference, shift === 'Next' ? 1 : -1))}
+            </Button>
+          ))}
+        </div>
+      )}
+      {options.pinned && <p className="px-1 text-xs text-muted-foreground">{moveTexts.pinned}</p>}
+    </section>
   )
 }
 

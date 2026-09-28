@@ -16,6 +16,7 @@ import { shortInstallments } from '@/lib/money'
 import { Amount } from './Amount'
 import { entryKey, findEntry } from './editing'
 import { useTransactions, type Transaction, type TransactionFilters } from './queries'
+import { movedLabel } from './statementMove'
 import { buildTimeline, type TimelineEntry } from './timeline'
 
 // O painel (detalhes e edição) só carrega quando alguém toca num lançamento.
@@ -148,6 +149,8 @@ function EntryRow({ entry, lookups, onOpen }: { entry: TimelineEntry<Transaction
     category && category.name !== title ? category.name : null,
     account,
   ].filter(Boolean)
+  // Compra movida de fatura: a fatura numa linha própria, para caber inteira até em 320px.
+  const moved = movedLabel(first)
 
   return (
     <li>
@@ -160,6 +163,7 @@ function EntryRow({ entry, lookups, onOpen }: { entry: TimelineEntry<Transaction
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">{title}</p>
           {details.length > 0 && <p className="truncate text-sm text-muted-foreground">{details.join(' · ')}</p>}
+          {moved && <p className="truncate text-xs text-muted-foreground">{moved}</p>}
         </div>
         <div className="flex shrink-0 flex-col items-end">
           <Amount type={first.type} cents={amount} />

@@ -37,6 +37,21 @@ public static class StatementCalculator
         return Effective(purchaseCycle + installmentNumber - 1);
     }
 
+    // Datas calculadas da fatura que vence no mês da referência ("2026-11"): para abrir a fatura de
+    // destino ao mover uma compra (docs/fase-2.md, 2.9, regra 2). Inverso da regra 3.
+    public static StatementDates ForReference(string reference, int closingDay, int dueDay)
+    {
+        var dueCycle = CycleOf(int.Parse(reference[..4]), int.Parse(reference[5..]));
+        return Calculate(dueDay > closingDay ? dueCycle : dueCycle - 1, closingDay, dueDay);
+    }
+
+    // A referência "months" meses adiante (ou atrás, se negativo): "2026-11", -1 → "2026-10".
+    internal static string ShiftReference(string reference, int months)
+    {
+        var index = CycleOf(int.Parse(reference[..4]), int.Parse(reference[5..])) + months;
+        return $"{index / 12:D4}-{index % 12 + 1:D2}";
+    }
+
     private static StatementDates Calculate(int cycle, int closingDay, int dueDay)
     {
         var closingDate = DayInMonth(cycle, closingDay);

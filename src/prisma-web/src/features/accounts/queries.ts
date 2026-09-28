@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, unwrap, type Schemas } from '@/lib/api'
 import { balancesKey, dashboardKey, statementsKey, transactionsKey } from '@/lib/queryKeys'
 
@@ -78,8 +78,21 @@ export function useStatementTransactions(statementId: string) {
   })
 }
 
-// Editar as datas recalcula o vencimento das compras da fatura: recarrega faturas, lançamentos
-// e o Resumo, que soma pela data de caixa.
+// Prévia do ajuste de datas (docs/fase-2.md, 2.10): as compras que mudariam de fatura, sem gravar nada.
+// Fica sob statementsKey: salvar qualquer coisa que mexa em faturas a descarta. Recusa (400) não se repete.
+export function useStatementDatesPreview(id: string, dates: { closingDate: string; dueDate: string } | null) {
+  return useQuery({
+    queryKey: [...statementsKey, 'date-preview', id, dates],
+    enabled: dates !== null,
+    placeholderData: keepPreviousData,
+    retry: false,
+    queryFn: async () =>
+      unwrap(await api.POST('/statements/{id}/date-preview', { params: { path: { id } }, body: dates! })),
+  })
+}
+
+// Editar as datas recalcula o vencimento das compras e pode movê-las de fatura (docs/fase-2.md, 2.9):
+// recarrega faturas, lançamentos, saldos e o Resumo, que soma pela data de caixa.
 export function useUpdateStatement() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -89,6 +102,7 @@ export function useUpdateStatement() {
       Promise.all([
         queryClient.invalidateQueries({ queryKey: statementsKey }),
         queryClient.invalidateQueries({ queryKey: transactionsKey }),
+        queryClient.invalidateQueries({ queryKey: balancesKey }),
         queryClient.invalidateQueries({ queryKey: dashboardKey }),
       ]),
   })

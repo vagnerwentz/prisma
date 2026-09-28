@@ -6,7 +6,8 @@ using Shouldly;
 
 namespace Prisma.Domain.Tests.Statements;
 
-// docs/fase-1.md, Statement: editar as datas recalcula o SettlementDate das transações dele.
+// docs/fase-1.md, Statement: editar as datas recalcula o SettlementDate das transações dele. O que a
+// edição move de fatura (etapa 2.20) está em StatementDateEditTests.
 public sealed class StatementEditingTests
 {
     private static readonly Guid UserId = Guid.NewGuid();
@@ -23,7 +24,8 @@ public sealed class StatementEditingTests
         var transactions = new[] { purchase.Installments[0], other.Installments[0] };
 
         // Itaú adiou o vencimento de 12/04 (domingo) para 13/04.
-        var result = StatementEditing.EditDates(april, transactions, new DateOnly(2026, 4, 6), new DateOnly(2026, 4, 13));
+        var result = StatementEditing.EditDates(
+            Card, april, [april], transactions, new DateOnly(2026, 4, 6), new DateOnly(2026, 4, 13));
 
         result.IsSuccess.ShouldBeTrue();
         april.DueDate.ShouldBe(new DateOnly(2026, 4, 13));
@@ -40,7 +42,8 @@ public sealed class StatementEditingTests
         var april = purchase.OpenedStatements.Single();
         var transaction = purchase.Installments[0];
 
-        var result = StatementEditing.EditDates(april, [transaction], new DateOnly(2026, 4, 13), new DateOnly(2026, 4, 12));
+        var result = StatementEditing.EditDates(
+            Card, april, [april], [transaction], new DateOnly(2026, 4, 13), new DateOnly(2026, 4, 12));
 
         result.IsSuccess.ShouldBeFalse();
         result.Error.Message.ShouldBe("O vencimento não pode ser antes do fechamento.");
@@ -48,15 +51,18 @@ public sealed class StatementEditingTests
     }
 
     [Fact]
-    public void Transactions_of_another_statement_are_a_programming_error()
+    public void Transactions_of_another_card_are_a_programming_error()
     {
-        var first = CardPurchase.Create(UserId, Card, TransactionType.Expense, PaymentMethod.Credit, 20000, 2,
+        var purchase = CardPurchase.Create(UserId, Card, TransactionType.Expense, PaymentMethod.Credit, 20000, 2,
             new DateOnly(2026, 3, 10), (Category?)null, null, []).Value;
-        var april = first.OpenedStatements[0];
-        var mayInstallment = first.Installments[1];
+        var april = purchase.OpenedStatements[0];
+        var other = Account.Create(UserId, "Master", AccountType.CreditCard, 0, 5, 12, null).Value;
+        var foreign = CardPurchase.Create(UserId, other, TransactionType.Expense, PaymentMethod.Credit, 1000, 1,
+            new DateOnly(2026, 3, 10), (Category?)null, null, []).Value;
 
-        Should.Throw<ArgumentException>(() =>
-            StatementEditing.EditDates(april, [mayInstallment], new DateOnly(2026, 4, 6), new DateOnly(2026, 4, 13)));
+        Should.Throw<ArgumentException>(() => StatementEditing.EditDates(
+            Card, april, purchase.OpenedStatements, [.. purchase.Installments, .. foreign.Installments],
+            new DateOnly(2026, 4, 6), new DateOnly(2026, 4, 13)));
     }
 
     [Fact]

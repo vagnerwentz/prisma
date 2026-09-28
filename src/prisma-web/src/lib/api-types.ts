@@ -84,7 +84,71 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ListStatementsStatementResponse"];
+                        "application/json": components["schemas"]["UpdateStatementResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/statements/{id}/date-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PreviewStatementDatesRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PreviewStatementDatesResponse"];
                     };
                 };
                 /** @description Bad Request */
@@ -107,6 +171,10 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/statements/{id}/pay": {
@@ -1339,6 +1407,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/transactions/{id}/move-statement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["MoveStatementRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TransactionResponse"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/dashboard/summary": {
         parameters: {
             query?: never;
@@ -1914,6 +2050,9 @@ export interface components {
             id: string;
             email: string;
         };
+        MoveStatementRequest: {
+            direction: components["schemas"]["StatementShift"];
+        };
         /** @enum {unknown} */
         PaymentMethod: "Pix" | "Debit" | "Credit" | "Boleto" | "Cash" | "Ted";
         PayStatementRequest: {
@@ -1923,6 +2062,29 @@ export interface components {
             date: string;
             method: components["schemas"]["PaymentMethod"];
             description: null | string;
+        };
+        PreviewStatementDatesMovedPurchase: {
+            /** Format: uuid */
+            transactionId: string;
+            type: components["schemas"]["TransactionType"];
+            description: string;
+            /** Format: date */
+            purchaseDate: string;
+            /** Format: int64 */
+            amountCents: number;
+            /** Format: int32 */
+            installmentCount: number;
+            fromReference: string;
+            toReference: string;
+        };
+        PreviewStatementDatesRequest: {
+            /** Format: date */
+            closingDate: string;
+            /** Format: date */
+            dueDate: string;
+        };
+        PreviewStatementDatesResponse: {
+            movedPurchases: components["schemas"]["PreviewStatementDatesMovedPurchase"][];
         };
         ProblemDetails: {
             type?: null | string;
@@ -1948,6 +2110,8 @@ export interface components {
             kind: string;
             appVersion: null | string;
         };
+        /** @enum {unknown} */
+        StatementShift: "Next" | "Previous";
         TransactionResponse: {
             /** Format: uuid */
             id: string;
@@ -1977,6 +2141,7 @@ export interface components {
             source: components["schemas"]["TransactionSource"];
             /** Format: uuid */
             refundedTransactionId: null | string;
+            statementPinned: boolean;
             /** Format: int64 */
             refundedCents: null | number;
             /** Format: int64 */
@@ -2035,6 +2200,21 @@ export interface components {
             closingDate: string;
             /** Format: date */
             dueDate: string;
+        };
+        UpdateStatementResponse: {
+            /** Format: uuid */
+            id: string;
+            reference: string;
+            /** Format: date */
+            closingDate: string;
+            /** Format: date */
+            dueDate: string;
+            isPaid: boolean;
+            datesEditedManually: boolean;
+            /** Format: int64 */
+            totalCents: number;
+            /** Format: int32 */
+            movedPurchases: number;
         };
         UpdateTransactionRequest: {
             /** Format: uuid */
