@@ -24,6 +24,10 @@ Nada de código misto. `Transaction.SettlementDate` ao lado de `CreatedAt`, nunc
 **Exceção:** nomes próprios de sistemas brasileiros não se traduzem — `Pix`,
 `Boleto`, `Ted`, `Cnpj`, `NfceKey`, `Ofx`.
 
+**Exceção de documentação:** o `README.md` é em **inglês**, por ser a vitrine pública do repositório
+(decisão do dono, 2026-09-28). Ele não repete números que envelhecem (contagem de testes) e nunca traz
+dado real, nome de quem usa o app nem endereço de produção. Licença: todos os direitos reservados.
+
 ### Glossário do domínio
 
 | Conceito (pt) | Código (en) | Observação |
