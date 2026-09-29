@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from 'react'
+import { lazy, memo, Suspense, useMemo, useState } from 'react'
 import { X } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router'
 import { PrismLogo } from '@/components/brand/PrismLogo'
@@ -103,12 +103,7 @@ export function TransactionsPage() {
                 </h2>
                 <ul>
                   {day.entries.map((entry) => (
-                    <EntryRow
-                      key={entryKey(entry)}
-                      entry={entry}
-                      lookups={lookups}
-                      onOpen={() => setSelectedKey(entryKey(entry))}
-                    />
+                    <EntryRow key={entryKey(entry)} entry={entry} lookups={lookups} onOpen={setSelectedKey} />
                   ))}
                 </ul>
               </section>
@@ -133,8 +128,20 @@ export function TransactionsPage() {
   )
 }
 
-function EntryRow({ entry, lookups, onOpen }: { entry: TimelineEntry<Transaction>; lookups: Lookups; onOpen: () => void }) {
-  if (entry.kind === 'transfer') return <TransferRow entry={entry} lookups={lookups} onOpen={onOpen} />
+// Memoizada: abrir e fechar o painel muda o estado da página, e sem isso cada toque redesenhava o mês
+// inteiro (4.792 linhas: ~600 ms para fechar). A linha só depende do que recebe: o lançamento (objeto
+// novo quando a lista recarrega), os nomes de conta e categoria, e onOpen, que é o setter estável do
+// estado da página e recebe a chave.
+const EntryRow = memo(function EntryRow({
+  entry,
+  lookups,
+  onOpen,
+}: {
+  entry: TimelineEntry<Transaction>
+  lookups: Lookups
+  onOpen: (key: string) => void
+}) {
+  if (entry.kind === 'transfer') return <TransferRow entry={entry} lookups={lookups} onOpen={() => onOpen(entryKey(entry))} />
   const first = entry.kind === 'single' ? entry.transaction : entry.installments[0]
   const category = first.categoryId ? lookups.categories.get(first.categoryId) : undefined
   const account = lookups.accounts.get(first.accountId)
@@ -156,7 +163,7 @@ function EntryRow({ entry, lookups, onOpen }: { entry: TimelineEntry<Transaction
     <li>
       <button
         type="button"
-        onClick={onOpen}
+        onClick={() => onOpen(entryKey(entry))}
         className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors outline-none hover:bg-muted/40 focus-visible:bg-muted/60 active:bg-muted/70"
       >
         <EntryTile description={first.description} category={category} />
@@ -174,7 +181,7 @@ function EntryRow({ entry, lookups, onOpen }: { entry: TimelineEntry<Transaction
       </button>
     </li>
   )
-}
+})
 
 // Transferência: origem → destino, valor sem sinal (não é receita nem despesa; docs/fase-1.md, 2.3).
 function TransferRow({

@@ -45,6 +45,17 @@ describe('buildTimeline', () => {
     ])
   })
 
+  // A API não devolve as parcelas em ordem. A linha da compra lê a primeira da entrada (a fatura dela
+  // no "fatura de novembro" da compra movida): a parcela 1 vem primeiro.
+  it('ordena as parcelas pelo número', () => {
+    const installment = (id: string, number: number) => ({ ...tx(id, '2026-09-18', 100, 'p'), installmentNumber: number })
+
+    const [day] = buildTimeline([installment('b', 2), installment('c', 3), installment('a', 1)])
+    const entry = day.entries[0]
+
+    expect(entry.kind === 'purchase' && entry.installments.map((t) => t.id)).toEqual(['a', 'b', 'c'])
+  })
+
   it('lista vazia não tem dias', () => {
     expect(buildTimeline([])).toEqual([])
   })
