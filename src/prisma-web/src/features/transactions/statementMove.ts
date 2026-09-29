@@ -50,7 +50,9 @@ export function moveOptions(
   }
 }
 
-const monthOf = (reference: string) => monthName.format(new Date(`${reference.slice(0, 7)}-01T12:00:00Z`))
+// O mês de uma fatura pela referência ou pelo vencimento: "2026-11" ou "2026-11-12" → "novembro".
+export const statementMonth = (reference: string) => monthName.format(new Date(`${reference.slice(0, 7)}-01T12:00:00Z`))
+const monthOf = statementMonth
 
 // Na lista de lançamentos (pela data da compra), a compra movida diz em que fatura está: é por isso que
 // ela conta no "Saiu" de outro mês. A fatura é a do mês em que vence.

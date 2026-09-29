@@ -78,6 +78,17 @@ public sealed class Transaction : Entity
         StatementPinned = false;
     }
 
+    // Usado por CardPurchase ao trocar o cartão da compra (docs/fase-2.md, 2.13): como a troca de data,
+    // a compra vai para a fatura do cartão novo e deixa de estar presa.
+    internal void MoveToCard(Account card, Statement statement, DateOnly purchaseDate)
+    {
+        if (statement.AccountId != card.Id)
+            throw new ArgumentException("A fatura deve ser do cartão novo.", nameof(statement));
+
+        AccountId = card.Id;
+        MoveTo(statement, purchaseDate);
+    }
+
     // Usado por CardPurchase.MoveStatement: muda a fatura sem mudar a data da compra.
     internal void MoveToStatement(Statement statement, bool pinned)
     {

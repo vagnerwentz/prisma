@@ -84,14 +84,20 @@ public static class CardPurchase
 
     // Editar a compra redistribui as parcelas não pagas e mantém a soma exata (docs/fase-1.md,
     // 2.2). Parcela paga é a que está em fatura paga: mantém o valor e não pode ser removida.
-    // Mudar a data leva cada parcela para a fatura do seu ciclo a partir da nova data (etapa 1.14b).
+    // Mudar a data leva cada parcela para a fatura do seu ciclo a partir da nova data (etapa 1.14b);
+    // trocar o cartão (newCard), para a do cartão novo, com a compra inteira (docs/fase-2.md, 2.13).
     // installments: parcelas ativas da compra. statements: faturas do cartão (as das parcelas e as
-    // que podem receber parcelas, inclusive em volta da nova data).
+    // que podem receber parcelas, inclusive em volta da nova data), e as do cartão novo, na troca.
     public static Result<CardPurchaseEditResult> Edit(
         InstallmentPurchase purchase, Account card, IReadOnlyList<Transaction> installments,
         IReadOnlyCollection<Statement> statements, long totalAmountCents, int installmentCount,
-        Category? category, string? description, DateOnly purchaseDate)
+        Category? category, string? description, DateOnly purchaseDate, Account? newCard = null)
     {
+        var target = newCard ?? card;
+        var cardChanges = target.Id != card.Id;
+        if (cardChanges && target.Type != AccountType.CreditCard)
+            return OnlyToAnotherCard;
+
         if (installmentCount is < 1 or > InstallmentPurchase.MaxInstallments)
             return Invalid($"O número de parcelas deve estar entre 1 e {InstallmentPurchase.MaxInstallments}.");
 
@@ -109,6 +115,9 @@ public static class CardPurchase
         var unpaid = ordered.Where(t => !IsPaid(t)).ToList();
 
         var dateChanges = purchaseDate != purchase.PurchaseDate;
+        if (cardChanges && paid.Count > 0)
+            return Invalid("Há parcelas em fatura paga. Desfaça o pagamento para trocar o cartão.");
+
         if (dateChanges && paid.Count > 0)
             return PaidPurchaseKeepsItsDate;
 
@@ -127,35 +136,44 @@ public static class CardPurchase
         if (unpaidCount > 0 && remaining < unpaidCount)
             return Invalid("O valor total deve ter ao menos 1 centavo por parcela não paga.");
 
-        var placement = new StatementPlacement(card, statements, purchaseDate);
+        var placement = new StatementPlacement(target, statements, purchaseDate);
 
-        // Com data nova, todas as parcelas mudam de fatura; nenhuma pode cair em fatura paga.
-        // Sem data nova, só as parcelas acrescentadas precisam de fatura. Na compra presa (movida de
+        // Com data ou cartão novos, todas as parcelas mudam de fatura; nenhuma pode cair em fatura paga.
+        // Sem eles, só as parcelas acrescentadas precisam de fatura. Na compra presa (movida de
         // fatura, docs/fase-2.md, 2.9), elas seguem a última parcela, para os ciclos continuarem
         // consecutivos, e ficam presas como as outras.
-        var pinnedLast = !dateChanges && ordered.Any(t => t.StatementPinned) ? ordered[^1] : null;
-        var firstPlaced = dateChanges ? 1 : ordered.Count + 1;
+        var relocates = dateChanges || cardChanges;
+        var pinnedLast = !relocates && ordered.Any(t => t.StatementPinned) ? ordered[^1] : null;
+        var firstPlaced = relocates ? 1 : ordered.Count + 1;
         var targets = Enumerable.Range(firstPlaced, Math.Max(installmentCount - firstPlaced + 1, 0))
             .ToDictionary(n => n, n => pinnedLast is not null
                 ? placement.After(statementsById[pinnedLast.StatementId!.Value], n - pinnedLast.InstallmentNumber!.Value)
                 : placement.For(n));
         if (targets.Values.Any(t => t.IsPaid))
-            return dateChanges ? MovedIntoPaidStatement : NewInstallmentsIntoPaidStatement;
+            return cardChanges ? IntoPaidStatementOfNewCard
+                : dateChanges ? MovedIntoPaidStatement
+                : NewInstallmentsIntoPaidStatement;
 
         // Validado: a partir daqui nada falha.
         var text = description?.Trim() ?? "";
         var removed = unpaid.Where(t => t.InstallmentNumber > installmentCount).ToList();
         var kept = unpaid.Where(t => t.InstallmentNumber <= installmentCount).ToList();
 
-        if (dateChanges)
+        if (relocates)
             foreach (var installment in kept)
-                installment.MoveTo(targets[installment.InstallmentNumber!.Value], purchaseDate);
+            {
+                var statement = targets[installment.InstallmentNumber!.Value];
+                if (cardChanges)
+                    installment.MoveToCard(target, statement, purchaseDate);
+                else
+                    installment.MoveTo(statement, purchaseDate);
+            }
 
         var added = new List<Transaction>();
         for (var number = ordered.Count + 1; number <= installmentCount; number++)
         {
             var installment = Transaction.CreateCardInstallment(
-                purchase.UserId, card, 1, purchaseDate, targets[number], category, text, purchase.Id, number);
+                purchase.UserId, target, 1, purchaseDate, targets[number], category, text, purchase.Id, number);
             if (pinnedLast is not null)
                 installment.MoveToStatement(targets[number], pinned: true);
             added.Add(installment);
@@ -170,12 +188,15 @@ public static class CardPurchase
         }
 
         purchase.Update(totalAmountCents, installmentCount, text, purchaseDate);
+        if (cardChanges)
+            purchase.MoveToCard(target.Id);
         return new CardPurchaseEditResult(added, removed, placement.Opened);
     }
 
     // PATCH /transactions/{id} de um lançamento no cartão (docs/fase-1.md, 2.2). A parcela isolada
-    // muda só descrição e categoria; a compra à vista muda também valor e data, e a data nova a leva
-    // para a fatura do seu ciclo. Devolve as faturas abertas para recebê-la.
+    // muda só descrição e categoria; a compra à vista muda também valor, data e cartão, e a data ou o
+    // cartão novos a levam para a fatura do seu ciclo (docs/fase-2.md, 2.13). Devolve as faturas
+    // abertas para recebê-la. statements: as faturas do cartão (e as do cartão novo, na troca).
     public static Result<IReadOnlyList<Statement>> EditTransaction(
         Transaction transaction, Account card, IReadOnlyCollection<Statement> statements,
         Account account, TransactionType type, long amountCents, DateOnly purchaseDate,
@@ -190,10 +211,17 @@ public static class CardPurchase
         if (transaction.Type == TransactionType.Refund)
             return Invalid("Estorno usa a edição de estorno.");
 
-        if (account.Id != transaction.AccountId || type != transaction.Type || method != transaction.Method)
-            return Invalid("Em compra no cartão, conta, tipo e meio de pagamento não mudam. Exclua e lance de novo.");
+        if (type != transaction.Type || method != transaction.Method)
+            return TypeAndMethodKeep;
 
         var isInstallment = transaction.InstallmentPurchaseId is not null;
+        var cardChanges = account.Id != transaction.AccountId;
+        if (cardChanges && account.Type != AccountType.CreditCard)
+            return OnlyToAnotherCard;
+
+        if (isInstallment && cardChanges)
+            return Invalid("O cartão de uma parcela muda pela compra inteira.");
+
         if (isInstallment && amountCents != transaction.AmountCents)
             return Invalid("O valor de uma parcela muda pela compra inteira, para a soma continuar igual ao total.");
 
@@ -210,25 +238,37 @@ public static class CardPurchase
         if (Transaction.ValidateDetails(type, category, description) is { } detailsError)
             return detailsError;
 
-        var placement = new StatementPlacement(card, statements, purchaseDate);
+        var placement = new StatementPlacement(account, statements, purchaseDate);
         Statement? target = null;
-        if (purchaseDate != transaction.PurchaseDate)
+        if (cardChanges || purchaseDate != transaction.PurchaseDate)
         {
             if (inPaidStatement)
-                return PaidPurchaseKeepsItsDate;
+                return cardChanges ? Invalid("Esta compra está numa fatura paga. Desfaça o pagamento para trocar o cartão.")
+                    : PaidPurchaseKeepsItsDate;
 
             target = placement.For(1);
             if (target.IsPaid)
-                return MovedIntoPaidStatement;
+                return cardChanges ? IntoPaidStatementOfNewCard : MovedIntoPaidStatement;
         }
 
         // Validado: a partir daqui nada falha.
-        if (target is not null)
+        if (target is not null && cardChanges)
+            transaction.MoveToCard(account, target, purchaseDate);
+        else if (target is not null)
             transaction.MoveTo(target, purchaseDate);
         transaction.Redistribute(amountCents);
         transaction.ApplyDetails(category, description?.Trim() ?? "");
         return Result<IReadOnlyList<Statement>>.Success(placement.Opened);
     }
+
+    private static readonly Error TypeAndMethodKeep =
+        new(ErrorType.Validation, "Em compra no cartão, tipo e meio de pagamento não mudam. Exclua e lance de novo.");
+
+    private static readonly Error OnlyToAnotherCard =
+        new(ErrorType.Validation, "Compra no cartão só troca para outro cartão. Para usar outra conta, exclua e lance de novo.");
+
+    private static readonly Error IntoPaidStatementOfNewCard =
+        new(ErrorType.Validation, "No cartão novo, a compra cairia numa fatura já paga.");
 
     private static readonly Error PaidPurchaseKeepsItsDate =
         new(ErrorType.Validation, "Há parcelas em fatura paga; a data da compra não pode mudar.");
@@ -261,11 +301,14 @@ public static class CardPurchase
     }
 
     // Fatura de cada parcela a partir de uma data de compra: reaproveita as faturas gravadas (e as
-    // datas editadas delas) e abre as que faltam, como na criação.
+    // datas editadas delas) e abre as que faltam, como na criação. Só olha as faturas do cartão: na
+    // troca de cartão, as dos dois vêm juntas, e a mesma referência existe nos dois.
     internal sealed class StatementPlacement(Account card, IReadOnlyCollection<Statement> statements, DateOnly purchaseDate)
     {
-        private readonly Dictionary<string, Statement> _byReference = statements.ToDictionary(s => s.Reference);
-        private readonly List<StatementDates> _existingDates = statements.Select(s => s.Dates).ToList();
+        private readonly Dictionary<string, Statement> _byReference =
+            statements.Where(s => s.AccountId == card.Id).ToDictionary(s => s.Reference);
+        private readonly List<StatementDates> _existingDates =
+            statements.Where(s => s.AccountId == card.Id).Select(s => s.Dates).ToList();
         private readonly List<Statement> _opened = [];
 
         public IReadOnlyList<Statement> Opened => _opened;

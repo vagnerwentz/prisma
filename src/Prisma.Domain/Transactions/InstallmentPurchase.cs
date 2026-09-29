@@ -35,5 +35,8 @@ public sealed class InstallmentPurchase : Entity
         PurchaseDate = purchaseDate;
     }
 
+    // Troca de cartão (docs/fase-2.md, 2.13): as parcelas vão junto, por CardPurchase.Edit.
+    internal void MoveToCard(Guid accountId) => AccountId = accountId;
+
     internal void Restore() => ClearDeletion();
 }

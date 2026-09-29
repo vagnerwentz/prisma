@@ -4,6 +4,7 @@ using Prisma.Api.Features.Statements;
 using Prisma.Api.Features.Transactions;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Http;
+using Prisma.Api.Infrastructure.Logging;
 using Prisma.Domain;
 using Prisma.Domain.Categories;
 using Prisma.Domain.Transactions;
@@ -13,9 +14,11 @@ namespace Prisma.Api.Features.InstallmentPurchases;
 public static class UpdateInstallmentPurchase
 {
     // Todos os campos editáveis juntos, como nos demais PATCH. Mudar a data leva as parcelas para
-    // as faturas dos ciclos da nova data (etapa 1.14b).
+    // as faturas dos ciclos da nova data (etapa 1.14b); o cartão (AccountId), para as do cartão novo
+    // (docs/fase-2.md, 2.13). Sem AccountId, o cartão fica: a tela aberta antes do deploy da 2.24 não o manda.
     public sealed record Request(
-        long TotalAmountCents, int InstallmentCount, Guid? CategoryId, string? Description, DateOnly PurchaseDate);
+        long TotalAmountCents, int InstallmentCount, Guid? CategoryId, string? Description, DateOnly PurchaseDate,
+        Guid? AccountId = null);
 
     public sealed class Validator : AbstractValidator<Request>
     {
@@ -32,7 +35,7 @@ public static class UpdateInstallmentPurchase
         DateOnly PurchaseDate,
         IReadOnlyList<TransactionResponse> Installments);
 
-    public sealed class Handler(AppDbContext db)
+    public sealed class Handler(AppDbContext db, ILogger<Handler> logger)
     {
         public Task<Result<Response>> Execute(Guid id, Request req, CancellationToken ct) =>
             ConcurrentStatementOpening.Retry(db, () => Update(id, req, ct));
@@ -47,6 +50,14 @@ public static class UpdateInstallmentPurchase
             if (card is null)
                 return new Error(ErrorType.Conflict, "A conta desta compra foi excluída.");
 
+            var newCard = card;
+            if (req.AccountId is { } accountId && accountId != card.Id)
+            {
+                newCard = await db.Accounts.SingleOrDefaultAsync(a => a.Id == accountId, ct);
+                if (newCard is null)
+                    return new Error(ErrorType.Validation, "Conta não encontrada.");
+            }
+
             Category? category = null;
             if (req.CategoryId is { } categoryId)
             {
@@ -57,11 +68,13 @@ public static class UpdateInstallmentPurchase
 
             var installments = await db.Transactions.Where(t => t.InstallmentPurchaseId == id).ToListAsync(ct);
 
-            // Compra já estornada não fica menor do que o estornado (docs/fase-2.md, 2.5, regra 7).
+            // Compra já estornada não troca de cartão nem fica menor do que o estornado (docs/fase-2.md,
+            // 2.5, regra 7; 2.13, regra 4).
             if (installments.Count > 0)
             {
                 var refunded = await RefundAmounts.RefundedOf(db, installments[0], exceptRefundId: null, ct);
-                if (Refund.CheckPurchaseKeepsRefunds(req.TotalAmountCents, refunded) is { } refundError)
+                if (Refund.CheckPurchaseEdit(installments[0], TransactionType.Expense, newCard.Id, req.TotalAmountCents, refunded)
+                    is { } refundError)
                     return refundError;
             }
 
@@ -71,19 +84,31 @@ public static class UpdateInstallmentPurchase
             var earliest = req.PurchaseDate < purchase.PurchaseDate ? req.PurchaseDate : purchase.PurchaseDate;
             var from = earliest.AddMonths(-2);
             var statements = await db.Statements
-                .Where(s => s.AccountId == card.Id && (s.ClosingDate >= from || statementIds.Contains(s.Id)))
+                .Where(s => (s.AccountId == card.Id || s.AccountId == newCard.Id)
+                    && (s.ClosingDate >= from || statementIds.Contains(s.Id)))
                 .ToListAsync(ct);
+            var sources = installments.ToDictionary(t => t, t => t.StatementId);
 
             var edited = CardPurchase.Edit(
                 purchase, card, installments, statements, req.TotalAmountCents, req.InstallmentCount,
-                category, req.Description, req.PurchaseDate);
+                category, req.Description, req.PurchaseDate, newCard);
             if (!edited.IsSuccess)
                 return edited.Error;
 
             db.Statements.AddRange(edited.Value.OpenedStatements);
             db.Transactions.AddRange(edited.Value.Added);
             db.Transactions.RemoveRange(edited.Value.Removed);
+
+            // Pôr e tirar parcela de fatura conta como mudança nas duas (CLAUDE.md, seção 6): a que mudou
+            // de fatura, a acrescentada e a removida.
+            var touched = installments.Where(t => t.StatementId != sources[t]).SelectMany(t => new[] { sources[t], t.StatementId })
+                .Concat(edited.Value.Added.Select(t => t.StatementId))
+                .Concat(edited.Value.Removed.Select(t => t.StatementId))
+                .ToHashSet();
+            StatementTouch.Touch(db, statements.Where(s => touched.Contains(s.Id)));
             await db.SaveChangesAsync(ct);
+            if (newCard.Id != card.Id)
+                logger.PurchaseMovedToCard(purchase.Id, card.Id, newCard.Id);
 
             var current = installments.Except(edited.Value.Removed).Concat(edited.Value.Added)
                 .OrderBy(t => t.InstallmentNumber)

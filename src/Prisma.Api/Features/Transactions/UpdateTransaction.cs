@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Prisma.Api.Features.Statements;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Http;
+using Prisma.Api.Infrastructure.Logging;
 using Prisma.Domain;
 using Prisma.Domain.Accounts;
 using Prisma.Domain.Categories;
@@ -32,7 +33,7 @@ public static class UpdateTransaction
         }
     }
 
-    public sealed class Handler(AppDbContext db)
+    public sealed class Handler(AppDbContext db, ILogger<Handler> logger)
     {
         public Task<Result<TransactionResponse>> Execute(Guid id, Request req, CancellationToken ct) =>
             ConcurrentStatementOpening.Retry(db, () => Update(id, req, ct));
@@ -48,6 +49,7 @@ public static class UpdateTransaction
                 return references.Error;
 
             var (account, category) = references.Value;
+            var previousAccount = transaction.AccountId;
 
             if (transaction.Type == TransactionType.Refund)
                 return await UpdateRefund(transaction, req, account, category, ct);
@@ -70,15 +72,18 @@ public static class UpdateTransaction
             }
             else
             {
-                // No cartão, a data nova pode levar a compra para outra fatura (etapa 1.14b).
+                // No cartão, a data ou o cartão novos podem levar a compra para outra fatura (etapa 1.14b;
+                // docs/fase-2.md, 2.13). Na troca, vêm as faturas dos dois cartões.
                 var card = await db.Accounts.SingleOrDefaultAsync(a => a.Id == transaction.AccountId, ct);
                 if (card is null)
                     return new Error(ErrorType.Conflict, "A conta desta compra foi excluída.");
 
                 var from = Min(transaction.PurchaseDate, req.PurchaseDate).AddMonths(-2);
                 var statements = await db.Statements
-                    .Where(s => s.AccountId == card.Id && (s.ClosingDate >= from || s.Id == transaction.StatementId))
+                    .Where(s => (s.AccountId == card.Id || s.AccountId == account.Id)
+                        && (s.ClosingDate >= from || s.Id == transaction.StatementId))
                     .ToListAsync(ct);
+                var source = transaction.StatementId;
 
                 var edited = CardPurchase.EditTransaction(
                     transaction, card, statements, account, req.Type, req.AmountCents, req.PurchaseDate,
@@ -87,9 +92,14 @@ public static class UpdateTransaction
                     return edited.Error;
 
                 db.Statements.AddRange(edited.Value);
+                // Pôr e tirar compra de fatura conta como mudança nas duas (CLAUDE.md, seção 6).
+                if (transaction.StatementId != source)
+                    StatementTouch.Touch(db, statements.Where(s => s.Id == source || s.Id == transaction.StatementId));
             }
 
             await db.SaveChangesAsync(ct);
+            if (transaction.StatementId is not null && transaction.AccountId != previousAccount)
+                logger.PurchaseMovedToCard(transaction.Id, previousAccount, transaction.AccountId);
             return TransactionResponse.From(transaction);
         }
 
@@ -115,12 +125,15 @@ public static class UpdateTransaction
                     .ToListAsync(ct);
             }
 
+            var source = refund.StatementId;
             var edited = Refund.Edit(
                 refund, account, req.AmountCents, req.PurchaseDate, category, req.Method, req.Description, refundable, statements);
             if (!edited.IsSuccess)
                 return edited.Error;
 
             db.Statements.AddRange(edited.Value);
+            if (refund.StatementId != source)
+                StatementTouch.Touch(db, statements.Where(s => s.Id == source || s.Id == refund.StatementId));
             await db.SaveChangesAsync(ct);
             return TransactionResponse.From(refund);
         }
@@ -137,5 +150,6 @@ public static class UpdateTransaction
             .AddEndpointFilter<ValidationFilter<Request>>()
             .Produces<TransactionResponse>(200)
             .ProducesValidationProblem()
-            .ProducesProblem(404);
+            .ProducesProblem(404)
+            .ProducesProblem(409);
 }

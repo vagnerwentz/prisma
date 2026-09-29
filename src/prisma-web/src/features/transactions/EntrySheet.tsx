@@ -32,6 +32,7 @@ import {
   useUpdateTransaction,
   type Transaction,
 } from './queries'
+import { cardChangeText, cardChoices } from './cardChange'
 import { repeatDraftOf } from './repeat'
 import { moveOptions, moveTexts, shiftReference, type StatementShift } from './statementMove'
 import type { TimelineEntry } from './timeline'
@@ -576,17 +577,43 @@ const description = z.string().max(200, 'A descrição deve ter no máximo 200 c
 
 // Depois de salvar, volta aos detalhes (que leem a lista recarregada). Se a data da compra foi
 // para outro mês, o lançamento sai da lista atual: fecha o painel e a lista vai para o novo mês.
+// note: o que mais mudou (o cartão novo, docs/fase-2.md, 2.13), no aviso.
 function useSaved({ onDone, onClose, onMoved }: Pick<EditorProps, 'onDone' | 'onClose' | 'onMoved'>) {
-  return (before?: string, after?: string) => {
+  return (before?: string, after?: string, note?: string) => {
     if (before && after && before.slice(0, 7) !== after.slice(0, 7)) {
-      toast.success('Alterações salvas', { description: `Compra movida para ${formatShortDate(after)}.` })
+      const moved = `Compra movida para ${formatShortDate(after)}.`
+      toast.success('Alterações salvas', { description: note ? `${moved} ${note}` : moved })
       onClose()
       onMoved(monthOf(after))
       return
     }
-    toast.success('Alterações salvas')
+    toast.success('Alterações salvas', note ? { description: note } : undefined)
     onDone()
   }
+}
+
+// O aviso da troca de cartão, a partir do que a API devolveu (a fatura nova é a do vencimento).
+function cardNote(cards: Account[], before: string, after: Pick<Transaction, 'accountId' | 'settlementDate'>) {
+  if (after.accountId === before) return undefined
+  const card = cards.find((a) => a.id === after.accountId)
+  return card ? cardChangeText(card.name, after.settlementDate) : undefined
+}
+
+// Seção "Cartão" da compra no cartão: só aparece quando há outro cartão para escolher.
+function CardPicker({ choices, value, onChange }: { choices: Account[]; value: string; onChange: (id: string) => void }) {
+  if (choices.length < 2) return null
+  return (
+    <Section title="Cartão">
+      <ChipRow>
+        {choices.map((a) => (
+          <Chip key={a.id} selected={a.id === value} onClick={() => onChange(a.id)}>
+            <AccountTile name={a.name} type={a.type} size="sm" />
+            {a.name}
+          </Chip>
+        ))}
+      </ChipRow>
+    </Section>
+  )
 }
 
 const simpleSchema = z.object({
@@ -710,13 +737,14 @@ function SimpleForm({ transaction, accounts, categories, onDone, onClose, onMove
 const cardSchema = z.object({
   amountCents: z.number().int().min(1, 'Informe o valor.'),
   purchaseDate: z.string().min(1, 'Informe a data.'),
+  accountId: z.string(),
   categoryId: z.string(),
   description,
 })
 
-// Compra à vista no cartão: valor, data, descrição e categoria. Conta e meio seguem os da compra;
-// a data nova leva a compra para a fatura do seu ciclo (etapa 1.14b).
-function CardForm({ transaction, categories, onDone, onClose, onMoved }: EditorProps & { transaction: Transaction }) {
+// Compra à vista no cartão: valor, data, cartão, descrição e categoria. O meio segue o da compra; a
+// data ou o cartão novos levam a compra para a fatura do seu ciclo (etapa 1.14b; docs/fase-2.md, 2.13).
+function CardForm({ transaction, accounts, categories, onDone, onClose, onMoved }: EditorProps & { transaction: Transaction }) {
   const update = useUpdateTransaction()
   const saved = useSaved({ onDone, onClose, onMoved })
   const form = useForm<z.infer<typeof cardSchema>>({
@@ -724,28 +752,31 @@ function CardForm({ transaction, categories, onDone, onClose, onMoved }: EditorP
     defaultValues: {
       amountCents: transaction.amountCents,
       purchaseDate: transaction.purchaseDate,
+      accountId: transaction.accountId,
       categoryId: transaction.categoryId ?? '',
       description: transaction.description,
     },
   })
   const { errors, isSubmitting } = form.formState
-  const [amountCents, purchaseDate, categoryId, text] = useWatch({
+  const [amountCents, purchaseDate, accountId, categoryId, text] = useWatch({
     control: form.control,
-    name: ['amountCents', 'purchaseDate', 'categoryId', 'description'],
+    name: ['amountCents', 'purchaseDate', 'accountId', 'categoryId', 'description'],
   })
   const roots = categories.filter((c) => c.type === 'Expense')
   const { label } = resolveCategory(roots, categoryId)
+  const cards = cardChoices(accounts, transaction.accountId)
 
   const submit = form.handleSubmit(async (values) => {
     try {
-      await update.mutateAsync({
+      const updated = await update.mutateAsync({
         id: transaction.id,
         body: {
           ...sameAs(transaction, values.categoryId, values.description, values.amountCents),
+          accountId: values.accountId,
           purchaseDate: values.purchaseDate,
         },
       })
-      saved(transaction.purchaseDate, values.purchaseDate)
+      saved(transaction.purchaseDate, values.purchaseDate, cardNote(cards, transaction.accountId, updated))
     } catch (error) {
       form.setError('root', { message: messageOf(error) })
     }
@@ -776,6 +807,7 @@ function CardForm({ transaction, categories, onDone, onClose, onMoved }: EditorP
         <Section title="Categoria">
           <CategoryPicker roots={roots} value={categoryId} onChange={(id) => form.setValue('categoryId', id)} />
         </Section>
+        <CardPicker choices={cards} value={accountId} onChange={(id) => form.setValue('accountId', id)} />
         <Section title="Data da compra" aside={`fatura atual vence ${formatShortDate(transaction.settlementDate)}`}>
           <DateChooser
             value={purchaseDate}
@@ -783,10 +815,7 @@ function CardForm({ transaction, categories, onDone, onClose, onMoved }: EditorP
             error={errors.purchaseDate?.message}
           />
         </Section>
-        <Note>
-          Mudar a data leva a compra para a fatura do novo ciclo. Conta e meio de pagamento não mudam: para trocá-los, exclua e
-          lance de novo.
-        </Note>
+        <Note>Mudar a data ou o cartão leva a compra para a fatura do novo ciclo.</Note>
       </form>
     </EditShell>
   )
@@ -894,12 +923,15 @@ const purchaseSchema = z.object({
   installments: z.number().int().min(1).max(maxInstallments),
   purchaseDate: z.string().min(1, 'Informe a data.'),
   categoryId: z.string(),
+  accountId: z.string(),
   description,
 })
 
 // Compra parcelada inteira: o total é redistribuído entre as parcelas não pagas (docs/fase-1.md, 2.2).
+// O cartão novo leva todas as parcelas para as faturas dele (docs/fase-2.md, 2.13).
 function PurchaseForm({
   purchase,
+  accounts,
   categories,
   onDone,
   onClose,
@@ -920,22 +952,24 @@ function PurchaseForm({
       installments: purchase.installments.length,
       purchaseDate: first.purchaseDate,
       categoryId: first.categoryId ?? '',
+      accountId: first.accountId,
       description: first.description,
     },
   })
   const { errors, isSubmitting } = form.formState
-  const [totalCents, installments, purchaseDate, categoryId, text] = useWatch({
+  const [totalCents, installments, purchaseDate, categoryId, accountId, text] = useWatch({
     control: form.control,
-    name: ['totalCents', 'installments', 'purchaseDate', 'categoryId', 'description'],
+    name: ['totalCents', 'installments', 'purchaseDate', 'categoryId', 'accountId', 'description'],
   })
   const roots = categories.filter((c) => c.type === 'Expense')
   const { label } = resolveCategory(roots, categoryId)
+  const cards = cardChoices(accounts, first.accountId)
   const set = <K extends Path<z.infer<typeof purchaseSchema>>>(field: K, value: PathValue<z.infer<typeof purchaseSchema>, K>) =>
     form.setValue(field, value, { shouldValidate: form.formState.isSubmitted })
 
   const submit = form.handleSubmit(async (values) => {
     try {
-      await update.mutateAsync({
+      const updated = await update.mutateAsync({
         id: purchase.purchaseId,
         body: {
           totalAmountCents: values.totalCents,
@@ -943,9 +977,11 @@ function PurchaseForm({
           categoryId: values.categoryId || null,
           description: values.description.trim() || null,
           purchaseDate: values.purchaseDate,
+          accountId: values.accountId,
         },
       })
-      saved(first.purchaseDate, values.purchaseDate)
+      const firstNow = [...updated.installments].sort(byNumber)[0]
+      saved(first.purchaseDate, values.purchaseDate, firstNow && cardNote(cards, first.accountId, firstNow))
     } catch (error) {
       form.setError('root', { message: messageOf(error) })
     }
@@ -990,12 +1026,13 @@ function PurchaseForm({
         <Section title="Categoria">
           <CategoryPicker roots={roots} value={categoryId} onChange={(id) => set('categoryId', id)} />
         </Section>
+        <CardPicker choices={cards} value={accountId} onChange={(id) => set('accountId', id)} />
         <Section title="Data da compra">
           <DateChooser value={purchaseDate} onChange={(date) => set('purchaseDate', date)} error={errors.purchaseDate?.message} />
         </Section>
         <Note>
-          O total é dividido de novo entre as parcelas ainda não pagas, sem perder centavo; parcela em fatura paga mantém o valor.
-          Mudar a data leva todas as parcelas para as faturas dos novos ciclos.
+          O total é dividido de novo entre as parcelas ainda não pagas, sem perder centavo. Parcela em fatura paga mantém o valor.
+          Mudar a data ou o cartão leva todas as parcelas para as faturas dos novos ciclos.
         </Note>
       </form>
     </EditShell>
@@ -1053,14 +1090,16 @@ function InstallmentForm({
           <CategoryPicker roots={roots} value={categoryId} onChange={(id) => form.setValue('categoryId', id)} />
         </Section>
         <Note>
-          Muda só esta parcela. Valor, número de parcelas e data mudam pela compra inteira, para a soma continuar igual ao total.
+          Muda só esta parcela. Valor, número de parcelas, data e cartão mudam pela compra inteira, para a soma continuar igual ao
+          total.
         </Note>
       </form>
     </EditShell>
   )
 }
 
-// PATCH de lançamento no cartão: conta, tipo, data e meio seguem os atuais (a API recusa mudança).
+// PATCH de lançamento no cartão: conta, tipo, data e meio seguem os atuais (tipo e meio a API recusa
+// mudar; conta e data, quem muda é o formulário da compra).
 function sameAs(t: Transaction, categoryId: string, text: string, amountCents = t.amountCents) {
   return {
     accountId: t.accountId,

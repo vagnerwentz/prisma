@@ -169,14 +169,13 @@ public sealed class CardPurchaseDateTests
         ShouldFailWith(result, "A data de uma parcela muda pela compra inteira.");
     }
 
+    // O cartão muda para outro cartão (docs/fase-2.md, 2.13; CardPurchaseCardChangeTests).
     [Fact]
-    public void Account_type_and_method_still_never_change()
+    public void Type_and_method_still_never_change()
     {
-        const string message = "Em compra no cartão, conta, tipo e meio de pagamento não mudam. Exclua e lance de novo.";
+        const string message = "Em compra no cartão, tipo e meio de pagamento não mudam. Exclua e lance de novo.";
         var single = Buy(5590, 1).Single;
-        var other = Account.Create(UserId, "Master", AccountType.CreditCard, 0, 5, 12, null).Value;
 
-        ShouldFailWith(CardPurchase.EditTransaction(single, Card, [], other, TransactionType.Expense, 5590, March10, null, PaymentMethod.Credit, null), message);
         ShouldFailWith(CardPurchase.EditTransaction(single, Card, [], Card, TransactionType.Income, 5590, March10, null, PaymentMethod.Credit, null), message);
         ShouldFailWith(CardPurchase.EditTransaction(single, Card, [], Card, TransactionType.Expense, 5590, March10, null, PaymentMethod.Pix, null), message);
     }

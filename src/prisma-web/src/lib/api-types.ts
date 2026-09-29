@@ -1313,6 +1313,15 @@ export interface paths {
                         "application/problem+json": components["schemas"]["ProblemDetails"];
                     };
                 };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
             };
         };
         trace?: never;
@@ -2180,6 +2189,8 @@ export interface components {
             description: null | string;
             /** Format: date */
             purchaseDate: string;
+            /** Format: uuid */
+            accountId?: null | string;
         };
         UpdateInstallmentPurchaseResponse: {
             /** Format: uuid */

@@ -232,3 +232,55 @@ POST {{baseUrl}}/transactions/{{snackId}}/move-statement
 Content-Type: application/json
 
 { "direction": "Sideways" }
+
+### Trocar o cartão (etapa 2.24, docs/fase-2.md, 2.13). Preparação: um segundo cartão, que fecha 26 e vence 5
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{
+  "name": "Master para testes",
+  "type": "CreditCard",
+  "initialBalanceCents": 0,
+  "closingDay": 26,
+  "dueDay": 5
+}
+
+> {% client.global.set("otherCardId", response.body.id); %}
+
+### Trocar o cartão do lanche (200; accountId do Master, fatura e settlementDate do Master, data da compra igual)
+PATCH {{baseUrl}}/transactions/{{snackId}}
+Content-Type: application/json
+
+{
+  "accountId": "{{otherCardId}}",
+  "type": "Expense",
+  "amountCents": 3000,
+  "purchaseDate": "2026-05-04",
+  "method": "Credit",
+  "description": "Lanche"
+}
+
+### Trocar o cartão da compra parcelada inteira (200; todas as parcelas vão para as faturas do Master)
+PATCH {{baseUrl}}/installment-purchases/{{purchaseId}}
+Content-Type: application/json
+
+{
+  "totalAmountCents": 120003,
+  "installmentCount": 12,
+  "description": "Notebook",
+  "purchaseDate": "2026-05-10",
+  "accountId": "{{otherCardId}}"
+}
+
+### Erro: trocar uma parcela sozinha de cartão (400; o cartão muda pela compra inteira)
+PATCH {{baseUrl}}/transactions/{{installmentId}}
+Content-Type: application/json
+
+{
+  "accountId": "{{cardId}}",
+  "type": "Expense",
+  "amountCents": 10001,
+  "purchaseDate": "2026-05-10",
+  "method": "Credit",
+  "description": "Notebook"
+}

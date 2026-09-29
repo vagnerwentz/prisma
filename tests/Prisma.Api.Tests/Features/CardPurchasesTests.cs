@@ -191,8 +191,8 @@ public sealed class CardPurchasesTests(PostgresFixture postgres)
             {
                 accountId = checking, type = "Expense", amountCents = 100, purchaseDate = "2026-03-10", method = "Pix",
             }),
-            // Regra da 1.9b: em compra no cartão, a conta não muda.
-            HttpStatusCode.BadRequest, "Em compra no cartão, conta, tipo e meio de pagamento não mudam. Exclua e lance de novo.");
+            // Regra da 1.9b: em compra no cartão, tipo e meio não mudam (o cartão muda para outro cartão, 2.13).
+            HttpStatusCode.BadRequest, "Em compra no cartão, tipo e meio de pagamento não mudam. Exclua e lance de novo.");
     }
 
     [Fact]

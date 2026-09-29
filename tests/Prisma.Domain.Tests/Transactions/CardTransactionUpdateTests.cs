@@ -7,8 +7,8 @@ using Shouldly;
 namespace Prisma.Domain.Tests.Transactions;
 
 // docs/fase-1.md, 2.2: a parcela isolada muda só descrição e categoria; a compra à vista no
-// cartão aceita também o valor (e a data, em CardPurchaseDateTests). Conta, tipo e meio de
-// pagamento nunca mudam.
+// cartão aceita também o valor (e a data, em CardPurchaseDateTests, e o cartão, em
+// CardPurchaseCardChangeTests). Tipo e meio de pagamento nunca mudam.
 public sealed class CardTransactionUpdateTests
 {
     private static readonly Guid UserId = Guid.NewGuid();
@@ -74,15 +74,16 @@ public sealed class CardTransactionUpdateTests
     public void Single_card_payment_amount_must_be_positive() =>
         ShouldFailWith(Update(Buy(4590, 1)[0], amount: 0), "O valor deve ser maior que zero.");
 
+    // O cartão muda para outro cartão (docs/fase-2.md, 2.13; CardPurchaseCardChangeTests).
     [Fact]
-    public void Account_type_and_method_never_change()
+    public void Type_and_method_never_change()
     {
-        const string message = "Em compra no cartão, conta, tipo e meio de pagamento não mudam. Exclua e lance de novo.";
+        const string message = "Em compra no cartão, tipo e meio de pagamento não mudam. Exclua e lance de novo.";
         var single = Buy(4590, 1)[0];
 
-        ShouldFailWith(Update(single, account: OtherCard), message);
         ShouldFailWith(Update(single, method: PaymentMethod.Pix), message);
         ShouldFailWith(Update(single, type: TransactionType.Income, category: null), message);
+        ShouldFailWith(Update(single, account: OtherCard, method: PaymentMethod.Pix), message);
     }
 
     [Fact]

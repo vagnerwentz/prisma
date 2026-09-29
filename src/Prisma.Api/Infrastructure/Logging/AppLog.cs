@@ -59,6 +59,9 @@ public static partial class AppLog
     [LoggerMessage(3002, LogLevel.Information, "Purchase {PurchaseId} moved to the {Direction} statement (pinned: {Pinned})")]
     public static partial void PurchaseMovedToStatement(this ILogger logger, Guid purchaseId, StatementShift direction, bool pinned);
 
+    [LoggerMessage(3003, LogLevel.Information, "Purchase {PurchaseId} moved from card {FromCardId} to card {ToCardId}")]
+    public static partial void PurchaseMovedToCard(this ILogger logger, Guid purchaseId, Guid fromCardId, Guid toCardId);
+
     // Rota modelo (/statements/{id}/pay), nunca o caminho cru: ele pode levar ids e consulta. Depois de
     // uma exceção, o ASP.NET tira o endpoint do contexto e o guarda no IExceptionHandlerFeature.
     // Sem a barra final que os grupos deixam (/accounts/ → /accounts).
