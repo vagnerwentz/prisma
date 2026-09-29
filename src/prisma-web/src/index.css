@@ -404,6 +404,8 @@
 }
 .tinted-action[data-tint="repeat"] { --tint: #8b5cf6; }
 .tinted-action[data-tint="refund"] { --tint: #3b82f6; }
+/* Se repete (docs/fase-2.md, 2.14): o ciano, a luz que volta a cada ciclo. */
+.tinted-action[data-tint="series"] { --tint: #06b6d4; }
 
 /* Painel que sobe de baixo (BottomSheet): vem da borda, com a curva de gaveta do iOS, e sai mais
    rápido do que entrou. Fora das camadas para vencer as animações prontas do Sheet do shadcn. No

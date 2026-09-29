@@ -62,6 +62,39 @@ public static partial class AppLog
     [LoggerMessage(3003, LogLevel.Information, "Purchase {PurchaseId} moved from card {FromCardId} to card {ToCardId}")]
     public static partial void PurchaseMovedToCard(this ILogger logger, Guid purchaseId, Guid fromCardId, Guid toCardId);
 
+    [LoggerMessage(3004, LogLevel.Information, "Recurrence {RecurrenceId} generated {Created} transactions and {Pending} pending occurrences")]
+    public static partial void RecurrenceGenerated(this ILogger logger, Guid recurrenceId, int created, int pending);
+
+    [LoggerMessage(3005, LogLevel.Information, "Recurrence {RecurrenceId} was already generated or changed by another run: {Reason}")]
+    public static partial void RecurrenceSkipped(this ILogger logger, Guid recurrenceId, string reason);
+
+    [LoggerMessage(3006, LogLevel.Error, "Recurrence {RecurrenceId} failed to generate; the next run tries again")]
+    public static partial void RecurrenceFailed(this ILogger logger, Exception exception, Guid recurrenceId);
+
+    [LoggerMessage(3007, LogLevel.Information, "Recurrence run for {Users} users: {Created} transactions, {Pending} pending, {Failed} failed")]
+    public static partial void RecurrenceRunFinished(this ILogger logger, int users, int created, int pending, int failed);
+
+    [LoggerMessage(3008, LogLevel.Information, "Recurrence worker started: runs now and every {IntervalMinutes} minutes")]
+    public static partial void RecurrenceWorkerStarted(this ILogger logger, double intervalMinutes);
+
+    [LoggerMessage(3009, LogLevel.Error, "Recurrence run failed; the next run tries again")]
+    public static partial void RecurrenceRunFailed(this ILogger logger, Exception exception);
+
+    [LoggerMessage(3010, LogLevel.Information, "Recurrence {RecurrenceId} started ({Frequency})")]
+    public static partial void RecurrenceStarted(this ILogger logger, Guid recurrenceId, Prisma.Domain.Recurrences.RecurrenceFrequency frequency);
+
+    [LoggerMessage(3011, LogLevel.Information, "Recurrence {RecurrenceId} edited")]
+    public static partial void RecurrenceEdited(this ILogger logger, Guid recurrenceId);
+
+    [LoggerMessage(3012, LogLevel.Information, "Recurrence {RecurrenceId} ended")]
+    public static partial void RecurrenceEnded(this ILogger logger, Guid recurrenceId);
+
+    [LoggerMessage(3013, LogLevel.Information, "Recurrence pending {PendingId} launched in the {Where}")]
+    public static partial void RecurrencePendingLaunched(this ILogger logger, Guid pendingId, Prisma.Domain.Recurrences.PendingLaunch where);
+
+    [LoggerMessage(3014, LogLevel.Information, "Recurrence pending {PendingId} discarded")]
+    public static partial void RecurrencePendingDiscarded(this ILogger logger, Guid pendingId);
+
     // Rota modelo (/statements/{id}/pay), nunca o caminho cru: ele pode levar ids e consulta. Depois de
     // uma exceção, o ASP.NET tira o endpoint do contexto e o guarda no IExceptionHandlerFeature.
     // Sem a barra final que os grupos deixam (/accounts/ → /accounts).

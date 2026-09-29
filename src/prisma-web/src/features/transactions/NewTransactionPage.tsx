@@ -6,15 +6,27 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { AccountTile, DraftTile, EntryTile } from '@/components/brand/Tiles'
+import { BottomSheet, SheetFooterBar } from '@/components/BottomSheet'
 import { FieldError } from '@/components/FieldError'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { defaultPaymentMethod, paymentMethodLabels, type PaymentMethod } from '@/features/accounts/labels'
 import { NewAccountSheet } from '@/features/accounts/NewAccountSheet'
 import { useAccounts, type Account } from '@/features/accounts/queries'
 import { categoryLabels, resolveCategory, useCategories, type CategoryNode } from '@/features/categories/queries'
+import { RecurrenceChooser, RepeatRow } from '@/features/recurrences/RecurrenceChooser'
+import {
+  canRepeat as repeatShows,
+  missingEndMessage,
+  noRepeat,
+  repeatRequest,
+  repeatToSend,
+  type RepeatChoice,
+} from '@/features/recurrences/repeatChoice'
+import { frequencyText } from '@/features/recurrences/schedule'
 import { ApiError } from '@/lib/api'
 import { findBrand } from '@/lib/brands/merchants'
 import { todayInSaoPaulo } from '@/lib/dates'
@@ -312,8 +324,27 @@ function Composer({
     if (categoryId && !selectedRoot) form.setValue('categoryId', '')
   }, [categoryId, selectedRoot, form])
 
+  // "Se repete" (docs/fase-2.md, 2.14): não vale para estorno nem para compra parcelada; a escolha fica
+  // guardada, mas só vai para a API enquanto a linha aparece.
+  const [repeatChoice, setRepeatChoice] = useState<RepeatChoice>(noRepeat)
+  const [choosingRepeat, setChoosingRepeat] = useState(false)
+  const [repeatError, setRepeatError] = useState<string>()
+  const repeatContext = { type, isCard, installments }
+  const canRepeat = repeatShows(repeatContext)
+  const closeRepeat = () => {
+    if (repeatRequest(repeatChoice) === 'missing-end') return setRepeatError(missingEndMessage)
+    setRepeatError(undefined)
+    setChoosingRepeat(false)
+  }
+
   const amountRef = useRef<HTMLInputElement>(null)
   const submit = form.handleSubmit(async (values) => {
+    const recurrence = repeatToSend(repeatContext, repeatChoice)
+    if (recurrence === 'missing-end') {
+      setRepeatError(missingEndMessage)
+      setChoosingRepeat(true)
+      return
+    }
     try {
       const created = await createTransaction.mutateAsync({
         accountId: values.accountId,
@@ -325,6 +356,7 @@ function Composer({
         description: values.description.trim() || null,
         installments: isCard && !isRefund ? values.installments : 1,
         refundedTransactionId: refundOf?.id ?? null,
+        recurrence,
       })
       if (!refundOf) saveLastAccountId(values.accountId)
       // "Lançar de novo" no próprio aviso: para lançar a fatura em lote (docs/fase-1.md, 5.1).
@@ -344,6 +376,7 @@ function Composer({
         description: [
           values.description.trim() || null,
           created.length > 1 ? describeInstallments(values.amountCents, created.length) : formatCents(values.amountCents),
+          recurrence && frequencyText(values.purchaseDate, recurrence.frequency),
         ]
           .filter(Boolean)
           .join(' · '),
@@ -483,6 +516,9 @@ function Composer({
 
         <Section title="Data">
           <DateChooser value={purchaseDate} onChange={(date) => set('purchaseDate', date)} error={errors.purchaseDate?.message} />
+          {canRepeat && (
+            <RepeatRow choice={repeatChoice} start={purchaseDate} today={today} onOpen={() => setChoosingRepeat(true)} />
+          )}
         </Section>
 
         {/* No cartão, o meio é sempre crédito: não há o que escolher. */}
@@ -498,6 +534,31 @@ function Composer({
           </Section>
         )}
       </form>
+
+      <BottomSheet open={choosingRepeat} onClose={closeRepeat}>
+        <header className="shrink-0 px-5 pt-2 pb-3">
+          <SheetTitle className="text-base font-medium">Se repete</SheetTitle>
+          <p className="text-xs text-muted-foreground">A partir da data do lançamento.</p>
+        </header>
+        <div className="flex min-h-0 flex-col overflow-y-auto overscroll-contain px-4 pb-6">
+          <RecurrenceChooser
+            choice={repeatChoice}
+            onChange={(choice) => {
+              setRepeatChoice(choice)
+              setRepeatError(undefined)
+            }}
+            start={purchaseDate}
+            today={today}
+            withNone
+            error={repeatError}
+          />
+        </div>
+        <SheetFooterBar>
+          <Button size="lg" className="h-12 w-full rounded-2xl text-base" onClick={closeRepeat}>
+            Pronto
+          </Button>
+        </SheetFooterBar>
+      </BottomSheet>
     </Shell>
   )
 }

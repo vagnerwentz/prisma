@@ -279,7 +279,8 @@ public static class CardPurchase
     private static readonly Error NewInstallmentsIntoPaidStatement =
         new(ErrorType.Validation, "As novas parcelas cairiam numa fatura já paga. Desfaça o pagamento para aumentar as parcelas.");
 
-    private static readonly Error PurchaseIntoPaidStatement =
+    // Internal: a série que se repete reconhece esta recusa e a transforma em pendência (docs/fase-2.md, 2.14, regra 9).
+    internal static readonly Error PurchaseIntoPaidStatement =
         new(ErrorType.Validation, "Esta compra cai numa fatura já paga. Desfaça o pagamento para lançá-la.");
 
     // Fatura paga não muda de valor (docs/fase-1.md, 2.3): compra com parcela nela não sai (excluir)
@@ -400,6 +401,26 @@ public static class CardPurchase
         }
 
         return new CardPurchaseResult(purchase, installments, placement.Opened);
+    }
+
+    // Compra que cairia numa fatura paga, lançada na seguinte e presa a ela, como no "Mover para"
+    // (docs/fase-2.md, 2.14, regra 9; 2.9, regra 2). A data da compra não muda.
+    internal static Result<CardPurchaseResult> CreateInNextStatement(
+        Guid userId, Account card, long amountCents, DateOnly purchaseDate, Category? category, string? description,
+        IReadOnlyCollection<Statement> existingStatements)
+    {
+        if (Validate(card, TransactionType.Expense, PaymentMethod.Credit, amountCents, 1, category, description) is { } error)
+            return error;
+
+        var placement = new StatementPlacement(card, existingStatements, purchaseDate);
+        var next = placement.After(placement.For(1), 1);
+        if (next.IsPaid)
+            return Invalid("A fatura seguinte também já está paga.");
+
+        var charge = Transaction.CreateCardInstallment(
+            userId, card, amountCents, purchaseDate, next, category, description?.Trim() ?? "", null, null);
+        charge.MoveToStatement(next, pinned: true);
+        return new CardPurchaseResult(null, [charge], placement.Opened);
     }
 
     private static Error? Validate(

@@ -882,6 +882,191 @@ e a parcelada teria de virar à vista: fica para quando alguém pedir.
   390px claro, parcelada a 320px escuro, recusa do estorno a 1280px claro, sem rolagem lateral.)* Tela: seção "Cartão", nota e aviso, com Vitest do texto do aviso e da lista de cartões.
   Conferida em 320, 390 e 1280px, claro e escuro, com toques reais.
 
+### 2.14 Lançamentos que se repetem (etapa 2.25)
+
+**Por quê.** Pedido do dono (2026-09-29): cadastrar uma vez o que se repete. Dois casos reais: o Pix
+de todo mês (aluguel, diarista) e a cobrança que uma empresa faz todo mês no cartão (o serviço do pet do
+pai do dono: R$ 400,00 todo dia 25, como uma compra comum, paga na fatura seguinte). No Prisma nada é
+pago de verdade: a recorrência é a representação financeira do que o banco vai fazer.
+
+**Nomes.** Não é "débito recorrente": débito é meio de pagamento em conta. No cartão é uma **cobrança
+recorrente** (o mercado também diz "compra recorrente" ou "assinatura"). No banco existem o Pix Agendado
+Recorrente (a pessoa programa) e o Pix Automático (a empresa cobra com autorização); para o Prisma os
+dois são iguais. Na tela, a série diz **"se repete"** e a frequência ("Todo mês", "Toda semana"), nunca o
+verbo "Repetir" sozinho: o painel já tem "Lançar de novo" (copiar uma vez, `docs/fase-1.md`, 5.1). No
+código: `Recurrence`.
+
+**Escopo da primeira versão (decidido com o dono).** Despesa e receita fora do cartão (Pix, boleto, TED,
+débito, dinheiro) e cobrança no cartão (compra à vista). Frequências: toda semana e todo mês. Fora: a
+transferência recorrente entre contas da pessoa (aporte mensal), quinzenal, anual, "termina depois de N
+vezes" e compra parcelada que se repete.
+
+**Decisões de arquitetura** (recomendadas na investigação de 2026-09-29, aceitas pelo dono):
+
+- **A1. Gerar só no dia; o futuro é previsão calculada.** Cada ocorrência vira lançamento de verdade no
+  dia dela; nada futuro é gravado. Diferente da parcela, que é dívida já contraída, a recorrência é
+  intenção: gerar antes poria no "Saiu" e no "Já comprometido" o que não aconteceu, e cada edição ou
+  cancelamento teria de corrigir lançamentos futuros.
+- **A2. Uma abstração, dois destinos.** Fora do cartão, a ocorrência é um lançamento simples
+  (`Transaction.CreateSimple`); no cartão, uma compra à vista (`CardPurchase.Create`), com a fatura pela
+  regra de sempre (`StatementPlacement`). Nenhuma regra nova de fatura.
+- **A3. Geração que alcança o atraso.** "Gerar toda ocorrência depois de `generated_through` e até hoje":
+  não importa quando nem quantas vezes roda. O lançamento e o avanço de `generated_through` gravam na
+  mesma transação; o índice único (recorrência, data da ocorrência), que conta também os excluídos, é a
+  segunda trava. Rodar de novo, duas execuções ao mesmo tempo ou cair no meio nunca duplicam.
+- **A4. `BackgroundService` no próprio processo**, ao subir a API e de hora em hora (`PeriodicTimer`),
+  além de gerar na hora ao criar ou editar a série. Sem Hangfire nem Quartz (dependência nova, tabelas
+  próprias; retentativa e trava distribuída já saem da A3). Rever se surgirem várias tarefas agendadas
+  diferentes (e-mail, importação).
+- **A5. A tarefa age como cada usuário:** um escopo de DI por usuário, com o usuário atual fixo nele. O
+  filtro de dono e a trava de gravação continuam valendo (`CLAUDE.md`, regra 6), sem exceção.
+- **A6. Falha isolada.** Cada série grava sozinha; a que falha não trava as outras, vai para o log (só
+  ids) e tenta de novo na próxima hora, porque `generated_through` não andou.
+
+**Regras**
+
+1. **A série nasce de um lançamento.** No "Novo lançamento", ou a partir de um lançamento que já existe
+   (o caso do pai: abre a cobrança de 25/09 e diz que ela se repete todo mês). Esse lançamento é a
+   **primeira ocorrência**: fica ligado à série, e `generated_through` é a data dele. Não há ocorrência
+   retroativa: a série continua dali para frente, e o que a pessoa já lançou à mão nunca duplica.
+2. **O modelo** guarda conta, tipo (despesa ou receita), valor, categoria, descrição, meio de pagamento,
+   frequência, data de partida (a do primeiro lançamento) e término opcional ("nunca" ou uma data). Não
+   vale para estorno, transferência nem compra parcelada.
+3. **Agenda.** Toda semana: partida + 7 dias × k. Todo mês: o dia da partida em cada mês; o dia que o mês
+   não tem vira o último dia (como `docs/fase-1.md`, 2.1, regra 2), sempre calculado **a partir da
+   partida**, nunca da ocorrência anterior (dia 31 → 30/11 → 31/12, e não 30 para sempre). Fim de semana
+   e feriado **não mudam a data**: o Pix funciona todos os dias, e a cobrança no cartão é uma compra. O que
+   vai para o dia útil é o vencimento da fatura (2.22).
+4. **"Hoje" é `IClock.Today`** (São Paulo). Uma ocorrência é gerada quando a data dela é hoje ou antes.
+5. **O lançamento gerado é um lançamento comum**, com a origem (`recurrence_id`) e a data da ocorrência
+   (`occurrence_date`) guardadas à parte: a pessoa edita, exclui, restaura, troca de cartão ou move de
+   fatura como qualquer outro, e mudar a data dele não o desliga da série. **Excluído não volta.**
+6. **Editar a série vale do próximo em diante.** Mudam valor, descrição, categoria, conta (cartão por
+   cartão, conta por conta), frequência com a nova próxima data (depois de `generated_through`) e término.
+   O que já foi gerado fica como está.
+7. **Encerrar** põe o término no último lançamento já gerado: nada mais é gerado, nem a ocorrência de
+   hoje que a tarefa ainda não gerou (decidido na tarefa 2), e a série vai para "Encerradas". O que já foi
+   gerado fica, porque é histórico.
+8. **Conta ou cartão inativo:** as ocorrências desse período não são lançadas nem ficam pendentes
+   (`generated_through` anda); a série volta a gerar quando a conta volta a ser ativa. Categoria excluída:
+   o lançamento sai sem categoria. **Conta excluída** (decisão do dono, 2026-09-29): só conta vazia pode ser
+   excluída, e as séries ativas dela encerram junto, na mesma gravação (o término vai para o último gerado;
+   a série que já terminou fica como está); as pendências dela saem. Sem isso, a série ficaria "ativa" sem
+   conta, sem gerar nada. Encerrar, e não apagar: o que ela lançou é histórico. A confirmação avisa quantas
+   ("As 2 recorrências dela serão encerradas."), e o aviso do fim também.
+9. **Fatura paga é intocável** (regra 4 do `CLAUDE.md`, a mais forte). Uma ocorrência no dia certo nunca
+   cai numa fatura paga: fatura só é paga depois do fechamento (`Transfer.PayStatement`), e a compra de
+   hoje vai para uma fatura que fecha hoje ou depois. Só acontece quando a geração atrasa (API fora do ar)
+   ou quando as datas da fatura foram ajustadas para trás. Aí a ocorrência **não é lançada e fica
+   pendente**, visível, com o motivo, o cartão e o valor do dia (uma edição posterior da série não a muda,
+   regra 6), e três saídas: lançar na fatura seguinte (presa, como o "Mover
+   para"), lançar depois de desfazer o pagamento, ou descartar. A pendência não trava as ocorrências
+   seguintes.
+10. **Concorrência.** A série tem `xmin` (editar a série enquanto a tarefa gera: um dos dois recebe 409).
+    A ocorrência que entra numa fatura chama o `StatementTouch` nela, como na 2.20.
+11. **Previsão**, sempre calculada e nunca gravada: as ocorrências **depois de `generated_through`**
+    (nem antes, para não contar duas vezes, nem a partir de amanhã, para não haver buraco entre a
+    meia-noite e a próxima execução). No cartão, o mês da previsão é o do vencimento da fatura em que ela
+    cairia (`StatementPlacement`, sem abrir fatura).
+    - **"Daqui para frente"** (Análise): em cada um dos 6 meses, a barra ganha a parte prevista das
+      despesas que se repetem, na mesma cor, mais clara, e o texto "R$ 2.400 · R$ 400 previstos". O "Já
+      comprometido" continua sendo só o que existe.
+    - **Fatura aberta do cartão**: abaixo do total, "Previsto até o fechamento: + R$ 400,00", com as
+      cobranças que ainda cairão nela. O total nunca muda com a previsão.
+    - **Resumo e saldos não mudam**: continuam mostrando só o que aconteceu (`CLAUDE.md`, 7.1). O saldo
+      previsto da conta com as recorrências fica para depois.
+
+**Tela**
+
+- **"Novo lançamento":** logo depois de Data, uma linha compacta: "↻ Não se repete ›". Com uma
+  frequência escolhida, ela diz a série: "Todo mês, no dia 25 · próxima 25/10". A data do lançamento
+  define a série. Ao tocar, um painel com duas escolhas: frequência (Não se repete, Toda semana, Todo mês)
+  e término (Nunca, Em uma data). O botão continua "Lançar R$ 400,00". A linha não aparece em estorno e
+  transferência, e some quando a compra no cartão é parcelada.
+- **Painel de um lançamento:** a ação "Se repete todo mês…" (ou semana), que abre o mesmo painel.
+- **Excluir um lançamento de uma série ativa pergunta antes** (decisão do dono, 2026-09-29, depois de testar):
+  "Excluir e encerrar a série" ou "Excluir só este". Excluir sozinho não para a série (regra 5), e quem
+  exclui pode achar que parou tudo; um aviso que some em 8 s passaria despercebido. Exclui primeiro e só
+  então encerra: se a exclusão é recusada (fatura paga), a série fica como estava. O "Desfazer" volta o
+  lançamento e reabre a série com o término de antes. "Excluir só este" avisa que a série continua, com a
+  próxima data.
+- **"Recorrências"**, aberta pela aba Contas ("Recorrências · 3 ativas") e pela previsão do "Daqui para
+  frente": cada série com valor, conta, frequência e a próxima data; editar e encerrar; as pendências no
+  topo; as encerradas no fim.
+
+**Exemplos (usados nos testes).** Visa "fecha 26, vence 5"; conta corrente Itaú.
+
+*Agenda.*
+
+| Série | Ocorrências |
+|---|---|
+| Pet: R$ 400,00 todo mês, partida 25/09/2026, no Visa | 25/10 (domingo, não muda), 25/11, 25/12… |
+| Aluguel: R$ 1.000,00 todo mês, partida 10/09/2026, Pix no Itaú | 10/10 (sábado, não muda), 10/11, 10/12… |
+| Diarista: R$ 500,00 toda semana, partida 02/10/2026 (sexta), Pix | 09/10, 16/10, 23/10, 30/10, 06/11… |
+| Todo mês, partida 31/10/2026 | 30/11/2026, 31/12/2026, 31/01/2027, 28/02/2027, 31/03/2027 |
+| Pet com término 30/11/2026 | 25/10 e 25/11; 25/12 não |
+
+*Geração (relógio falso).*
+
+| Caso | Resultado |
+|---|---|
+| Hoje 24/10 | Nada do pet |
+| 25/10 às 00:30 em São Paulo (03:30 UTC) | Gera o pet de 25/10: compra de R$ 400,00 no Visa, fatura 2026-11 (fecha 26/10), caixa 05/11; `generated_through` = 25/10 |
+| 24/10 às 23:30 em São Paulo (25/10, 02:30 UTC) | Nada: ainda é dia 24 |
+| A mesma execução duas vezes, ou duas ao mesmo tempo | Um lançamento só |
+| API fora do ar de 24/10 a 27/10, volta em 28/10 | Gera o pet de 25/10, uma vez; a diarista de 23/10 já tinha sido gerada no dia |
+| A pessoa exclui o pet de 25/10 | Nenhuma execução o recria; restaurar o traz de volta |
+| A pessoa muda a data do pet de 25/10 para 26/10 | Continua ligado à série; nada é gerado de novo |
+| Valor da série muda para R$ 450,00 em 01/11 | 25/11 sai com R$ 450,00; o de 25/10 continua R$ 400,00 |
+| Encerrada em 01/11 | Nada depois; o de 25/10 fica |
+| Visa inativo de 20/10 a 30/10 | O de 25/10 não é lançado nem fica pendente; o de 25/11 é |
+| Fatura 2026-11 do Visa paga em 27/10, e a geração só roda em 28/10 | O pet de 25/10 fica pendente: "Cairia na fatura de novembro, já paga." Lançar na seguinte: fatura 2026-12 (fecha 26/11, vence 05/12), presa. O de 25/11 é gerado normalmente |
+| Criada a partir da cobrança de 25/09 | A de 25/09 vira a primeira ocorrência; a próxima é 25/10; nada é lançado para trás |
+
+*Previsão.* Hoje 20/10/2026, com o pet e o aluguel.
+
+| Onde | Mostra |
+|---|---|
+| "Daqui para frente", novembro | R$ 1.400 previstos: o pet de 25/10 (vence 05/11) e o aluguel de 10/11 |
+| "Daqui para frente", dezembro | R$ 1.400 previstos: o pet de 25/11 (vence 05/12) e o aluguel de 10/12 |
+| Fatura aberta do Visa (2026-11, fecha 26/10) | "Previsto até o fechamento: + R$ 400,00" |
+| O mesmo em 25/10, depois da geração | O pet já está no total; a previsão some (nada contado duas vezes) |
+| Resumo de outubro e saldo do Itaú | Só o que aconteceu |
+
+**Plano** (detalhe em `tasks/`, ao começar; cada tarefa com testes antes, por ser regra de data e de dinheiro)
+
+- Tarefa 1. *(Feita em 2026-09-29: 15 testes, 5 mutações pegas.)* Agenda no domínio (`RecurrenceSchedule`): as tabelas de agenda, e propriedade (CsCheck): a
+  série mensal nunca escorrega de dia, nunca repete nem pula mês.
+- Tarefa 2. *(Feita em 2026-09-29: 21 testes, 7 mutações pegas; resolver a pendência ficou para a
+  tarefa 5.)* A série no domínio (`Recurrence`): criar a partir de um lançamento, ocorrências vencidas,
+  editar dali em diante, encerrar, conta inativa, pendência de fatura paga.
+- Tarefa 3. *(Feita em 2026-09-29: migration `AddRecurrences`, `RecurrenceRunner` com `ScopedUser`, 9
+  testes de integração; o `xmin` da série fica provado na tarefa 5.)* Tabela, migration e o gerador (uma classe chamada direto nos testes): idempotência (duas
+  vezes, ao mesmo tempo, atraso, excluído que não volta), escopo por usuário, `StatementTouch`.
+- Tarefa 4. *(Feita em 2026-09-29: `RecurrenceWorker` roda ao subir e a cada hora; falha vai ao log (3009) e a
+  próxima hora tenta de novo; `Recurrences:Runner:Enabled`, ligado por padrão; 4 testes, 3 mutações pegas.)*
+  `BackgroundService` de hora em hora, com log (só ids), desligado nos testes de integração.
+- Tarefa 5. *(Dividida em 5a e 5b. 5a feita em 2026-09-29: criar junto do lançamento e a partir de um
+  existente, listar, editar, encerrar; gera na hora; o `xmin` da série provado na corrida encerrar × gerar;
+  toque duplo em "se repete" dá 409 pelo `recurrence_id` como token de concorrência; 10 testes, 2 mutações
+  pegas. 5b feita no mesmo dia: lançar na fatura seguinte, presa; lançar
+  na própria depois de desfazer o pagamento; descartar. A pendência guarda o cartão e o valor do dia em que
+  venceu, porque a edição da série vale do próximo em diante; 14 testes, 8 mutações pegas.)* API: criar junto do lançamento e a partir de um existente, listar, editar, encerrar e
+  resolver pendências.
+- Tarefa 6. *(Feita em 2026-09-29: a linha e o painel no Novo lançamento, a ação "Se repete todo mês…" no
+  painel do lançamento, com as ocorrências que já passaram avisadas antes de salvar; 16 testes, 5 mutações
+  pegas.)* Tela: a linha "se repete" no "Novo lançamento" e a ação no painel do lançamento.
+- Tarefa 7a. *(Feita em 2026-09-29, pedida pelo dono depois de testar: excluir o lançamento de uma série
+  ativa pergunta antes, "Excluir e encerrar a série" ou "Excluir só este"; ver "Tela".)*
+- Tarefa 7. *(Feita em 2026-09-29: `/contas/recorrencias`, com as pendências no topo e as três saídas,
+  editar do próximo em diante, encerrar com "Desfazer" e a linha na aba Contas.)* Tela: "Recorrências" (lista, edição, pendências).
+- Depois da tarefa 8, antes do commit (2026-09-29): lacunas de teste fechadas (data mudada e restauração
+  de lançamento gerado, série movida para outro cartão, previsão com datas editadas, o que o Novo lançamento
+  manda) e a conta excluída encerrando as séries (regra 8). As três migrations da etapa viraram uma,
+  `AddRecurrences`, antes do commit (nenhuma tinha ido para produção). Etapa concluída.
+- Tarefa 8. *(Feita em 2026-09-29: `RecurrenceProjection` no domínio, `projectedExpenseCents` no "Já
+  comprometido" e `projectedCents` na fatura; a linha só aparece na fatura aberta que já existe.)* Previsão no "Daqui para frente" e na fatura aberta do cartão.
+
 ## 3. Endpoints
 
 ```
@@ -960,6 +1145,21 @@ ainda pode ser estornado; na parcelada, sobre o total da compra), para a tela pr
   o cartão (regras 1 a 7). 400 (recusas), 409 (corrida com o pagamento).
 - `PATCH /installment-purchases/{id}` (já existe): o corpo ganha `accountId`; outro cartão troca o
   cartão da compra inteira. A resposta já traz o `accountId`.
+
+### Etapa 2.25 (seção 2.14)
+
+- `POST /transactions` (já existe): corpo ganha `recurrence` opcional (`frequency`: `Weekly` |
+  `Monthly`, `endDate?`); o lançamento criado é a primeira ocorrência. Recusado para estorno,
+  transferência e compra parcelada.
+- `POST /transactions/{id}/recurrence` com `{ frequency, endDate? }`: a série a partir de um lançamento
+  existente (ele vira a primeira ocorrência). 400, 404, 409 se ele já é de uma série.
+- `GET /recurrences`: as séries (ativas, encerradas) com a próxima data e as pendências.
+- `PATCH /recurrences/{id}`: valor, descrição, categoria, conta, frequência com a próxima data, término;
+  vale do próximo em diante. 400, 404, 409 (`xmin`).
+- `POST /recurrences/{id}/end`: encerra hoje.
+- `POST /recurrences/{id}/pending/{date}` com `{ action: "NextStatement" | "Launch" | "Discard" }`.
+- `GET /dashboard/committed` (já existe): cada mês ganha `projectedCents`. A fatura aberta ganha
+  `projectedCents` (em `GET /accounts/{id}/statements` e `GET /dashboard/upcoming-statements`).
 
 ## 4. Tela
 
@@ -1190,6 +1390,16 @@ que é análise, e no computador ocupa uma coluna estreita. Cada tela passa a re
   de novembro e dezembro); estorno recusado nas duas; cartão de outro usuário; as duas corridas com o
   pagamento (troca de cartão e troca de data).
 - Vitest: o texto do aviso e os cartões oferecidos (ativos e o atual).
+
+### Lançamentos que se repetem (etapa 2.25)
+
+- Domínio, antes da implementação: as tabelas de agenda, geração e previsão da seção 2.14; propriedade
+  da agenda mensal (dia 29, 30 e 31 em todos os meses de 4 anos, inclusive bissexto).
+- Integração: gerar duas vezes e duas ao mesmo tempo sem duplicar; atraso de dias; excluído que não
+  volta; edição dali em diante; encerrar; conta inativa; fatura paga que vira pendência e as três saídas;
+  corrida com o pagamento da fatura; um usuário nunca gera nem vê a série de outro.
+- Vitest: o texto da linha "se repete" ("Todo mês, no dia 25 · próxima 25/10"), o dia 31, a semana, e o
+  texto da previsão.
 
 ### Frontend (Vitest)
 

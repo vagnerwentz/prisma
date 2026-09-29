@@ -7,6 +7,7 @@ using Prisma.Api.Infrastructure.Auth;
 using Prisma.Domain;
 using Prisma.Domain.Accounts;
 using Prisma.Domain.Categories;
+using Prisma.Domain.Recurrences;
 using Prisma.Domain.Statements;
 using Prisma.Domain.Transactions;
 
@@ -33,6 +34,10 @@ public sealed class AppDbContext(
     public DbSet<Transaction> Transactions => Set<Transaction>();
 
     public DbSet<InstallmentPurchase> InstallmentPurchases => Set<InstallmentPurchase>();
+
+    public DbSet<Recurrence> Recurrences => Set<Recurrence>();
+
+    public DbSet<RecurrencePending> RecurrencePendings => Set<RecurrencePending>();
 
     // Chaves que assinam o cookie de sessão. No banco, e não no disco do contêiner, para que um
     // deploy novo não derrube a sessão de quem está logado. Não é do usuário: fica sem filtro.

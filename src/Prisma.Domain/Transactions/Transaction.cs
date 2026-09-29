@@ -33,6 +33,20 @@ public sealed class Transaction : Entity
     // Estorno ligado à compra que ele devolve (docs/fase-2.md, 2.5, regra 7).
     public Guid? RefundedTransactionId { get; private init; }
 
+    // Lançamento de uma série que se repete (docs/fase-2.md, 2.14, regra 5): a série e a data da
+    // ocorrência, que fica mesmo se a pessoa mudar a data do lançamento.
+    public Guid? RecurrenceId { get; private set; }
+    public DateOnly? OccurrenceDate { get; private set; }
+
+    internal void LinkToRecurrence(Guid recurrenceId, DateOnly occurrenceDate)
+    {
+        if (RecurrenceId is not null)
+            throw new InvalidOperationException("O lançamento já faz parte de uma série.");
+
+        RecurrenceId = recurrenceId;
+        OccurrenceDate = occurrenceDate;
+    }
+
     // Receita ou despesa fora do cartão: o dinheiro sai (ou entra) no dia da compra.
     public static Result<Transaction> CreateSimple(
         Guid userId, Account account, TransactionType type, long amountCents, DateOnly purchaseDate,

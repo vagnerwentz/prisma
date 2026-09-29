@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, unwrap, type Schemas } from '@/lib/api'
-import { balancesKey, dashboardKey, statementsKey, transactionsKey } from '@/lib/queryKeys'
+import { balancesKey, dashboardKey, recurrencesKey, statementsKey, transactionsKey } from '@/lib/queryKeys'
 
 export type Account = Schemas['AccountResponse']
 export type NewAccount = Schemas['CreateAccountRequest']
@@ -58,7 +58,12 @@ export function useDeleteAccount() {
       const { error, response } = await api.DELETE('/accounts/{id}', { params: { path: { id } } })
       if (!response.ok) throw new ApiError(response.status, error)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: accountsKey }),
+    // As séries da conta encerram junto (docs/fase-2.md, 2.14).
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: accountsKey }),
+        queryClient.invalidateQueries({ queryKey: recurrencesKey }),
+      ]),
   })
 }
 

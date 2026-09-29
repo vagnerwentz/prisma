@@ -50,6 +50,9 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 | Descrição original | `RawDescription` | texto cru da importação |
 | Compra presa a uma fatura | `StatementPinned` | movida à mão; o recálculo não a devolve |
 | Recálculo das faturas | `StatementReconciliation` | decide a fatura de cada compra no cartão |
+| Lançamento que se repete | `Recurrence` | série: modelo do lançamento + agenda (`RecurrenceSchedule`); na tela, "se repete" |
+| Ocorrência de uma série | `OccurrenceDate` (no `Transaction`, com `RecurrenceId`) | a data da agenda; fica mesmo se a data do lançamento mudar |
+| Ocorrência pendente | `RecurrencePending` | cobrança que cairia numa fatura já paga; espera a pessoa decidir |
 
 ---
 
@@ -143,6 +146,12 @@ validação de invariante pertencem ao `Prisma.Domain`.
 - **Comandos** passam pelo domínio, com entidades rastreadas.
 - **Consultas** usam `AsNoTracking()` com projeção direta para DTO, ou SQL à mão
   quando o dashboard exigir. Nunca carregue entidade de domínio só para somar valor.
+- **Tarefa em segundo plano:** `RecurrenceRunner` (2.25) gera as ocorrências vencidas dos lançamentos que
+  se repetem. Idempotente por desenho: grava o lançamento e o `GeneratedThrough` juntos, com índice único
+  (série, ocorrência) que conta os excluídos e `xmin` na série; rodar de novo ou ao mesmo tempo não
+  duplica, e atraso é alcançado na próxima execução (`docs/fase-2.md`, 2.14, A3 a A6). Excluir uma conta
+  (só possível vazia) encerra as séries ativas dela e descarta as pendências dela na mesma gravação: nunca
+  fica série "ativa" sem conta (2.14, regra 8).
 - **Única consulta que grava:** `GET /categories` entrega ao usuário as categorias das versões novas do
   catálogo (`CategoryCatalog`, uma vez por versão, só para ele; `docs/fase-2.md`, 2.11). Sincronizar no
   login não bastaria: a sessão é persistente.
@@ -188,6 +197,9 @@ Não são preferências. Quebrá-las gera erro de dinheiro que passa despercebid
    `IgnoreQueryFilters()` fora de seed e migration. Única exceção: restaurar registro excluído usa
    `IgnoreQueryFilters([AppDbContext.SoftDeleteFilter])`, que ignora só o filtro de exclusão.
    O filtro de dono (`OwnerFilter`) nunca é ignorado; teste de arquitetura garante.
+   **Fora de uma requisição** (tarefa em segundo plano, 2.25), o código age como cada usuário: abre um
+   escopo de DI e preenche `ScopedUser.UserId`, que o `HttpCurrentUser` lê antes do cookie. Filtro e
+   trava de gravação valem igual; nunca desligue o filtro para "ver todos".
 
 7. **Exclusão é soft delete** (`DeletedAt` + filtro global), para permitir desfazer.
 
@@ -276,7 +288,9 @@ não precisa.** `Category` com nome e cor não merece teste unitário;
   (`Property<uint>("Version").IsRowVersion()`), com teste de corrida. Quem põe ou tira compra de uma
   fatura sem mudar a fatura em si (mover compra, editar datas da fatura, trocar a data ou o cartão da
   compra, mudar a data do estorno) chama `StatementTouch.Touch` nas faturas de origem e de destino,
-  para a corrida com o pagamento dar 409.
+  para a corrida com o pagamento dar 409. A série (`Recurrence`) também tem `xmin` (editar ou encerrar
+  enquanto a tarefa gera), e ligar um lançamento a uma série confere o `recurrence_id` (token de
+  concorrência do EF): dois toques em "se repete" nunca criam duas séries.
 - **Compatibilidade da API com a tela já aberta:** depois do deploy, uma aba aberta antes continua com
   o código antigo até recarregar (a tela de versão nova só aparece quando falta um arquivo de tela,
   `lib/crash.ts`). Por isso a API só acrescenta: campo novo num pedido entra opcional, com o

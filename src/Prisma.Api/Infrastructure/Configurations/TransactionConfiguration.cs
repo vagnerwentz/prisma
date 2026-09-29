@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Prisma.Api.Infrastructure.Auth;
 using Prisma.Domain.Accounts;
 using Prisma.Domain.Categories;
+using Prisma.Domain.Recurrences;
 using Prisma.Domain.Statements;
 using Prisma.Domain.Transactions;
 
@@ -10,6 +11,8 @@ namespace Prisma.Api.Infrastructure.Configurations;
 
 public sealed class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
 {
+    public const string RecurrenceOccurrenceIndex = "ux_transactions_recurrence_occurrence";
+
     public void Configure(EntityTypeBuilder<Transaction> builder)
     {
         builder.ToTable("transactions", table =>
@@ -24,6 +27,9 @@ public sealed class TransactionConfiguration : IEntityTypeConfiguration<Transact
             // Só compra no cartão fica presa a uma fatura (docs/fase-2.md, 2.9, regra 2).
             table.HasCheckConstraint("ck_transactions_statement_pinned",
                 "NOT statement_pinned OR (statement_id IS NOT NULL AND type = 'Expense')");
+            // Lançamento de série tem a série e a data da ocorrência; nada mais tem (docs/fase-2.md, 2.14).
+            table.HasCheckConstraint("ck_transactions_recurrence_occurrence",
+                "(recurrence_id IS NULL) = (occurrence_date IS NULL)");
         });
 
         builder.Property(t => t.Type).HasConversion<string>().HasMaxLength(20);
@@ -38,6 +44,18 @@ public sealed class TransactionConfiguration : IEntityTypeConfiguration<Transact
         builder.HasOne<Statement>().WithMany().HasForeignKey(t => t.StatementId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<InstallmentPurchase>().WithMany().HasForeignKey(t => t.InstallmentPurchaseId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Recurrence>().WithMany().HasForeignKey(t => t.RecurrenceId).OnDelete(DeleteBehavior.Restrict);
+        // Ligar um lançamento a uma série confere que ele ainda não tinha série: dois toques em "se repete"
+        // ao mesmo tempo criariam duas séries e o lançamento em dobro. O segundo recebe 409.
+        builder.Property(t => t.RecurrenceId).IsConcurrencyToken();
+
+        // Uma ocorrência gera um lançamento só, para sempre: o índice conta também os excluídos, para o que
+        // a pessoa excluiu nunca voltar (docs/fase-2.md, 2.14, A3 e regra 5).
+        builder.HasIndex(t => new { t.RecurrenceId, t.OccurrenceDate })
+            .IsUnique()
+            .HasFilter("recurrence_id IS NOT NULL")
+            .HasDatabaseName(RecurrenceOccurrenceIndex);
+
         // Estorno ligado à compra que devolve (docs/fase-2.md, 2.5, regra 7). Só estorno tem vínculo.
         builder.HasOne<Transaction>().WithMany().HasForeignKey(t => t.RefundedTransactionId)
             .OnDelete(DeleteBehavior.Restrict);

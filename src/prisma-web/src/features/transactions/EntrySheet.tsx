@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ArrowLeft, ChevronRight, CopyPlus, Pencil, Trash2, Undo2 } from 'lucide-react'
-import { useEffect, useState, type ReactNode } from 'react'
+import { ArrowLeft, ChevronRight, CopyPlus, Pencil, Repeat, Trash2, Undo2 } from 'lucide-react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { useForm, useWatch, type Path, type PathValue, type UseFormRegisterReturn } from 'react-hook-form'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
@@ -14,6 +14,17 @@ import { SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { paymentMethodLabels, type PaymentMethod } from '@/features/accounts/labels'
 import { useStatements, type Account } from '@/features/accounts/queries'
 import { resolveCategory, type CategoryLabel, type CategoryNode } from '@/features/categories/queries'
+import { RecurrenceChooser } from '@/features/recurrences/RecurrenceChooser'
+import { missingEndMessage, repeatRequest, type RepeatChoice } from '@/features/recurrences/repeatChoice'
+import {
+  useEndRecurrence,
+  useRecurrences,
+  useStartRecurrence,
+  useUpdateRecurrence,
+  type Recurrence,
+} from '@/features/recurrences/queries'
+import { removalTexts, reopenRequest } from '@/features/recurrences/removal'
+import { describeSeries, frequencyText, seriesLine, shortDate } from '@/features/recurrences/schedule'
 import { ApiError } from '@/lib/api'
 import { formatLongDate, formatShortDate, monthOf, todayInSaoPaulo, type YearMonth } from '@/lib/dates'
 import { describeInstallments, formatCents } from '@/lib/money'
@@ -52,7 +63,7 @@ export type EntrySheetProps = {
   labels: Map<string, CategoryLabel>
 }
 
-type Mode = { view: 'details' } | { view: 'edit' } | { view: 'installment'; id: string }
+type Mode = { view: 'details' } | { view: 'edit' } | { view: 'installment'; id: string } | { view: 'repeat' } | { view: 'remove' }
 
 const maxInstallments = 24
 
@@ -77,7 +88,10 @@ export default function EntrySheet({ entry, onClose, ...rest }: EntrySheetProps)
       {entry && entry.kind !== 'transfer' && mode.view === 'details' && (
         <Details entry={entry} onClose={onClose} onEdit={(next) => setMode(next)} {...rest} />
       )}
-      {entry && entry.kind !== 'transfer' && mode.view !== 'details' && (
+      {entry?.kind === 'single' && mode.view === 'remove' && (
+        <RemoveFromSeries transaction={entry.transaction} onBack={() => setMode({ view: 'details' })} onClose={onClose} />
+      )}
+      {entry && entry.kind !== 'transfer' && mode.view !== 'details' && mode.view !== 'remove' && (
         <Editor entry={entry} mode={mode} onDone={() => setMode({ view: 'details' })} onClose={onClose} {...rest} />
       )}
     </BottomSheet>
@@ -101,6 +115,13 @@ function Details({ entry, accounts, labels, onClose, onEdit }: Common & { onEdit
   const canRefund = first.type === 'Expense' && refundable > 0
   // "Lançar de novo" (docs/fase-1.md, 5.1): despesa ou receita, com o que o painel já mostra.
   const repeat = repeatDraftOf(entry)
+  // "Se repete" (docs/fase-2.md, 2.14): despesa ou receita avulsa que ainda não é de uma série. Compra
+  // parcelada, estorno e transferência não se repetem.
+  const canStartSeries = entry.kind === 'single' && (first.type === 'Expense' || first.type === 'Income') && !first.recurrenceId
+  const today = todayInSaoPaulo()
+  // Série ainda ativa: excluir pergunta antes se ela também acaba (2.14, Tela).
+  const series = useRecurrences(!!first.recurrenceId).data?.find((r) => r.id === first.recurrenceId)
+  const inActiveSeries = entry.kind === 'single' && !!series && !series.isEnded
   const navigate = useNavigate()
   const remove = useRemove(
     entry.kind === 'purchase' ? { kind: 'purchase', id: entry.purchaseId } : { kind: 'single', id: first.id },
@@ -141,6 +162,11 @@ function Details({ entry, accounts, labels, onClose, onEdit }: Common & { onEdit
             </InfoRow>
           )}
           <InfoRow label="Pagamento">{paymentMethodLabels[first.method]}</InfoRow>
+          {first.recurrenceId && (
+            <InfoRow label="Se repete">
+              <SeriesInfo id={first.recurrenceId} today={today} />
+            </InfoRow>
+          )}
           {isRefund && first.refundedTransactionId && (
             <InfoRow label="Estorno de">
               <RefundedPurchase id={first.refundedTransactionId} />
@@ -155,7 +181,7 @@ function Details({ entry, accounts, labels, onClose, onEdit }: Common & { onEdit
           )}
         </dl>
 
-        {(repeat || canRefund) && (
+        {(repeat || canRefund || canStartSeries) && (
           // Ações secundárias, cada uma na sua faixa do espectro; lado a lado quando cabem.
           <div className="mx-4 mb-5 flex flex-wrap gap-2">
             {repeat && (
@@ -184,6 +210,16 @@ function Details({ entry, accounts, labels, onClose, onEdit }: Common & { onEdit
                 {refunded > 0 ? `Estornar mais (restam ${formatCents(refundable)})` : 'Estornar'}
               </Button>
             )}
+            {canStartSeries && (
+              <Button
+                data-tint="series"
+                className="tinted-action h-11 flex-1 rounded-2xl"
+                onClick={() => onEdit({ view: 'repeat' })}
+              >
+                <Repeat />
+                Se repete todo mês…
+              </Button>
+            )}
           </div>
         )}
         {first.type === 'Expense' && refunded > 0 && refundable === 0 && (
@@ -209,10 +245,109 @@ function Details({ entry, accounts, labels, onClose, onEdit }: Common & { onEdit
           variant="outline"
           className="h-12 rounded-2xl px-5 text-base"
           disabled={remove.isPending}
-          onClick={() => remove.run(onClose)}
+          onClick={() => (inActiveSeries ? onEdit({ view: 'remove' }) : remove.run(onClose))}
         >
           <Trash2 />
           Excluir
+        </Button>
+      </SheetFooterBar>
+    </>
+  )
+}
+
+// Excluir o lançamento de uma série ativa (docs/fase-2.md, 2.14, Tela): excluir sozinho não para a série, e
+// quem exclui pode achar que parou tudo. Exclui primeiro e só então encerra: exclusão recusada (fatura paga)
+// deixa a série como estava. O "Desfazer" volta o lançamento e reabre a série com o término de antes.
+function RemoveFromSeries({
+  transaction,
+  onBack,
+  onClose,
+}: {
+  transaction: Transaction
+  onBack: () => void
+  onClose: () => void
+}) {
+  const series = useRecurrences().data?.find((r) => r.id === transaction.recurrenceId)
+  const deleteTransaction = useDeleteTransaction()
+  const restoreTransaction = useRestoreTransaction()
+  const endRecurrence = useEndRecurrence()
+  const updateRecurrence = useUpdateRecurrence()
+  const today = todayInSaoPaulo()
+  const summary = `${transaction.description || 'Lançamento'} · ${formatCents(transaction.amountCents)}`
+  const busy = deleteTransaction.isPending || endRecurrence.isPending
+
+  const run = async (before: Recurrence, endSeries: boolean) => {
+    try {
+      await deleteTransaction.mutateAsync(transaction.id)
+    } catch (error) {
+      toast.error(messageOf(error))
+      return
+    }
+    if (endSeries) {
+      try {
+        await endRecurrence.mutateAsync(before.id)
+      } catch (error) {
+        onClose()
+        toast.error(`Lançamento excluído, mas a série continua. ${messageOf(error)}`)
+        return
+      }
+    }
+    onClose()
+    const texts = removalTexts({ series: before, endSeries, summary, today })
+    toast(texts.title, {
+      description: texts.description,
+      duration: 8000,
+      action: {
+        label: 'Desfazer',
+        onClick: () => {
+          restoreTransaction
+            .mutateAsync(transaction.id)
+            .then(() => (endSeries ? updateRecurrence.mutateAsync({ id: before.id, body: reopenRequest(before) }) : undefined))
+            .then(() => toast.success(texts.undone))
+            .catch((error: unknown) => toast.error(messageOf(error)))
+        },
+      },
+    })
+  }
+
+  return (
+    <>
+      <header className="flex shrink-0 items-center gap-2 px-2 pt-1 pb-2">
+        <Button variant="ghost" size="icon" className="rounded-full" aria-label="Voltar" onClick={onBack}>
+          <ArrowLeft />
+        </Button>
+        <SheetTitle className="text-base font-medium">Excluir lançamento</SheetTitle>
+      </header>
+      <div className="flex flex-col gap-5 px-4 pt-2 pb-2">
+        <div className="surface flex flex-col gap-1 rounded-2xl px-4 py-3 text-sm">
+          <p className="font-medium">{summary}</p>
+          <p className="text-muted-foreground">
+            {series
+              ? `Faz parte de uma série: ${frequencyText(series.startDate, series.frequency).toLowerCase()}.`
+              : 'Faz parte de uma série.'}
+          </p>
+        </div>
+        <p className="px-1 text-sm text-muted-foreground">
+          Excluir só este não para a série: os próximos continuam a ser lançados.
+        </p>
+      </div>
+      <SheetFooterBar className="flex flex-col gap-2">
+        <Button
+          size="lg"
+          className="h-12 w-full rounded-2xl text-base"
+          disabled={!series || busy}
+          onClick={() => series && run(series, true)}
+        >
+          Excluir e encerrar a série
+        </Button>
+        <Button
+          size="lg"
+          variant="outline"
+          className="h-12 w-full rounded-2xl text-base"
+          disabled={!series || busy}
+          onClick={() => series && run(series, false)}
+        >
+          Excluir só este
         </Button>
       </SheetFooterBar>
     </>
@@ -278,6 +413,21 @@ function StatementMoveActions({ transactions }: { transactions: Transaction[] })
   )
 }
 
+// A série do lançamento: "Todo mês, no dia 25 · próxima 25/10", ou "Encerrada".
+function SeriesInfo({ id, today }: { id: string; today: string }) {
+  const series = useRecurrences().data?.find((r) => r.id === id)
+  if (!series) return <span className="text-muted-foreground">…</span>
+  if (series.isEnded) return <span>Encerrada</span>
+  return (
+    <span className="flex flex-col items-end tabular-nums">
+      {frequencyText(series.startDate, series.frequency)}
+      {series.nextOccurrence && (
+        <span className="text-xs font-normal text-muted-foreground">próxima {shortDate(series.nextOccurrence, today)}</span>
+      )}
+    </span>
+  )
+}
+
 // A compra que o estorno devolve; se ela foi excluída, o estorno continua valendo (regra 15).
 function RefundedPurchase({ id }: { id: string }) {
   const purchase = useTransaction(id)
@@ -293,7 +443,7 @@ function RefundedPurchase({ id }: { id: string }) {
 function InfoRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 px-4 py-3">
-      <dt className="text-muted-foreground">{label}</dt>
+      <dt className="shrink-0 text-muted-foreground">{label}</dt>
       <dd className="text-right font-medium">{children}</dd>
     </div>
   )
@@ -484,6 +634,7 @@ type EditorProps = Common & { mode: Mode; onDone: () => void }
 
 function Editor(props: EditorProps) {
   const { entry, mode } = props
+  if (mode.view === 'repeat' && entry.kind === 'single') return <RepeatForm {...props} transaction={entry.transaction} />
   if (mode.view === 'installment' && entry.kind === 'purchase') {
     const installment = entry.installments.find((t) => t.id === mode.id)
     if (installment) return <InstallmentForm {...props} transaction={installment} count={entry.installments.length} />
@@ -504,6 +655,7 @@ function EditShell({
   submitting,
   error,
   formId,
+  submitLabel = 'Salvar alterações',
   children,
 }: {
   title: string
@@ -512,6 +664,7 @@ function EditShell({
   submitting: boolean
   error?: string
   formId: string
+  submitLabel?: string
   children: ReactNode
 }) {
   return (
@@ -535,7 +688,7 @@ function EditShell({
       </div>
       <SheetFooterBar>
         <Button type="submit" form={formId} size="lg" disabled={submitting} className="h-12 w-full rounded-2xl text-base">
-          {submitting ? 'Salvando…' : 'Salvar alterações'}
+          {submitting ? 'Salvando…' : submitLabel}
         </Button>
       </SheetFooterBar>
     </>
@@ -1093,6 +1246,65 @@ function InstallmentForm({
           Muda só esta parcela. Valor, número de parcelas, data e cartão mudam pela compra inteira, para a soma continuar igual ao
           total.
         </Note>
+      </form>
+    </EditShell>
+  )
+}
+
+// O lançamento passa a se repetir e vira a primeira ocorrência (docs/fase-2.md, 2.14, regra 1). Começa em
+// "Todo mês", o caso mais comum (o pet de todo dia 25); a data do lançamento é a partida.
+function RepeatForm({ transaction, onDone }: EditorProps & { transaction: Transaction }) {
+  const start = useStartRecurrence()
+  const today = todayInSaoPaulo()
+  const [choice, setChoice] = useState<RepeatChoice>({ frequency: 'Monthly', endDate: null })
+  const [endError, setEndError] = useState<string>()
+  const [error, setError] = useState<string>()
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault()
+    const request = repeatRequest(choice)
+    if (request === 'missing-end') return setEndError(missingEndMessage)
+    if (request === null) return
+    try {
+      await start.mutateAsync({ transactionId: transaction.id, body: request })
+    } catch (e) {
+      setError(messageOf(e))
+      return
+    }
+    const { dueNow } = describeSeries({ start: transaction.purchaseDate, ...request, today })
+    toast.success('Agora se repete', {
+      description: [
+        seriesLine({ start: transaction.purchaseDate, ...request, today }),
+        dueNow.length > 0 && (dueNow.length === 1 ? '1 lançada agora' : `${dueNow.length} lançadas agora`),
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    })
+    onDone()
+  }
+
+  return (
+    <EditShell
+      title="Se repete"
+      subtitle={`${transaction.description || 'Lançamento'} · ${formatCents(transaction.amountCents)} · desde ${formatShortDate(transaction.purchaseDate)}`}
+      onBack={onDone}
+      submitting={start.isPending}
+      error={error}
+      formId="start-series"
+      submitLabel="Salvar"
+    >
+      <form id="start-series" onSubmit={submit} noValidate className="contents">
+        <RecurrenceChooser
+          choice={choice}
+          onChange={(next) => {
+            setChoice(next)
+            setEndError(undefined)
+          }}
+          start={transaction.purchaseDate}
+          today={today}
+          error={endError}
+        />
+        <Note>Este lançamento vira o primeiro da série. Para mudar valor ou data, edite antes.</Note>
       </form>
     </EditShell>
   )

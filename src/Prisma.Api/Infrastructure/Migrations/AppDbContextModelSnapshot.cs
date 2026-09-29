@@ -362,6 +362,168 @@ namespace Prisma.Api.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Prisma.Domain.Recurrences.Recurrence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<long>("AmountCents")
+                        .HasColumnType("bigint")
+                        .HasColumnName("amount_cents");
+
+                    b.Property<Guid?>("CategoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("category_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("description");
+
+                    b.Property<DateOnly?>("EndDate")
+                        .HasColumnType("date")
+                        .HasColumnName("end_date");
+
+                    b.Property<string>("Frequency")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("frequency");
+
+                    b.Property<DateOnly>("GeneratedThrough")
+                        .HasColumnType("date")
+                        .HasColumnName("generated_through");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("method");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date")
+                        .HasColumnName("start_date");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("type");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_recurrences");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_recurrences_account_id");
+
+                    b.HasIndex("CategoryId")
+                        .HasDatabaseName("ix_recurrences_category_id");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_recurrences_user_id");
+
+                    b.ToTable("recurrences", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_recurrences_amount_cents_positive", "amount_cents > 0");
+
+                            t.HasCheckConstraint("ck_recurrences_type", "type IN ('Expense', 'Income')");
+                        });
+                });
+
+            modelBuilder.Entity("Prisma.Domain.Recurrences.RecurrencePending", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<long>("AmountCents")
+                        .HasColumnType("bigint")
+                        .HasColumnName("amount_cents");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<DateOnly>("OccurrenceDate")
+                        .HasColumnType("date")
+                        .HasColumnName("occurrence_date");
+
+                    b.Property<Guid>("RecurrenceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recurrence_id");
+
+                    b.Property<string>("StatementReference")
+                        .IsRequired()
+                        .HasMaxLength(7)
+                        .HasColumnType("character(7)")
+                        .HasColumnName("statement_reference")
+                        .IsFixedLength();
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_recurrence_pendings");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_recurrence_pendings_account_id");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_recurrence_pendings_user_id");
+
+                    b.HasIndex("RecurrenceId", "OccurrenceDate")
+                        .IsUnique()
+                        .HasDatabaseName("ux_recurrence_pendings_occurrence");
+
+                    b.ToTable("recurrence_pendings", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_recurrence_pendings_amount_cents_positive", "amount_cents > 0");
+                        });
+                });
+
             modelBuilder.Entity("Prisma.Domain.Statements.Statement", b =>
                 {
                     b.Property<Guid>("Id")
@@ -543,6 +705,10 @@ namespace Prisma.Api.Infrastructure.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("method");
 
+                    b.Property<DateOnly?>("OccurrenceDate")
+                        .HasColumnType("date")
+                        .HasColumnName("occurrence_date");
+
                     b.Property<DateOnly>("PurchaseDate")
                         .HasColumnType("date")
                         .HasColumnName("purchase_date");
@@ -550,6 +716,11 @@ namespace Prisma.Api.Infrastructure.Migrations
                     b.Property<string>("RawDescription")
                         .HasColumnType("text")
                         .HasColumnName("raw_description");
+
+                    b.Property<Guid?>("RecurrenceId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("recurrence_id");
 
                     b.Property<Guid?>("RefundedTransactionId")
                         .HasColumnType("uuid")
@@ -617,6 +788,11 @@ namespace Prisma.Api.Infrastructure.Migrations
                     b.HasIndex("TransferPairId")
                         .HasDatabaseName("ix_transactions_transfer_pair_id");
 
+                    b.HasIndex("RecurrenceId", "OccurrenceDate")
+                        .IsUnique()
+                        .HasDatabaseName("ux_transactions_recurrence_occurrence")
+                        .HasFilter("recurrence_id IS NOT NULL");
+
                     b.HasIndex("UserId", "CategoryId")
                         .HasDatabaseName("ix_transactions_user_id_category_id");
 
@@ -634,6 +810,8 @@ namespace Prisma.Api.Infrastructure.Migrations
                             t.HasCheckConstraint("ck_transactions_amount_cents_positive", "amount_cents > 0");
 
                             t.HasCheckConstraint("ck_transactions_installment_number", "installment_number >= 1");
+
+                            t.HasCheckConstraint("ck_transactions_recurrence_occurrence", "(recurrence_id IS NULL) = (occurrence_date IS NULL)");
 
                             t.HasCheckConstraint("ck_transactions_refund_link", "refunded_transaction_id IS NULL OR type = 'Refund'");
 
@@ -699,6 +877,53 @@ namespace Prisma.Api.Infrastructure.Migrations
                         .HasConstraintName("fk_categories_users_user_id");
                 });
 
+            modelBuilder.Entity("Prisma.Domain.Recurrences.Recurrence", b =>
+                {
+                    b.HasOne("Prisma.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_recurrences_accounts_account_id");
+
+                    b.HasOne("Prisma.Domain.Categories.Category", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_recurrences_categories_category_id");
+
+                    b.HasOne("Prisma.Api.Infrastructure.Auth.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_recurrences_users_user_id");
+                });
+
+            modelBuilder.Entity("Prisma.Domain.Recurrences.RecurrencePending", b =>
+                {
+                    b.HasOne("Prisma.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_recurrence_pendings_accounts_account_id");
+
+                    b.HasOne("Prisma.Domain.Recurrences.Recurrence", null)
+                        .WithMany()
+                        .HasForeignKey("RecurrenceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_recurrence_pendings_recurrences_recurrence_id");
+
+                    b.HasOne("Prisma.Api.Infrastructure.Auth.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_recurrence_pendings_users_user_id");
+                });
+
             modelBuilder.Entity("Prisma.Domain.Statements.Statement", b =>
                 {
                     b.HasOne("Prisma.Domain.Accounts.Account", null)
@@ -753,6 +978,12 @@ namespace Prisma.Api.Infrastructure.Migrations
                         .HasForeignKey("InstallmentPurchaseId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_transactions_installment_purchases_installment_purchase_id");
+
+                    b.HasOne("Prisma.Domain.Recurrences.Recurrence", null)
+                        .WithMany()
+                        .HasForeignKey("RecurrenceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_transactions_recurrences_recurrence_id");
 
                     b.HasOne("Prisma.Domain.Transactions.Transaction", null)
                         .WithMany()

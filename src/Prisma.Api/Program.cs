@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Console;
 using Npgsql;
 using Prisma.Api.Features.Accounts;
+using Prisma.Api.Features.Recurrences;
 using Prisma.Api.Features.Auth;
 using Prisma.Api.Features.Categories;
 using Prisma.Api.Features.Dashboard;
@@ -70,6 +71,7 @@ builder.Services.AddTransactionFeatures();
 builder.Services.AddCardFeatures();
 builder.Services.AddTransferFeatures();
 builder.Services.AddDashboardFeatures();
+builder.Services.AddRecurrenceFeatures(builder.Configuration);
 builder.Services.AddDiagnosticsFeatures();
 
 builder.Services.AddHealthChecks()
@@ -126,6 +128,7 @@ app.MapCategoryEndpoints();
 app.MapTransactionEndpoints();
 app.MapCardEndpoints();
 app.MapTransferEndpoints();
+app.MapRecurrenceEndpoints();
 app.MapDashboardEndpoints();
 app.MapDiagnosticsEndpoints();
 

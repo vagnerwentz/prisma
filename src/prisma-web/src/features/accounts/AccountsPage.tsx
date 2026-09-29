@@ -1,4 +1,4 @@
-import { ChevronRight, Plus } from 'lucide-react'
+import { ChevronRight, Plus, Repeat } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { AccountTile } from '@/components/brand/Tiles'
@@ -6,6 +6,8 @@ import { PrismLogo } from '@/components/brand/PrismLogo'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { seriesCount } from '@/features/recurrences/listing'
+import { useRecurrences } from '@/features/recurrences/queries'
 import { formatCents } from '@/lib/money'
 import { cn } from '@/lib/utils'
 import { accountTypeLabels } from './labels'
@@ -17,6 +19,8 @@ export function AccountsPage() {
   const balances = useAccountBalances()
   const navigate = useNavigate()
   const [creating, setCreating] = useState(false)
+  // Lançamentos que se repetem (docs/fase-2.md, 2.14): a entrada da tela, só quando já há alguma série.
+  const series = seriesCount(useRecurrences().data ?? [])
   // Ativas primeiro; as inativas continuam na lista, para consultar o histórico.
   const sorted = [...(accounts.data ?? [])].sort((a, b) => Number(b.isActive) - Number(a.isActive))
 
@@ -60,6 +64,21 @@ export function AccountsPage() {
             <AccountRow key={account.id} account={account} balance={balances.data?.get(account.id)} />
           ))}
         </ul>
+      )}
+      {series && (
+        <Link
+          to="/contas/recorrencias"
+          className="surface flex items-center gap-3 rounded-2xl px-4 py-3 transition-colors outline-none hover:bg-muted/40 focus-visible:bg-muted/60 active:bg-muted/70"
+        >
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
+            <Repeat className="size-5 text-muted-foreground" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-medium">Recorrências</span>
+            <span className="block text-sm text-muted-foreground">{series}</span>
+          </span>
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+        </Link>
       )}
 
       <NewAccountSheet

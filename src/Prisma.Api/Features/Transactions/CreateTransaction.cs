@@ -1,11 +1,14 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Prisma.Api.Features.Recurrences;
 using Prisma.Api.Features.Statements;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Auth;
 using Prisma.Api.Infrastructure.Http;
+using Prisma.Api.Infrastructure.Logging;
 using Prisma.Domain;
 using Prisma.Domain.Accounts;
+using Prisma.Domain.Recurrences;
 using Prisma.Domain.Transactions;
 
 namespace Prisma.Api.Features.Transactions;
@@ -24,7 +27,9 @@ public static class CreateTransaction
         string? Description,
         int? Installments,
         // Só no estorno: a compra que ele devolve (docs/fase-2.md, 2.5, regra 7).
-        Guid? RefundedTransactionId = null);
+        Guid? RefundedTransactionId = null,
+        // O lançamento se repete a partir desta data (docs/fase-2.md, 2.14). Ausente: não se repete.
+        RecurrenceRequest? Recurrence = null);
 
     public sealed class Validator : AbstractValidator<Request>
     {
@@ -32,14 +37,43 @@ public static class CreateTransaction
         {
             RuleFor(x => x.Type).IsInEnum().WithMessage("Tipo de transação inválido.");
             RuleFor(x => x.Method).IsInEnum().WithMessage("Meio de pagamento inválido.");
+            RuleFor(x => x.Recurrence!.Frequency).IsInEnum().WithMessage("Frequência inválida.")
+                .When(x => x.Recurrence is not null);
         }
     }
 
-    public sealed class Handler(AppDbContext db, ICurrentUser currentUser)
+    public sealed class Handler(AppDbContext db, ICurrentUser currentUser, RecurrenceRunner runner, ILogger<Handler> logger)
     {
-        // Sempre uma lista: uma transação no lançamento simples, uma por parcela no cartão.
-        public Task<Result<IReadOnlyList<TransactionResponse>>> Execute(Request req, CancellationToken ct) =>
-            ConcurrentStatementOpening.Retry(db, () => Create(req, ct));
+        // Sempre uma lista: uma transação no lançamento simples, uma por parcela no cartão. Com série, o que
+        // venceu desde a data do lançamento é gerado na hora, sem esperar a tarefa.
+        public async Task<Result<IReadOnlyList<TransactionResponse>>> Execute(Request req, CancellationToken ct)
+        {
+            var result = await ConcurrentStatementOpening.Retry(db, () => Create(req, ct));
+            if (result.IsSuccess && _started is { } started)
+            {
+                logger.RecurrenceStarted(started.Id, started.Frequency);
+                await runner.RunForUserAsync(currentUser.UserId, ct);
+            }
+            return result;
+        }
+
+        // A série nasce do lançamento, que vira a primeira ocorrência. Estorno, transferência e compra
+        // parcelada são recusados pelo domínio.
+        private Recurrence? _started;
+
+        private Error? Repeat(Transaction first, Account account, RecurrenceRequest? request)
+        {
+            if (request is null)
+                return null;
+
+            var recurrence = Recurrence.StartFrom(first, account, request.Frequency, request.EndDate);
+            if (!recurrence.IsSuccess)
+                return recurrence.Error;
+
+            db.Recurrences.Add(recurrence.Value);
+            _started = recurrence.Value;
+            return null;
+        }
 
         private async Task<Result<IReadOnlyList<TransactionResponse>>> Create(Request req, CancellationToken ct)
         {
@@ -67,6 +101,8 @@ public static class CreateTransaction
                 category, req.Method, req.Description);
             if (!created.IsSuccess)
                 return created.Error;
+            if (Repeat(created.Value, account, req.Recurrence) is { } simpleError)
+                return simpleError;
 
             db.Transactions.Add(created.Value);
             await db.SaveChangesAsync(ct);
@@ -87,6 +123,8 @@ public static class CreateTransaction
                 req.PurchaseDate, category, req.Description, existing);
             if (!purchase.IsSuccess)
                 return purchase.Error;
+            if (Repeat(purchase.Value.Installments[0], card, req.Recurrence) is { } purchaseError)
+                return purchaseError;
 
             if (purchase.Value.Purchase is { } installmentPurchase)
                 db.InstallmentPurchases.Add(installmentPurchase);
@@ -124,6 +162,8 @@ public static class CreateTransaction
                 req.Description, target, statements);
             if (!refund.IsSuccess)
                 return refund.Error;
+            if (Repeat(refund.Value.Refund, account, req.Recurrence) is { } refundError)
+                return refundError;
 
             db.Statements.AddRange(refund.Value.OpenedStatements);
             db.Transactions.Add(refund.Value.Refund);

@@ -551,6 +551,24 @@ fatura paga > compra presa > datas editadas > previsão.
   *Pronto quando:* testes acima verdes, com mutação provando a regra 2 e o estorno da parcelada;
   conferido na tela em 320, 390 e 1280px, claro e escuro, com toques reais.
 
+- [x] **2.25 Lançamentos que se repetem** (pedido do dono, 2026-09-29)
+  *Concluída em 2026-09-29: T1 (agenda), T2 (série no domínio), T3 (tabela, migration
+  `AddRecurrences` e gerador `RecurrenceRunner`), T4 (`RecurrenceWorker`, ao subir e de hora em hora), T5 (API:
+  criar, listar, editar, encerrar e resolver pendências), T6 (tela: "se repete" no Novo lançamento e no painel),
+  T7a (excluir o lançamento de uma série pergunta se ela também acaba), T7 (tela Recorrências), T8 (previsão),
+  lacunas de teste fechadas e a conta excluída encerrando as séries dela. Checkpoint B conferido pelo dono.
+  Checkpoint C: o dono deu por conferido pelos testes e pelas conferências de tela. As três migrations da
+  etapa viraram uma (`AddRecurrences`) antes do commit. Tarefas em `tasks/2.25/todo.md`, fora do git.*
+  Pix de todo mês ou toda semana e cobrança recorrente no cartão (o pet do pai: R$ 400,00 todo dia 25).
+  Uma abstração (`Recurrence`) com dois destinos: lançamento simples fora do cartão e compra à vista no
+  cartão. Cada ocorrência é gerada **só no dia dela**, por uma tarefa em segundo plano (`BackgroundService`,
+  sem Hangfire) que alcança o atraso e nunca duplica; o futuro aparece como previsão no "Daqui para
+  frente" e na fatura aberta do cartão, sem mudar Resumo nem saldo. Especificação em `docs/fase-2.md`,
+  2.14 (decisões de arquitetura, regras, exemplos e as 8 tarefas).
+  *Pronto quando:* testes de domínio antes (agenda, geração, previsão); integração de idempotência,
+  atraso, fatura paga e isolamento; tela conferida em 320, 390 e 1280px, claro e escuro; o dono cadastra
+  a cobrança do pet e o aluguel e vê a previsão.
+
 ## Hospedagem para uso próprio
 
 Antes da Fase 3, a pedido: usar o Prisma no dia a dia exige que ele abra fora de casa, com

@@ -18,6 +18,7 @@ const NewTransactionPage = lazy(() =>
 )
 const AnalysisPage = lazy(() => import('@/features/dashboard/AnalysisPage').then((m) => ({ default: m.AnalysisPage })))
 const AccountsPage = lazy(() => import('@/features/accounts/AccountsPage').then((m) => ({ default: m.AccountsPage })))
+const RecurrencesPage = lazy(() => import('@/features/recurrences/RecurrencesPage').then((m) => ({ default: m.RecurrencesPage })))
 const AccountDetailPage = lazy(() =>
   import('@/features/accounts/AccountDetailPage').then((m) => ({ default: m.AccountDetailPage })),
 )
@@ -51,6 +52,7 @@ export function App() {
                 <Route path="/lancamentos" element={<TransactionsPage />} />
                 <Route path="/analise" element={<AnalysisPage />} />
                 <Route path="/contas" element={<AccountsPage />} />
+                <Route path="/contas/recorrencias" element={<RecurrencesPage />} />
                 <Route path="/contas/:id" element={<AccountDetailPage />} />
               </Route>
             </Route>

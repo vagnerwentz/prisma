@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Prisma.Api.Features.Recurrences;
 using Prisma.Api.Infrastructure;
 using Prisma.Domain;
 using Prisma.Domain.Dashboard;
@@ -10,7 +11,8 @@ namespace Prisma.Api.Features.Dashboard;
 // para o mês do Resumo, e o mês da última parcela lançada.
 public static class GetCommittedMonths
 {
-    public sealed record Item(string Month, long ExpenseCents);
+    // ProjectedExpenseCents: a parte prevista das despesas que se repetem, à parte (docs/fase-2.md, 2.14).
+    public sealed record Item(string Month, long ExpenseCents, long ProjectedExpenseCents);
 
     public sealed record Response(IReadOnlyList<Item> Months, string? LastInstallmentMonth);
 
@@ -28,9 +30,11 @@ public static class GetCommittedMonths
                 .Where(t => t.Type == TransactionType.Expense && t.InstallmentPurchaseId != null && t.SettlementDate >= nextMonth)
                 .MaxAsync(t => (DateOnly?)t.SettlementDate, ct);
 
-            var committed = CommittedMonths.Of(today, entries, lastInstallmentDue);
+            var projected = await RecurrenceForecast.Load(db, end, ct);
+
+            var committed = CommittedMonths.Of(today, entries, lastInstallmentDue, projected);
             return new Response(
-                committed.Months.Select(m => new Item(DashboardMonth.Format(m.Month), m.ExpenseCents)).ToList(),
+                committed.Months.Select(m => new Item(DashboardMonth.Format(m.Month), m.ExpenseCents, m.ProjectedExpenseCents)).ToList(),
                 committed.LastInstallmentMonth is { } last ? DashboardMonth.Format(last) : null);
         }
     }

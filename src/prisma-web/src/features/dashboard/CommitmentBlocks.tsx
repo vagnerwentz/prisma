@@ -7,7 +7,7 @@ import { useAccounts } from '@/features/accounts/queries'
 import { categoryLabels, useCategories } from '@/features/categories/queries'
 import { monthOf, type YearMonth } from '@/lib/dates'
 import { formatCents } from '@/lib/money'
-import { barWidths, inheritedShare, lastInstallmentText, shortMonth } from './commitments'
+import { committedBars, inheritedShare, lastInstallmentText, projectedText, shortMonth } from './commitments'
 import { useCommittedMonths, useInheritedInstallments, type InheritedInstallment } from './queries'
 
 // Compromissos herdados (docs/fase-2.md, 2.6). Sem espectro novo: o da tela é o filete sob o mês.
@@ -148,8 +148,9 @@ export function CommittedMonths({ onSelect }: { onSelect: (month: YearMonth) => 
   if (committed.isError) return null
 
   const { months, lastInstallmentMonth } = committed.data
-  if (!months.some((m) => m.expenseCents !== 0)) return null
-  const widths = barWidths(months.map((m) => m.expenseCents))
+  if (!months.some((m) => m.expenseCents !== 0 || m.projectedExpenseCents > 0)) return null
+  const bars = committedBars(months)
+  const repeats = months.some((m) => m.projectedExpenseCents > 0)
 
   return (
     <section className="flex flex-col gap-3">
@@ -158,7 +159,10 @@ export function CommittedMonths({ onSelect }: { onSelect: (month: YearMonth) => 
       <div className="surface flex flex-col rounded-2xl">
         <div className="flex flex-col gap-0.5 px-4 pt-4">
           <h3 className="text-sm font-semibold">Já comprometido</h3>
-          <p className="text-sm text-muted-foreground">Compras já lançadas que vencem nos próximos meses.</p>
+          <p className="text-sm text-muted-foreground">
+            Compras já lançadas que vencem nos próximos meses.
+            {repeats && ' Mais claro, o que se repete e ainda vai sair.'}
+          </p>
         </div>
         <ul className="flex flex-col py-2">
           {months.map((m, i) => (
@@ -166,19 +170,27 @@ export function CommittedMonths({ onSelect }: { onSelect: (month: YearMonth) => 
               <button
                 type="button"
                 onClick={() => onSelect(monthOf(`${m.month}-01`))}
-                className="flex w-full items-center gap-3 px-4 py-2 text-left transition-colors outline-none hover:bg-muted/40 focus-visible:bg-muted/60 active:bg-muted/70"
+                className="grid w-full grid-cols-[3rem_1fr_6.5rem] items-center gap-x-3 gap-y-1 px-4 py-2 text-left transition-colors outline-none hover:bg-muted/40 focus-visible:bg-muted/60 active:bg-muted/70"
               >
-                <span className="w-12 shrink-0 text-sm font-medium tabular-nums">{shortMonth(m.month)}</span>
-                <span className="h-2 flex-1 overflow-hidden rounded-full bg-foreground/8">
-                  <span className="block h-full rounded-full bg-foreground/80" style={{ width: `${widths[i]}%` }} />
+                <span className="text-sm font-medium tabular-nums">{shortMonth(m.month)}</span>
+                <span className="flex h-2 overflow-hidden rounded-full bg-foreground/8">
+                  <span className="block h-full bg-foreground/80" style={{ width: `${bars[i].solid}%` }} />
+                  {/* O previsto: a mesma tinta, mais clara (nunca gravado; some quando é lançado). */}
+                  <span className="block h-full bg-foreground/30" style={{ width: `${bars[i].projected}%` }} />
                 </span>
-                <span className="w-26 shrink-0 text-right text-sm font-semibold tabular-nums">
+                <span className="text-right text-sm font-semibold tabular-nums">
                   {m.expenseCents === 0 ? (
                     <span className="font-normal text-muted-foreground">—</span>
                   ) : (
                     formatCents(m.expenseCents).replace('-', '−')
                   )}
                 </span>
+                {/* Embaixo da barra e do valor juntos: em 320px, só sob a barra, quebrava em duas linhas. */}
+                {m.projectedExpenseCents > 0 && (
+                  <span className="col-span-2 col-start-2 text-xs text-muted-foreground tabular-nums">
+                    {projectedText(m.projectedExpenseCents)}
+                  </span>
+                )}
               </button>
             </li>
           ))}
@@ -187,6 +199,15 @@ export function CommittedMonths({ onSelect }: { onSelect: (month: YearMonth) => 
           <p className="border-t border-border/60 px-4 py-3 text-sm text-foreground/75">
             {lastInstallmentText(lastInstallmentMonth)}
           </p>
+        )}
+        {repeats && (
+          <Link
+            to="/contas/recorrencias"
+            className="flex items-center justify-between border-t border-border/60 px-4 py-3 text-sm font-medium text-foreground/75 transition-colors hover:bg-muted/40 hover:text-foreground"
+          >
+            Ver recorrências
+            <ChevronRight className="size-4 text-muted-foreground" />
+          </Link>
         )}
       </div>
     </section>

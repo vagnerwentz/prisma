@@ -1,0 +1,212 @@
+# Lançamentos que se repetem (docs/fase-2.md, 2.14). Exige sessão: rode antes o Login de auth.http.
+# A data do lançamento é a partida da série. Tudo o que venceu desde ela é gerado na hora; o resto, pela
+# tarefa em segundo plano, no dia de cada ocorrência. Nada futuro é gravado.
+
+### Preparação: criar o cartão (fecha 26, vence 5)
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{
+  "name": "Visa das recorrências",
+  "type": "CreditCard",
+  "initialBalanceCents": 0,
+  "closingDay": 26,
+  "dueDay": 5
+}
+
+> {% client.global.set("recurrenceCardId", response.body.id); %}
+
+### Preparação: criar a conta corrente
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{
+  "name": "Conta das recorrências",
+  "type": "Checking",
+  "initialBalanceCents": 0
+}
+
+> {% client.global.set("recurrenceAccountId", response.body.id); %}
+
+### Novo lançamento que se repete toda semana (201; recurrenceId preenchido; as semanas vencidas já saem)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "accountId": "{{recurrenceAccountId}}",
+  "type": "Expense",
+  "amountCents": 50000,
+  "purchaseDate": "2026-09-04",
+  "method": "Pix",
+  "description": "Diarista",
+  "recurrence": { "frequency": "Weekly", "endDate": null }
+}
+
+### Cobrança no cartão já lançada (201; ainda sem série)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "accountId": "{{recurrenceCardId}}",
+  "type": "Expense",
+  "amountCents": 40000,
+  "purchaseDate": "2026-08-25",
+  "method": "Credit",
+  "description": "Pet"
+}
+
+> {% client.global.set("petId", response.body[0].id); %}
+
+### A cobrança passa a se repetir todo mês (201; a de 25/08 é a primeira; a de 25/09 já sai)
+POST {{baseUrl}}/transactions/{{petId}}/recurrence
+Content-Type: application/json
+
+{
+  "frequency": "Monthly",
+  "endDate": null
+}
+
+> {% client.global.set("petSeriesId", response.body.id); %}
+
+### De novo (409: "Este lançamento já faz parte de uma série.")
+POST {{baseUrl}}/transactions/{{petId}}/recurrence
+Content-Type: application/json
+
+{
+  "frequency": "Monthly"
+}
+
+### Listar as séries (ativas pela próxima data; encerradas no fim)
+GET {{baseUrl}}/recurrences
+
+### Editar do próximo em diante: R$ 450,00 (200)
+PATCH {{baseUrl}}/recurrences/{{petSeriesId}}
+Content-Type: application/json
+
+{
+  "accountId": "{{recurrenceCardId}}",
+  "amountCents": 45000,
+  "categoryId": null,
+  "description": "Pet",
+  "method": "Credit",
+  "frequency": "Monthly",
+  "nextDate": null,
+  "endDate": null
+}
+
+### Trocar a frequência sem a próxima data (400: "Informe a próxima data da nova frequência.")
+PATCH {{baseUrl}}/recurrences/{{petSeriesId}}
+Content-Type: application/json
+
+{
+  "accountId": "{{recurrenceCardId}}",
+  "amountCents": 45000,
+  "categoryId": null,
+  "description": "Pet",
+  "method": "Credit",
+  "frequency": "Weekly",
+  "nextDate": null,
+  "endDate": null
+}
+
+### Encerrar (200; endDate = último gerado, nextOccurrence nula, isEnded true)
+POST {{baseUrl}}/recurrences/{{petSeriesId}}/end
+
+# --- Pendências: cobrança que cairia numa fatura já paga (regra 9) ---
+# Datas pensadas para hoje = 29/09/2026. Num cartão novo (fecha 26, vence 5): uma compra em 20/09 abre a
+# fatura 2026-10 (fecha 26/09), que é paga em 27/09; só depois a cobrança de 25/08 passa a se repetir. A de
+# 25/09 cairia na fatura paga: fica pendente, em vez de mudar o valor pago.
+
+### Pendência 1: cartão novo
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{
+  "name": "Visa das pendências",
+  "type": "CreditCard",
+  "initialBalanceCents": 0,
+  "closingDay": 26,
+  "dueDay": 5
+}
+
+> {% client.global.set("pendingCardId", response.body.id); %}
+
+### Pendência 2: compra de 20/09, que abre a fatura 2026-10
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "accountId": "{{pendingCardId}}",
+  "type": "Expense",
+  "amountCents": 5000,
+  "purchaseDate": "2026-09-20",
+  "method": "Credit",
+  "description": "Ração"
+}
+
+### Pendência 3: a cobrança de 25/08, ainda sem série
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "accountId": "{{pendingCardId}}",
+  "type": "Expense",
+  "amountCents": 40000,
+  "purchaseDate": "2026-08-25",
+  "method": "Credit",
+  "description": "Pet com pendência"
+}
+
+> {% client.global.set("pendingPetId", response.body[0].id); %}
+
+### Pendência 4: achar a fatura 2026-10 (total R$ 50,00)
+GET {{baseUrl}}/accounts/{{pendingCardId}}/statements
+
+> {% client.global.set("octoberStatementId", response.body.find(s => s.reference === "2026-10").id); %}
+
+### Pendência 5: pagar a fatura 2026-10 em 27/09 (201)
+POST {{baseUrl}}/statements/{{octoberStatementId}}/pay
+Content-Type: application/json
+
+{
+  "fromAccountId": "{{recurrenceAccountId}}",
+  "date": "2026-09-27",
+  "method": "Boleto"
+}
+
+### Pendência 6: a cobrança passa a se repetir (201; "pendings" com 25/09, fatura 2026-10, R$ 400,00)
+POST {{baseUrl}}/transactions/{{pendingPetId}}/recurrence
+Content-Type: application/json
+
+{
+  "frequency": "Monthly"
+}
+
+> {% client.global.set("pendingId", response.body.pendings[0].id); %}
+
+### Lançar na própria fatura enquanto ela está paga (400: "A fatura desta cobrança continua paga…")
+POST {{baseUrl}}/recurrences/pendings/{{pendingId}}/launch
+Content-Type: application/json
+
+{
+  "where": "SameStatement"
+}
+
+### Lançar na fatura seguinte, 2026-11, presa a ela (201; statementPinned true, purchaseDate 25/09)
+POST {{baseUrl}}/recurrences/pendings/{{pendingId}}/launch
+Content-Type: application/json
+
+{
+  "where": "NextStatement"
+}
+
+### De novo (404: a pendência já foi resolvida)
+POST {{baseUrl}}/recurrences/pendings/{{pendingId}}/launch
+Content-Type: application/json
+
+{
+  "where": "NextStatement"
+}
+
+### Descartar (no lugar de lançar: rode os passos 1 a 6 de novo e este em vez dos lançamentos; 204)
+DELETE {{baseUrl}}/recurrences/pendings/{{pendingId}}

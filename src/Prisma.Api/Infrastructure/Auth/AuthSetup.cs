@@ -74,6 +74,7 @@ public static class AuthSetup
             .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
 
         services.AddHttpContextAccessor();
+        services.AddScoped<ScopedUser>();
         services.AddScoped<ICurrentUser, HttpCurrentUser>();
 
         var permitLimit = configuration.GetValue("RateLimiting:Auth:PermitLimit", 5);

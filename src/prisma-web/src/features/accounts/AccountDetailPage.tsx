@@ -8,6 +8,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
+import { accountSeries } from '@/features/recurrences/listing'
+import { useRecurrences } from '@/features/recurrences/queries'
 import { ApiError } from '@/lib/api'
 import { formatShortDate, todayInSaoPaulo } from '@/lib/dates'
 import { formatCents } from '@/lib/money'
@@ -141,6 +143,8 @@ function Actions({ account, onEdit }: { account: Account; onEdit: () => void }) 
   const update = useUpdateAccount()
   const remove = useDeleteAccount()
   const [confirming, setConfirming] = useState(false)
+  // As séries ativas da conta encerram junto com ela (docs/fase-2.md, 2.14).
+  const series = accountSeries(useRecurrences().data ?? [], account.id)
 
   const toggleActive = async () => {
     try {
@@ -166,7 +170,7 @@ function Actions({ account, onEdit }: { account: Account; onEdit: () => void }) 
   const deleteAccount = async () => {
     try {
       await remove.mutateAsync(account.id)
-      toast.success('Conta excluída', { description: account.name })
+      toast.success('Conta excluída', { description: series ? `${account.name} · ${series.done}` : account.name })
       navigate('/contas', { replace: true })
     } catch (error) {
       setConfirming(false)
@@ -179,6 +183,7 @@ function Actions({ account, onEdit }: { account: Account; onEdit: () => void }) 
       <div className="surface flex flex-col gap-3 rounded-2xl p-4">
         <p className="text-sm">
           Excluir <strong>{account.name}</strong>? Só é possível se a conta não tiver lançamentos.
+          {series && ` ${series.warning}`}
         </p>
         <div className="grid grid-cols-2 gap-2">
           <Button variant="outline" className="h-11 rounded-xl" onClick={() => setConfirming(false)}>

@@ -82,6 +82,12 @@ function Details({
           </SheetTitle>
           {total.label && <span className="-mb-1 text-sm font-medium text-foreground/75">{total.label}</span>}
           <span className="font-display text-5xl leading-none tabular-nums">{total.text}</span>
+          {/* As cobranças das séries que ainda vão cair nela (docs/fase-2.md, 2.14, regra 11). Fora do total. */}
+          {status === 'Aberta' && statement.projectedCents > 0 && (
+            <span className="text-sm text-muted-foreground tabular-nums">
+              Previsto até o fechamento: + {formatCents(statement.projectedCents)}
+            </span>
+          )}
         </header>
         <div className="spectrum-line mx-6 opacity-70" />
 

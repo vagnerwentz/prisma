@@ -28,6 +28,9 @@ public sealed class PrismaApiFactory(
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("ConnectionStrings:Default", connectionString);
+        // O gerador dos lançamentos que se repetem passa por todos os usuários do banco compartilhado: fica
+        // desligado, e cada teste o chama quando quer. Quem quiser a tarefa ligada passa "true".
+        builder.UseSetting("Recurrences:Runner:Enabled", "false");
 
         foreach (var (key, value) in settings ?? DefaultSettings)
             builder.UseSetting(key, value);

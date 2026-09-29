@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { barWidths, inheritedShare, lastInstallmentText, shortMonth } from './commitments'
+import { barWidths, committedBars, inheritedShare, lastInstallmentText, projectedText, shortMonth } from './commitments'
 
 // Etapa 2.8 (docs/fase-2.md, 2.6), com os números do exemplo.
 describe('inheritedShare', () => {
@@ -33,4 +33,38 @@ describe('textos', () => {
   it('última parcela', () => {
     expect(lastInstallmentText('2027-04')).toBe('A última parcela vence em abril de 2027')
   })
+})
+
+// docs/fase-2.md, 2.14, regra 11: a parte prevista das séries, mais clara, depois do que já existe.
+describe('committedBars', () => {
+  it('scales both parts by the largest month, existing plus projected', () => {
+    // Hoje 20/10: novembro com a farmácia (R$ 50) e R$ 1.400 previstos; dezembro só com os previstos.
+    expect(
+      committedBars([
+        { expenseCents: 5000, projectedExpenseCents: 140000 },
+        { expenseCents: 0, projectedExpenseCents: 140000 },
+        { expenseCents: 0, projectedExpenseCents: 0 },
+      ]),
+    ).toEqual([
+      { solid: 3, projected: 97 },
+      { solid: 0, projected: 97 },
+      { solid: 0, projected: 0 },
+    ])
+  })
+
+  it('keeps the bars of before when nothing repeats', () => {
+    expect(
+      committedBars([
+        { expenseCents: 133000, projectedExpenseCents: 0 },
+        { expenseCents: 1000, projectedExpenseCents: 0 },
+      ]),
+    ).toEqual([
+      { solid: 100, projected: 0 },
+      { solid: 3, projected: 0 },
+    ])
+  })
+})
+
+describe('projectedText', () => {
+  it('says how much is expected', () => expect(projectedText(140000)).toBe('+ R$\u00a01.400,00 previstos'))
 })
