@@ -85,3 +85,27 @@ bastar.
 
 Os logs nunca têm valor, descrição, nome de conta, e-mail, senha ou token (`CLAUDE.md`, seção 8). O
 Railway guarda 7 dias no Hobby e 3 no Free.
+
+## 4. Tarefa das recorrências (2.25)
+
+Os lançamentos que se repetem são gerados por uma tarefa dentro da própria API (`RecurrenceWorker`), que roda
+ao subir e depois de hora em hora, agindo como cada usuário. Ela não duplica: rodar de novo, duas vezes ao
+mesmo tempo ou depois de a API ficar fora do ar só alcança o que faltou (`docs/fase-2.md`, 2.14, A3 a A6). Uma
+falha nunca derruba a API: vai para o log, e a próxima hora tenta de novo.
+
+| Pergunta | Filtro no Railway |
+|---|---|
+| A tarefa está viva? (uma linha por hora, com usuários, lançamentos criados, pendentes e falhas) | `@eventName:RecurrenceRunFinished` |
+| Ela subiu junto com a API? (uma linha a cada deploy ou reinício) | `@eventName:RecurrenceWorkerStarted` |
+| Alguma série falhou? (o id da série vem no log; tenta de novo na hora seguinte) | `@eventName:RecurrenceFailed` |
+| A execução inteira falhou? (ex.: banco fora do ar) | `@eventName:RecurrenceRunFailed` |
+| O que uma série gerou | `@eventName:RecurrenceGenerated` (com o `RecurrenceId`) |
+| Série pulada porque outra execução ou uma edição chegou antes (normal, sem ação) | `@eventName:RecurrenceSkipped` |
+| Séries criadas, editadas e encerradas; pendências lançadas e descartadas | `@eventName:RecurrenceStarted`, `RecurrenceEdited`, `RecurrenceEnded`, `RecurrencePendingLaunched`, `RecurrencePendingDiscarded` |
+
+Se o `RecurrenceRunFinished` parar de aparecer, a API está fora do ar ou a tarefa foi desligada: ela liga por
+padrão e só desliga com `Recurrences__Runner__Enabled=false` (usado nos testes de integração). Falhas
+repetidas da mesma série não somem sozinhas: o id no log leva à série (tabela `recurrences`), e o
+`generated_through` dela mostra até onde gerou.
+
+Como os outros eventos, estes só levam ids, tipos e contagens: nunca valor, descrição ou nome.

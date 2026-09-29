@@ -377,7 +377,7 @@ fechado fora de desenvolvimento (`Registration:Open`); libere e-mails em
 `Registration__AllowedEmails__0`. A connection string vem de `ConnectionStrings__Default`.
 Em produção a API entra no banco como `prisma_app` (dono das tabelas, sem superusuário; criado por
 `ops/postgres/app-user.sql`), e o `postgres` fica só para administração. O TCP Proxy do Postgres fica
-desligado. Roteiros de operação (senhas, backup, restauração) em `docs/operacao.md`; senha nunca passa
+desligado. Roteiros de operação (senhas, backup, restauração, logs e a tarefa das recorrências) em `docs/operacao.md`; senha nunca passa
 por conversa, arquivo versionado ou histórico do shell.
 
 ---
