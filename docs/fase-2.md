@@ -433,7 +433,8 @@ Esta etapa é a base; a regra do cartão "N dias antes do vencimento" (2.21) e o
 7. **O resto acompanha sozinho:** o total da fatura, a lista da fatura, o Resumo e a Análise leem o
    `StatementId` e o `SettlementDate`, então mostram a compra no mês novo sem regra própria.
 8. **Fora desta etapa:** a semântica do dia do fechamento (a compra do próprio dia hoje entra na
-   fatura; no Itaú vai para a seguinte) muda na 2.21, junto com a regra "N dias antes".
+   fatura; no Itaú vai para a seguinte) muda na 2.21, junto com a regra "N dias antes". *(Resolvido na 2.12: o `ClosingDate`
+   continua sendo o último dia que entra, e a tela passa a dizer "Compras até".)*
 
 **Exemplos (usados nos testes).** Cartão "fecha 26, vence 5", como o do dono estava cadastrado.
 
@@ -535,6 +536,7 @@ voltaram com "Previous" e foram de novo com "Next".)*
 *Checkpoint C:* telas nos dois modos e em 320, 390 e 1280px; o dono cadastra (ou já tem) os dois
 lanches de 25/09 no cartão Itaú e os move para a fatura de novembro; o total de outubro no Prisma é
 comparado com o total da fatura no app do Itaú (as diferenças que sobrarem são compras não lançadas ou movidas).
+*(Conferido pelo dono no local em 2026-09-27 e em produção em 2026-09-28: funcionou.)*
 
 **Riscos**
 
@@ -632,6 +634,254 @@ pai do dono: "Faltou tipos de seguros, como de vida, residenciais, veicular."
   usuário antigo do banco local: Seguros apareceu na tela de lançar e ele passou para a versão 2.)* Os 4
   ícones novos no `categoryIcons.ts` e o teste do backend que confere o mapa. *Aceite:* conferido na tela de lançar, nos dois modos.
 
+### 2.12 Cartão que fecha N dias antes do vencimento (etapa 2.21)
+
+> **Adiada em 2026-09-28**, por decisão do dono, antes da revisão desta especificação. O "Mover para" e
+> o ajuste de datas (2.9) cobrem o erro de previsão enquanto isso. Ao retomar: revisar os textos da tela,
+> a regra 5 e qual modelo vem marcado num cartão novo; o plano está em `tasks/plan.md`.
+>
+> **Evidência nova (2026-09-29, `docs/validacao-premissas.md`, seção 11):** um segundo cartão Itaú do
+> dono fechou em 29/09 (vence 07/10, 8 dias antes). No dia 29 o banco já mostrava a fatura fechada e o
+> Prisma, aberta: o fechamento do banco é o primeiro dia da fatura seguinte, como diz a regra 2 abaixo.
+> Decidir também, ao retomar, se o modelo de dia fixo passa a ler o dia informado assim (exclusivo), e
+> como migrar os cartões atuais sem mudar faturas passadas.
+
+**Por quê.** O cartão guarda um dia fixo de fechamento. Os 9 PDFs do Itaú do dono mostram que isso não
+representa todos os bancos (`docs/validacao-premissas.md`, seção 11): o Itaú fecha **7 dias antes do
+vencimento nominal**, e por isso o dia do fechamento muda com o tamanho do mês. Com "fecha 26, vence 5",
+em 7 de 10 meses uma compra do dia 27 cai na fatura errada. Nenhum dia fixo acerta todos os meses.
+
+**O que esta etapa não resolve:** compra que o banco processa dias depois (os lanches de 25/09, seção
+2.9). Nenhuma regra prevê isso. O caminho continua sendo o "Mover para".
+
+**Regras**
+
+1. **Dois modelos de cartão.** "Fecha num dia fixo" (como até hoje: `ClosingDay` e `DueDay`) ou
+   "fecha N dias antes do vencimento" (`DueDay` e `ClosingDaysBeforeDue`). O cartão tem exatamente um
+   dos dois. N vai de **1 a 20**. Quem tiver um banco fora disso poderá avisar no futuro (canal de
+   contato, fora desta etapa).
+2. **Datas da fatura no modelo novo.** A fatura que vence no mês M vence no **dia do vencimento nominal**
+   (`DueDay`, e o dia além do fim do mês vira o último dia, como na regra 2 de `docs/fase-1.md`, 2.1). O
+   **melhor dia de compra** é o vencimento nominal menos N dias: a compra desse dia já vai para a fatura
+   seguinte. O `ClosingDate` gravado é o **último dia que entra**, o vencimento menos N + 1 dias. Assim a
+   regra 1 da fase 1 ("a compra no dia do fechamento entra") vale para os dois modelos. Nada da 2.9 e da
+   2.10 muda: recálculo, mover, ajuste de datas, ordem das vizinhas e prévia.
+3. **O fechamento sai do vencimento nominal, não do dia útil** (evidência, item 2: fecha 27/09 mesmo com
+   o vencimento de 04/10 caindo num domingo). O caixa em dia útil é a 2.22. Até lá, o `SettlementDate`
+   é o vencimento nominal.
+4. **Os cartões que já existem ficam no dia fixo.** A migration não converte nada. A pessoa escolhe o
+   modelo novo editando o cartão.
+5. **Mudar a regra do cartão realinha as faturas que ainda não fecharam.** Vale para os dois modelos:
+   trocar de modelo, ou trocar o dia ou o N. Até hoje, editar o dia de fechamento não recalculava nada.
+   Recebe as datas da regra nova toda fatura **não paga**, **não ajustada à mão** e **ainda não fechada
+   pela regra antiga ou pela nova** (último dia hoje ou depois, em `IClock.Today`). Depois o recálculo da
+   2.9 reposiciona as compras, na mesma ordem de força: fatura paga > compra presa > datas ajustadas à
+   mão > regra do cartão. As faturas fechadas são a história que a pessoa já viu no banco, e não mudam.
+   *Por que "pela antiga ou pela nova":* no dia 27/10, a fatura de novembro já está fechada pelo "fecha
+   26", mas ainda aberta pelo Itaú. Sem a regra nova na conta, a compra de 27/10 ficaria em dezembro
+   justo no dia da troca.
+6. **Editar só o nome, o saldo inicial, o limite ou "ativa" não recalcula nada** e não toca nas faturas.
+7. **Concorrência.** A troca de regra conta como mudança em cada fatura que ela altera (`StatementTouch`,
+   token `xmin`). Pagar uma fatura ao mesmo tempo dá 409 para um dos dois.
+8. **Desfazer.** Voltar à regra anterior no mesmo dia devolve as compras às faturas de antes (as mesmas
+   faturas são recalculadas, agora pela regra antiga). É o "Desfazer" do aviso.
+
+**A tela não compete com o banco.** Onde o Prisma mostrava "Fechamento" com uma data, passa a mostrar o
+que acontece com as compras: **"Compras até 27/10"**. Isso é verdade e combina com o app do banco
+("melhor dia de compra 28/10" quer dizer que até o dia 27 a compra entra). Mostrar "Fechamento 27/10" ao
+lado de um banco que diz 28/10 faria a pessoa achar que o Prisma errou. Vale para os dois modelos. A
+única tela nos termos do banco é o exemplo ao vivo do formulário do cartão, porque ali a comparação é o
+objetivo: conferir antes de salvar.
+
+**Exemplos (usados nos testes).**
+
+*Datas do Itaú do dono: vence dia 4, fecha 7 dias antes.* A coluna "Melhor dia de compra" é a dos PDFs
+e do app do banco (fevereiro a outubro de 2026 e a previsão de novembro), sem exceção.
+
+| Fatura | Vencimento nominal | Melhor dia de compra | Compras até (`ClosingDate`) |
+|---|---|---|---|
+| 2026-02 | 04/02/2026 | 28/01/2026 | 27/01/2026 |
+| 2026-03 | 04/03/2026 | 25/02/2026 | 24/02/2026 |
+| 2026-04 | 04/04/2026 | 28/03/2026 | 27/03/2026 |
+| 2026-05 | 04/05/2026 | 27/04/2026 | 26/04/2026 |
+| 2026-06 | 04/06/2026 | 28/05/2026 | 27/05/2026 |
+| 2026-07 | 04/07/2026 | 27/06/2026 | 26/06/2026 |
+| 2026-08 | 04/08/2026 | 28/07/2026 | 27/07/2026 |
+| 2026-09 | 04/09/2026 | 28/08/2026 | 27/08/2026 |
+| 2026-10 | 04/10/2026 | 27/09/2026 | 26/09/2026 |
+| 2026-11 | 04/11/2026 | 28/10/2026 | 27/10/2026 |
+
+*Compras no mesmo cartão (vence 4, 7 dias antes).*
+
+| Compra | Fatura | Caixa |
+|---|---|---|
+| 27/10/2026 | 2026-11 | 04/11/2026 |
+| 28/10/2026 (melhor dia) | 2026-12 (compras até 26/11) | 04/12/2026 |
+| R$ 100,00 em 3x em 28/10/2026 | 2026-12, 2027-01, 2027-02 (3334, 3333, 3333) | 04/12, 04/01, 04/02 |
+| 24/02/2026 | 2026-03 | 04/03/2026 |
+| 25/02/2026 (melhor dia, fevereiro de 28 dias) | 2026-04 | 04/04/2026 |
+| 28/12/2026 (melhor dia, virada de ano) | 2027-02 (compras até 27/01/2027) | 04/02/2027 |
+
+*Casos de borda.*
+
+| Cartão | Fatura | Vencimento | Compras até |
+|---|---|---|---|
+| Vence 4, 7 dias antes | 2028-03 (ano bissexto) | 04/03/2028 | 25/02/2028 |
+| Vence 31, 7 dias antes | 2026-02 | 28/02/2026 | 20/02/2026 |
+| Vence 31, 7 dias antes | 2026-03 | 31/03/2026 | 23/03/2026 |
+| Vence 31, 7 dias antes | 2026-04 (mês de 30 dias) | 30/04/2026 | 22/04/2026 |
+| Vence 1, 10 dias antes | 2026-03 (fecha no mês anterior) | 01/03/2026 | 18/02/2026 |
+| Vence 1, 10 dias antes | 2026-04 | 01/04/2026 | 21/03/2026 |
+| Vence 5, 20 dias antes (o limite) | 2026-03 | 05/03/2026 | 12/02/2026, depois do vencimento da 2026-02 (05/02) |
+
+*Troca de regra (regra 5).* Hoje é **27/10/2026**. O cartão do dono está "fecha 26, vence 5" e passa a
+"vence 4, 7 dias antes". Antes da troca: 2026-10 (até 26/09, vence 05/10), 2026-11 (até 26/10, vence
+05/11, fechada pela regra antiga) e 2026-12 (até 26/11, vence 05/12). Compras: A, R$ 50,00 em 20/10; B,
+R$ 30,00 em 27/10; C, R$ 100,00 em 3x em 20/09.
+
+| Caso | Depois |
+|---|---|
+| A troca | 2026-10 não muda (fechada pelas duas regras, vence 05/10); 2026-11 passa a até 27/10, vence 04/11; 2026-12 passa a até 26/11, vence 04/12 |
+| Compra A | fica na 2026-11; caixa 04/11 |
+| Compra B | vai para a 2026-11; caixa 04/11. **1 compra mudou de fatura** |
+| Compra C | parcelas na 2026-10 (caixa 05/10), 2026-11 (04/11) e 2026-12 (04/12); não conta como movida |
+| O mesmo, com a 2026-11 paga | 2026-11 não muda; B fica na 2026-12 (destino pago) |
+| O mesmo, com a 2026-11 ajustada à mão | 2026-11 mantém as datas ajustadas |
+| O mesmo, com B presa na 2026-12 | B fica na 2026-12, com o caixa do novo vencimento (04/12) |
+| "Desfazer" (volta a "fecha 26, vence 5" no mesmo dia) | 2026-11 volta a até 26/10, vence 05/11; 2026-12 a até 26/11, vence 05/12; B volta à 2026-12 |
+| No modelo antigo, "fecha 26" → "fecha 27" (mesmo vencimento) | 2026-11 passa a até 27/10; B vai para a 2026-11 |
+| Só o nome muda | nada muda, nenhuma fatura é tocada |
+| 21 dias antes, ou os dois modelos, ou nenhum | recusado |
+
+**Mensagens de recusa** (pt-BR, no domínio):
+
+- Nenhum dos dois: "Informe o dia do fechamento ou quantos dias antes do vencimento a fatura fecha."
+- Os dois: "Escolha um jeito de fechar: num dia fixo ou dias antes do vencimento."
+- Fora do limite: "A fatura deve fechar de 1 a 20 dias antes do vencimento."
+- Conta que não é cartão: a mensagem de hoje ("Apenas cartão de crédito tem dia de fechamento e de
+  vencimento.").
+
+**Textos da tela** (aprovar antes da tarefa 6; frases curtas, sem ";")
+
+- Formulário, escolha: "Quando a fatura fecha" com "Num dia fixo" e "Dias antes do vencimento".
+- Campos do modelo novo: "Vence todo dia" e "Fecha quantos dias antes".
+- Exemplo ao vivo, nos termos do banco: "Próxima fatura: melhor dia de compra 28/10 · vence 04/11".
+  Logo abaixo: "Confira com o app do seu banco."
+- "Como funciona?" (recolhido):
+  > Cada banco fecha a fatura de um jeito. Alguns fecham num dia fixo. Outros fecham alguns dias antes
+  > do vencimento, e aí a data muda de um mês para outro.
+  >
+  > No app do seu banco, veja o vencimento e o melhor dia de compra. O exemplo acima deve mostrar as
+  > mesmas datas.
+  >
+  > Se uma compra cair numa fatura diferente da do banco, abra a compra e toque em "Mover para".
+- Lista de contas: "Fecha 7 dias antes · vence 4" (o dia fixo continua "Fecha 26 · vence 5").
+- Detalhe do cartão: "Fechamento: 7 dias antes do vencimento" (o dia fixo continua "todo dia 26").
+- Fatura (painel e fatura atual no detalhe) e campo do ajuste de datas: "Compras até" no lugar de
+  "Fechamento", nos dois modelos.
+- Aviso depois de salvar uma troca que moveu compras: "1 compra mudou de fatura." ou "N compras mudaram
+  de fatura.", com "Desfazer". Sem compra movida, o aviso de sempre.
+
+**Plano** (detalhe e verificação em `tasks/todo.md`)
+
+- Tarefa 0. Esta especificação.
+- Tarefa 1. `BillingCycle` (a regra do cartão num lugar só), sem mudar comportamento.
+- Tarefa 2. Modelo "N dias antes" no domínio (testes antes: as tabelas acima).
+- Tarefa 3. Trocar a regra realinha as faturas (testes antes: a tabela da troca).
+- Tarefa 4. Migration, criar e ler cartão no modelo novo.
+- Tarefa 5. Editar a regra pela API, com recálculo, corrida e isolamento.
+- Tarefa 6. Formulário com os dois modelos, exemplo ao vivo e "Como funciona?".
+- Tarefa 7. "Compras até", exibição da regra e aviso com "Desfazer".
+
+### 2.13 Trocar o cartão de uma compra (etapa 2.24)
+
+**Por quê.** Um usuário lançou uma compra no cartão errado e descobriu que o único jeito de corrigir era
+excluir e lançar de novo (na parcelada, redigitar tudo). O domínio recusa a troca desde a 1.9b ("Em
+compra no cartão, conta, tipo e meio de pagamento não mudam"), como trava de segurança: trocar o cartão
+mexe em faturas de dois cartões.
+
+**Escopo:** só de cartão para cartão. Entre cartão e Pix ou débito a compra ganharia ou perderia fatura,
+e a parcelada teria de virar à vista: fica para quando alguém pedir.
+
+**Regras**
+
+1. **Trocar o cartão é como trocar a data.** A compra inteira vai para as faturas do cartão novo, pela
+   regra dele (`docs/fase-1.md`, 2.1), a partir da data da compra (a nova, se ela mudar junto), abrindo as
+   que faltarem. O caixa (`SettlementDate`) passa a ser o vencimento da fatura nova. A data da compra não
+   muda por causa da troca. As faturas do cartão antigo perdem a compra, e os totais acompanham sozinhos.
+2. **A parcelada troca inteira**, pela edição da compra (`PATCH /installment-purchases/{id}`), com os
+   mesmos valores de cada parcela e a mesma soma. A parcela sozinha não troca de cartão, como já não
+   troca de valor nem de data: "O cartão de uma parcela muda pela compra inteira."
+3. **Fatura paga manda**, dos dois lados. Recusada se alguma parcela está numa fatura paga do cartão
+   antigo, ou se alguma cairia numa fatura paga do cartão novo.
+4. **Compra com estorno não troca de cartão:** o estorno ficaria no cartão antigo, abatendo uma compra
+   que não está mais lá. Vale para a à vista (já recusada hoje, `Refund.CheckPurchaseEdit`) e para a
+   parcelada (hoje ela nem recebe a conta).
+5. **A compra movida à mão deixa de estar presa** (`StatementPinned`, 2.9): foi presa a uma fatura do
+   cartão antigo, que não vale no novo. Como na troca de data (2.9, regra 3).
+6. **Só para cartão de crédito.** Outra conta, outro tipo ou outro meio de pagamento continuam
+   recusados. Cartão de outro usuário é "Conta não encontrada." (o filtro de dono, como hoje).
+7. **Concorrência.** A troca põe e tira compra de faturas: `StatementTouch` nas faturas de origem e de
+   destino, e pagar uma delas ao mesmo tempo dá 409 para um dos dois (`CLAUDE.md`, seção 6).
+   **Corrige junto uma falha que já existe:** a troca de data na edição da compra (`UpdateTransaction`,
+   `UpdateInstallmentPurchase`) também põe e tira compra de fatura e hoje não chama o `StatementTouch`.
+8. **O resto acompanha sozinho:** total das faturas, lista da fatura, "Disponível" do cartão, Resumo e
+   Análise leem `AccountId`, `StatementId` e `SettlementDate`.
+
+**Exemplos (usados nos testes).** Hoje é 28/10/2026. Visa "fecha 26, vence 5"; Master "fecha 5, vence
+12". As duas faturas de destino vencem em meses diferentes, para o teste pegar o caixa.
+
+| Caso | Antes (Visa) | Depois |
+|---|---|---|
+| R$ 80,00 à vista em 28/10/2026, trocada para o Master | fatura 2026-12 (fecha 26/11, vence 05/12) | Master 2026-11 (fecha 05/11, vence 12/11); caixa 12/11; compra em 28/10; o total da Visa 2026-12 cai R$ 80,00 e o da Master 2026-11 sobe; o "Saiu" de dezembro cai e o de novembro sobe |
+| R$ 100,00 em 3x em 28/10/2026, trocada para o Master | 2026-12, 2027-01, 2027-02 (3334, 3333, 3333) | Master 2026-11, 2026-12, 2027-01, caixa 12/11, 12/12, 12/01, mesmos valores, soma R$ 100,00 |
+| A de R$ 80,00 trocada para o Master e com a data mudada para 06/11/2026 | | Master 2026-12 (fecha 05/12, vence 12/12); compra em 06/11 |
+| A de R$ 80,00, movida à mão para a Visa 2027-01 (presa), trocada para o Master | Visa 2027-01, presa | Master 2026-11, solta |
+| Visa 2026-12 paga | | recusado: "Esta compra está numa fatura paga. Desfaça o pagamento para trocar o cartão." |
+| Na parcelada, a parcela 1 na Visa 2026-12 paga | | recusado: "Há parcelas em fatura paga. Desfaça o pagamento para trocar o cartão." |
+| Master 2026-11 paga | | recusado: "No cartão novo, a compra cairia numa fatura já paga." |
+| A de R$ 80,00 com um estorno de R$ 20,00 | | recusado: "Esta despesa tem estornos; o tipo e a conta não mudam." (à vista e parcelada) |
+| Trocada para a conta corrente | | recusado: "Compra no cartão só troca para outro cartão. Para usar outra conta, exclua e lance de novo." |
+| Tipo ou meio de pagamento diferente | | recusado: "Em compra no cartão, tipo e meio de pagamento não mudam. Exclua e lance de novo." |
+| Pela parcela 2, pedindo o Master | | recusado: "O cartão de uma parcela muda pela compra inteira." |
+| Cartão de outro usuário | | recusado: "Conta não encontrada." |
+| Troca para o Master enquanto a Visa 2026-12 é paga | | um dos dois recebe 409; a fatura paga não muda de valor |
+| Troca de data (mesmo cartão) enquanto a fatura de destino é paga | | um dos dois recebe 409 (a falha da regra 7) |
+
+**Tela**
+
+- No formulário da compra à vista no cartão e no da compra parcelada, uma seção **"Cartão"** com os
+  cartões ativos e o cartão atual da compra (mesmo inativo), como a seção "Conta" do lançamento fora do
+  cartão.
+- A nota muda de "Conta e meio de pagamento não mudam: para trocá-los, exclua e lance de novo." para
+  "Mudar a data ou o cartão leva a compra para a fatura do novo ciclo."
+- Depois de salvar uma troca de cartão, o aviso diz para onde a compra foi: **"Agora no Master, na
+  fatura de novembro."** Sem "Desfazer": como nas outras edições, para voltar a pessoa edita de novo.
+
+**Plano**
+
+- Tarefa 1. *(Feita em 2026-09-28: `CardPurchaseCardChangeTests` com 15 casos, 14 falhando antes do
+  código (o do estorno já valia); 10 mutações pegas; a `StatementPlacement` passou a olhar só as faturas
+  do cartão, porque na troca as dos dois cartões vêm juntas e a mesma referência existe nos dois. O
+  `CardPurchasesTests` da linha 195 já espera a mensagem nova.)* Domínio, testes antes: à vista (`CardPurchase.EditTransaction`) e parcelada
+  (`CardPurchase.Edit`) trocam de cartão; `Transaction` e `InstallmentPurchase` ganham a troca interna
+  de `AccountId`. Os dois testes que afirmam a recusa (`CardTransactionUpdateTests`,
+  `CardPurchaseDateTests`) passam a recusar só tipo, meio e conta que não é cartão.
+- Tarefa 2. *(Feita em 2026-09-28: `CardChangeTests` com 9 casos, inclusive 3 corridas; o
+  `AccountId` da parcelada é opcional, para a tela aberta antes do deploy da 2.24 continuar editando sem
+  trocar o cartão; evento de log 3003 `PurchaseMovedToCard`, só com ids; o `StatementTouch` entrou também na troca
+  de data do estorno, no mesmo handler (sem teste de corrida próprio). 6 mutações pegas: faturas do cartão
+  novo nas duas edições, estorno e cartão novo na parcelada, e o `StatementTouch` nas duas, com a corrida
+  da troca de data falhando sem ele, o que confirma a falha antiga.)* API: `UpdateTransaction` e `UpdateInstallmentPurchase` (o `Request` ganha `AccountId`)
+  carregam as faturas do cartão novo, conferem o estorno e chamam o `StatementTouch` (também na troca
+  de data). Integração: os exemplos acima de ponta a ponta, as recusas, as duas corridas e o isolamento;
+  `CardPurchasesTests` (linha 195) passa a esperar a recusa de conta que não é cartão. `api-types.ts`,
+  `cards.http` e `transactions.http`.
+- Tarefa 3. *(Feita em 2026-09-28: `cardChange.ts` com Vitest (5 casos, falhando antes do módulo); seção
+  "Cartão" só quando há outro cartão para escolher; conferida com toques reais contra a API nova: à vista a
+  390px claro, parcelada a 320px escuro, recusa do estorno a 1280px claro, sem rolagem lateral.)* Tela: seção "Cartão", nota e aviso, com Vitest do texto do aviso e da lista de cartões.
+  Conferida em 320, 390 e 1280px, claro e escuro, com toques reais.
+
 ## 3. Endpoints
 
 ```
@@ -696,6 +946,20 @@ ainda pode ser estornado; na parcelada, sobre o total da compra), para a tela pr
 
 - `GET /categories` (já existe) passa a entregar as categorias das versões novas do catálogo ao usuário
   que ainda não as recebeu, uma vez por versão. É a única consulta que grava (`CLAUDE.md`, seção 3).
+
+### Etapa 2.21 (seção 2.12)
+
+- `POST /accounts` e `PATCH /accounts/{id}` (já existem) aceitam `closingDaysBeforeDue` (1 a 20) no
+  lugar de `closingDay`; a resposta da conta traz os dois (um deles nulo).
+- `PATCH /accounts/{id}` que muda a regra do cartão realinha as faturas (regra 5); a resposta ganha
+  `movedPurchases`. 400 (recusas), 404, 409 (corrida com o pagamento).
+
+### Etapa 2.24 (seção 2.13)
+
+- `PATCH /transactions/{id}` (já existe): na compra à vista no cartão, `accountId` de outro cartão troca
+  o cartão (regras 1 a 7). 400 (recusas), 409 (corrida com o pagamento).
+- `PATCH /installment-purchases/{id}` (já existe): o corpo ganha `accountId`; outro cartão troca o
+  cartão da compra inteira. A resposta já traz o `accountId`.
 
 ## 4. Tela
 
@@ -907,6 +1171,25 @@ que é análise, e no computador ocupa uma coluna estreita. Cada tela passa a re
 - Integração: usuário antigo vê Seguros uma vez; exclusão depois de receber não volta; categoria criada à
   mão é adotada; duas listas ao mesmo tempo não duplicam; isolamento.
 - Arquitetura: todo ícone do catálogo está no mapa do front.
+
+### Cartão que fecha N dias antes do vencimento (etapa 2.21)
+
+- Domínio, antes da implementação: as três tabelas de datas da seção 2.12; a tabela da troca de regra;
+  as recusas; propriedade (CsCheck): para todo vencimento de 1 a 31 e todo N de 1 a 20, faturas seguidas
+  respeitam a ordem da regra 5 da 2.9, e toda data de compra cai em exatamente uma fatura.
+- Integração: criar cartão no modelo novo e lançar em 27/10 e 28/10; trocar a regra move a compra e o
+  caixa; editar só o nome não toca faturas; restrição do banco recusa os dois modelos; corrida com o
+  pagamento; isolamento entre usuários e entre cartões.
+- Vitest: o exemplo ao vivo com as datas do Itaú; os textos da regra na lista e no detalhe; o aviso.
+
+### Trocar o cartão de uma compra (etapa 2.24)
+
+- Domínio, antes da implementação: os casos da tabela da seção 2.13 que não dependem do banco (à
+  vista, parcelada com a soma igual, troca junto com a data, presa que solta, as recusas).
+- Integração: a troca à vista e a parcelada de ponta a ponta (faturas e totais dos dois cartões, Resumo
+  de novembro e dezembro); estorno recusado nas duas; cartão de outro usuário; as duas corridas com o
+  pagamento (troca de cartão e troca de data).
+- Vitest: o texto do aviso e os cartões oferecidos (ativos e o atual).
 
 ### Frontend (Vitest)
 

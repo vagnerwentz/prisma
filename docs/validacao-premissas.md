@@ -556,6 +556,32 @@ banco pode mudar. Com o cadastro atual (fecha 26, vence 5), em 7 de 10 meses uma
 fatura anterior à do banco. **Nenhum dia fixo acerta todos os meses.** Discussão da correção no
 `PLAN.md` ("Cartão que fecha N dias antes do vencimento").
 
+### Premissa 7: o segundo cartão Itaú do dono (2026-09-29)
+
+Fatura com fechamento em **29/09/2026** e vencimento em **07/10/2026** (o dono escreveu 07/09; o
+vencimento vem depois do fechamento). No dia 29/09, o app do Itaú já mostrava a fatura **fechada**; o
+Prisma, **aberta**.
+
+**O que isso mostra:**
+
+1. **O Itaú fecha no início do dia do fechamento.** A data que o banco chama de fechamento é o melhor
+   dia de compra (seção 11, item 3): a compra desse dia já é da fatura seguinte, e no próprio dia a
+   fatura aparece fechada. O Prisma trata o dia do fechamento como o último que entra (`docs/fase-1.md`,
+   2.1, regra 1): a compra do dia 29 cai na fatura de outubro e o status só vira "Fechada" no dia 30
+   (`statements.ts`: fechada quando `closingDate < hoje`). São dois erros de um dia: a compra do dia do
+   fechamento na fatura errada, e o status aberto no dia em que o banco já fechou.
+2. **Também neste cartão o fechamento é contado a partir do vencimento:** 8 dias antes (07/10 → 29/09),
+   não 7 como no outro. O N muda de cartão para cartão, até no mesmo banco.
+3. **Contorno até a 2.21, sem código:** cadastrar o cartão com o fechamento **um dia antes** do que o
+   banco mostra (28 em vez de 29). O Prisma passa a fechar no dia certo e a pôr a compra do dia 29 na
+   fatura seguinte. Continua valendo o limite do dia fixo (seção acima): o dia muda com o tamanho do mês.
+   Faturas que já existem não mudam com o cadastro; para elas, o ajuste de datas da fatura (2.20).
+
+A especificação da 2.21 já resolve os dois pontos (`docs/fase-2.md`, 2.12, regra 2): o Prisma guarda
+o último dia que entra (vencimento − N − 1) e a tela diz "Compras até 28/09", sem usar a palavra do banco.
+Falta decidir, ao retomar, se o modelo de dia fixo também passa a ler o dia informado como o do banco
+(exclusivo), já que o Itaú, nos dois cartões, conta assim.
+
 ## 12. Registro de resultados
 
 Preencher conforme as validações acontecem. Cada conclusão que mudar o produto vira decisão no
@@ -568,6 +594,7 @@ Preencher conforme as validações acontecem. Cada conclusão que mudar o produt
 | 3 | | | | |
 | 6 | | | | |
 | 7 | 2026-09-27 | Cartão Itaú do dono: fecha 7 dias antes do vencimento (antes eram 10), dia fixo não representa (seção 11) | Refutada para o Itaú | Etapas 2.20 a 2.22 no `PLAN.md` (fatura alinhada ao banco) |
+| 7 | 2026-09-29 | Segundo cartão Itaú: fechamento 29/09, vencimento 07/10 (8 dias antes); no dia 29 o banco já mostrava fechada e o Prisma, aberta (seção 11) | Refutada: o dia do fechamento do banco é exclusivo | Reforça a 2.21 (adiada); contorno: cadastrar o fechamento um dia antes |
 | 8 | | | | |
 | 9 | | | | |
 | 13 | | | | |

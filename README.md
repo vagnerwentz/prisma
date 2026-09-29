@@ -27,6 +27,8 @@ reality, so the monthly numbers match your bank account instead of your receipts
 - **Aligned with the bank:** a purchase the bank posted to the next statement can be moved there
   (installment purchases move whole), and adjusting a statement's dates shows, before saving, which
   purchases would change statements. Both come with one-tap undo.
+- **Wrong card? Change it:** a purchase logged on the wrong card moves to the other card's
+  statements (installments move together), with the money leaving on the new due date.
 - **Installments:** R$ 100.00 in 3x is 33.34 + 33.33 + 33.33, always adding up to the total.
 - **Refunds** reduce spending in the month they land and are never counted as income.
 - **Transfers** (including paying a card statement) are never income or expense, so nothing is

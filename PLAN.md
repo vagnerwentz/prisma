@@ -439,7 +439,7 @@ O Prisma prevê a fatura de cada compra por dias fixos, mas o banco decide: o ca
 cartão, alinhar pela realidade (datas da fatura e compra presa), um único recálculo que respeita
 fatura paga > compra presa > datas editadas > previsão.
 
-- [ ] **2.20 Fatura alinhada ao banco (base)**
+- [x] **2.20 Fatura alinhada ao banco (base)**
   Mover uma compra (à vista ou parcelada inteira) para a fatura seguinte ou anterior sem mudar a data
   da compra, ficando presa; editar as datas de uma fatura passa a mover as compras e não pode
   atravessar as faturas vizinhas; um recálculo único no domínio (`docs/fase-2.md`, 2.9, com o plano
@@ -451,7 +451,9 @@ fatura paga > compra presa > datas editadas > previsão.
   *Andamento (2026-09-27):* domínio, banco e API prontos (tarefas 1 a 6, 518 testes verdes, sem
   commit); checkpoint B conferido pelo dono no Postman; tarefas 7 e 8 feitas (522 testes no backend, 216 no
   Vitest); falta o checkpoint C: mover os lanches em produção, depois do commit e do deploy. Com a
-  2.20b (prévia), 526 testes no backend e 223 no Vitest, tudo sem commit.
+  2.20b (prévia), 526 testes no backend e 223 no Vitest. *Concluída em 2026-09-28:* push em `8ca8265`;
+  checkpoint C conferido pelo dono no local (27/09) e em produção (28/09): os lanches movidos para a
+  fatura de novembro.
 
 - [x] **2.20b Prévia do ajuste de datas** (pedido do dono)
   No "Ajustar datas" da fatura, a lista ao vivo das compras que mudariam de fatura, as recusas antes de
@@ -467,16 +469,87 @@ fatura paga > compra presa > datas editadas > previsão.
   que não volta, corrida sem duplicar e isolamento; teste que confere os ícones do catálogo contra o
   mapa do front; tela conferida. *(Feita em 2026-09-28: 544 testes no backend, 223 no Vitest.)*
 
-- [ ] **2.21 Cartão que fecha N dias antes do vencimento**
-  O cartão guarda o dia do vencimento e quantos dias antes dele é o melhor dia de compra (informados
-  como o app do banco mostra); a compra feita no melhor dia de compra vai para a fatura seguinte;
-  cartões existentes convertidos; mudar a regra recalcula as faturas abertas e futuras pelo recálculo
-  da 2.20. Detalhar em `docs/fase-2.md` quando a 2.20 terminar.
+- [ ] **2.21 Cartão que fecha N dias antes do vencimento** *(adiada em 2026-09-28, decisão do dono)*
+  *Evidência nova (2026-09-29):* um segundo cartão Itaú fechou em 29/09 (vence 07/10, 8 dias antes) e
+  no próprio dia 29 o banco mostrava fechada e o Prisma, aberta. O dia do fechamento do banco é
+  exclusivo; o Prisma o trata como o último dia da fatura (um dia de diferença na compra e no status).
+  Contorno até a 2.21: cadastrar o fechamento um dia antes do que o banco mostra. Detalhes em
+  `docs/validacao-premissas.md`, seção 11.
+  *Por que adiada:* o "Mover para" e o ajuste de datas da 2.20 já corrigem a fatura quando a previsão
+  erra, e a etapa é grande (cálculo central da fatura, migration, telas) para o ganho com três pessoas.
+  *Para retomar:* a especificação está pronta em `docs/fase-2.md`, 2.12, e o plano em `tasks/plan.md` e
+  `tasks/todo.md` (fora do git). Falta a revisão do dono: os textos da tela, o ajuste da regra 5 ("não
+  fechou pela regra antiga ou pela nova") e qual modelo vem marcado num cartão novo. Depois disso, a
+  tarefa 1.
+  Dois modelos no cartão: dia fixo (como hoje) ou N dias antes do vencimento (1 a 20); a compra feita
+  no melhor dia de compra vai para a fatura seguinte. Os cartões existentes ficam no dia fixo até a
+  pessoa mudar. Mudar a regra (nos dois modelos) realinha as faturas que ainda não fecharam pelo
+  recálculo da 2.20, com aviso e "Desfazer". A tela diz "Compras até dd/MM" no lugar de "Fechamento",
+  para não competir com o termo do banco; o formulário explica como funciona e mostra a próxima fatura
+  nos termos do banco, para conferir. Não resolve compra processada com atraso pelo banco (isso é o
+  "Mover para"). Especificação em `docs/fase-2.md`, 2.12; tarefas em `tasks/todo.md`.
+  *Pronto quando:* testes de domínio antes (as datas dos 9 PDFs do Itaú, bordas de mês, troca de
+  regra, propriedade da ordem das faturas); integração com troca de regra, corrida e isolamento;
+  Vitest do exemplo ao vivo; checkpoint C: o dono troca o Itaú e confere 3 faturas com o app do banco.
 
 - [ ] **2.22 Vencimento em dia útil**
   A data de caixa passa a ser o vencimento efetivo: próximo dia útil pelo calendário bancário (fins de
   semana, feriados nacionais fixos e os móveis a partir da Páscoa, inclusive Corpus Christi, que o
-  Itaú tratou como não útil em 04/06/2026). Detalhar quando a 2.21 terminar.
+  Itaú tratou como não útil em 04/06/2026). Detalhar quando a 2.21 terminar. *(Não depende da 2.21: o
+  fechamento sai do vencimento nominal, `docs/fase-2.md`, 2.12, regra 3; pode vir antes, se preciso.)*
+
+- [x] **2.24 Trocar o cartão de uma compra** (pedido de um usuário, 2026-09-28)
+  *Concluída em 2026-09-29: conferida pelo dono na tela (à vista e parcelada), junto com a lista
+  memoizada (editar, trocar cartão, mover de fatura e tocar em sequência).* Especificação em
+  `docs/fase-2.md`, 2.13 (as três tarefas registradas lá). 568 testes no backend e 228 no Vitest; 16
+  mutações pegas (10 no domínio, 6 na API); tela conferida com toques reais a 390, 320 e 1280px, claro e
+  escuro. A proteção na troca de data do estorno ficou sem teste de corrida próprio.
+  Quem lança a compra no cartão errado hoje precisa excluir e lançar de novo (na parcelada, redigitar
+  tudo): o domínio recusa com "Em compra no cartão, conta, tipo e meio de pagamento não mudam". Ao
+  editar a compra, a pessoa passa a escolher outro cartão. **Escopo: só de cartão para cartão.** Entre
+  cartão e Pix ou débito a compra ganharia ou perderia fatura (e a parcelada viraria à vista): fica
+  para quando alguém pedir.
+  *Regras (detalhar em `docs/fase-2.md`, 2.13, antes do código):*
+  1. Trocar o cartão é como trocar a data: a compra inteira (a parcelada, a partir de qualquer parcela,
+     pela edição da compra) vai para as faturas do cartão novo pela regra dele, a partir da data da
+     compra (a nova, se ela também mudar), abrindo as que faltarem; o caixa segue o vencimento novo.
+     A data da compra não muda por causa da troca.
+  2. Recusada se alguma parcela está em fatura paga, ou se cairia numa fatura paga do cartão novo
+     (as mesmas regras e o mesmo texto da troca de data, com "cartão" no lugar de "data").
+  3. Compra com estorno não troca de cartão: o estorno ficaria no cartão antigo. Na à vista isso já é
+     recusado (`Refund.CheckPurchaseEdit`: "Esta despesa tem estornos; o tipo e a conta não mudam."); na
+     parcelada ainda não (hoje ela nem recebe a conta).
+  4. A compra movida à mão (`StatementPinned`) deixa de estar presa, como na troca de data.
+  5. Só para cartão de crédito: outra conta continua recusada, com mensagem que diz o que fazer.
+  6. Concorrência: `StatementTouch` nas faturas de origem e de destino (409 com o pagamento).
+     **Achado:** a troca de data na edição da compra (`UpdateTransaction` e `UpdateInstallmentPurchase`)
+     também põe e tira compra de fatura e hoje não chama o `StatementTouch`, contra o que o `CLAUDE.md`
+     (seção 6) pede; corrigir junto, por ser o mesmo trecho.
+  *Onde mexe:*
+  - Domínio: `CardPurchase.EditTransaction` (à vista; a checagem da conta vira a troca) e
+    `CardPurchase.Edit` (parcelada; recebe o cartão novo e trata como a troca de data);
+    `Transaction` e `InstallmentPurchase` ganham o jeito interno de mudar `AccountId`.
+  - API: `UpdateTransaction` (carrega as faturas do cartão novo); `UpdateInstallmentPurchase` (o
+    `Request` ganha `AccountId`, confere o estorno e carrega as faturas do cartão novo); `StatementTouch`
+    nos dois; `api-types.ts` regerado; `cards.http` e `transactions.http`.
+  - Front (`EntrySheet.tsx`): seção "Cartão" com os cartões ativos (e o atual) no `CardForm` e no
+    `PurchaseForm`; a nota "Conta e meio de pagamento não mudam…" muda; aviso depois de salvar: "Agora no
+    <cartão>, na fatura de <mês>." (sem migration).
+  *Testes:*
+  - **Mudam** (hoje afirmam a recusa): `CardTransactionUpdateTests.Account_type_and_method_never_change`
+    e `CardPurchaseDateTests.Account_type_and_method_still_never_change` (a troca para outro cartão sai do
+    caso de recusa; tipo, meio e conta que não é cartão continuam recusados);
+    `CardPurchasesTests` (integração, linha 195: a recusa passa a ser para conta que não é cartão).
+  - **Novos, domínio, antes do código:** à vista vai para a fatura certa do cartão novo (regras de
+    fechamento diferentes, caixa no vencimento novo); parcelada 3x troca inteira, com a soma igual;
+    troca junto com a data; parcela em fatura paga e destino pago recusados; compra presa solta; estorno
+    recusado na parcelada.
+  - **Novos, integração:** troca à vista e parcelada de ponta a ponta (faturas dos dois cartões, total
+    de cada fatura, Resumo do mês do caixa); estorno recusado; cartão de outro usuário "Conta não
+    encontrada"; corrida com o pagamento (409), também para a troca de data.
+  - **Vitest:** o texto do aviso e a lista de cartões oferecidos (ativos e o atual).
+  *Pronto quando:* testes acima verdes, com mutação provando a regra 2 e o estorno da parcelada;
+  conferido na tela em 320, 390 e 1280px, claro e escuro, com toques reais.
 
 ## Hospedagem para uso próprio
 
@@ -688,3 +761,21 @@ Decidir quando a fase correspondente chegar:
   no "Pagar fatura") e débito automático de verdade (registrar o pagamento sozinho no vencimento,
   a partir dessa conta; exige tarefa agendada no backend e regra para fatura que muda depois do
   fechamento). (quando fizer falta)
+- Trocar o cartão de uma compra entre cartão e Pix ou débito (fora da 2.24, que é só cartão para
+  cartão): a compra ganharia ou perderia fatura, e a parcelada teria de virar à vista. (quando alguém pedir)
+- Aviso ativo de versão nova: a API devolve a versão num cabeçalho (ex.: `X-App-Version`) e a tela,
+  ao ver uma diferente, oferece "Versão nova disponível · Recarregar". Hoje a aba antiga só percebe
+  quando falta um arquivo de tela (`lib/crash.ts`). (se virar PWA instalado ou app nativo, ou se uma
+  mudança não puder ser compatível)
+- Textos antigos vistos na 2.24: a recusa "Esta despesa tem estornos; o tipo e a conta não mudam." usa
+  ";" (sugestão: "Esta compra tem estorno. O tipo e a conta não mudam."); a compra sem categoria mostra
+  o círculo tracejado, que lê como "carregando" (`CLAUDE.md`, 7.1). (numa revisão de textos e ícones)
+- Lista de lançamentos com milhares de linhas num mês (medido em 2026-09-29 com o usuário de carga,
+  4.792 linhas em setembro, no Mac, modo de desenvolvimento): a linha memoizada levou abrir o painel de
+  ~760 para ~400 ms e fechar de ~585 para ~225 ms; mês real (~90 linhas) fica em ~60 e ~15 ms. O que
+  sobra é o navegador recalculando o estilo de todos os elementos quando o painel trava o fundo
+  (`content-visibility: auto` testado: não ajudou). Só diminuir as linhas na página resolve:
+  virtualização (`@tanstack/react-virtual`, dependência nova) ou paginação por cursor no servidor
+  (`?after=`, índice data + id; sem cortar parcelas de uma compra nem pernas de uma transferência;
+  revisar o filtro por categoria, que soma como o Resumo). (quando um mês real passar de centenas de
+  lançamentos, como na importação da Fase 4, ou no app nativo)

@@ -274,8 +274,13 @@ não precisa.** `Category` com nome e cor não merece teste unitário;
 - **Concorrência:** entidade que dois pedidos simultâneos podem corromper (hoje, `Statement`:
   pagar duas vezes a mesma fatura) usa a coluna `xmin` do Postgres como token
   (`Property<uint>("Version").IsRowVersion()`), com teste de corrida. Quem põe ou tira compra de uma
-  fatura sem mudar a fatura em si (mover compra, editar datas) chama `StatementTouch.Touch` nas faturas
-  de origem e de destino, para a corrida com o pagamento dar 409.
+  fatura sem mudar a fatura em si (mover compra, editar datas da fatura, trocar a data ou o cartão da
+  compra, mudar a data do estorno) chama `StatementTouch.Touch` nas faturas de origem e de destino,
+  para a corrida com o pagamento dar 409.
+- **Compatibilidade da API com a tela já aberta:** depois do deploy, uma aba aberta antes continua com
+  o código antigo até recarregar (a tela de versão nova só aparece quando falta um arquivo de tela,
+  `lib/crash.ts`). Por isso a API só acrescenta: campo novo num pedido entra opcional, com o
+  comportamento de antes quando ausente (ex.: `accountId` na edição da compra parcelada, 2.24).
 - **Logs:** o código fala só com o `ILogger` nativo, nunca com Serilog nem `Log.Information` estático.
   Todo evento é declarado em `Infrastructure/Logging/AppLog.cs` com `[LoggerMessage]` (id único,
   mensagem em inglês, propriedades nomeadas); chamar `logger.LogX(...)` direto ou montar a mensagem com
@@ -413,7 +418,9 @@ por conversa, arquivo versionado ou histórico do shell.
   (`prisma.theme`): é preferência de tela, não dado financeiro. Toda tela nova é conferida nos dois
   modos.
 - **Desempenho:** nada de importar conjuntos inteiros de ícones; telas secundárias com `lazy`;
-  confira o tamanho do pacote principal no `npm run build` ao adicionar dependência.
+  confira o tamanho do pacote principal no `npm run build` ao adicionar dependência. Linha de lista
+  longa é memoizada (`memo`) e recebe só dados e callbacks estáveis (ex.: o setter do estado, com a
+  chave da linha): abrir um painel não pode redesenhar a lista inteira (`TransactionsPage`).
 - **Resumo × Análise:** o Resumo (`/`) é de relance (destaque, Entrou/Saiu/Investido, Hoje); o que
   explica o mês vai na Análise (`/analise`), e o que olha para a frente, na seção "Daqui para frente"
   dela. Bloco novo entra na tela da pergunta que responde, não no fim do Resumo. O `?mes=` passa

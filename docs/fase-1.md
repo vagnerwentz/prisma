@@ -130,8 +130,9 @@ Dada uma compra em `PurchaseDate` num cartão com `ClosingDay` e `DueDay`:
 - `PurchaseDate` é o mesmo em todas as parcelas; o que muda é o `SettlementDate`.
 - Editar uma parcela isolada altera só aquela transação, e só **descrição e categoria**: o
   valor e a data mudam pela compra inteira, para a soma continuar igual ao total. Compra à
-  vista no cartão (sem `InstallmentPurchase`) aceita também o valor e a data. Em nenhum caso a
-  conta, o tipo ou o meio de pagamento mudam: para isso, exclua e lance de novo.
+  vista no cartão (sem `InstallmentPurchase`) aceita também o valor e a data. O tipo e o meio de
+  pagamento nunca mudam: para isso, exclua e lance de novo. O cartão muda para outro cartão pela
+  compra inteira, como a data (etapa 2.24, `docs/fase-2.md`, 2.13).
 - **Mudar a data da compra no cartão** (etapa 1.14b) recalcula a fatura de cada parcela como na
   criação: a parcela *i* vai para o statement *i-1* ciclos depois do statement da nova data,
   reaproveitando faturas existentes (e as datas editadas delas) ou abrindo as que faltam. O
