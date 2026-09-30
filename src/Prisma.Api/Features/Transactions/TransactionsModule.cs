@@ -14,6 +14,8 @@ public static class TransactionsModule
         services.AddScoped<RestoreTransaction.Handler>();
         services.AddScoped<ListDescriptions.Handler>();
         services.AddScoped<MoveStatement.Handler>();
+        services.AddScoped<ListToConfirm.Handler>();
+        services.AddScoped<ConfirmAmount.Handler>();
 
         services.AddSingleton<IValidator<CreateTransaction.Request>, CreateTransaction.Validator>();
         services.AddSingleton<IValidator<UpdateTransaction.Request>, UpdateTransaction.Validator>();
@@ -33,5 +35,7 @@ public static class TransactionsModule
         RestoreTransaction.Map(group);
         ListDescriptions.Map(group);
         MoveStatement.Map(group);
+        ListToConfirm.Map(group);
+        ConfirmAmount.Map(group);
     }
 }

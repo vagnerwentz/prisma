@@ -66,7 +66,10 @@ public static class CreateTransaction
             if (request is null)
                 return null;
 
-            var recurrence = Recurrence.StartFrom(first, account, request.Frequency, request.EndDate);
+            if (request.CheckAutoDebitFields() is { } fieldError)
+                return fieldError;
+
+            var recurrence = Recurrence.StartFrom(first, account, request.Frequency, request.EndDate, request.AutoDebitTerms);
             if (!recurrence.IsSuccess)
                 return recurrence.Error;
 

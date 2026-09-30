@@ -30,6 +30,9 @@ public sealed class TransactionConfiguration : IEntityTypeConfiguration<Transact
             // Lançamento de série tem a série e a data da ocorrência; nada mais tem (docs/fase-2.md, 2.14).
             table.HasCheckConstraint("ck_transactions_recurrence_occurrence",
                 "(recurrence_id IS NULL) = (occurrence_date IS NULL)");
+            // Só o débito automático gera lançamento a conferir (docs/fase-2.md, 2.15, regra 5).
+            table.HasCheckConstraint("ck_transactions_amount_estimated",
+                "NOT amount_estimated OR recurrence_id IS NOT NULL");
         });
 
         builder.Property(t => t.Type).HasConversion<string>().HasMaxLength(20);
@@ -66,5 +69,10 @@ public sealed class TransactionConfiguration : IEntityTypeConfiguration<Transact
         builder.HasIndex(t => new { t.UserId, t.CategoryId });
         builder.HasIndex(t => new { t.UserId, t.PurchaseDate });
         builder.HasIndex(t => t.TransferPairId);
+
+        // O sino: os lançamentos a conferir de cada um, poucos entre todos (docs/fase-2.md, 2.15).
+        builder.HasIndex(t => new { t.UserId, t.PurchaseDate }, "ix_transactions_to_confirm")
+            .HasFilter("amount_estimated AND deleted_at IS NULL")
+            .HasDatabaseName("ix_transactions_to_confirm");
     }
 }

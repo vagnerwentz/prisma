@@ -14,7 +14,8 @@ namespace Prisma.Api.Features.Recurrences;
 public static class UpdateRecurrence
 {
     // Todos os campos juntos, como no PATCH da conta. Vale do próximo em diante (docs/fase-2.md, 2.14,
-    // regra 6). NextDate: a nova partida da agenda; obrigatória ao trocar a frequência.
+    // regra 6). NextDate: a nova partida da agenda; obrigatória ao trocar a frequência. AutoDebit e
+    // AmountVaries (2.15, regra 10): ausentes, a série fica com o tipo que tem, como antes da 2.26.
     public sealed record Request(
         Guid AccountId,
         long AmountCents,
@@ -23,7 +24,9 @@ public static class UpdateRecurrence
         PaymentMethod Method,
         RecurrenceFrequency Frequency,
         DateOnly? NextDate,
-        DateOnly? EndDate);
+        DateOnly? EndDate,
+        bool? AutoDebit = null,
+        bool? AmountVaries = null);
 
     public sealed class Validator : AbstractValidator<Request>
     {
@@ -47,8 +50,13 @@ public static class UpdateRecurrence
                 return references.Error;
 
             var (account, category) = references.Value;
+            var autoDebit = req.AutoDebit ?? recurrence.Kind == RecurrenceKind.AutoDebit;
+            if (!autoDebit && req.AmountVaries == true)
+                return RecurrenceErrors.AmountVariesNeedsAutoDebit;
+
+            AutoDebitTerms? terms = autoDebit ? new AutoDebitTerms(req.AmountVaries ?? recurrence.AmountVaries) : null;
             var edited = recurrence.Edit(
-                account, req.AmountCents, category, req.Description, req.Method, req.Frequency, req.NextDate, req.EndDate);
+                account, req.AmountCents, category, req.Description, req.Method, req.Frequency, req.NextDate, req.EndDate, terms);
             if (!edited.IsSuccess)
                 return edited.Error;
 

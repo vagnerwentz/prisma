@@ -95,6 +95,9 @@ public static partial class AppLog
     [LoggerMessage(3014, LogLevel.Information, "Recurrence pending {PendingId} discarded")]
     public static partial void RecurrencePendingDiscarded(this ILogger logger, Guid pendingId);
 
+    [LoggerMessage(3015, LogLevel.Information, "Transaction {TransactionId} amount confirmed (corrected: {Corrected})")]
+    public static partial void AmountConfirmed(this ILogger logger, Guid transactionId, bool corrected);
+
     // Rota modelo (/statements/{id}/pay), nunca o caminho cru: ele pode levar ids e consulta. Depois de
     // uma exceção, o ASP.NET tira o endpoint do contexto e o guarda no IExceptionHandlerFeature.
     // Sem a barra final que os grupos deixam (/accounts/ → /accounts).

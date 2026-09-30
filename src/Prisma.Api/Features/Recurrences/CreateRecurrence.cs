@@ -30,7 +30,10 @@ public static class CreateRecurrence
             if (account is null)
                 return new Error(ErrorType.Conflict, "A conta deste lançamento foi excluída.");
 
-            var recurrence = Recurrence.StartFrom(first, account, req.Frequency, req.EndDate);
+            if (req.CheckAutoDebitFields() is { } fieldError)
+                return fieldError;
+
+            var recurrence = Recurrence.StartFrom(first, account, req.Frequency, req.EndDate, req.AutoDebitTerms);
             if (!recurrence.IsSuccess)
                 return recurrence.Error;
 

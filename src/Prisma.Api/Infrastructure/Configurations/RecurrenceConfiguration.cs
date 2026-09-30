@@ -18,9 +18,16 @@ public sealed class RecurrenceConfiguration : IEntityTypeConfiguration<Recurrenc
         {
             table.HasCheckConstraint("ck_recurrences_amount_cents_positive", "amount_cents > 0");
             table.HasCheckConstraint("ck_recurrences_type", "type IN ('Expense', 'Income')");
+            // Débito automático: só despesa, só débito, só mensal; só ele tem valor que muda (docs/fase-2.md, 2.15).
+            table.HasCheckConstraint("ck_recurrences_auto_debit",
+                "kind <> 'AutoDebit' OR (type = 'Expense' AND method = 'Debit' AND frequency = 'Monthly')");
+            table.HasCheckConstraint("ck_recurrences_amount_varies", "NOT amount_varies OR kind = 'AutoDebit'");
         });
 
         builder.Ignore(r => r.NextOccurrence);
+        builder.Ignore(r => r.NextTransactionDate);
+        builder.Ignore(r => r.AutoDebit);
+        builder.Property(r => r.Kind).HasConversion<string>().HasMaxLength(20);
         builder.Property(r => r.Type).HasConversion<string>().HasMaxLength(20);
         builder.Property(r => r.Method).HasConversion<string>().HasMaxLength(20);
         builder.Property(r => r.Frequency).HasConversion<string>().HasMaxLength(20);

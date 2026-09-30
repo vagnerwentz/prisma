@@ -173,7 +173,18 @@ const EntryRow = memo(function EntryRow({
           {moved && <p className="truncate text-xs text-muted-foreground">{moved}</p>}
         </div>
         <div className="flex shrink-0 flex-col items-end">
-          <Amount type={first.type} cents={amount} />
+          {/* Débito automático com o valor médio, a conferir (docs/fase-2.md, 2.15, regra 8). */}
+          {first.amountEstimated ? (
+            <>
+              <span className="flex items-baseline gap-1">
+                <span className="text-muted-foreground">≈</span>
+                <Amount type={first.type} cents={amount} />
+              </span>
+              <span className="text-xs text-muted-foreground">a conferir</span>
+            </>
+          ) : (
+            <Amount type={first.type} cents={amount} />
+          )}
           {installments > 1 && (
             <span className="text-xs text-muted-foreground tabular-nums">{shortInstallments(amount, installments)}</span>
           )}

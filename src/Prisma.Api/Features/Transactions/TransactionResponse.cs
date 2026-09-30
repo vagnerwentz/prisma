@@ -28,14 +28,16 @@ public sealed record TransactionResponse(
     long? RefundedCents,
     long? RefundableCents,
     // A série de que o lançamento faz parte (docs/fase-2.md, 2.14).
-    Guid? RecurrenceId)
+    Guid? RecurrenceId,
+    // Débito automático com o valor estimado, a conferir (docs/fase-2.md, 2.15, regras 5 a 8).
+    bool AmountEstimated)
 {
     public static readonly Expression<Func<Transaction, TransactionResponse>> Projection = t =>
         new TransactionResponse(
             t.Id, t.AccountId, t.Type, t.AmountCents, t.PurchaseDate, t.SettlementDate, t.StatementId,
             t.CategoryId, t.Method, t.Description, t.RawDescription, t.InstallmentPurchaseId,
             t.InstallmentNumber, t.TransferPairId, t.TransferDirection, t.Source, t.RefundedTransactionId, t.StatementPinned,
-            null, null, t.RecurrenceId);
+            null, null, t.RecurrenceId, t.AmountEstimated);
 
     private static readonly Func<Transaction, TransactionResponse> Compiled = Projection.Compile();
 

@@ -1552,6 +1552,100 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/transactions/to-confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TransactionResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/transactions/{id}/confirm-amount": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ConfirmAmountRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TransactionResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/recurrences": {
         parameters: {
             query?: never;
@@ -2143,6 +2237,11 @@ export interface components {
         };
         /** @enum {unknown} */
         AccountType: "Checking" | "CreditCard" | "Cash" | "Investment";
+        AutoDebitTerms: {
+            amountVaries: boolean;
+            /** Format: date */
+            dueDate?: null | string;
+        };
         CategoryResponse: {
             /** Format: uuid */
             id: string;
@@ -2152,6 +2251,10 @@ export interface components {
             parentCategoryId: null | string;
             icon: null | string;
             color: null | string;
+        };
+        ConfirmAmountRequest: {
+            /** Format: int64 */
+            amountCents: null | number;
         };
         CreateAccountRequest: {
             name: string;
@@ -2257,6 +2360,11 @@ export interface components {
             leftoverCents: number;
             /** Format: int64 */
             investedCents: number;
+            /**
+             * Format: int64
+             * @default 0
+             */
+            estimatedExpenseCents: number;
         };
         GetSpendingVariationEntry: {
             /** Format: uuid */
@@ -2453,6 +2561,8 @@ export interface components {
         };
         /** @enum {unknown} */
         RecurrenceFrequency: "Weekly" | "Monthly";
+        /** @enum {unknown} */
+        RecurrenceKind: "Regular" | "AutoDebit";
         RecurrencePendingResponse: {
             /** Format: uuid */
             id: string;
@@ -2468,6 +2578,11 @@ export interface components {
             frequency: components["schemas"]["RecurrenceFrequency"];
             /** Format: date */
             endDate: null | string;
+            autoDebit?: null | boolean;
+            amountVaries?: null | boolean;
+            /** Format: date */
+            dueDate?: null | string;
+            autoDebitTerms?: components["schemas"]["AutoDebitTerms"];
         };
         RecurrenceResponse: {
             /** Format: uuid */
@@ -2492,6 +2607,10 @@ export interface components {
             nextOccurrence: null | string;
             isEnded: boolean;
             pendings: components["schemas"]["RecurrencePendingResponse"][];
+            kind: components["schemas"]["RecurrenceKind"];
+            amountVaries: boolean;
+            /** Format: date */
+            nextTransactionDate: null | string;
         };
         RegisterRequest: {
             email: string;
@@ -2547,6 +2666,7 @@ export interface components {
             refundableCents: null | number;
             /** Format: uuid */
             recurrenceId: null | string;
+            amountEstimated: boolean;
         };
         /** @enum {unknown} */
         TransactionSource: "Manual" | "OfxImport" | "PdfImport" | "Nfce";
@@ -2612,6 +2732,8 @@ export interface components {
             nextDate: null | string;
             /** Format: date */
             endDate: null | string;
+            autoDebit?: null | boolean;
+            amountVaries?: null | boolean;
         };
         UpdateStatementRequest: {
             /** Format: date */

@@ -53,6 +53,10 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 | Lançamento que se repete | `Recurrence` | série: modelo do lançamento + agenda (`RecurrenceSchedule`); na tela, "se repete" |
 | Ocorrência de uma série | `OccurrenceDate` (no `Transaction`, com `RecurrenceId`) | a data da agenda; fica mesmo se a data do lançamento mudar |
 | Ocorrência pendente | `RecurrencePending` | cobrança que cairia numa fatura já paga; espera a pessoa decidir |
+| Débito automático | `RecurrenceKind.AutoDebit` | série que o banco debita da conta corrente no próximo dia útil do vencimento |
+| Valor que muda a cada mês | `AmountVaries` | no débito automático, o valor da série é a estimativa |
+| Lançamento a conferir | `Transaction.AmountEstimated` | saiu com a estimativa; a pessoa confirma ou corrige (`ConfirmAmount`) |
+| Dia útil bancário | `BankCalendar` | fins de semana e feriados nacionais; só débito automático e vencimento da fatura |
 
 ---
 
@@ -151,7 +155,9 @@ validação de invariante pertencem ao `Prisma.Domain`.
   (série, ocorrência) que conta os excluídos e `xmin` na série; rodar de novo ou ao mesmo tempo não
   duplica, e atraso é alcançado na próxima execução (`docs/fase-2.md`, 2.14, A3 a A6). Excluir uma conta
   (só possível vazia) encerra as séries ativas dela e descarta as pendências dela na mesma gravação: nunca
-  fica série "ativa" sem conta (2.14, regra 8).
+  fica série "ativa" sem conta (2.14, regra 8). No débito automático (2.26), a ocorrência só é gerada quando
+  chega o dia útil do débito, e a de valor que muda sai com `AmountEstimated`, a conferir pelo sino
+  (`docs/fase-2.md`, 2.15).
 - **Única consulta que grava:** `GET /categories` entrega ao usuário as categorias das versões novas do
   catálogo (`CategoryCatalog`, uma vez por versão, só para ele; `docs/fase-2.md`, 2.11). Sincronizar no
   login não bastaria: a sessão é persistente.
@@ -179,6 +185,9 @@ Não são preferências. Quebrá-las gera erro de dinheiro que passa despercebid
    - `PurchaseDate`: quando aconteceu.
    - `SettlementDate`: quando o dinheiro sai da conta. Em Pix e débito é igual a
      `PurchaseDate`; no cartão é o **`DueDate` do `Statement`** em que a compra caiu.
+   - **Débito automático** (2.26): as duas datas são o dia do débito, o próximo dia útil do vencimento
+     (`BankCalendar`); o vencimento fica em `OccurrenceDate`. O dia útil só vale aqui e, na 2.22, no
+     vencimento da fatura: todo o resto fica na data em que aconteceu.
 
    **O dashboard agrega por `SettlementDate`** (visão de caixa). Decisão tomada.
 
@@ -244,7 +253,9 @@ infraestrutura (NetArchTest), e nenhum tipo fora da implementação de
 `DateTimeOffset.Now`/`UtcNow`. Essa segunda regra inspeciona o IL com Mono.Cecil (que
 vem junto com o NetArchTest), porque o NetArchTest só enxerga dependência de tipo, não
 de membro. Também confere que todo ícone do catálogo de categorias (`DefaultCategories`) está no mapa
-fechado do front (`categoryIcons.ts`); ícone novo no catálogo entra nos dois lugares.
+fechado do front (`categoryIcons.ts`); ícone novo no catálogo entra nos dois lugares. E que só a série
+(débito automático) e a fatura (vencimento em dia útil) usam o calendário bancário (`BankCalendar`,
+`docs/fase-2.md`, 2.15): o resto fica na data em que aconteceu.
 
 **Fixtures de parser** (Fase 4): arquivos reais de OFX e de fatura em PDF,
 anonimizados, com o resultado esperado versionado ao lado. Quando o banco mudar o
@@ -435,6 +446,9 @@ por conversa, arquivo versionado ou histórico do shell.
   confira o tamanho do pacote principal no `npm run build` ao adicionar dependência. Linha de lista
   longa é memoizada (`memo`) e recebe só dados e callbacks estáveis (ex.: o setter do estado, com a
   chave da linha): abrir um painel não pode redesenhar a lista inteira (`TransactionsPage`).
+- **O sino** (2.26) é o que falta conferir, não uma caixa de avisos: conta os lançamentos a conferir, e cada
+  um sai quando é resolvido. Nada de "marcar todas como lidas", que deixaria a estimativa passar por valor
+  real. Ele está em toda tela, então o painel dele carrega sob demanda (`lazy`), fora do pacote principal.
 - **Resumo × Análise:** o Resumo (`/`) é de relance (destaque, Entrou/Saiu/Investido, Hoje); o que
   explica o mês vai na Análise (`/analise`), e o que olha para a frente, na seção "Daqui para frente"
   dela. Bloco novo entra na tela da pergunta que responde, não no fim do Resumo. O `?mes=` passa

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { invalidateMoney } from '@/features/transactions/queries'
 import { api, ApiError, unwrap, type Schemas } from '@/lib/api'
-import { recurrencesKey } from '@/lib/queryKeys'
+import { recurrencesKey, transactionsKey } from '@/lib/queryKeys'
 
 // Lançamentos que se repetem (docs/fase-2.md, 2.14).
 export type Recurrence = Schemas['RecurrenceResponse']
@@ -62,6 +62,27 @@ export function useDiscardPending() {
       const { error, response } = await api.DELETE('/recurrences/pendings/{id}', { params: { path: { id } } })
       if (!response.ok) throw new ApiError(response.status, error)
     },
+    onSuccess: () => invalidateMoney(queryClient),
+  })
+}
+
+// O sino (docs/fase-2.md, 2.15, D4): os débitos automáticos com o valor estimado, o mais antigo primeiro. Fica
+// sob transactionsKey: lançar, editar, excluir ou conferir o atualiza (invalidateMoney).
+export const toConfirmKey = [...transactionsKey, 'to-confirm'] as const
+
+export function useToConfirm() {
+  return useQuery({
+    queryKey: toConfirmKey,
+    queryFn: async () => unwrap(await api.GET('/transactions/to-confirm')),
+  })
+}
+
+// Conferir (regra 6): sem valor, a estimativa vira o valor; com valor, ele substitui a estimativa.
+export function useConfirmAmount() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, amountCents }: { id: string; amountCents: number | null }) =>
+      unwrap(await api.POST('/transactions/{id}/confirm-amount', { params: { path: { id } }, body: { amountCents } })),
     onSuccess: () => invalidateMoney(queryClient),
   })
 }

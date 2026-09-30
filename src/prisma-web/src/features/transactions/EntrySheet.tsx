@@ -15,7 +15,8 @@ import { paymentMethodLabels, type PaymentMethod } from '@/features/accounts/lab
 import { useStatements, type Account } from '@/features/accounts/queries'
 import { resolveCategory, type CategoryLabel, type CategoryNode } from '@/features/categories/queries'
 import { RecurrenceChooser } from '@/features/recurrences/RecurrenceChooser'
-import { missingEndMessage, repeatRequest, type RepeatChoice } from '@/features/recurrences/repeatChoice'
+import { autoDebitLine } from '@/features/recurrences/autoDebit'
+import { canAutoDebit, missingEndMessage, repeatRequest, type RepeatChoice } from '@/features/recurrences/repeatChoice'
 import {
   useEndRecurrence,
   useRecurrences,
@@ -24,6 +25,7 @@ import {
   type Recurrence,
 } from '@/features/recurrences/queries'
 import { removalTexts, reopenRequest } from '@/features/recurrences/removal'
+import { ConfirmCard } from '@/features/recurrences/ToConfirmPanel'
 import { describeSeries, frequencyText, seriesLine, shortDate } from '@/features/recurrences/schedule'
 import { ApiError } from '@/lib/api'
 import { formatLongDate, formatShortDate, monthOf, todayInSaoPaulo, type YearMonth } from '@/lib/dates'
@@ -143,6 +145,7 @@ function Details({ entry, accounts, labels, onClose, onEdit }: Common & { onEdit
           </div>
           <Amount type={first.type} cents={amount} className="font-display text-5xl leading-none font-normal" />
           {isRefund && <p className="text-sm text-muted-foreground">Estorno · abate a despesa do mês em que cai</p>}
+          {first.amountEstimated && <p className="text-sm text-muted-foreground">Valor médio · a conferir</p>}
           {installments.length > 1 && (
             <p className="text-sm text-muted-foreground tabular-nums">{describeInstallments(amount, installments.length)}</p>
           )}
@@ -151,7 +154,9 @@ function Details({ entry, accounts, labels, onClose, onEdit }: Common & { onEdit
         <div className="spectrum-line mx-6 opacity-70" />
 
         <dl className="surface mx-4 my-5 flex flex-col divide-y divide-border/60 rounded-2xl text-sm">
-          <InfoRow label={isRefund ? 'Data do estorno' : 'Data da compra'}>{formatLongDate(first.purchaseDate)}</InfoRow>
+          <InfoRow label={isRefund ? 'Data do estorno' : series?.kind === 'AutoDebit' ? 'Data do débito' : 'Data da compra'}>
+            {formatLongDate(first.purchaseDate)}
+          </InfoRow>
           {kind === 'card' && <InfoRow label="Fatura que vence em">{formatLongDate(first.settlementDate)}</InfoRow>}
           {account && (
             <InfoRow label="Conta">
@@ -180,6 +185,9 @@ function Details({ entry, accounts, labels, onClose, onEdit }: Common & { onEdit
             </InfoRow>
           )}
         </dl>
+
+        {/* Débito automático com o valor médio (docs/fase-2.md, 2.15, regra 6): conferir antes das outras ações. */}
+        {entry.kind === 'single' && first.amountEstimated && <ConfirmCard transaction={first} className="mx-4 mb-5" />}
 
         {(repeat || canRefund || canStartSeries) && (
           // Ações secundárias, cada uma na sua faixa do espectro; lado a lado quando cabem.
@@ -418,11 +426,18 @@ function SeriesInfo({ id, today }: { id: string; today: string }) {
   const series = useRecurrences().data?.find((r) => r.id === id)
   if (!series) return <span className="text-muted-foreground">…</span>
   if (series.isEnded) return <span>Encerrada</span>
+  // Débito automático (2.15): o dia do vencimento e a data do próximo débito, já no dia útil.
+  const autoDebit = series.kind === 'AutoDebit'
+  const next = autoDebit ? series.nextTransactionDate : series.nextOccurrence
   return (
     <span className="flex flex-col items-end tabular-nums">
-      {frequencyText(series.startDate, series.frequency)}
-      {series.nextOccurrence && (
-        <span className="text-xs font-normal text-muted-foreground">próxima {shortDate(series.nextOccurrence, today)}</span>
+      {autoDebit
+        ? `Débito automático, vence dia ${Number(series.startDate.slice(8, 10))}`
+        : frequencyText(series.startDate, series.frequency)}
+      {next && (
+        <span className="text-xs font-normal text-muted-foreground">
+          {autoDebit ? 'próximo débito' : 'próxima'} {shortDate(next, today)}
+        </span>
       )}
     </span>
   )
@@ -1253,16 +1268,19 @@ function InstallmentForm({
 
 // O lançamento passa a se repetir e vira a primeira ocorrência (docs/fase-2.md, 2.14, regra 1). Começa em
 // "Todo mês", o caso mais comum (o pet de todo dia 25); a data do lançamento é a partida.
-function RepeatForm({ transaction, onDone }: EditorProps & { transaction: Transaction }) {
+function RepeatForm({ transaction, accounts, onDone }: EditorProps & { transaction: Transaction }) {
   const start = useStartRecurrence()
   const today = todayInSaoPaulo()
   const [choice, setChoice] = useState<RepeatChoice>({ frequency: 'Monthly', endDate: null })
+  // Débito automático (docs/fase-2.md, 2.15): o débito já lançado numa conta corrente vira a série.
+  const accountType = accounts.find((a) => a.id === transaction.accountId)?.type
+  const autoDebitAvailable = transaction.type !== 'Transfer' && canAutoDebit({ type: transaction.type, accountType })
   const [endError, setEndError] = useState<string>()
   const [error, setError] = useState<string>()
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
-    const request = repeatRequest(choice)
+    const request = repeatRequest(autoDebitAvailable ? choice : { ...choice, autoDebit: false }, transaction.purchaseDate)
     if (request === 'missing-end') return setEndError(missingEndMessage)
     if (request === null) return
     try {
@@ -1271,10 +1289,12 @@ function RepeatForm({ transaction, onDone }: EditorProps & { transaction: Transa
       setError(messageOf(e))
       return
     }
-    const { dueNow } = describeSeries({ start: transaction.purchaseDate, ...request, today })
-    toast.success('Agora se repete', {
+    const { dueNow } = describeSeries({ start: request.dueDate ?? transaction.purchaseDate, ...request, today })
+    toast.success(request.autoDebit ? 'Agora é débito automático' : 'Agora se repete', {
       description: [
-        seriesLine({ start: transaction.purchaseDate, ...request, today }),
+        request.dueDate
+          ? autoDebitLine({ due: request.dueDate, endDate: request.endDate, today })
+          : seriesLine({ start: transaction.purchaseDate, ...request, today }),
         dueNow.length > 0 && (dueNow.length === 1 ? '1 lançada agora' : `${dueNow.length} lançadas agora`),
       ]
         .filter(Boolean)
@@ -1303,6 +1323,7 @@ function RepeatForm({ transaction, onDone }: EditorProps & { transaction: Transa
           start={transaction.purchaseDate}
           today={today}
           error={endError}
+          autoDebitAvailable={autoDebitAvailable}
         />
         <Note>Este lançamento vira o primeiro da série. Para mudar valor ou data, edite antes.</Note>
       </form>

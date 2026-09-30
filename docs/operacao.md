@@ -86,10 +86,12 @@ bastar.
 Os logs nunca têm valor, descrição, nome de conta, e-mail, senha ou token (`CLAUDE.md`, seção 8). O
 Railway guarda 7 dias no Hobby e 3 no Free.
 
-## 4. Tarefa das recorrências (2.25)
+## 4. Tarefa das recorrências (2.25 e 2.26)
 
 Os lançamentos que se repetem são gerados por uma tarefa dentro da própria API (`RecurrenceWorker`), que roda
-ao subir e depois de hora em hora, agindo como cada usuário. Ela não duplica: rodar de novo, duas vezes ao
+ao subir e depois de hora em hora, agindo como cada usuário. O débito automático (2.26) passa pela mesma
+tarefa: sai no próximo dia útil do vencimento, então num fim de semana ou feriado a execução não gera nada e o
+débito aparece no dia útil seguinte. Isso é normal, não falha. Ela não duplica: rodar de novo, duas vezes ao
 mesmo tempo ou depois de a API ficar fora do ar só alcança o que faltou (`docs/fase-2.md`, 2.14, A3 a A6). Uma
 falha nunca derruba a API: vai para o log, e a próxima hora tenta de novo.
 
@@ -102,6 +104,7 @@ falha nunca derruba a API: vai para o log, e a próxima hora tenta de novo.
 | O que uma série gerou | `@eventName:RecurrenceGenerated` (com o `RecurrenceId`) |
 | Série pulada porque outra execução ou uma edição chegou antes (normal, sem ação) | `@eventName:RecurrenceSkipped` |
 | Séries criadas, editadas e encerradas; pendências lançadas e descartadas | `@eventName:RecurrenceStarted`, `RecurrenceEdited`, `RecurrenceEnded`, `RecurrencePendingLaunched`, `RecurrencePendingDiscarded` |
+| Débito automático conferido pelo sino (se o valor foi corrigido, `Corrected` vem `true`) | `@eventName:AmountConfirmed` |
 
 Se o `RecurrenceRunFinished` parar de aparecer, a API está fora do ar ou a tarefa foi desligada: ela liga por
 padrão e só desliga com `Recurrences__Runner__Enabled=false` (usado nos testes de integração). Falhas

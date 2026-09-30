@@ -1,4 +1,4 @@
-import { ChartPie, ChevronRight, HandCoins, Info, List, Receipt, Sprout } from 'lucide-react'
+import { Bell, ChartPie, ChevronRight, HandCoins, Info, List, Receipt, Sprout } from 'lucide-react'
 import { lazy, Suspense, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { MonthSwitcher } from '@/components/MonthSwitcher'
@@ -7,6 +7,8 @@ import { toMonthParam, useMonthParam } from '@/lib/monthParam'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { estimatedNote } from '@/features/recurrences/autoDebit'
+import { useOpenToConfirm } from '@/features/recurrences/toConfirmContext'
 import { formatMonth } from '@/lib/dates'
 import { formatCents } from '@/lib/money'
 import { cn } from '@/lib/utils'
@@ -49,7 +51,7 @@ export function SummaryPage() {
 }
 
 function Overview({ summary, monthName, monthParam }: { summary: MonthlySummary; monthName: string; monthParam: string }) {
-  const { incomeCents, expenseCents, cardExpenseCents, leftoverCents, investedCents } = summary
+  const { incomeCents, expenseCents, cardExpenseCents, leftoverCents, investedCents, estimatedExpenseCents } = summary
   const [explaining, setExplaining] = useState(false)
   const empty = incomeCents === 0 && expenseCents === 0 && investedCents === 0
   // Sem receita lançada, a sobra seria só o gasto com sinal trocado, em tom de alarme: muita gente
@@ -142,6 +144,8 @@ function Overview({ summary, monthName, monthParam }: { summary: MonthlySummary;
         </div>
       )}
 
+      {estimatedExpenseCents > 0 && <EstimatedRow cents={estimatedExpenseCents} />}
+
       <Suspense fallback={<Skeleton className="h-40 w-full rounded-2xl" />}>
         <TodayPanel />
       </Suspense>
@@ -154,6 +158,26 @@ function Overview({ summary, monthName, monthParam }: { summary: MonthlySummary;
         </Shortcut>
       </nav>
     </>
+  )
+}
+
+// Parte do "Saiu" que ainda é o valor médio de um débito automático (docs/fase-2.md, 2.15, regra 8): o número
+// fica visivelmente aproximado até a pessoa conferir. Abre o painel do sino.
+function EstimatedRow({ cents }: { cents: number }) {
+  const open = useOpenToConfirm()
+  return (
+    <button
+      type="button"
+      onClick={open}
+      className="surface -mt-3 flex items-center gap-3 rounded-2xl px-4 py-3 text-left transition-colors outline-none hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring active:bg-muted/70"
+    >
+      <Tile icon={<Bell />} />
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="text-sm font-medium tabular-nums">{estimatedNote(cents)}</span>
+        <span className="text-xs text-muted-foreground">O "Saiu" usa o valor médio até você conferir.</span>
+      </span>
+      <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+    </button>
   )
 }
 

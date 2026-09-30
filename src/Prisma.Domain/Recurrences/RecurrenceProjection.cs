@@ -19,7 +19,8 @@ public sealed record ProjectedOccurrence(
 // GeneratedThrough (nem antes, para não contar duas vezes, nem a partir de amanhã, para não haver buraco
 // entre a meia-noite e a próxima execução) e até "until". Segue o que a geração faria: conta inativa não
 // gera (regra 8), e a cobrança que cairia numa fatura paga vira pendência, não lançamento (regra 9). A
-// fatura sai da regra de sempre, sem abrir nenhuma.
+// fatura sai da regra de sempre, sem abrir nenhuma. No débito automático, o caixa é a data do débito (2.15,
+// regra 9).
 public static class RecurrenceProjection
 {
     // accounts: as contas das séries; statements: as faturas dos cartões delas.
@@ -38,7 +39,7 @@ public static class RecurrenceProjection
             {
                 if (account.Type != AccountType.CreditCard)
                 {
-                    projected.Add(new ProjectedOccurrence(r.Id, account.Id, r.Type, r.AmountCents, date, date, null));
+                    projected.Add(new ProjectedOccurrence(r.Id, account.Id, r.Type, r.AmountCents, date, r.TransactionDateOf(date), null));
                     continue;
                 }
 

@@ -24,7 +24,7 @@ import { ApiError } from '@/lib/api'
 import { addDays, formatLongDate, formatShortDate, todayInSaoPaulo } from '@/lib/dates'
 import { formatCents } from '@/lib/money'
 import { cn } from '@/lib/utils'
-import { groupSeries, pendingTexts, type Pending } from './listing'
+import { groupSeries, pendingTexts, seriesWhen, type Pending } from './listing'
 import {
   useDiscardPending,
   useEndRecurrence,
@@ -35,10 +35,10 @@ import {
   type Recurrence,
 } from './queries'
 import { reopenRequest } from './removal'
-import { frequencyText, shortDate, type Frequency } from './schedule'
+import { frequencyText, type Frequency } from './schedule'
 
-// "Recorrências" (docs/fase-2.md, 2.14, Tela): as pendências no topo, as séries ativas pela próxima data e as
-// encerradas no fim. Tocar numa série abre o painel com editar e encerrar.
+// "Recorrências" (docs/fase-2.md, 2.14, Tela): as pendências no topo, os débitos automáticos (2.15), as outras
+// séries ativas pela próxima data e as encerradas no fim. Tocar numa série abre o painel com editar e encerrar.
 export function RecurrencesPage() {
   const recurrences = useRecurrences()
   const accounts = useAccounts()
@@ -98,8 +98,16 @@ export function RecurrencesPage() {
         </section>
       )}
 
+      {groups.autoDebits.length > 0 && (
+        <SeriesList title="Débitos automáticos">
+          {groups.autoDebits.map((r) => (
+            <SeriesRow key={r.id} series={r} account={accountOf(r.accountId)} labels={labels} today={today} onOpen={setOpenId} />
+          ))}
+        </SeriesList>
+      )}
+
       {groups.active.length > 0 && (
-        <SeriesList title="Ativas">
+        <SeriesList title={groups.autoDebits.length > 0 ? 'Outras recorrências' : 'Ativas'}>
           {groups.active.map((r) => (
             <SeriesRow key={r.id} series={r} account={accountOf(r.accountId)} labels={labels} today={today} onOpen={setOpenId} />
           ))}
@@ -153,9 +161,7 @@ function SeriesRow({
   onOpen: (id: string) => void
 }) {
   const category = series.categoryId ? labels.get(series.categoryId) : undefined
-  const when = series.isEnded
-    ? `Encerrada · última ${shortDate(series.generatedThrough, today)}`
-    : `${frequencyText(series.startDate, series.frequency)} · próxima ${shortDate(series.nextOccurrence!, today)}`
+  const when = seriesWhen(series, today)
   return (
     <li className="[&+&]:border-t [&+&]:border-border/60">
       <button
@@ -174,7 +180,13 @@ function SeriesRow({
             <Amount type={series.type} cents={series.amountCents} className="shrink-0 font-medium" />
           </span>
           <span className="block text-sm text-pretty text-muted-foreground">{when}</span>
-          {account && <span className="block truncate text-xs text-muted-foreground">{account.name}</span>}
+          {/* Valor que muda: o da série é a média (docs/fase-2.md, 2.15). Aqui, e não no valor: com o "≈" ao lado do
+              valor, o nome ficava cortado em 320px. */}
+          {(account || series.amountVaries) && (
+            <span className="block truncate text-xs text-muted-foreground">
+              {[account?.name, series.amountVaries && 'valor médio'].filter(Boolean).join(' · ')}
+            </span>
+          )}
         </span>
         <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
       </button>
@@ -304,6 +316,7 @@ function SeriesDetails({ series, accounts, labels, onClose, onEdit }: SheetProps
   const category = series.categoryId ? labels.get(series.categoryId) : undefined
   const account = accounts.find((a) => a.id === series.accountId)
   const title = series.description || category?.name || 'Sem descrição'
+  const autoDebit = series.kind === 'AutoDebit'
 
   // Encerrar (regra 7): o término vai para o último lançamento; o "Desfazer" reabre com o término de antes.
   const finish = async () => {
@@ -336,11 +349,26 @@ function SeriesDetails({ series, accounts, labels, onClose, onEdit }: SheetProps
           <EntryTile description={series.description} category={category} size="xl" />
           <SheetTitle className="font-display text-2xl leading-tight font-normal">{title}</SheetTitle>
           <Amount type={series.type} cents={series.amountCents} className="font-display text-5xl leading-none font-normal" />
-          <p className="text-sm text-muted-foreground">{frequencyText(series.startDate, series.frequency)}</p>
+          <p className="text-sm text-muted-foreground">
+            {autoDebit
+              ? `Débito automático, vence dia ${Number(series.startDate.slice(8, 10))}${series.amountVaries ? ' · valor médio' : ''}`
+              : frequencyText(series.startDate, series.frequency)}
+          </p>
         </header>
         <div className="spectrum-line mx-6 opacity-70" />
         <dl className="surface mx-4 my-5 flex flex-col divide-y divide-border/60 rounded-2xl text-sm">
-          <InfoRow label="Próxima">{series.nextOccurrence ? formatLongDate(series.nextOccurrence) : 'nenhuma'}</InfoRow>
+          {autoDebit ? (
+            <>
+              <InfoRow label="Próximo vencimento">
+                {series.nextOccurrence ? formatLongDate(series.nextOccurrence) : 'nenhum'}
+              </InfoRow>
+              {series.nextTransactionDate && series.nextTransactionDate !== series.nextOccurrence && (
+                <InfoRow label="Debitado em">{formatLongDate(series.nextTransactionDate)}</InfoRow>
+              )}
+            </>
+          ) : (
+            <InfoRow label="Próxima">{series.nextOccurrence ? formatLongDate(series.nextOccurrence) : 'nenhuma'}</InfoRow>
+          )}
           <InfoRow label="Termina">
             {series.isEnded
               ? `encerrada em ${formatShortDate(series.generatedThrough)}`
@@ -362,7 +390,9 @@ function SeriesDetails({ series, accounts, labels, onClose, onEdit }: SheetProps
         <p className="mx-4 mb-5 rounded-2xl bg-muted/60 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
           {series.isEnded
             ? 'Nada mais é lançado. O que já foi lançado continua nos lançamentos.'
-            : 'Cada lançamento sai no dia dele. Editar vale do próximo em diante; o que já foi lançado fica.'}
+            : autoDebit
+              ? `Cada débito sai no dia útil do vencimento${series.amountVaries ? ', com o valor médio, e vai para o sino para você conferir' : ''}. Editar vale do próximo em diante.`
+              : 'Cada lançamento sai no dia dele. Editar vale do próximo em diante; o que já foi lançado fica.'}
         </p>
       </div>
       {!series.isEnded && (
@@ -416,11 +446,18 @@ function EditSeries({ series, accounts, categories, onDone }: SheetProps & { onD
   const [frequency, setFrequency] = useState<Frequency>(series.frequency)
   const [nextDate, setNextDate] = useState(series.nextOccurrence ?? '')
   const [endDate, setEndDate] = useState<string | null>(series.endDate)
+  // Débito automático (docs/fase-2.md, 2.15, regra 10): só despesa em conta corrente, todo mês, no débito.
+  const [autoDebit, setAutoDebit] = useState(series.kind === 'AutoDebit')
+  const [amountVaries, setAmountVaries] = useState(series.amountVaries)
   const [error, setError] = useState<string>()
 
   const roots = categories.filter((c) => c.type === series.type)
   const { label } = resolveCategory(roots, categoryId)
-  const choices = accounts.filter((a) => (a.type === 'CreditCard') === onCard && (a.isActive || a.id === series.accountId))
+  const choices = accounts.filter(
+    (a) =>
+      (a.type === 'CreditCard') === onCard && (!autoDebit || a.type === 'Checking') && (a.isActive || a.id === series.accountId),
+  )
+  const canAutoDebit = series.type === 'Expense' && accounts.find((a) => a.id === accountId)?.type === 'Checking'
   const minNext = addDays(series.generatedThrough, 1)
 
   const submit = async (event: FormEvent) => {
@@ -436,10 +473,12 @@ function EditSeries({ series, accounts, categories, onDone }: SheetProps & { onD
           amountCents,
           categoryId: categoryId || null,
           description: description.trim() || null,
-          method,
-          frequency,
+          method: autoDebit ? 'Debit' : method,
+          frequency: autoDebit ? 'Monthly' : frequency,
           nextDate: nextChanged && nextDate ? nextDate : null,
           endDate,
+          autoDebit: autoDebit && canAutoDebit,
+          amountVaries: autoDebit && canAutoDebit && amountVaries,
         },
       })
       toast.success('Série alterada', {
@@ -504,7 +543,38 @@ function EditSeries({ series, accounts, categories, onDone }: SheetProps & { onD
             </ChipRow>
           </Section>
         )}
-        {!onCard && (
+        {canAutoDebit && (
+          <Section title="Débito automático">
+            <ChipRow>
+              <Chip selected={!autoDebit} onClick={() => setAutoDebit(false)}>
+                Não
+              </Chip>
+              <Chip
+                selected={autoDebit}
+                onClick={() => {
+                  setAutoDebit(true)
+                  setFrequency('Monthly')
+                }}
+              >
+                É débito automático
+              </Chip>
+            </ChipRow>
+          </Section>
+        )}
+        {autoDebit && canAutoDebit && (
+          <Section title="Valor">
+            <ChipRow>
+              <Chip selected={amountVaries} onClick={() => setAmountVaries(true)}>
+                Muda a cada mês
+              </Chip>
+              <Chip selected={!amountVaries} onClick={() => setAmountVaries(false)}>
+                Sempre o mesmo
+              </Chip>
+            </ChipRow>
+          </Section>
+        )}
+        {/* No débito automático, o meio é sempre débito e a frequência, todo mês. */}
+        {!onCard && !autoDebit && (
           <Section title="Pagamento">
             <ChipRow>
               {simpleMethods.map((m) => (
@@ -515,16 +585,27 @@ function EditSeries({ series, accounts, categories, onDone }: SheetProps & { onD
             </ChipRow>
           </Section>
         )}
-        <Section title="Frequência">
-          <ChipRow>
-            {frequencies.map((f) => (
-              <Chip key={f.value} selected={f.value === frequency} onClick={() => setFrequency(f.value)}>
-                {f.label}
-              </Chip>
-            ))}
-          </ChipRow>
-        </Section>
-        <Section title="Próxima" aside={nextDate ? frequencyText(nextDate, frequency) : undefined}>
+        {!autoDebit && (
+          <Section title="Frequência">
+            <ChipRow>
+              {frequencies.map((f) => (
+                <Chip key={f.value} selected={f.value === frequency} onClick={() => setFrequency(f.value)}>
+                  {f.label}
+                </Chip>
+              ))}
+            </ChipRow>
+          </Section>
+        )}
+        <Section
+          title={autoDebit ? 'Próximo vencimento' : 'Próxima'}
+          aside={
+            nextDate
+              ? autoDebit
+                ? `vence todo dia ${Number(nextDate.slice(8, 10))}`
+                : frequencyText(nextDate, frequency)
+              : undefined
+          }
+        >
           <Input
             type="date"
             aria-label="Próxima data"

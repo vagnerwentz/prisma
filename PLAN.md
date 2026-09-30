@@ -495,7 +495,8 @@ fatura paga > compra presa > datas editadas > previsão.
 - [ ] **2.22 Vencimento em dia útil**
   A data de caixa passa a ser o vencimento efetivo: próximo dia útil pelo calendário bancário (fins de
   semana, feriados nacionais fixos e os móveis a partir da Páscoa, inclusive Corpus Christi, que o
-  Itaú tratou como não útil em 04/06/2026). Detalhar quando a 2.21 terminar. *(Não depende da 2.21: o
+  Itaú tratou como não útil em 04/06/2026). O calendário é o `BankCalendar` da 2.26 (`docs/fase-2.md`,
+  2.15), já testado; se a 2.22 vier antes, ela o cria. Detalhar quando a 2.21 terminar. *(Não depende da 2.21: o
   fechamento sai do vencimento nominal, `docs/fase-2.md`, 2.12, regra 3; pode vir antes, se preciso.)*
 
 - [x] **2.24 Trocar o cartão de uma compra** (pedido de um usuário, 2026-09-28)
@@ -568,6 +569,25 @@ fatura paga > compra presa > datas editadas > previsão.
   *Pronto quando:* testes de domínio antes (agenda, geração, previsão); integração de idempotência,
   atraso, fatura paga e isolamento; tela conferida em 320, 390 e 1280px, claro e escuro; o dono cadastra
   a cobrança do pet e o aluguel e vê a previsão.
+
+- [ ] **2.26 Débito automático** (pedido do dono, 2026-09-29)
+  *Tarefas 1 a 6 feitas em 2026-09-30 (calendário, domínio, gerador, API, tela, Recorrências). Falta o
+  checkpoint do dono: cadastrar a Copel e a Sabesp e conferir um débito pelo sino.*
+  Contas de consumo em débito automático (luz, água, gás, escola; qualquer empresa): a série da 2.25 com
+  o tipo `AutoDebit`, só despesa, só conta corrente, mensal. O débito cai no **próximo dia útil** do
+  vencimento, pelo calendário bancário que esta etapa cria primeiro (fins de semana, feriados nacionais
+  fixos e os móveis a partir da Páscoa; puro, no domínio, com dois usos só: o débito automático e, na
+  2.22, o vencimento da fatura). Quando **o valor muda a cada mês**, a série guarda a estimativa: o
+  lançamento sai com ela no dia do débito, conta no saldo e no "Saiu" marcado "≈ a conferir", e a pessoa
+  confirma ou corrige. O **sino** no cabeçalho conta o que falta conferir e abre o painel "Para conferir";
+  cada item sai quando é conferido, sem "marcar todas como lidas". Especificação em `docs/fase-2.md`,
+  2.15 (decisões, regras, exemplos e as 6 tarefas, na ordem: calendário, domínio, gerador, API, tela,
+  Recorrências).
+  *Pronto quando:* testes de domínio antes (tabela do calendário de 2025 a 2027, propriedades do próximo
+  dia útil, vencimento × data do débito, conferir); teste de arquitetura do calendário; integração de
+  fim de semana, feriado, atraso, idempotência, conferir, Resumo e isolamento; Vitest dos textos; tela
+  conferida em 320, 390 e 1280px, claro e escuro, com toques reais; o dono cadastra a Copel e a Sabesp
+  e confere um débito pelo sino.
 
 ## Hospedagem para uso próprio
 
@@ -779,6 +799,10 @@ Decidir quando a fase correspondente chegar:
   no "Pagar fatura") e débito automático de verdade (registrar o pagamento sozinho no vencimento,
   a partir dessa conta; exige tarefa agendada no backend e regra para fatura que muda depois do
   fechamento). (quando fizer falta)
+- **Débito automático, o que ficou fora da 2.26** (2026-09-30): filtro "Débito automático" na lista de
+  lançamentos e análises só dos débitos (o tipo gravado na série já permite); cadastrar um débito automático
+  novo sem lançar o primeiro débito (hoje a série nasce de um lançamento, e o primeiro não vai para o sino);
+  conferir o valor antes do dia do débito; feriado estadual e municipal no calendário. (quando fizer falta)
 - Trocar o cartão de uma compra entre cartão e Pix ou débito (fora da 2.24, que é só cartão para
   cartão): a compra ganharia ou perderia fatura, e a parcelada teria de virar à vista. (quando alguém pedir)
 - Aviso ativo de versão nova: a API devolve a versão num cabeçalho (ex.: `X-App-Version`) e a tela,

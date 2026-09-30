@@ -19,6 +19,7 @@ import { useAccounts, type Account } from '@/features/accounts/queries'
 import { categoryLabels, resolveCategory, useCategories, type CategoryNode } from '@/features/categories/queries'
 import { RecurrenceChooser, RepeatRow } from '@/features/recurrences/RecurrenceChooser'
 import {
+  canAutoDebit,
   canRepeat as repeatShows,
   missingEndMessage,
   noRepeat,
@@ -329,8 +330,22 @@ function Composer({
   const [repeatChoice, setRepeatChoice] = useState<RepeatChoice>(noRepeat)
   const [choosingRepeat, setChoosingRepeat] = useState(false)
   const [repeatError, setRepeatError] = useState<string>()
-  const repeatContext = { type, isCard, installments }
+  const repeatContext = { type, isCard, installments, accountType: account?.type }
   const canRepeat = repeatShows(repeatContext)
+  // Débito automático (docs/fase-2.md, 2.15): só numa despesa em conta corrente, todo mês.
+  const autoDebitAvailable = canAutoDebit(repeatContext)
+  const averageAmount =
+    canRepeat &&
+    autoDebitAvailable &&
+    !!repeatChoice.autoDebit &&
+    !!repeatChoice.amountVaries &&
+    repeatChoice.frequency === 'Monthly'
+  const chooseRepeat = (choice: RepeatChoice) => {
+    // O primeiro lançamento é o próprio débito: o meio é débito.
+    if (choice.autoDebit && !repeatChoice.autoDebit && autoDebitAvailable) set('method', 'Debit')
+    setRepeatChoice(choice)
+    setRepeatError(undefined)
+  }
   const closeRepeat = () => {
     if (repeatRequest(repeatChoice) === 'missing-end') return setRepeatError(missingEndMessage)
     setRepeatError(undefined)
@@ -339,7 +354,7 @@ function Composer({
 
   const amountRef = useRef<HTMLInputElement>(null)
   const submit = form.handleSubmit(async (values) => {
-    const recurrence = repeatToSend(repeatContext, repeatChoice)
+    const recurrence = repeatToSend(repeatContext, repeatChoice, values.purchaseDate)
     if (recurrence === 'missing-end') {
       setRepeatError(missingEndMessage)
       setChoosingRepeat(true)
@@ -376,7 +391,10 @@ function Composer({
         description: [
           values.description.trim() || null,
           created.length > 1 ? describeInstallments(values.amountCents, created.length) : formatCents(values.amountCents),
-          recurrence && frequencyText(values.purchaseDate, recurrence.frequency),
+          recurrence &&
+            (recurrence.autoDebit
+              ? `Débito automático, vence dia ${Number(recurrence.dueDate!.slice(8, 10))}`
+              : frequencyText(values.purchaseDate, recurrence.frequency)),
         ]
           .filter(Boolean)
           .join(' · '),
@@ -454,6 +472,11 @@ function Composer({
               Abate uma despesa. No cartão, entra na fatura aberta na data do estorno.
             </p>
           )}
+          {averageAmount && (
+            <p className="-mt-3 max-w-xs text-center text-xs text-muted-foreground">
+              Valor médio. Cada débito você confere pelo sino.
+            </p>
+          )}
           {repeat && !isRefund && amountCents === repeat.amountCents && (
             <p className="-mt-3 max-w-xs text-center text-xs text-muted-foreground">
               Mesmo valor da última vez. Digite para trocar.
@@ -517,7 +540,13 @@ function Composer({
         <Section title="Data">
           <DateChooser value={purchaseDate} onChange={(date) => set('purchaseDate', date)} error={errors.purchaseDate?.message} />
           {canRepeat && (
-            <RepeatRow choice={repeatChoice} start={purchaseDate} today={today} onOpen={() => setChoosingRepeat(true)} />
+            <RepeatRow
+              choice={repeatChoice}
+              start={purchaseDate}
+              today={today}
+              onOpen={() => setChoosingRepeat(true)}
+              autoDebitAvailable={autoDebitAvailable}
+            />
           )}
         </Section>
 
@@ -543,14 +572,12 @@ function Composer({
         <div className="flex min-h-0 flex-col overflow-y-auto overscroll-contain px-4 pb-6">
           <RecurrenceChooser
             choice={repeatChoice}
-            onChange={(choice) => {
-              setRepeatChoice(choice)
-              setRepeatError(undefined)
-            }}
+            onChange={chooseRepeat}
             start={purchaseDate}
             today={today}
             withNone
             error={repeatError}
+            autoDebitAvailable={autoDebitAvailable}
           />
         </div>
         <SheetFooterBar>

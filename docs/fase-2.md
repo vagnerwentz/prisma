@@ -936,7 +936,7 @@ vezes" e compra parcelada que se repete.
    não tem vira o último dia (como `docs/fase-1.md`, 2.1, regra 2), sempre calculado **a partir da
    partida**, nunca da ocorrência anterior (dia 31 → 30/11 → 31/12, e não 30 para sempre). Fim de semana
    e feriado **não mudam a data**: o Pix funciona todos os dias, e a cobrança no cartão é uma compra. O que
-   vai para o dia útil é o vencimento da fatura (2.22).
+   vai para o dia útil é o vencimento da fatura (2.22) e o débito automático (2.26, seção 2.15).
 4. **"Hoje" é `IClock.Today`** (São Paulo). Uma ocorrência é gerada quando a data dela é hoje ou antes.
 5. **O lançamento gerado é um lançamento comum**, com a origem (`recurrence_id`) e a data da ocorrência
    (`occurrence_date`) guardadas à parte: a pessoa edita, exclui, restaura, troca de cartão ou move de
@@ -1067,6 +1067,223 @@ vezes" e compra parcelada que se repete.
 - Tarefa 8. *(Feita em 2026-09-29: `RecurrenceProjection` no domínio, `projectedExpenseCents` no "Já
   comprometido" e `projectedCents` na fatura; a linha só aparece na fatura aberta que já existe.)* Previsão no "Daqui para frente" e na fatura aberta do cartão.
 
+### 2.15 Débito automático (etapa 2.26)
+
+**Por quê.** Pedido do dono (2026-09-29): cadastrar as contas de consumo pagas em débito automático (luz,
+água, gás, escola; qualquer empresa) e, no dia do débito, conferir o valor. A série da 2.25 tem valor
+fixo, e a conta de luz muda todo mês. O débito automático é um conceito de fato, com nome próprio, e
+virão análises só dele ("quanto vai em débito automático").
+
+**Nomes.** Débito automático é o banco tirar da conta corrente, no vencimento, o valor que a empresa
+cobra, sem a pessoa agir. Não é a cobrança recorrente no cartão (Netflix; isso é a 2.25) nem o pagamento
+automático da fatura do cartão (pendências de produto do `PLAN.md`). Na tela: **"Débito automático"**. No
+código: `RecurrenceKind.AutoDebit`, com o valor que muda em `AmountVaries`; o lançamento com valor a
+conferir em `Transaction.AmountEstimated`.
+
+**Escopo (decidido com o dono).** Só despesa, só em conta corrente. Frequência mensal. O calendário
+bancário entra nesta etapa, primeiro, porque o débito cai no próximo dia útil; a 2.22 usa o mesmo
+calendário nas faturas depois. A estimativa é só digitada (sem média calculada). Fora: filtro
+"Débito automático" na lista de lançamentos e análises (o tipo gravado na série já permite), conferir
+antes do dia, feriado estadual e municipal, aviso fora do app (push, e-mail).
+
+**Decisões**
+
+- **D1. Um tipo de série, não uma entidade nova.** Agenda, geração que alcança o atraso, `xmin`,
+  previsão e isolamento da 2.25 servem igual (2.14, A1 a A6). Duas entidades repetiriam tudo isso e
+  divergiriam com o tempo. O conceito existe no domínio, na API e na tela pelo tipo da série.
+- **D2. Débito automático não é o mesmo que valor variável.** A academia em débito automático cobra
+  sempre o mesmo valor e não precisa de conferência; a conta de luz muda. O aviso vem do "o valor muda",
+  não do tipo.
+- **D3. Lança com a estimativa e marca para conferir.** O dinheiro sai de fato no dia; só o valor é
+  incerto. O lançamento existe, conta no saldo e no "Saiu", e fica visivelmente aproximado até a pessoa
+  conferir. Não lançar (esperar a confirmação) faria o esquecimento sumir com a despesa inteira: um erro
+  plausível e silencioso, o pior tipo (`CLAUDE.md`, seção 5).
+- **D4. O aviso é o que falta conferir, não uma caixa de notificações.** Não há tabela de avisos nem
+  estado de lido: o sino conta os lançamentos com `AmountEstimated`, e cada um sai quando é conferido ou
+  excluído. Sem "marcar todas como lidas" nem "confirmar todos": os dois deixariam passar a estimativa
+  como valor real sem ninguém olhar. Se um dia houver aviso só informativo, é a hora de uma tabela.
+- **D5. Calendário bancário puro, com dois usos só.** Uma classe no domínio (`BankCalendar`), sem banco
+  nem tabela de feriados: os fixos e os móveis calculados a partir da Páscoa. Só duas coisas dependem
+  dele: o débito automático (esta etapa) e o vencimento da fatura (2.22). Pix, débito, boleto, TED,
+  dinheiro, compra no cartão, parcela, estorno, transferência e a recorrência comum ficam na data em que
+  aconteceram. Um teste de arquitetura recusa outro tipo que dependa do calendário.
+
+**Regras do calendário**
+
+1. **Dia útil** é o que não é sábado, domingo nem feriado nacional.
+2. **Feriados fixos:** 01/01, 21/04, 01/05, 07/09, 12/10, 02/11, 15/11, 20/11 (nacional desde 2024) e
+   25/12.
+3. **Feriados móveis**, a partir da Páscoa (P): Carnaval na segunda e na terça (P − 48 e P − 47),
+   Sexta-feira Santa (P − 2) e Corpus Christi (P + 60). A Quarta-feira de Cinzas é útil. Corpus Christi
+   não é feriado em lei, mas os bancos não abrem (evidência: o Itaú o tratou como não útil em
+   04/06/2026, `docs/validacao-premissas.md`, seção 11).
+4. **24/12 e 31/12 são úteis** até aparecer evidência de débito adiado nesses dias.
+5. **Próximo dia útil** (`BusinessDayOnOrAfter`): o próprio dia, se útil; senão o primeiro útil depois.
+6. Feriado estadual e municipal (09/07 em São Paulo, por exemplo) ficam de fora: um débito nesse dia
+   aparece um dia antes do real. É a mesma limitação da 2.22.
+
+**Regras do débito automático**
+
+1. **É uma série da 2.25 com o tipo `AutoDebit`.** Valem as regras 1 a 8, 10 e 11 da seção 2.14, com o
+   que muda abaixo. A 9 (fatura paga) não se aplica: não há cartão.
+2. **Só despesa, só conta corrente, só mensal.** O meio de pagamento é `Debit`, sem escolha. Recusas:
+   "Débito automático só sai de conta corrente." e "Débito automático é sempre despesa." A frequência
+   semanal não é oferecida.
+3. **Vencimento e data do débito.** A agenda (2.14, regra 3) dá o **vencimento**, guardado como data da
+   ocorrência (`OccurrenceDate`). O lançamento sai na **data do débito**: o próximo dia útil a partir do
+   vencimento (calendário, regra 5), em `PurchaseDate` e em `SettlementDate`. A ocorrência é gerada
+   quando a data do débito é hoje ou antes; `generated_through` continua contando vencimentos. Como o
+   próximo dia útil nunca volta no tempo, a ordem das ocorrências se mantém.
+4. **Vencimento da primeira ocorrência.** A série nasce de um lançamento (2.14, regra 1), cuja data pode
+   já ser um dia útil adiado (Copel de 20/09/2026, domingo, debitada em 21/09). O painel pergunta o
+   vencimento, preenchido com a data do lançamento; a pessoa pode escolher um dia até 7 dias **antes da
+   data do lançamento** (não de hoje), a folga para o maior adiamento real, uns 4 dias (sábado antes do
+   Carnaval até a Quarta de Cinzas). A série parte desse vencimento; o lançamento fica com a data dele.
+   Lançamento no passado vale como na 2.25: débito do dia 10 cadastrado no dia 25 parte do dia 10, e o
+   próximo é o do mês seguinte.
+5. **Valor que muda** (`AmountVaries`). O valor da série é a **estimativa**. Cada ocorrência gerada sai
+   com ela e com `AmountEstimated = true`. Sem "o valor muda", o débito sai como um lançamento comum,
+   sem conferência.
+6. **Conferir.** Confirmar mantém o valor e tira a marca. Informar outro valor grava o valor real e tira
+   a marca, na mesma ação. Editar o valor do lançamento pelo painel comum também confere; editar só
+   categoria ou descrição não. Conferir não muda a estimativa da série (2.14, regra 6): quem quer outra
+   estimativa edita a série. O primeiro lançamento da série é o que a pessoa digitou: não precisa de
+   conferência.
+7. **O aviso aparece a partir do dia do débito** (é quando o lançamento nasce) e fica até ser conferido.
+   Um mês sem conferir não impede o seguinte de ser gerado; cada lançamento é conferido por si. Excluir
+   tira o lançamento da lista; restaurar o traz de volta ainda a conferir.
+8. **Números aproximados ficam visíveis.** O lançamento a conferir mostra "≈" antes do valor e "a
+   conferir"; o "Saiu" do Resumo, quando houver, "≈ R$ X a conferir". O total não muda por isso: a
+   estimativa conta até ser conferida.
+9. **Previsão** (2.14, regra 11): as ocorrências futuras entram no mês da **data do débito**, com a
+   estimativa.
+10. **Mudar o tipo da série** vale do próximo em diante (2.14, regra 6). Virar débito automático exige
+    conta corrente e despesa; deixar de ser volta a gerar na data da agenda. O que já foi gerado fica como
+    está, inclusive a marca de conferir.
+
+**Tela**
+
+- **"Novo lançamento" e o painel "se repete"** (2.25): numa despesa em conta corrente com "Todo mês", a
+  opção "É débito automático". Marcada, aparecem "O valor muda a cada mês" e "Vence dia", preenchido
+  com a data do lançamento (regra 4). Com "o valor muda", o rótulo do valor vira "Valor médio". Em cartão,
+  dinheiro, investimento ou receita a opção não aparece.
+- **O sino**, no cabeçalho de todas as telas, ao lado do tema. Com débitos a conferir, mostra a
+  quantidade; sem nenhum, fica sem número, e tocar diz "Nada para conferir.". Tocar abre o painel
+  **"Para conferir"**: um item por lançamento, o mais antigo primeiro, com marca, descrição, "≈ R$ 95,00"
+  e "Saiu em 16/11 · Itaú". Dois botões: **Confirmar** (um toque, o caso comum) e **Mudou**, que abre o
+  campo do valor da conta e troca o botão por **Salvar**. *(Ajustado na tarefa 5, ao conferir na tela: o
+  campo aberto com o valor médio esmaecido parecia valor já preenchido, e dois botões grandes por item
+  pesavam.)* O item sai da lista ao conferir; o aviso diz "Sabesp conferido: R$ 102,37.". Sem
+  "Desfazer": o valor se corrige no painel do lançamento, como qualquer outro.
+- **Lista e painel do lançamento:** "≈ −R$ 95,00" com "a conferir" embaixo; no painel, "Valor médio · a
+  conferir" sob o valor e o mesmo bloco de conferir do sino, acima das ações. A linha "Se repete" diz
+  "Débito automático, vence dia 20" e o "próximo débito", já no dia útil (a data vem da API).
+- **Resumo:** abaixo dos números do mês, a linha "≈ R$ 95,00 a conferir · O "Saiu" usa o valor médio até
+  você conferir.", que abre o painel do sino. (O bloco "Saiu" já é um link para a Análise; a linha fica
+  à parte.)
+- **Novo lançamento:** ao marcar débito automático, o meio de pagamento vira "Débito"; o vencimento é
+  escolhido entre a data do lançamento e os 7 dias antes, com o dia da semana ("dom 20/09"). A tela não
+  calcula dia útil: mostra o vencimento e diz que fim de semana e feriado vão para o próximo dia útil.
+- **"Recorrências"** (`/contas/recorrencias`): a seção **"Débitos automáticos"** primeiro, depois das
+  pendências, com vencimento, próxima data do débito e "valor médio" quando o valor muda; as outras
+  séries abaixo, em "Outras recorrências". A linha da aba Contas diz "3 ativas · 2 em débito automático" (o
+  mesmo separador do "1 pendente" que já existia). No painel da série: o vencimento, "valor médio", o próximo
+  vencimento e, quando cai em fim de semana ou feriado, a data em que é debitado. A edição liga e desliga o
+  débito automático (regra 10) e, com ele ligado, esconde frequência e pagamento, que são fixos. No painel de
+  um lançamento de débito automático, a data se chama "Data do débito".
+
+**Exemplos (usados nos testes).** Conta corrente Itaú.
+
+*Calendário.*
+
+| Data | Útil? | Próximo dia útil |
+|---|---|---|
+| 16/02/2026 e 17/02/2026 (Carnaval) | Não | 18/02 (Quarta de Cinzas, útil) |
+| 03/04/2026 (Sexta-feira Santa; Páscoa em 05/04) | Não | 06/04 |
+| 04/06/2026 (Corpus Christi) | Não | 05/06 |
+| 31/10/2026 (sábado) | Não | 03/11: 01/11 é domingo e 02/11, Finados |
+| 20/11/2026 (sexta, Consciência Negra) | Não | 23/11 |
+| 25/12/2026 (sexta) | Não | 28/12 |
+| 31/12/2026 (quinta) | Sim | 31/12 |
+| 01/01/2027 (sexta) | Não | 04/01/2027 |
+| 2025: Carnaval 03/03 e 04/03, Sexta Santa 18/04, Corpus Christi 19/06 | Não | |
+| 2027: Carnaval 08/02 e 09/02, Sexta Santa 26/03, Corpus Christi 27/05 | Não | |
+
+*Séries.*
+
+| Série | Débitos |
+|---|---|
+| Sabesp: vence todo dia 15, R$ 95,00 médio, partida 15/09/2026 | 15/10 (quinta), 16/11 (15/11 é domingo), 15/12 (terça) |
+| Copel: vence todo dia 20, R$ 180,00 médio, partida 20/10/2026 | 23/11 (20/11 é feriado), 21/12 (20/12 é domingo) |
+| Internet: vence todo dia 31, R$ 120,00 fixo, partida 31/08/2026 | 30/09, 03/11 (vencimento 31/10: sábado, domingo e Finados), 30/11, 31/12 |
+| Copel criada do lançamento de 21/09/2026 (segunda), vence dia 20 | Partida 20/09; próximo vencimento 20/10, débito 20/10 (terça) |
+| Hoje 25/09/2026, lançamento com data 10/09, vence dia 10 | Partida 10/09; próximo débito 13/10 (10/10 é sábado; 12/10, feriado) |
+| Lançamento de 21/09/2026 com vencimento 02/09 | Recusado: "O vencimento fica até 7 dias antes da data do lançamento." |
+
+*Geração e conferência (relógio falso).*
+
+| Caso | Resultado |
+|---|---|
+| Hoje 15/11/2026 (domingo) | Nada da Sabesp |
+| 16/11 às 00:30 em São Paulo | Sabesp gerada: R$ 95,00, data 16/11, ocorrência 15/11, a conferir; o sino mostra 1 |
+| A mesma execução duas vezes | Um lançamento só |
+| API fora do ar de 14/11 a 17/11 | Em 18/11, a Sabesp de 15/11 é gerada uma vez, com data 16/11 |
+| Hoje 20/11 (feriado) | Nada da Copel; em 23/11, gerada com data 23/11 |
+| Conferir a Sabesp com R$ 102,37 | Valor 102,37, sem marca; o sino some; a série continua com R$ 95,00 médio; Resumo de novembro: "Saiu" sobe R$ 7,37 |
+| Conferir sem mudar o valor | Fica R$ 95,00, sem marca |
+| Sabesp de novembro sem conferir em 15/12 | Gera a de dezembro; o sino mostra 2, novembro primeiro |
+| Excluir a Sabesp a conferir | Sai do sino; restaurar volta a conferir |
+| Editar só a categoria da Sabesp a conferir | Continua a conferir |
+| Internet (valor fixo) gerada em 03/11 | Sem marca, fora do sino; entra no "Saiu" de novembro, não de outubro |
+| Outro usuário | Nunca vê o sino nem os débitos de quem não é ele |
+| Débito automático no Visa ou numa receita | Recusado, com a mensagem da regra 2 |
+
+*Previsão.* Hoje 20/10/2026, com Sabesp, Copel e Internet.
+
+| Onde | Mostra |
+|---|---|
+| "Daqui para frente", novembro | R$ 515,00 previstos: Internet duas vezes, a de 31/10 (débito 03/11) e a de 30/11; Sabesp de 15/11 (16/11); Copel de 20/11 (23/11) |
+| "Daqui para frente", outubro | Nada previsto da Internet: o débito cai em novembro |
+
+**Plano** (detalhe em `tasks/2.26/`, ao começar; cada tarefa com testes antes, por ser regra de data e de
+dinheiro)
+
+- Tarefa 1. *(Feita em 2026-09-29: `BankCalendar` em `Prisma.Domain.Calendar`; 43 testes de domínio,
+  entre eles 4 propriedades, com o maior adiamento provado em 4 dias de 2000 a 2099; 7 mutações pegas; o
+  teste de arquitetura provado com um uso proibido em `Transactions`.)* Calendário bancário no domínio (`BankCalendar`): a tabela do calendário, os feriados de 2025
+  a 2027 e propriedades (CsCheck): o próximo dia útil é útil, nunca vem antes da data e não há dia útil
+  entre os dois; a função nunca volta no tempo. Teste de arquitetura: só a série e, na 2.22, a fatura
+  dependem dele.
+- Tarefa 2. *(Feita em 2026-09-30: `RecurrenceKind`, `AutoDebitTerms`, a data do débito na geração e na
+  previsão, `Transaction.ConfirmAmount`; 38 testes de domínio, 13 mutações pegas. A migration
+  `AddAutoDebits` veio da tarefa 3 para cá, porque sem ela o EF recusa subir o banco e a integração fica
+  vermelha; as séries que já existem entram como `Regular`, conferido no banco local com 17 séries. O
+  exemplo da previsão estava errado: a Internet é debitada duas vezes em novembro, R$ 515,00, não
+  R$ 395,00.)* Débito automático no domínio: tipo e "o valor muda" na série, recusas, vencimento × data do
+  débito na geração e na previsão, a primeira ocorrência com vencimento anterior, `AmountEstimated` e o
+  conferir no `Transaction`, mudar o tipo da série. Glossário do `CLAUDE.md`.
+- Tarefa 3. *(Feita em 2026-09-30: o gerador não mudou, porque as datas são decididas pelo domínio; 10
+  testes de integração (domingo, feriado, atraso, valor fixo, vencimento da primeira ocorrência, duas
+  execuções ao mesmo tempo e as 4 restrições do banco); 4 mutações pegas.)* ~~Migration~~ (feita na tarefa 2: `AddAutoDebits`, tipo e "o valor muda" na série, a marca no
+  lançamento, índice parcial dos lançamentos a conferir, restrições no banco) e o gerador: fim de semana, feriado, atraso, idempotência.
+- Tarefa 4. *(Feita em 2026-09-30: `autoDebit`, `amountVaries` e `dueDate` na criação; o tipo na edição,
+  que sem os campos novos mantém o tipo (a tela aberta antes não o desfaz); `GET /transactions/to-confirm`,
+  `POST /transactions/{id}/confirm-amount`, `amountEstimated` no lançamento, `kind`, `amountVaries` e
+  `nextTransactionDate` na série, `estimatedExpenseCents` no Resumo; 12 testes de integração, 9 mutações
+  pegas; `api-types.ts` só ganhou campos; `recurrences.http`.)* API: criar e editar com o tipo, conferir, a lista do sino, a marca na resposta do lançamento,
+  "a conferir" no Resumo; isolamento por usuário; `api-types.ts` regerado e os `.http`.
+- Tarefa 5. *(Feita em 2026-09-30: o sino no cabeçalho, com o painel carregado só no primeiro toque (o
+  pacote principal ficou em 411,7 kB, antes 410,7 kB); a marca na lista e no painel; a linha no Resumo;
+  débito automático no "se repete" do Novo lançamento e do painel; 15 testes no Vitest, 4 mutações
+  pegas; conferido com toques reais em 320, 390 e 1280px, claro e escuro, numa API paralela com dados de
+  teste.)* Tela: a opção no "se repete", o sino e o painel "Para conferir", a marca na lista e no painel
+  do lançamento, a linha no Resumo, invalidação das chaves (`invalidateMoney`).
+- Tarefa 6. *(Feita em 2026-09-30: a seção "Débitos automáticos", "Outras recorrências", o painel e a
+  edição da série com o tipo, a contagem na aba Contas e "Data do débito" no lançamento; 7 testes no Vitest,
+  3 mutações pegas e uma equivalente (ordenar pelo vencimento ou pelo débito dá a mesma ordem, e o código
+  ficou com uma só); conferido com toques reais em 320, 390 e 1280px, claro e escuro, inclusive desligar o
+  débito automático de uma série.)* Tela "Recorrências": a seção "Débitos automáticos" e a linha da aba Contas.
+
 ## 3. Endpoints
 
 ```
@@ -1160,6 +1377,24 @@ ainda pode ser estornado; na parcelada, sobre o total da compra), para a tela pr
 - `POST /recurrences/{id}/pending/{date}` com `{ action: "NextStatement" | "Launch" | "Discard" }`.
 - `GET /dashboard/committed` (já existe): cada mês ganha `projectedCents`. A fatura aberta ganha
   `projectedCents` (em `GET /accounts/{id}/statements` e `GET /dashboard/upcoming-statements`).
+
+### Etapa 2.26 (seção 2.15)
+
+Tudo acrescentado como opcional: sem os campos novos, o comportamento é o da 2.25 (`CLAUDE.md`, seção 6).
+
+- `POST /transactions` e `POST /transactions/{id}/recurrence` (já existem): `recurrence` ganha
+  `autoDebit?`, `amountVaries?` e `dueDate?` (vencimento da primeira ocorrência: da data do lançamento,
+  não de hoje, até 7 dias antes dela; padrão, a data dele). 400 (regra 2, vencimento fora do intervalo).
+- `PATCH /recurrences/{id}` (já existe): `autoDebit?` e `amountVaries?`, do próximo em diante.
+- `GET /recurrences` (já existe): cada série traz `kind`, `amountVaries` e a próxima data do débito.
+- `GET /transactions/to-confirm`: os lançamentos a conferir do usuário, o mais antigo primeiro (id,
+  descrição, conta, data, valor estimado). O sino conta os itens.
+- `POST /transactions/{id}/confirm-amount` com `{ amountCents? }`: confere; sem valor, mantém a
+  estimativa. 400 se o lançamento não está a conferir ("Este lançamento já foi conferido.") ou valor
+  inválido; 404.
+- `PATCH /transactions/{id}` (já existe): mudar o valor de um lançamento a conferir também confere.
+- Lançamento (`GET /transactions` e as demais respostas) ganha `amountEstimated`.
+- `GET /dashboard/summary` (já existe) ganha `estimatedExpenseCents`: quanto do "Saiu" ainda é estimativa.
 
 ## 4. Tela
 

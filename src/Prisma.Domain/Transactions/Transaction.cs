@@ -38,6 +38,26 @@ public sealed class Transaction : Entity
     public Guid? RecurrenceId { get; private set; }
     public DateOnly? OccurrenceDate { get; private set; }
 
+    // Débito automático de valor que muda (docs/fase-2.md, 2.15, regras 5 e 6): o valor é a estimativa da
+    // série até a pessoa conferir.
+    public bool AmountEstimated { get; private set; }
+
+    internal void MarkAmountEstimated() => AmountEstimated = true;
+
+    // Conferir: sem valor, a estimativa vira o valor; com valor, ele substitui a estimativa. Só uma vez.
+    public Result<Transaction> ConfirmAmount(long? amountCents)
+    {
+        if (!AmountEstimated)
+            return Invalid("Este lançamento já foi conferido.");
+
+        if (amountCents <= 0)
+            return Invalid("O valor deve ser maior que zero.");
+
+        AmountCents = amountCents ?? AmountCents;
+        AmountEstimated = false;
+        return this;
+    }
+
     internal void LinkToRecurrence(Guid recurrenceId, DateOnly occurrenceDate)
     {
         if (RecurrenceId is not null)
@@ -134,6 +154,10 @@ public sealed class Transaction : Entity
 
         if (ValidateSimple(account, type, amountCents, category, method, description) is { } error)
             return error;
+
+        // Mudar o valor de um lançamento a conferir também confere (2.15, regra 6).
+        if (amountCents != AmountCents)
+            AmountEstimated = false;
 
         ApplySimple(account, type, amountCents, purchaseDate, category, method, description);
         return this;

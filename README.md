@@ -33,6 +33,10 @@ reality, so the monthly numbers match your bank account instead of your receipts
   Each occurrence is recorded only on its day; what is still to come shows up as a lighter projection in
   the months ahead and on the open statement, never in balances. A charge that would land on an
   already-paid statement waits for a decision instead of changing it.
+- **Automatic debits:** utility bills the bank debits from a checking account. The debit lands on the
+  next business day after the due date (weekends and national holidays). When the bill changes every
+  month, the debit is recorded with an average amount, marked as an estimate everywhere it shows, and
+  waits in a bell in the header until you confirm it or type the real amount.
 - **Installments:** R$ 100.00 in 3x is 33.34 + 33.33 + 33.33, always adding up to the total.
 - **Refunds** reduce spending in the month they land and are never counted as income.
 - **Transfers** (including paying a card statement) are never income or expense, so nothing is
@@ -61,11 +65,39 @@ reality, so the monthly numbers match your bank account instead of your receipts
   `BackgroundService` that acts as each user (same query filters as a request). The entry and the
   series' progress are saved together, a unique index covers even deleted occurrences, and `xmin`
   guards the series: running twice, concurrently or after downtime catches up without duplicates.
+- **A bank calendar with nothing to maintain.** Business days come from weekends, fixed national holidays
+  and the ones computed from Easter (Carnival, Good Friday, Corpus Christi). Property-based tests check it
+  across a century, and an architecture test limits which code may use it: only automatic debits and card
+  due dates move to a business day; everything else keeps the date it happened.
 - **Tests that prove themselves.** Rules about money and dates are tested before they are written,
   integration tests run against a real PostgreSQL (Testcontainers, never an in-memory provider), and
   new rules are checked by breaking them on purpose and watching a test fail.
 - **Structured logs** with source-generated `LoggerMessage` events, one JSON line per event, and a
   test that refuses events carrying amounts, descriptions, names, emails or tokens.
+
+## How money moves
+
+A card purchase is not money spent on the day you swipe. It lands on a statement, and the money leaves on
+the statement's due date. That due date is the date the dashboard counts.
+
+```mermaid
+flowchart LR
+    Buy["Purchase<br/><i>PurchaseDate</i>"] -->|"closing day decides"| Statement["Statement<br/>(open until it closes)"]
+    Statement -->|"due date"| Cash["Money leaves the account<br/><i>SettlementDate</i>"]
+    Cash --> Dashboard["Monthly cash flow<br/>(counted here)"]
+    Pix["Pix, debit, cash"] -->|"same day"| Cash
+```
+
+An automatic debit repeats every month on its own. When the amount changes, the app records the average
+and asks you to check it:
+
+```mermaid
+flowchart LR
+    Due["Due date"] -->|"weekend or holiday?<br/>next business day"| Debit["Debit recorded<br/>with the average amount"]
+    Debit --> Bell["Bell in the header<br/>≈ estimate to check"]
+    Bell -->|"Confirm"| Exact["Month total is exact"]
+    Bell -->|"Changed: type the real amount"| Exact
+```
 
 ## Architecture
 
@@ -77,6 +109,8 @@ flowchart LR
     end
     Slices --> Domain["Prisma.Domain<br/>entities, value objects, rules<br/>(no dependencies)"]
     Slices --> Db[("PostgreSQL 17<br/>EF Core, snake_case")]
+    Job["Background job<br/>recurring entries and<br/>automatic debits"] --> Domain
+    Job --> Db
 ```
 
 - **`src/Prisma.Domain`:** entities, value objects and rules; no EF Core, ASP.NET Core or Npgsql.

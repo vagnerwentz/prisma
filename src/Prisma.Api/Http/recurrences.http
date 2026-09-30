@@ -210,3 +210,76 @@ Content-Type: application/json
 
 ### Descartar (no lugar de lançar: rode os passos 1 a 6 de novo e este em vez dos lançamentos; 204)
 DELETE {{baseUrl}}/recurrences/pendings/{{pendingId}}
+
+# --- Débito automático (docs/fase-2.md, 2.15) ---
+# Só despesa, só conta corrente, só mensal. O débito cai no próximo dia útil do vencimento. Com
+# "amountVaries", o valor é a estimativa: cada débito sai a conferir e aparece no sino.
+
+### Novo débito automático com valor que muda (201; os débitos vencidos já saem, a conferir)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "accountId": "{{recurrenceAccountId}}",
+  "type": "Expense",
+  "amountCents": 9500,
+  "purchaseDate": "2026-08-15",
+  "method": "Debit",
+  "description": "Sabesp",
+  "recurrence": { "frequency": "Monthly", "endDate": null, "autoDebit": true, "amountVaries": true }
+}
+
+### O sino: os lançamentos a conferir, o mais antigo primeiro (200)
+GET {{baseUrl}}/transactions/to-confirm
+
+> {% client.global.set("toConfirmId", response.body[0].id); %}
+
+### Conferir com o valor real (200; amountEstimated false; sai do sino)
+POST {{baseUrl}}/transactions/{{toConfirmId}}/confirm-amount
+Content-Type: application/json
+
+{ "amountCents": 10237 }
+
+### Conferir de novo (400: "Este lançamento já foi conferido.")
+POST {{baseUrl}}/transactions/{{toConfirmId}}/confirm-amount
+Content-Type: application/json
+
+{ "amountCents": null }
+
+### Débito já lançado, debitado na segunda 21/09 por vencer no domingo 20/09 (201; ainda sem série)
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "accountId": "{{recurrenceAccountId}}",
+  "type": "Expense",
+  "amountCents": 18000,
+  "purchaseDate": "2026-09-21",
+  "method": "Debit",
+  "description": "Copel"
+}
+
+> {% client.global.set("copelId", response.body[0].id); %}
+
+### Ele vira débito automático que vence dia 20 (201; startDate 20/09; nextTransactionDate no dia útil)
+POST {{baseUrl}}/transactions/{{copelId}}/recurrence
+Content-Type: application/json
+
+{ "frequency": "Monthly", "autoDebit": true, "amountVaries": true, "dueDate": "2026-09-20" }
+
+### Recusa: valor que muda sem débito automático (400: "Só o débito automático tem valor que muda.")
+POST {{baseUrl}}/transactions
+Content-Type: application/json
+
+{
+  "accountId": "{{recurrenceAccountId}}",
+  "type": "Expense",
+  "amountCents": 9500,
+  "purchaseDate": "2026-09-15",
+  "method": "Pix",
+  "description": "Recusado",
+  "recurrence": { "frequency": "Monthly", "amountVaries": true }
+}
+
+### O Resumo diz quanto do "Saiu" ainda é estimativa (estimatedExpenseCents)
+GET {{baseUrl}}/dashboard/summary?month=2026-10

@@ -18,6 +18,9 @@ const causaAnimal: Recurrence = {
   nextOccurrence: '2026-10-06',
   isEnded: false,
   pendings: [],
+  kind: 'Regular',
+  amountVaries: false,
+  nextTransactionDate: '2026-10-06',
 }
 
 describe('removalTexts', () => {

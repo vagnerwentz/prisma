@@ -11,12 +11,12 @@ type Props = Omit<ComponentProps<typeof Input>, 'value' | 'onChange' | 'type'> &
 export function MoneyInput({ value, onChange, ...props }: Props) {
   return (
     <Input
+      placeholder={formatCents(0)}
       {...props}
       type="text"
       inputMode="numeric"
       autoComplete="off"
       value={value === 0 ? '' : formatCents(value)}
-      placeholder={formatCents(0)}
       onChange={(event) => onChange(parseCentsInput(event.target.value))}
     />
   )
