@@ -1168,7 +1168,15 @@ antes do dia, feriado estadual e municipal, aviso fora do app (push, e-mail).
   com a data do lançamento (regra 4). Com "o valor muda", o rótulo do valor vira "Valor médio". Em cartão,
   dinheiro, investimento ou receita a opção não aparece.
 - **O sino**, no cabeçalho de todas as telas, ao lado do tema. Com débitos a conferir, mostra a
-  quantidade; sem nenhum, fica sem número, e tocar diz "Nada para conferir.". Tocar abre o painel
+  quantidade; sem nenhum, fica sem número, e tocar diz "Nada para conferir.". *(Depois do checkpoint, a
+  pedido do dono, 2026-09-30: o número ganha o anel do espectro, o mesmo do avatar, e o sino balança uma vez,
+  por 450 ms, quando a contagem cresce, nunca ao abrir a tela; sem movimento no sistema, só o número muda. A
+  lista do sino volta ao servidor ao voltar para o app, se tiver mais de um minuto: antes, com o app aberto, o
+  débito gerado de madrugada só aparecia depois de recarregar a página. O dono achou, testando, que o débito
+  criado pelo "Novo lançamento" não balançava o sino: a tela não tem cabeçalho, e o sino voltava sem lembrar o
+  número; agora o último número fica guardado enquanto a página está aberta. Consultar a cada 10 minutos com a
+  tela parada foi oferecido e recusado pelo dono: o débito sai de hora em hora, quase sempre de madrugada.)*
+  Tocar abre o painel
   **"Para conferir"**: um item por lançamento, o mais antigo primeiro, com marca, descrição, "≈ R$ 95,00"
   e "Saiu em 16/11 · Itaú". Dois botões: **Confirmar** (um toque, o caso comum) e **Mudou**, que abre o
   campo do valor da conta e troca o botão por **Salvar**. *(Ajustado na tarefa 5, ao conferir na tela: o

@@ -231,6 +231,30 @@
         }
     }
 
+    /* O sino (docs/fase-2.md, 2.15) balança uma vez quando chega um débito a conferir: mudança de estado, não
+       enfeite. Gira pelo alto, como um sino de verdade. Sem movimento, o número novo no anel já avisa. */
+    .bell-ring {
+        transform-origin: 50% 2px;
+        animation: bell-ring 450ms var(--ease-in-out);
+    }
+    @keyframes bell-ring {
+        20% {
+            transform: rotate(14deg);
+        }
+        45% {
+            transform: rotate(-10deg);
+        }
+        70% {
+            transform: rotate(5deg);
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .bell-ring {
+            animation: none;
+        }
+    }
+
     /* Ladrilho de categoria: fundo e ícone na mesma matiz da cor da categoria, com luminosidade
        ajustada ao tema. A cor de origem vem em --tile (relative color syntax do CSS). */
     .category-tile {

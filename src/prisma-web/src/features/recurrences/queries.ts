@@ -70,10 +70,14 @@ export function useDiscardPending() {
 // sob transactionsKey: lançar, editar, excluir ou conferir o atualiza (invalidateMoney).
 export const toConfirmKey = [...transactionsKey, 'to-confirm'] as const
 
+// O sino fica montado no cabeçalho o tempo todo, e o débito nasce sozinho (a tarefa roda de hora em hora): sem
+// buscar de novo ao voltar para o app, o débito da madrugada só apareceria depois de recarregar a página. Só esta
+// consulta volta ao servidor ao ganhar o foco (as outras não: queryClient.ts), e só se tiver mais de um minuto.
 export function useToConfirm() {
   return useQuery({
     queryKey: toConfirmKey,
     queryFn: async () => unwrap(await api.GET('/transactions/to-confirm')),
+    refetchOnWindowFocus: true,
   })
 }
 

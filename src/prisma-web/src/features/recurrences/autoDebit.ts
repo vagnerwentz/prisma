@@ -40,6 +40,10 @@ export function bellLabel(count: number): string {
   return count === 1 ? '1 débito para conferir' : `${count} débitos para conferir`
 }
 
+// O sino balança uma vez quando chega um débito novo (CLAUDE.md, 7.1: movimento mostra mudança de estado). Não
+// ao abrir a tela (a contagem ainda não era conhecida) nem ao conferir (ela diminui).
+export const bellRings = (previous: number | undefined, count: number) => previous !== undefined && count > previous
+
 // "Saiu em 16/11 · Itaú": quando e de onde o dinheiro saiu (o painel já diz que são débitos automáticos).
 export function debitDetails(transaction: { purchaseDate: string }, account: string | undefined, today: string): string {
   return [`Saiu em ${shortDate(transaction.purchaseDate, today)}`, account].filter(Boolean).join(' · ')

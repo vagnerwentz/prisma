@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   autoDebitLine,
   bellLabel,
+  bellRings,
   canAutoDebit,
   confirmedMessage,
   debitDetails,
@@ -112,6 +113,15 @@ describe('the bell', () => {
   it('confirms with the amount that stayed', () => {
     expect(confirmedMessage('Sabesp', 10237)).toBe('Sabesp conferido: R$ 102,37.')
     expect(confirmedMessage('', 9500)).toBe('Débito conferido: R$ 95,00.')
+  })
+
+  // Balança só quando chega um débito novo: não ao abrir a tela, nem ao conferir.
+  it('rings only when the count grows after it was known', () => {
+    expect(bellRings(undefined, 2)).toBe(false)
+    expect(bellRings(0, 1)).toBe(true)
+    expect(bellRings(1, 3)).toBe(true)
+    expect(bellRings(2, 2)).toBe(false)
+    expect(bellRings(2, 1)).toBe(false)
   })
 
   it('tells how much of the month is still an estimate', () => {

@@ -449,6 +449,11 @@ por conversa, arquivo versionado ou histórico do shell.
 - **O sino** (2.26) é o que falta conferir, não uma caixa de avisos: conta os lançamentos a conferir, e cada
   um sai quando é resolvido. Nada de "marcar todas como lidas", que deixaria a estimativa passar por valor
   real. Ele está em toda tela, então o painel dele carrega sob demanda (`lazy`), fora do pacote principal.
+  Com algo a conferir, o número ganha o anel `--spectrum-conic` (o do avatar), em tinta para ler bem; o sino
+  balança uma vez quando a contagem cresce, nunca ao abrir a tela nem em repetição. O último número fica guardado
+  fora do componente enquanto a página está aberta: o "Novo lançamento" não tem cabeçalho, e o sino que volta dele
+  precisa saber que o número cresceu. É a única consulta que volta ao servidor ao ganhar o foco (o débito nasce
+  sozinho, com o app aberto); sem consulta periódica, decisão do dono.
 - **Resumo × Análise:** o Resumo (`/`) é de relance (destaque, Entrou/Saiu/Investido, Hoje); o que
   explica o mês vai na Análise (`/analise`), e o que olha para a frente, na seção "Daqui para frente"
   dela. Bloco novo entra na tela da pergunta que responde, não no fim do Resumo. O `?mes=` passa

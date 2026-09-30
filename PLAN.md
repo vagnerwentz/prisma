@@ -570,9 +570,11 @@ fatura paga > compra presa > datas editadas > previsão.
   atraso, fatura paga e isolamento; tela conferida em 320, 390 e 1280px, claro e escuro; o dono cadastra
   a cobrança do pet e o aluguel e vê a previsão.
 
-- [ ] **2.26 Débito automático** (pedido do dono, 2026-09-29)
-  *Tarefas 1 a 6 feitas em 2026-09-30 (calendário, domínio, gerador, API, tela, Recorrências). Falta o
-  checkpoint do dono: cadastrar a Copel e a Sabesp e conferir um débito pelo sino.*
+- [x] **2.26 Débito automático** (pedido do dono, 2026-09-29)
+  *Concluída em 2026-09-30: tarefas 1 a 6 (calendário, domínio, gerador, API, tela, Recorrências) e o
+  checkpoint do dono, que testou os fluxos com um usuário de teste e cadastrou a Copel dele (o primeiro débito
+  sai em 20/10). Depois do checkpoint, a pedido dele, o sino ganhou o anel do espectro no número e balança uma
+  vez quando chega um débito. Especificação e notas em `docs/fase-2.md`, 2.15.*
   Contas de consumo em débito automático (luz, água, gás, escola; qualquer empresa): a série da 2.25 com
   o tipo `AutoDebit`, só despesa, só conta corrente, mensal. O débito cai no **próximo dia útil** do
   vencimento, pelo calendário bancário que esta etapa cria primeiro (fins de semana, feriados nacionais
