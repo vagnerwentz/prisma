@@ -434,8 +434,11 @@ por conversa, arquivo versionado ou histórico do shell.
   consultivas. Onde discordarem desta seção (texto em gradiente, halo, número em destaque), vale esta
   seção.
 - **Marcas:** `findBrand` reconhece a marca pela descrição ou nome da conta. Logo do
-  `simple-icons` quando existe; monograma na cor da marca quando a marca saiu do projeto (Amazon,
-  bancos brasileiros). Nunca desenhe um logo à mão.
+  `simple-icons` quando existe (`npm run gen:brands` reescreve o `logos.generated.ts`; desenho
+  acrescentado à mão vai no `logos.manual.ts`); bancos e corretoras com o ícone da instituição em
+  `lib/brands/institutions/*.svg` (já com o fundo, otimizado com SVGO, mostrado como imagem);
+  monograma na cor da marca quando não há desenho (Amazon, Inter, C6). Nome de marca que é palavra
+  comum ("agora", "rico") casa só com o texto inteiro (`=agora`). Nunca desenhe um logo à mão.
 - **Modo escuro** segue o sistema até a pessoa escolher claro ou escuro (botão do cabeçalho, ou o
   menu da conta, que também volta a seguir o sistema). O CSS lê só `[data-theme="dark"]` no `<html>`
   (variante `dark:` inclusive), nunca `prefers-color-scheme`; `lib/theme.ts` define o atributo, e o

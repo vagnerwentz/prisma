@@ -14,8 +14,21 @@ describe('findBrand', () => {
     ['Apple Music', 'Apple Music', 'logo'],
     ['Amazon Prime', 'Prime Video', 'monogram'],
     ['Amazon', 'Amazon', 'monogram'],
-    ['Itaú', 'Itaú', 'monogram'],
-    ['itau personnalite', 'Itaú', 'monogram'], // sem acento e em minúsculas
+    ['Itaú', 'Itaú', 'image'],
+    ['itau personnalite', 'Itaú', 'image'], // sem acento e em minúsculas
+    ['Íon Itaú', 'Íon', 'image'], // a corretora do Itaú vem antes do banco
+    ['Netflix (cartão Itaú)', 'Netflix', 'logo'], // estabelecimento antes do banco
+    ['Banco do Brasil', 'Banco do Brasil', 'image'],
+    ['BB', 'Banco do Brasil', 'image'],
+    ['Caixa Econômica Federal', 'Caixa', 'image'],
+    ['BTG Pactual', 'BTG Pactual', 'image'],
+    ['XP Investimentos', 'XP', 'image'],
+    ['TED Rico Investimentos', 'Rico', 'image'],
+    ['Rico', 'Rico', 'image'], // conta chamada só assim
+    ['Ágora', 'Ágora', 'image'],
+    ['Clear', 'Clear', 'image'],
+    ['Modal Mais', 'Modalmais', 'image'],
+    ['Inter', 'Inter', 'monogram'],
     ['Mercado Livre', 'Mercado Livre', 'monogram'],
     ['Pão de Açúcar', 'Pão de Açúcar', 'monogram'],
     ['Smart Fit', 'Smart Fit', 'monogram'],
@@ -31,6 +44,21 @@ describe('findBrand', () => {
       expect(findBrand(text)).toBeNull()
     },
   )
+
+  // Nome de corretora que também é palavra comum: só a conta chamada assim, nunca no meio da frase.
+  it.each(['Pagamento agora', 'Pastel do Rico', 'Clear skin', 'Safra de café', 'Loja Ion Store'])(
+    '"%s" não é corretora (palavra comum só vale como nome inteiro)',
+    (text) => {
+      expect(findBrand(text)).toBeNull()
+    },
+  )
+
+  it('ícone de instituição aponta para o arquivo SVG', () => {
+    const itau = findBrand('Itaú')
+    expect(itau?.kind).toBe('image')
+    if (itau?.kind !== 'image') return
+    expect(itau.src).toMatch(/itau.*\.svg|^data:image\/svg\+xml/)
+  })
 
   it('logo traz o desenho SVG e a cor da marca', () => {
     const uber = findBrand('Uber')

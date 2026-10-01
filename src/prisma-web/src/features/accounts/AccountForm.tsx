@@ -3,6 +3,7 @@ import { Controller, useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { SheetFooterBar } from '@/components/BottomSheet'
+import { AccountTile } from '@/components/brand/Tiles'
 import { FieldError } from '@/components/FieldError'
 import { MoneyInput } from '@/components/MoneyInput'
 import { NativeSelect } from '@/components/NativeSelect'
@@ -11,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ApiError } from '@/lib/api'
+import { findBrand } from '@/lib/brands/merchants'
 import { accountTypeLabels, type AccountType } from './labels'
 import { useCreateAccount, useUpdateAccount, type Account } from './queries'
 
@@ -86,7 +88,11 @@ export function AccountForm({
     defaultValues: account ? valuesOf(account) : emptyForm,
   })
   const { errors, isSubmitting } = form.formState
-  const isCard = useWatch({ control: form.control, name: 'type' }) === 'CreditCard'
+  const type = useWatch({ control: form.control, name: 'type' })
+  const name = useWatch({ control: form.control, name: 'name' })
+  const isCard = type === 'CreditCard'
+  // Como no Lançar: o ícone acompanha o nome digitado, e a marca reconhecida aparece ao lado do rótulo.
+  const brand = findBrand(name)
 
   const submit = form.handleSubmit(async (values) => {
     const fields = {
@@ -124,14 +130,23 @@ export function AccountForm({
           </Alert>
         )}
         <div className="flex flex-col gap-2">
-          <Label htmlFor={`${formId}-name`}>Nome</Label>
-          <Input
-            id={`${formId}-name`}
-            placeholder="Ex.: Itaú, Nubank, Carteira"
-            aria-invalid={!!errors.name}
-            className="h-11 rounded-xl"
-            {...form.register('name')}
-          />
+          <div className="flex items-baseline justify-between">
+            <Label htmlFor={`${formId}-name`}>Nome</Label>
+            {brand && <span className="text-xs text-muted-foreground">{brand.name} reconhecido</span>}
+          </div>
+          <div className="relative">
+            {/* Enfeite: a marca reconhecida já é dita ao lado do rótulo. */}
+            <span aria-hidden className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2">
+              <AccountTile name={name} type={type} />
+            </span>
+            <Input
+              id={`${formId}-name`}
+              placeholder="Ex.: Itaú, Nubank, Carteira"
+              aria-invalid={!!errors.name}
+              className="h-14 rounded-xl pl-14"
+              {...form.register('name')}
+            />
+          </div>
           <FieldError message={errors.name?.message} />
         </div>
         <div className="flex flex-col gap-2">

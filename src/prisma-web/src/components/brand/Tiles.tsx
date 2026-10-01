@@ -23,6 +23,15 @@ function fallbackColor(seed: string): string {
 }
 
 export function BrandTile({ brand, size = 'md', className }: { brand: BrandMark; size?: Size; className?: string }) {
+  // Ícone de banco ou corretora: o desenho já traz o fundo da marca e ocupa o quadro inteiro. Como
+  // imagem, cada arquivo fica isolado: os ids internos (máscaras, degradês) não colidem entre si.
+  if (brand.kind === 'image')
+    return (
+      <span role="img" aria-label={brand.name} className={cn('flex shrink-0 overflow-hidden', box[size], className)}>
+        <img src={brand.src} alt="" draggable={false} className="size-full" />
+      </span>
+    )
+
   const onDark = readableTextOn(brand.color) === 'light'
   return (
     <span
