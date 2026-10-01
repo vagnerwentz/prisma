@@ -1,10 +1,28 @@
+import agora from './institutions/agora.svg'
+import avenue from './institutions/avenue.svg'
+import bancoDoBrasil from './institutions/banco-do-brasil.svg'
+import bradesco from './institutions/bradesco.svg'
+import btgPactual from './institutions/btg-pactual.svg'
+import caixa from './institutions/caixa.svg'
+import clear from './institutions/clear.svg'
+import ion from './institutions/ion.svg'
+import itau from './institutions/itau.svg'
+import modalmais from './institutions/modalmais.svg'
+import rico from './institutions/rico.svg'
+import safra from './institutions/safra.svg'
+import santander from './institutions/santander.svg'
+import toro from './institutions/toro.svg'
+import xp from './institutions/xp.svg'
 import * as logos from './logos.generated'
+import * as manual from './logos.manual'
 
 // Marca reconhecida na descrição ou no nome da conta. Logo quando o Simple Icons tem a marca
-// (licença CC0; as marcas continuam dos seus donos). Monograma na cor da marca quando a marca
-// pediu para sair do Simple Icons (Amazon, bancos brasileiros, varejo): sem usar o logo.
+// (licença CC0; as marcas continuam dos seus donos). Bancos e corretoras: o ícone da instituição,
+// já com o fundo, em institutions/ (arquivos SVG, mostrados como imagem). Monograma na cor da marca
+// quando não há desenho (Amazon, varejo, os bancos ainda sem ícone): sem desenhar o logo.
 export type BrandMark =
   | { kind: 'logo'; name: string; color: string; path: string }
+  | { kind: 'image'; name: string; src: string }
   | { kind: 'monogram'; name: string; color: string; text: string }
 
 type Rule = { patterns: string[]; brand: BrandMark }
@@ -14,12 +32,19 @@ const logo = (icon: { hex: string; path: string }, name: string, ...patterns: st
   brand: { kind: 'logo', name, color: icon.hex, path: icon.path },
 })
 
+const image = (src: string, name: string, ...patterns: string[]): Rule => ({
+  patterns: patterns.length > 0 ? patterns : [name],
+  brand: { kind: 'image', name, src },
+})
+
 const monogram = (name: string, text: string, color: string, ...patterns: string[]): Rule => ({
   patterns: patterns.length > 0 ? patterns : [name],
   brand: { kind: 'monogram', name, color, text },
 })
 
-// Ordem importa: o mais específico vem antes ("uber eats" antes de "uber").
+// Ordem importa: o mais específico vem antes ("uber eats" antes de "uber", "íon itaú" antes de "itaú").
+// Padrão com "=" casa só com o texto inteiro: o nome que também é palavra comum ("agora", "rico",
+// "clear") reconhece a conta chamada só assim, sem pegar "Pagamento agora" ou "Pastel do Rico".
 const rules: Rule[] = [
   logo(logos.ubereats, 'Uber Eats', 'uber eats', 'ubereats'),
   logo(logos.uber, 'Uber', 'uber'),
@@ -67,7 +92,7 @@ const rules: Rule[] = [
   logo(logos.nubank, 'Nubank', 'nubank', 'nu pagamentos'),
   logo(logos.picpay, 'PicPay', 'picpay'),
   logo(logos.paypal, 'PayPal', 'paypal'),
-  logo(logos.petz, 'Petz', 'petz'),
+  logo(manual.petz, 'Petz', 'petz'),
 
   monogram('Prime Video', 'pv', '#1A98FF', 'prime video', 'amazon prime', 'primevideo'),
   monogram('Amazon', 'a', '#FF9900', 'amazon', 'amzn'),
@@ -80,14 +105,24 @@ const rules: Rule[] = [
   monogram('Americanas', 'a', '#E60014', 'americanas'),
   monogram('Rappi', 'R', '#FF441F', 'rappi'),
   monogram('99', '99', '#FFDD00', '99app', '99 pop', '99pop', '99 taxi'),
-  monogram('Itaú', 'it', '#EC7000', 'itau'),
+  // Bancos e corretoras depois dos estabelecimentos: "Netflix (cartão Itaú)" é Netflix.
+  image(ion, 'Íon', 'ion itau', '=ion'),
+  image(itau, 'Itaú', 'itau'),
+  image(bancoDoBrasil, 'Banco do Brasil', 'banco do brasil', 'bb'),
+  image(bradesco, 'Bradesco', 'bradesco'),
+  image(caixa, 'Caixa', 'caixa'),
+  image(santander, 'Santander', 'santander'),
+  image(btgPactual, 'BTG Pactual', 'btg pactual', 'btg'),
+  image(safra, 'Safra', 'banco safra', '=safra'),
+  image(xp, 'XP', 'xp investimentos', 'xp'),
+  image(rico, 'Rico', 'rico investimentos', 'rico corretora', '=rico'),
+  image(clear, 'Clear', 'clear corretora', 'clear investimentos', '=clear'),
+  image(toro, 'Toro', 'toro investimentos', '=toro'),
+  image(agora, 'Ágora', 'agora investimentos', 'agora corretora', '=agora'),
+  image(avenue, 'Avenue', 'avenue securities', '=avenue'),
+  image(modalmais, 'Modalmais', 'modalmais', 'modal mais', 'banco modal'),
   monogram('Inter', 'in', '#FF7A00', 'banco inter', 'inter'),
   monogram('C6 Bank', 'C6', '#242424', 'c6 bank', 'c6bank', 'c6'),
-  monogram('Santander', 'S', '#EC0000', 'santander'),
-  monogram('Bradesco', 'b', '#CC092F', 'bradesco'),
-  monogram('Caixa', 'cx', '#005CA9', 'caixa'),
-  monogram('Banco do Brasil', 'bb', '#FCFC30', 'banco do brasil', 'bb'),
-  monogram('XP', 'XP', '#1A1A1A', 'xp investimentos', 'xp'),
   monogram('Pão de Açúcar', 'PA', '#00843D', 'pao de acucar'),
   monogram('Assaí', 'as', '#E30613', 'assai'),
   monogram('Atacadão', 'at', '#E2231A', 'atacadao'),
@@ -108,14 +143,22 @@ function normalize(text: string): string {
     .trim()} `
 }
 
-const compiled = rules.map((rule) => ({ ...rule, needles: rule.patterns.map((p) => normalize(p)) }))
+const compiled = rules.map((rule) => ({
+  ...rule,
+  needles: rule.patterns.map((pattern) => {
+    const whole = pattern.startsWith('=')
+    return { whole, text: normalize(whole ? pattern.slice(1) : pattern) }
+  }),
+}))
 
 // Casa por palavra inteira, para "Superuberização" não virar Uber.
 export function findBrand(text: string | null | undefined): BrandMark | null {
   if (!text) return null
   const haystack = normalize(text)
   if (haystack.trim() === '') return null
-  return compiled.find((rule) => rule.needles.some((needle) => haystack.includes(needle)))?.brand ?? null
+  const matches = (needle: { whole: boolean; text: string }) =>
+    needle.whole ? haystack === needle.text : haystack.includes(needle.text)
+  return compiled.find((rule) => rule.needles.some(matches))?.brand ?? null
 }
 
 // Texto claro ou escuro sobre a cor da marca, pela luminância relativa (WCAG).

@@ -492,8 +492,11 @@ function Composer({
             vocabulary={vocabulary ?? []}
             type={type}
             today={today}
+            // Enfeite: a marca reconhecida já é dita ao lado do título da seção.
             leading={
-              brand || selectedCategory ? <EntryTile description={description} category={selectedCategory} /> : <DraftTile />
+              <span aria-hidden className="flex shrink-0">
+                {brand || selectedCategory ? <EntryTile description={description} category={selectedCategory} /> : <DraftTile />}
+              </span>
             }
             tileFor={(s, size) => (
               <EntryTile description={s.description} category={s.categoryId ? labels.get(s.categoryId) : undefined} size={size} />

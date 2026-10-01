@@ -591,6 +591,18 @@ fatura paga > compra presa > datas editadas > previsão.
   conferida em 320, 390 e 1280px, claro e escuro, com toques reais; o dono cadastra a Copel e a Sabesp
   e confere um débito pelo sino.
 
+- [x] **2.27 Ícones de bancos e corretoras** (pedido do dono, 2026-09-30)
+  *Concluída em 2026-09-30; o dono conferiu o tamanho do ícone na tela.*
+  Itaú, Banco do Brasil, Bradesco, Caixa, Santander, BTG Pactual, Safra, XP e as corretoras Rico, Clear,
+  Toro, Ágora, Avenue, Íon e Modalmais aparecem com o ícone da instituição (SVG com o fundo da marca,
+  trazido pelo dono e otimizado com SVGO) no lugar do monograma, nas contas e nos lançamentos. Nome que
+  também é palavra comum ("agora", "rico", "clear") só vale como nome inteiro ou por extenso ("Rico
+  Investimentos"). A "Nova conta" (e a edição) mostra o ícone dentro do campo "Nome" enquanto se digita,
+  com "<marca> reconhecido" ao lado do rótulo, como no Lançar. O Petz, acrescentado à mão no arquivo
+  gerado, foi para `logos.manual.ts`: o `npm run gen:brands` não o apaga mais.
+  *Pronto quando:* Vitest do reconhecimento (ordem, nome inteiro, falsos positivos), provado com mutação;
+  telas de contas e da "Nova conta" conferidas em 390px, claro e escuro; pacote principal do mesmo tamanho.
+
 ## Hospedagem para uso próprio
 
 Antes da Fase 3, a pedido: usar o Prisma no dia a dia exige que ele abra fora de casa, com
@@ -814,6 +826,18 @@ Decidir quando a fase correspondente chegar:
 - Textos antigos vistos na 2.24: a recusa "Esta despesa tem estornos; o tipo e a conta não mudam." usa
   ";" (sugestão: "Esta compra tem estorno. O tipo e a conta não mudam."); a compra sem categoria mostra
   o círculo tracejado, que lê como "carregando" (`CLAUDE.md`, 7.1). (numa revisão de textos e ícones)
+- **Ícones de marca, o que ficou fora da 2.27** (2026-09-30): ícone do Itaú Personnalité (hoje mostra o
+  do Itaú; falta o SVG), Inter e C6 (seguem como monograma); escolher a marca numa lista ao criar a conta
+  (para nome que não diz a marca, ex.: "Cartão preto"; o banco guardaria só uma chave, e a lista poderia
+  separar banco e corretora pelo tipo da conta); "caixa" casa em qualquer texto, então uma carteira
+  chamada "Caixa" mostra o ícone da Caixa Econômica; nas listas, o leitor de tela lê o nome da marca duas
+  vezes (ícone e texto); contorno no modo escuro para os ícones de fundo escuro (Safra, Modalmais, Íon):
+  o dono preferiu sem; crédito ao autor do arquivo de ícones, se a licença pedir. (quando fizer falta)
+- Editar as datas de uma fatura lê o cartão inteiro (`CardLedger`), embora o recálculo pule as compras
+  com parcela em fatura paga. Medido em 2026-09-30 (Release, mediana): cartão de 5 anos (3.229
+  lançamentos, 93% em faturas pagas) 9 ms na prévia e 25 ms ao salvar; caso extremo (17.747) 58 e 142 ms;
+  o recálculo em si fica abaixo de 0,5% da CPU. Proposta: ler só as compras com alguma parcela em fatura
+  aberta (e todas as parcelas delas), com teste de que o resultado é o mesmo. (se salvar passar de ~100 ms)
 - Lista de lançamentos com milhares de linhas num mês (medido em 2026-09-29 com o usuário de carga,
   4.792 linhas em setembro, no Mac, modo de desenvolvimento): a linha memoizada levou abrir o painel de
   ~760 para ~400 ms e fechar de ~585 para ~225 ms; mês real (~90 linhas) fica em ~60 e ~15 ms. O que
