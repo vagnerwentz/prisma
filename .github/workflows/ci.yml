@@ -45,7 +45,11 @@ jobs:
       # O dotnet ef lê os dados do projeto antes de compilar e não restaura os pacotes: num runner limpo,
       # sem este passo, falha com NETSDK1004.
       - run: dotnet restore src/Prisma.Api
+      # Gerar o script não conecta ao banco, mas a API recusa subir sem connection string: um valor
+      # fictício basta (o script sai idêntico ao gerado com a real).
       - run: dotnet ef migrations script --idempotent -p src/Prisma.Api -s src/Prisma.Api -o "$RUNNER_TEMP/schema.sql"
+        env:
+          ConnectionStrings__Default: Host=localhost;Database=unused
       - run: ops/backup/test/roundtrip.sh "$RUNNER_TEMP/schema.sql"
 
   frontend:
