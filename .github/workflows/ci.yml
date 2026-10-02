@@ -42,6 +42,9 @@ jobs:
         with:
           global-json-file: global.json
       - run: dotnet tool restore
+      # O dotnet ef lê os dados do projeto antes de compilar e não restaura os pacotes: num runner limpo,
+      # sem este passo, falha com NETSDK1004.
+      - run: dotnet restore src/Prisma.Api
       - run: dotnet ef migrations script --idempotent -p src/Prisma.Api -s src/Prisma.Api -o "$RUNNER_TEMP/schema.sql"
       - run: ops/backup/test/roundtrip.sh "$RUNNER_TEMP/schema.sql"
 
