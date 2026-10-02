@@ -789,6 +789,12 @@ Escopo em uma linha cada, para orientar decisões sem antecipar detalhe.
 
 Decidir quando a fase correspondente chegar:
 
+- **Postgres 18 no desenvolvimento e nos testes** (2026-10-02): a produção roda o 18 (`postgres-ssl:18` no
+  Railway), e o `docker-compose.yml` e o Testcontainers (`PostgresFixture`) seguem no 17, então os testes não
+  rodam na versão da produção. Decidido com o dono: PR próprio, logo depois da H.2b. O Testcontainers é uma
+  linha; o compose exige copiar os dados do 17 (`pg_dumpall`) para um volume novo, montado em
+  `/var/lib/postgresql` (a imagem 18 mudou o caminho), mantendo o volume antigo como plano B; e atualizar
+  `CLAUDE.md`, `README.md` (selo e tabela) e o comentário do CI.
 - **Tela de categorias** (2026-09-28): a API já cria, renomeia, recolore e exclui categorias, mas o app
   só as lista para escolher ao lançar; ninguém cria uma categoria própria sem mexer no banco. Adiada
   pelo dono depois da 2.23. Para acrescentar uma categoria para todos, use o catálogo
@@ -800,8 +806,9 @@ Decidir quando a fase correspondente chegar:
 
 - **Premissas do produto a validar** (2026-09-27): `docs/validacao-premissas.md` lista 15 premissas
   (valor, usabilidade, viabilidade, técnica), com consultas SQL prontas, filtros de log e o roteiro das
-  sessões com o pai e a noiva. As mais arriscadas: produção sem backup (H.2b), lançar na hora da
-  compra, pagamento de fatura lançado como despesa e dias do cartão. Resultados entram na tabela do
+  sessões com o pai e a noiva. As mais arriscadas: lançar na hora da compra, pagamento de fatura lançado
+  como despesa e dias do cartão. A produção sem backup deixou de ser risco com a H.2b (2026-10-02); seguem
+  sem homologação e com migrations direto na produção. Resultados entram na tabela do
   documento e, se mudarem o produto, viram decisão aqui.
 
 - Envio de fatura para LLM externo é opt-in explícito do usuário? (Fase 4)

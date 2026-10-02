@@ -10,7 +10,8 @@ real closing and due dates, installments that never lose a cent, and refunds tha
 ![PostgreSQL 17](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)
 
 The CI badge covers the whole pipeline: backend unit, property, integration and architecture tests,
-plus frontend lint, unit tests and production build. Deploys only happen when it is green.
+frontend lint, unit tests and production build, and a backup round trip (dump, encrypt, restore,
+compare). Deploys only happen when it is green.
 
 ## Why
 
@@ -74,6 +75,11 @@ reality, so the monthly numbers match your bank account instead of your receipts
   new rules are checked by breaking them on purpose and watching a test fail.
 - **Structured logs** with source-generated `LoggerMessage` events, one JSON line per event, and a
   test that refuses events carrying amounts, descriptions, names, emails or tokens.
+- **Backups that have been restored, not just taken.** A daily job dumps the database as a read-only
+  user, encrypts it with `age` before it leaves the container (the private key never touches the
+  server) and stores it off the hosting provider, under a deletion lock. A truncated dump is never
+  uploaded, a missed day sends an alert, and CI restores a backup on every push and compares it row by
+  row. A restore drill has been run against production.
 
 ## How money moves
 
@@ -120,7 +126,21 @@ flowchart LR
 - **`tests/`:** domain, integration and architecture tests.
 
 In production the API and the React build ship as one Docker image on Railway, with migrations applied
-on startup and deploys gated on CI.
+on startup and deploys gated on CI. A second service in the same project backs the database up every
+night:
+
+```mermaid
+flowchart LR
+    subgraph Railway["Railway project (private network)"]
+        App["API + React<br/>one Docker image"] --> Pg[("PostgreSQL")]
+        Cron["Backup service<br/>daily cron, 03:00 São Paulo"] -->|"pg_dump as a<br/>read-only user"| Pg
+    end
+    Cron -->|"encrypted with age<br/>(public key only)"| R2[("Cloudflare R2<br/>90-day retention<br/>30-day deletion lock")]
+    Cron -->|"start, success, failure"| HC["Healthchecks.io<br/>alerts when a day is missed"]
+    Key["Private key<br/>held only by the owner"] -.->|"restore"| R2
+```
+
+The backup lives outside Railway on purpose: losing the hosting account must not take the backups with it.
 
 ## Tech stack
 
@@ -132,6 +152,8 @@ on startup and deploys gated on CI.
 | Frontend | React 19, TypeScript, Vite, TanStack Query, React Hook Form + Zod, Tailwind CSS, shadcn/ui |
 | API client | `openapi-typescript` + `openapi-fetch`, types generated from the OpenAPI document |
 | Tests | xUnit, Shouldly, CsCheck, Testcontainers, NetArchTest, Vitest |
+| Hosting | Railway (Docker), deploys gated on CI |
+| Backups | `pg_dump` + `age` + `rclone` (Alpine image), Cloudflare R2, Healthchecks.io |
 
 ## Getting started
 
@@ -158,11 +180,16 @@ Tests:
 ```bash
 dotnet test                    # domain, integration (needs Docker) and architecture
 cd src/prisma-web && npm test  # frontend
+
+# backup round trip (needs Docker): the schema comes from the migrations
+dotnet ef migrations script --idempotent -p src/Prisma.Api -s src/Prisma.Api -o /tmp/schema.sql
+ops/backup/test/roundtrip.sh /tmp/schema.sql
 ```
 
 ## Project documents
 
-The roadmap (`PLAN.md`), the phase specifications (`docs/`) and the working agreement (`CLAUDE.md`)
+The roadmap (`PLAN.md`), the phase specifications (`docs/`), the operations runbook
+(`docs/operacao.md`: database users, backups, restore, logs) and the working agreement (`CLAUDE.md`)
 are working documents written in Portuguese.
 
 ## License

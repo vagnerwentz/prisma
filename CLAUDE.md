@@ -68,7 +68,7 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 | API | ASP.NET Core Minimal APIs + `Microsoft.AspNetCore.OpenApi` (documento em `/openapi/v1.json`, só em desenvolvimento) |
 | Auth | ASP.NET Core Identity + cookie `httpOnly` + rate limiter nativo do ASP.NET Core + chaves do Data Protection no Postgres (`Microsoft.AspNetCore.DataProtection.EntityFrameworkCore`); Google OAuth adiado |
 | ORM | EF Core 10 + Npgsql + EFCore.NamingConventions (snake_case) + EF Core Design (migrations; `dotnet-ef` fixado em `dotnet-tools.json`) |
-| Banco | PostgreSQL 17 (Docker) |
+| Banco | PostgreSQL 17 (Docker) no desenvolvimento e nos testes; **18 na produção** (Railway): alinhar o local e os testes ao 18 está pendente no `PLAN.md` |
 | Validação | FluentValidation |
 | Testes | xUnit + Shouldly + Testcontainers + NetArchTest + CsCheck + `Microsoft.AspNetCore.Mvc.Testing` (`WebApplicationFactory`) |
 | Frontend | React 19 + TypeScript + Vite + React Router |
@@ -79,6 +79,8 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 | Estado de servidor | TanStack Query v5 |
 | Formulários | React Hook Form + Zod |
 | Gráficos | Recharts |
+| Hospedagem | Railway: serviço da API (`Dockerfile` da raiz), Postgres e serviço `backup` (cron), no mesmo projeto |
+| Backup | Imagem Alpine (`ops/backup/Dockerfile`) com `pg_dump` 18, `age` (criptografia), `rclone` (envio) e `curl`; Cloudflare R2 (destino, fora do Railway); Healthchecks.io (alerta quando o backup falha ou não roda) |
 
 ### Proibido
 
@@ -109,7 +111,12 @@ tests/
 ├── Prisma.Api.Tests/           # Integração por slice, com Testcontainers
 └── Prisma.Architecture.Tests/  # NetArchTest
 docs/
-└── fase-N.md                   # Detalhamento da fase em execução
+├── fase-N.md                   # Detalhamento da fase em execução
+├── operacao.md                 # Roteiros da produção: usuários do banco, backup, restauração, logs
+└── validacao-premissas.md      # Premissas do produto e o resultado de cada validação
+ops/
+├── backup/                     # Serviço de backup: Dockerfile, backup.sh, restore.sh, teste de ida e volta
+└── postgres/                   # Usuários do banco de produção: prisma_app (API) e prisma_backup (só lê)
 ```
 
 ### Regra de dependência, verificada pelo build
@@ -364,8 +371,10 @@ npm run lint          # oxlint
 docker build -t prisma .                           # imagem de produção (API + React), na raiz
 ```
 
-**CI:** `.github/workflows/ci.yml` roda `dotnet test` e, no frontend, lint, Vitest e build a cada
-push na `main` e em pull requests. Comando novo de verificação entra lá também.
+**CI:** `.github/workflows/ci.yml` roda `dotnet test`; no frontend, lint, Vitest e build; e o backup de ida e
+volta (`ops/backup/test/roundtrip.sh`: schema real das migrations num Postgres 18, backup, restauração e
+comparação), a cada push na `main` e em pull requests. Os três devem ser checks obrigatórios no ruleset da `main` (confira em *Settings* → *Rules*). Comando
+novo de verificação entra lá também.
 
 Testes manuais: `src/Prisma.Api/Http/*.http` (HTTP Client do Rider), com a API rodando
 pelo perfil `https`. Rode o Login de `auth.http` antes dos demais: o Rider guarda o cookie
@@ -390,7 +399,9 @@ Em produção a API entra no banco como `prisma_app` (dono das tabelas, sem supe
 `ops/postgres/app-user.sql`), e o `postgres` fica só para administração. O TCP Proxy do Postgres fica
 desligado. O backup diário é um serviço à parte no mesmo projeto (`ops/backup/`, cron): `pg_dump` como
 `prisma_backup` (só lê), criptografado com `age` (a chave privada fica só com o dono) e guardado no R2, com
-alerta pelo Healthchecks.io; o job `Backup (round trip)` do CI faz backup e restauração a cada push. Roteiros de operação (senhas, backup, restauração, logs e a tarefa das recorrências) em `docs/operacao.md`; senha nunca passa
+alerta pelo Healthchecks.io; o job `Backup (round trip)` do CI faz backup e restauração a cada push. A imagem
+do backup segue a versão do Postgres da produção (hoje 18): se o Railway mudar, ela muda junto. Onde está cada
+peça (serviço, bucket, token, check, chave) e a próxima restauração de prova: `docs/operacao.md`, seção 5. Roteiros de operação (senhas, backup, restauração, logs e a tarefa das recorrências) em `docs/operacao.md`; senha nunca passa
 por conversa, arquivo versionado ou histórico do shell.
 
 ---

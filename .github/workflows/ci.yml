@@ -1,5 +1,5 @@
-# Integração contínua: todo push na main (e todo pull request para ela) roda os testes do backend
-# e do frontend. O Railway só faz o deploy com este check verde ("Wait for CI").
+# Integração contínua: todo push na main (e todo pull request para ela) roda os testes do backend,
+# do frontend e o backup de ida e volta. O Railway só faz o deploy com este check verde ("Wait for CI").
 name: CI
 
 on:

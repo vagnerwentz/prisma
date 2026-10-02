@@ -1,7 +1,7 @@
 # Operação da produção (Railway)
 
 Roteiros para a produção de uso próprio (etapas H.2a a H.2c do `PLAN.md`). Nenhum segredo neste
-arquivo: senhas ficam no gerenciador de senhas e nas variáveis do Railway.
+arquivo: senhas ficam no gerenciador de senhas do dono (o app Senhas do Mac) e nas variáveis do Railway.
 
 ## 1. Usuário da API no banco e troca de senhas (H.2a)
 
@@ -120,13 +120,21 @@ pública do `age` e a guarda no Cloudflare R2. Só a chave privada, que fica só
 90 dias e não deixa apagar nada com menos de 30 (trava do bucket), nem com o token. O Healthchecks.io manda
 e-mail se um dia o backup falhar ou não rodar.
 
-| Peça | Onde | Quem guarda o segredo |
-|---|---|---|
-| Imagem e scripts | `ops/backup/` (`backup.sh`, `restore.sh`, `Dockerfile`) | — |
-| Usuário que só lê | `ops/postgres/backup-user.sql` (`prisma_backup`) | senha nas variáveis do serviço `backup` |
-| Chave do `age` | pública no Railway; privada no app Senhas (iCloud) e numa cópia fora do computador | você |
-| Cópias | bucket do R2 | token restrito ao bucket, no Railway |
-| Alerta | Healthchecks.io | endereço de aviso, no Railway |
+**Onde está cada coisa** (montado em 2026-10-02):
+
+| Peça | Onde fica | Nome e configuração | Segredo e onde ele está |
+|---|---|---|---|
+| Código | repositório, `ops/backup/` | `Dockerfile` (Alpine 3.23, `pg_dump` 18, `age`, `rclone`, `curl`), `backup.sh`, `restore.sh`, `counts.sql`, `test/roundtrip.sh` | — |
+| Serviço | Railway, mesmo projeto da API | `backup`; cron `0 6 * * *` (UTC = 03:00 em São Paulo); *Restart Policy* `Never`; *Watch Paths* `/ops/backup/**`; "Wait for CI" ligado | variáveis do serviço (seção 5.1, passo 6) |
+| Usuário do banco | Postgres de produção | `prisma_backup`, só lê (`pg_read_all_data`); criado por `ops/postgres/backup-user.sql` | senha na variável `PGPASSWORD` do serviço `backup` |
+| Chave pública do `age` | Railway | variável `AGE_RECIPIENT` (`age1900pv…`); não é segredo | — |
+| Chave privada do `age` | só com o dono | **a única que abre os backups; não há como recuperá-la** | app **Senhas** do Mac (iCloud), entrada `Prisma — chave do backup (age)`, campo Notas; e uma cópia fora do computador (papel ou pendrive) |
+| Cópias | Cloudflare → **R2 Object Storage** | bucket `prisma-backups`, classe Standard; ciclo de vida: apagar com 90 dias (e a regra padrão que aborta envios incompletos em 7); trava (*Bucket lock*): 30 dias | — |
+| Acesso ao bucket | Cloudflare → R2 → *Manage API tokens* | token de conta `prisma-backup-railway`: **Object Read & Write**, só no bucket `prisma-backups`, sem validade | *Access Key ID* e *Secret* nas variáveis `RCLONE_CONFIG_R2_*` do serviço `backup` |
+| Alerta | **Healthchecks.io** (plano grátis) | check `prisma-backup`: cron `0 6 * * *`, fuso UTC, tolerância de 1 hora; avisos por e-mail | endereço de aviso na variável `HEALTHCHECK_URL` do serviço `backup` |
+| Verificação contínua | GitHub Actions | job `Backup (round trip)` do `.github/workflows/ci.yml`, a cada push e PR | — |
+
+Os nomes dos arquivos são `prisma-<data e hora em UTC>Z.dump.age` (ex.: `prisma-2026-10-02T172151Z.dump.age`).
 
 O CI (job `Backup (round trip)`) faz backup e restauração num Postgres de teste, com o schema real, a cada push.
 
@@ -264,3 +272,16 @@ Ainda não ensaiado. Se o banco de produção se perder:
 Nada a fazer enquanto o Healthchecks não mandar e-mail. Se mandar, o log do serviço `backup` no Railway diz o
 motivo (`backup: failed status=...` e a linha anterior). O backup não usa o `AppLog`: é um script, e as linhas
 são texto simples, com só nomes de tabela, contagens, nome e tamanho do arquivo.
+
+### 5.5 Manutenção
+
+| Quando | O que fazer |
+|---|---|
+| **A cada 3 meses** (próxima: janeiro de 2027) ou depois de mudar o backup | Restauração de prova (5.2). Anote a data e o arquivo no fim da 5.2. |
+| O Railway mudar a versão do Postgres | Trocar o pacote `postgresql<N>-client` (e o Alpine, se preciso) em `ops/backup/Dockerfile` e o `postgres:<N>` do teste (`ops/backup/test/roundtrip.sh`). Sem isso, o `pg_dump` recusa e o Healthchecks avisa. |
+| Mudar o horário do backup | Mudar o cron no Railway **e** no check do Healthchecks: os dois em UTC e iguais, senão chega alerta falso. |
+| Suspeita de vazamento do token do R2 | Criar outro token (5.1, passo 3), trocar as variáveis `RCLONE_CONFIG_R2_*` e apagar o antigo na Cloudflare. A trava de 30 dias impede que um token vazado apague as cópias recentes. |
+| Suspeita de vazamento da senha do `prisma_backup` | `\password prisma_backup` (com o TCP Proxy ligado só durante isso) e atualizar `PGPASSWORD` no serviço. A senha só lê: não altera nem apaga nada. |
+| Perda da chave privada | As cópias antigas viram ilegíveis. Gerar um par novo (5.1, passo 2), trocar `AGE_RECIPIENT`, guardar a privada nos dois lugares e fazer uma restauração de prova com a cópia seguinte. |
+| Trocar de Mac ou de conta Apple | Conferir que a entrada da chave continua no app Senhas, ou levá-la para o novo cofre antes de apagar o antigo. |
+
