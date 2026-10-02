@@ -597,4 +597,5 @@ Preencher conforme as validações acontecem. Cada conclusão que mudar o produt
 | 7 | 2026-09-29 | Segundo cartão Itaú: fechamento 29/09, vencimento 07/10 (8 dias antes); no dia 29 o banco já mostrava fechada e o Prisma, aberta (seção 11) | Refutada: o dia do fechamento do banco é exclusivo | Reforça a 2.21 (adiada); contorno: cadastrar o fechamento um dia antes |
 | 8 | | | | |
 | 9 | | | | |
+| 10 | 2026-10-02 | Backup diário fora do Railway (R2, criptografado, alerta de silêncio) e restauração de prova: 13 tabelas com as mesmas contagens e o Resumo igual ao da produção | Parte resolvida: a perda de dados tem saída; seguem sem homologação, com migrations direto na produção, e o plano do Railway a confirmar | H.2b concluída no `PLAN.md`; roteiro em `docs/operacao.md`, seção 5 |
 | 13 | | | | |

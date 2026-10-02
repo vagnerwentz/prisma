@@ -673,7 +673,7 @@ conversa e o TCP Proxy do Postgres ficou ligado. A H.2 foi dividida em três (de
   API e o Postgres o mês todo; volume de conta vinda do teste é apagado 30 dias depois do fim do
   crédito), limite de gasto e 2FA no Railway.
 
-- [ ] **H.2b Backup fora do Railway**
+- [x] **H.2b Backup fora do Railway**
   O backup nativo do Railway (se o plano incluir) só restaura no mesmo projeto e some junto com o
   volume. Serviço agendado no próprio projeto: `pg_dump` diário pela rede privada, criptografado com
   `age` (chave pública no serviço, privada só com o usuário) e enviado ao Cloudflare R2. Roteiro de
@@ -695,8 +695,15 @@ conversa e o TCP Proxy do Postgres ficou ligado. A H.2 foi dividida em três (de
   é do age, sem dado em claro; a restauração devolve as mesmas contagens e os mesmos dados; ela recusa um
   banco com tabelas; um `pg_dump` que morre no meio, senha errada e variável faltando não deixam arquivo,
   e a falha é avisada. Provado com quatro violações propositais (sem `pipefail`, usuário que grava,
-  restauração por cima, falha sem aviso). Falta: R2, chave, Healthchecks e serviço no Railway (seção 5.1)
-  e a restauração de prova (5.2).
+  restauração por cima, falha sem aviso).
+  *Feito (2026-10-02, com o dono):* produção no Postgres 18 (imagem do backup com o `pg_dump` 18); R2 com
+  ciclo de vida de 90 dias e trava de 30; Healthchecks.io; `prisma_backup` criado e conferido (lê, não grava);
+  serviço `backup` no Railway, cron `0 6 * * *`. Primeira execução: 13 tabelas, 57.743 bytes, aviso recebido.
+  Restauração de prova com a chave do cofre (app Senhas), num Postgres 18 provisório: as 13 contagens iguais
+  às do log e o Resumo igual ao da produção. Ajustes do roteiro achados no caminho (serviço vazio antes do
+  repositório, `REGION=auto`, porta só em `127.0.0.1`, ordem do `pbpaste`) já estão em `docs/operacao.md`.
+  Pendente do dono: a cópia da chave fora do computador. O Postgres local e o dos testes seguem no 17:
+  alinhar com o 18 num PR próprio.
 
 - [ ] **H.2c Operação**
   Roteiro para senha esquecida (sem e-mail ainda), monitor de disponibilidade em `/api/health`,
