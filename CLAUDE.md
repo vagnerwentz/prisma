@@ -68,7 +68,7 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 | API | ASP.NET Core Minimal APIs + `Microsoft.AspNetCore.OpenApi` (documento em `/openapi/v1.json`, só em desenvolvimento) |
 | Auth | ASP.NET Core Identity + cookie `httpOnly` + rate limiter nativo do ASP.NET Core + chaves do Data Protection no Postgres (`Microsoft.AspNetCore.DataProtection.EntityFrameworkCore`); Google OAuth adiado |
 | ORM | EF Core 10 + Npgsql + EFCore.NamingConventions (snake_case) + EF Core Design (migrations; `dotnet-ef` fixado em `dotnet-tools.json`) |
-| Banco | PostgreSQL 17 (Docker) no desenvolvimento e nos testes; **18 na produção** (Railway): alinhar o local e os testes ao 18 está pendente no `PLAN.md` |
+| Banco | PostgreSQL 18 em todo lugar: Docker no desenvolvimento, Testcontainers nos testes, Railway na produção. Mudou a versão da produção, mudam juntos o `docker-compose.yml`, o `PostgresFixture` e a imagem do backup |
 | Validação | FluentValidation |
 | Testes | xUnit + Shouldly + Testcontainers + NetArchTest + CsCheck + `Microsoft.AspNetCore.Mvc.Testing` (`WebApplicationFactory`) |
 | Frontend | React 19 + TypeScript + Vite + React Router |
@@ -112,7 +112,7 @@ tests/
 └── Prisma.Architecture.Tests/  # NetArchTest
 docs/
 ├── fase-N.md                   # Detalhamento da fase em execução
-├── operacao.md                 # Roteiros da produção: usuários do banco, backup, restauração, logs
+├── operacao.md                 # Roteiros da produção: usuários do banco, backup, restauração, logs; versão do Postgres local
 └── validacao-premissas.md      # Premissas do produto e o resultado de cada validação
 ops/
 ├── backup/                     # Serviço de backup: Dockerfile, backup.sh, restore.sh, teste de ida e volta
@@ -401,7 +401,7 @@ desligado. O backup diário é um serviço à parte no mesmo projeto (`ops/backu
 `prisma_backup` (só lê), criptografado com `age` (a chave privada fica só com o dono) e guardado no R2, com
 alerta pelo Healthchecks.io; o job `Backup (round trip)` do CI faz backup e restauração a cada push. A imagem
 do backup segue a versão do Postgres da produção (hoje 18): se o Railway mudar, ela muda junto. Onde está cada
-peça (serviço, bucket, token, check, chave) e a próxima restauração de prova: `docs/operacao.md`, seção 5. Roteiros de operação (senhas, backup, restauração, logs e a tarefa das recorrências) em `docs/operacao.md`; senha nunca passa
+peça (serviço, bucket, token, check, chave) e a próxima restauração de prova: `docs/operacao.md`, seção 5. Roteiros de operação (senhas, backup, restauração, logs, a tarefa das recorrências e a mudança de versão do Postgres local) em `docs/operacao.md`; senha nunca passa
 por conversa, arquivo versionado ou histórico do shell.
 
 ---

@@ -97,6 +97,7 @@ public sealed class AutoDebitRunnerTests(PostgresFixture postgres)
             """
             SELECT occurrence_date, purchase_date, settlement_date, amount_cents, amount_estimated, method
             FROM transactions WHERE recurrence_id = @r AND occurrence_date <> @first
+            ORDER BY occurrence_date
             """,
             ("r", recurrence), ("first", first));
 

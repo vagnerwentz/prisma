@@ -218,8 +218,8 @@ backup nunca restaurado não é backup.
    `pbpaste > ~/prisma-restore-key.txt && chmod 600 ~/prisma-restore-key.txt` sem apertar Enter, copie as Notas
    da entrada no app Senhas, volte e aperte Enter. Se o original ainda existir, `cmp` dos dois pode acusar só a
    quebra de linha do fim, que o app descarta: não faz falta.
-3. Restaure num **Postgres 18 provisório** (o da produção), separado do banco do dia a dia: o Postgres do
-   `docker compose` é o 17 e não lê com segurança uma cópia do 18. Na raiz do repositório:
+3. Restaure num **Postgres 18 provisório** (o da produção), separado do banco do dia a dia: os dados de
+   produção não se misturam com os de desenvolvimento, e apagar o provisório não toca no seu. Na raiz do repositório:
    ```bash
    docker build -f ops/backup/Dockerfile -t prisma-backup .
    PGPASSWORD="$(openssl rand -hex 16)" && export PGPASSWORD     # senha descartável, só deste terminal
@@ -278,10 +278,50 @@ são texto simples, com só nomes de tabela, contagens, nome e tamanho do arquiv
 | Quando | O que fazer |
 |---|---|
 | **A cada 3 meses** (próxima: janeiro de 2027) ou depois de mudar o backup | Restauração de prova (5.2). Anote a data e o arquivo no fim da 5.2. |
-| O Railway mudar a versão do Postgres | Trocar o pacote `postgresql<N>-client` (e o Alpine, se preciso) em `ops/backup/Dockerfile` e o `postgres:<N>` do teste (`ops/backup/test/roundtrip.sh`). Sem isso, o `pg_dump` recusa e o Healthchecks avisa. |
+| O Railway mudar a versão do Postgres | Trocar o pacote `postgresql<N>-client` (e o Alpine, se preciso) em `ops/backup/Dockerfile` e o `postgres:<N>` do teste (`ops/backup/test/roundtrip.sh`). Sem isso, o `pg_dump` recusa e o Healthchecks avisa. No mesmo PR, levar o desenvolvimento e os testes para a mesma versão (seção 6). |
 | Mudar o horário do backup | Mudar o cron no Railway **e** no check do Healthchecks: os dois em UTC e iguais, senão chega alerta falso. |
 | Suspeita de vazamento do token do R2 | Criar outro token (5.1, passo 3), trocar as variáveis `RCLONE_CONFIG_R2_*` e apagar o antigo na Cloudflare. A trava de 30 dias impede que um token vazado apague as cópias recentes. |
 | Suspeita de vazamento da senha do `prisma_backup` | `\password prisma_backup` (com o TCP Proxy ligado só durante isso) e atualizar `PGPASSWORD` no serviço. A senha só lê: não altera nem apaga nada. |
 | Perda da chave privada | As cópias antigas viram ilegíveis. Gerar um par novo (5.1, passo 2), trocar `AGE_RECIPIENT`, guardar a privada nos dois lugares e fazer uma restauração de prova com a cópia seguinte. |
 | Trocar de Mac ou de conta Apple | Conferir que a entrada da chave continua no app Senhas, ou levá-la para o novo cofre antes de apagar o antigo. |
 
+
+## 6. Postgres local: mudar de versão
+
+O desenvolvimento (`docker-compose.yml`) e os testes (`PostgresFixture`) usam a mesma versão da produção. Quando
+ela mudar, troque a imagem nos dois. Nos testes basta isso: o Testcontainers cria um banco vazio a cada execução.
+
+O banco local tem dados, e o Postgres não lê a pasta de dados de outra versão principal: a passagem é copiar do
+antigo e restaurar no novo, num volume novo, deixando o antigo como plano B. Foi assim do 17 para o 18
+(2026-10-02). Na raiz do repositório, com o banco antigo ainda no ar:
+
+1. **Copiar tudo**, para fora do repositório (o arquivo tem os dados de quem usa o app localmente):
+   ```bash
+   docker exec prisma-postgres-1 pg_dumpall -U prisma > ~/prisma-local-dumpall.sql
+   tail -3 ~/prisma-local-dumpall.sql        # termina em "PostgreSQL database cluster dump complete"
+   ```
+2. **Contar as linhas de cada tabela**, para comparar depois. O mesmo comando vale no passo 5:
+   ```bash
+   docker exec -i prisma-postgres-1 psql -U prisma -d prisma -At -F' ' > ~/prisma-contagens-antes.txt <<'SQL'
+   select string_agg(format('select %L as t, count(*) as n from %I.%I', schemaname||'.'||relname, schemaname, relname), ' union all ' order by schemaname, relname)
+   from pg_stat_user_tables \gset
+   :string_agg order by t;
+   SQL
+   ```
+3. **Trocar a versão no `docker-compose.yml`**: a imagem e o nome do volume (ex.: `postgres18-data`), conferindo
+   na página da imagem oficial onde a versão nova guarda os dados (a partir do 18, o volume monta
+   `/var/lib/postgresql`, não mais `.../data`). Depois, `docker compose up -d --wait`: o container é recriado com
+   um volume vazio, e a imagem já cria o usuário e o banco `prisma`.
+4. **Restaurar e recalcular as estatísticas** (elas não vêm na cópia):
+   ```bash
+   docker exec -i prisma-postgres-1 psql -U prisma -d postgres -q < ~/prisma-local-dumpall.sql
+   docker exec prisma-postgres-1 psql -U prisma -d prisma -qc "analyze"
+   ```
+   Dois erros são normais: `role "prisma" already exists` e `database "prisma" already exists` (a imagem já os
+   criou). Qualquer outro, pare e investigue.
+5. **Conferir**: rode a contagem do passo 2 para `~/prisma-contagens-depois.txt` e compare com
+   `diff ~/prisma-contagens-antes.txt ~/prisma-contagens-depois.txt` (nenhuma diferença); `select version()`
+   mostra a versão nova; a API sobe e `/api/health` responde `Healthy`; `dotnet test` verde.
+6. **Limpar**: apague `~/prisma-local-dumpall.sql` e as contagens. **Voltar atrás**, se preciso: devolva a imagem e
+   o volume antigos ao compose e rode `docker compose up -d`. Quando não precisar mais do antigo,
+   `docker volume rm prisma_postgres-data` (o nome antigo; `docker volume ls` lista).
