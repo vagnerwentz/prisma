@@ -8,7 +8,7 @@ namespace Prisma.Api.Tests.Infrastructure;
 // Um único Postgres para toda a suíte, com o schema criado pelas migrations reais.
 public sealed class PostgresFixture : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:17").Build();
+    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:18").Build();
 
     public string ConnectionString => _container.GetConnectionString();
 

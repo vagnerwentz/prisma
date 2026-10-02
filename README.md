@@ -7,7 +7,7 @@ real closing and due dates, installments that never lose a cent, and refunds tha
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white)
 ![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
-![PostgreSQL 17](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)
+![PostgreSQL 18](https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white)
 
 The CI badge covers the whole pipeline: backend unit, property, integration and architecture tests,
 frontend lint, unit tests and production build, and a backup round trip (dump, encrypt, restore,
@@ -114,7 +114,7 @@ flowchart LR
         Slices["Vertical slices<br/>one file per use case"]
     end
     Slices --> Domain["Prisma.Domain<br/>entities, value objects, rules<br/>(no dependencies)"]
-    Slices --> Db[("PostgreSQL 17<br/>EF Core, snake_case")]
+    Slices --> Db[("PostgreSQL 18<br/>EF Core, snake_case")]
     Job["Background job<br/>recurring entries and<br/>automatic debits"] --> Domain
     Job --> Db
 ```
@@ -148,7 +148,7 @@ The backup lives outside Railway on purpose: losing the hosting account must not
 |---|---|
 | Backend | .NET 10, ASP.NET Core Minimal APIs, EF Core 10 + Npgsql, FluentValidation |
 | Auth | ASP.NET Core Identity, `httpOnly` secure cookie, rate limiting |
-| Database | PostgreSQL 17 |
+| Database | PostgreSQL 18 |
 | Frontend | React 19, TypeScript, Vite, TanStack Query, React Hook Form + Zod, Tailwind CSS, shadcn/ui |
 | API client | `openapi-typescript` + `openapi-fetch`, types generated from the OpenAPI document |
 | Tests | xUnit, Shouldly, CsCheck, Testcontainers, NetArchTest, Vitest |

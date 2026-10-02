@@ -702,8 +702,12 @@ conversa e o TCP Proxy do Postgres ficou ligado. A H.2 foi dividida em três (de
   Restauração de prova com a chave do cofre (app Senhas), num Postgres 18 provisório: as 13 contagens iguais
   às do log e o Resumo igual ao da produção. Ajustes do roteiro achados no caminho (serviço vazio antes do
   repositório, `REGION=auto`, porta só em `127.0.0.1`, ordem do `pbpaste`) já estão em `docs/operacao.md`.
-  Pendente do dono: a cópia da chave fora do computador. O Postgres local e o dos testes seguem no 17:
-  alinhar com o 18 num PR próprio.
+  Pendente do dono: a cópia da chave fora do computador.
+  *Depois (2026-10-02, PR próprio):* o Postgres local e o dos testes alinhados ao 18 da produção
+  (`docker-compose.yml` e `PostgresFixture`). Os dados locais passaram do 17 por `pg_dumpall` para o volume
+  novo `prisma_postgres18-data`, montado em `/var/lib/postgresql` (a imagem 18 mudou o caminho): as 13
+  contagens iguais. O volume antigo `prisma_postgres-data` fica como plano B; o dono o apaga quando quiser
+  (`docker volume rm prisma_postgres-data`).
 
 - [ ] **H.2c Operação**
   Roteiro para senha esquecida (sem e-mail ainda), monitor de disponibilidade em `/api/health`,
@@ -789,12 +793,6 @@ Escopo em uma linha cada, para orientar decisões sem antecipar detalhe.
 
 Decidir quando a fase correspondente chegar:
 
-- **Postgres 18 no desenvolvimento e nos testes** (2026-10-02): a produção roda o 18 (`postgres-ssl:18` no
-  Railway), e o `docker-compose.yml` e o Testcontainers (`PostgresFixture`) seguem no 17, então os testes não
-  rodam na versão da produção. Decidido com o dono: PR próprio, logo depois da H.2b. O Testcontainers é uma
-  linha; o compose exige copiar os dados do 17 (`pg_dumpall`) para um volume novo, montado em
-  `/var/lib/postgresql` (a imagem 18 mudou o caminho), mantendo o volume antigo como plano B; e atualizar
-  `CLAUDE.md`, `README.md` (selo e tabela) e o comentário do CI.
 - **Tela de categorias** (2026-09-28): a API já cria, renomeia, recolore e exclui categorias, mas o app
   só as lista para escolher ao lançar; ninguém cria uma categoria própria sem mexer no banco. Adiada
   pelo dono depois da 2.23. Para acrescentar uma categoria para todos, use o catálogo

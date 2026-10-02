@@ -26,7 +26,7 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
-      # Domínio, arquitetura e integração. A integração sobe o próprio Postgres 17 com
+      # Domínio, arquitetura e integração. A integração sobe o próprio Postgres 18 com
       # Testcontainers, no Docker que o runner já tem: nenhum banco ou segredo a configurar.
       - run: dotnet test
 
