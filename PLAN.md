@@ -673,7 +673,7 @@ conversa e o TCP Proxy do Postgres ficou ligado. A H.2 foi dividida em três (de
   API e o Postgres o mês todo; volume de conta vinda do teste é apagado 30 dias depois do fim do
   crédito), limite de gasto e 2FA no Railway.
 
-- [ ] **H.2b Backup fora do Railway**
+- [x] **H.2b Backup fora do Railway**
   O backup nativo do Railway (se o plano incluir) só restaura no mesmo projeto e some junto com o
   volume. Serviço agendado no próprio projeto: `pg_dump` diário pela rede privada, criptografado com
   `age` (chave pública no serviço, privada só com o usuário) e enviado ao Cloudflare R2. Roteiro de
@@ -695,8 +695,15 @@ conversa e o TCP Proxy do Postgres ficou ligado. A H.2 foi dividida em três (de
   é do age, sem dado em claro; a restauração devolve as mesmas contagens e os mesmos dados; ela recusa um
   banco com tabelas; um `pg_dump` que morre no meio, senha errada e variável faltando não deixam arquivo,
   e a falha é avisada. Provado com quatro violações propositais (sem `pipefail`, usuário que grava,
-  restauração por cima, falha sem aviso). Falta: R2, chave, Healthchecks e serviço no Railway (seção 5.1)
-  e a restauração de prova (5.2).
+  restauração por cima, falha sem aviso).
+  *Feito (2026-10-02, com o dono):* produção no Postgres 18 (imagem do backup com o `pg_dump` 18); R2 com
+  ciclo de vida de 90 dias e trava de 30; Healthchecks.io; `prisma_backup` criado e conferido (lê, não grava);
+  serviço `backup` no Railway, cron `0 6 * * *`. Primeira execução: 13 tabelas, 57.743 bytes, aviso recebido.
+  Restauração de prova com a chave do cofre (app Senhas), num Postgres 18 provisório: as 13 contagens iguais
+  às do log e o Resumo igual ao da produção. Ajustes do roteiro achados no caminho (serviço vazio antes do
+  repositório, `REGION=auto`, porta só em `127.0.0.1`, ordem do `pbpaste`) já estão em `docs/operacao.md`.
+  Pendente do dono: a cópia da chave fora do computador. O Postgres local e o dos testes seguem no 17:
+  alinhar com o 18 num PR próprio.
 
 - [ ] **H.2c Operação**
   Roteiro para senha esquecida (sem e-mail ainda), monitor de disponibilidade em `/api/health`,
@@ -782,6 +789,12 @@ Escopo em uma linha cada, para orientar decisões sem antecipar detalhe.
 
 Decidir quando a fase correspondente chegar:
 
+- **Postgres 18 no desenvolvimento e nos testes** (2026-10-02): a produção roda o 18 (`postgres-ssl:18` no
+  Railway), e o `docker-compose.yml` e o Testcontainers (`PostgresFixture`) seguem no 17, então os testes não
+  rodam na versão da produção. Decidido com o dono: PR próprio, logo depois da H.2b. O Testcontainers é uma
+  linha; o compose exige copiar os dados do 17 (`pg_dumpall`) para um volume novo, montado em
+  `/var/lib/postgresql` (a imagem 18 mudou o caminho), mantendo o volume antigo como plano B; e atualizar
+  `CLAUDE.md`, `README.md` (selo e tabela) e o comentário do CI.
 - **Tela de categorias** (2026-09-28): a API já cria, renomeia, recolore e exclui categorias, mas o app
   só as lista para escolher ao lançar; ninguém cria uma categoria própria sem mexer no banco. Adiada
   pelo dono depois da 2.23. Para acrescentar uma categoria para todos, use o catálogo
@@ -793,8 +806,9 @@ Decidir quando a fase correspondente chegar:
 
 - **Premissas do produto a validar** (2026-09-27): `docs/validacao-premissas.md` lista 15 premissas
   (valor, usabilidade, viabilidade, técnica), com consultas SQL prontas, filtros de log e o roteiro das
-  sessões com o pai e a noiva. As mais arriscadas: produção sem backup (H.2b), lançar na hora da
-  compra, pagamento de fatura lançado como despesa e dias do cartão. Resultados entram na tabela do
+  sessões com o pai e a noiva. As mais arriscadas: lançar na hora da compra, pagamento de fatura lançado
+  como despesa e dias do cartão. A produção sem backup deixou de ser risco com a H.2b (2026-10-02); seguem
+  sem homologação e com migrations direto na produção. Resultados entram na tabela do
   documento e, se mudarem o produto, viram decisão aqui.
 
 - Envio de fatura para LLM externo é opt-in explícito do usuário? (Fase 4)
