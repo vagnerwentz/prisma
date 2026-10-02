@@ -678,8 +678,25 @@ conversa e o TCP Proxy do Postgres ficou ligado. A H.2 foi dividida em três (de
   volume. Serviço agendado no próprio projeto: `pg_dump` diário pela rede privada, criptografado com
   `age` (chave pública no serviço, privada só com o usuário) e enviado ao Cloudflare R2. Roteiro de
   restauração em `docs/`.
+  *Decisões (com o usuário, 2026-10-02):* cron diário às 03:00 de São Paulo, num serviço próprio
+  (`ops/backup/`), pela rede privada: o TCP Proxy continua desligado (GitHub Actions ou o Mac exigiriam
+  o banco exposto). Usuário `prisma_backup`, só leitura (`pg_read_all_data`). A cópia é criptografada
+  antes de sair do contêiner e só sobe se o `pg_dump` terminar bem (nunca uma cópia cortada com cara de
+  válida). **Retenção de 90 dias** (regra de ciclo de vida do R2) e **trava do bucket de 30 dias**
+  (Bucket Lock: nem o token apaga, mesmo com o Railway invadido). **Alerta pelo Healthchecks.io**
+  (grátis): o backup avisa ao começar, ao terminar e ao falhar, e o silêncio de um dia vira e-mail.
+  Cada execução registra no log a contagem de linhas por tabela (só números), para comparar com a
+  restauração.
   *Pronto quando:* um dump do R2 foi descriptografado, restaurado no Postgres local e conferido
   (contagens e o resumo de um mês iguais aos da produção).
+  *Código pronto (2026-10-02), falta a parte do dono:* `ops/backup/` (imagem, `backup.sh`, `restore.sh`),
+  `ops/postgres/backup-user.sql` e o roteiro em `docs/operacao.md`, seção 5. O job `Backup (round trip)`
+  do CI sobe um Postgres com o schema real das migrations e confere: o `prisma_backup` não grava; o arquivo
+  é do age, sem dado em claro; a restauração devolve as mesmas contagens e os mesmos dados; ela recusa um
+  banco com tabelas; um `pg_dump` que morre no meio, senha errada e variável faltando não deixam arquivo,
+  e a falha é avisada. Provado com quatro violações propositais (sem `pipefail`, usuário que grava,
+  restauração por cima, falha sem aviso). Falta: R2, chave, Healthchecks e serviço no Railway (seção 5.1)
+  e a restauração de prova (5.2).
 
 - [ ] **H.2c Operação**
   Roteiro para senha esquecida (sem e-mail ainda), monitor de disponibilidade em `/api/health`,

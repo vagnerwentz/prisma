@@ -30,6 +30,28 @@ jobs:
       # Testcontainers, no Docker que o runner já tem: nenhum banco ou segredo a configurar.
       - run: dotnet test
 
+  # Backup da produção (H.2b): sobe Postgres no Docker do runner, faz o backup com o schema real das
+  # migrations, restaura e confere; também prova que uma cópia cortada nunca chega ao destino.
+  backup:
+    name: Backup (round trip)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - run: dotnet tool restore
+      # O dotnet ef lê os dados do projeto antes de compilar e não restaura os pacotes: num runner limpo,
+      # sem este passo, falha com NETSDK1004.
+      - run: dotnet restore src/Prisma.Api
+      # Gerar o script não conecta ao banco, mas a API recusa subir sem connection string: um valor
+      # fictício basta (o script sai idêntico ao gerado com a real).
+      - run: dotnet ef migrations script --idempotent -p src/Prisma.Api -s src/Prisma.Api -o "$RUNNER_TEMP/schema.sql"
+        env:
+          ConnectionStrings__Default: Host=localhost;Database=unused
+      - run: ops/backup/test/roundtrip.sh "$RUNNER_TEMP/schema.sql"
+
   frontend:
     name: Frontend (lint, Vitest, build)
     runs-on: ubuntu-latest
