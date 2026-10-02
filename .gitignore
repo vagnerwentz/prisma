@@ -264,6 +264,8 @@ Generated_Code/
 # because we have git ;-)
 _UpgradeReport_Files/
 Backup*/
+# O git do macOS ignora maiúsculas: sem esta exceção, a regra acima esconde o backup da produção (H.2b).
+!ops/backup/
 UpgradeLog*.XML
 UpgradeLog*.htm
 ServiceFabricBackup/

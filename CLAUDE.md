@@ -388,7 +388,9 @@ fechado fora de desenvolvimento (`Registration:Open`); libere e-mails em
 `Registration__AllowedEmails__0`. A connection string vem de `ConnectionStrings__Default`.
 Em produção a API entra no banco como `prisma_app` (dono das tabelas, sem superusuário; criado por
 `ops/postgres/app-user.sql`), e o `postgres` fica só para administração. O TCP Proxy do Postgres fica
-desligado. Roteiros de operação (senhas, backup, restauração, logs e a tarefa das recorrências) em `docs/operacao.md`; senha nunca passa
+desligado. O backup diário é um serviço à parte no mesmo projeto (`ops/backup/`, cron): `pg_dump` como
+`prisma_backup` (só lê), criptografado com `age` (a chave privada fica só com o dono) e guardado no R2, com
+alerta pelo Healthchecks.io; o job `Backup (round trip)` do CI faz backup e restauração a cada push. Roteiros de operação (senhas, backup, restauração, logs e a tarefa das recorrências) em `docs/operacao.md`; senha nunca passa
 por conversa, arquivo versionado ou histórico do shell.
 
 ---
