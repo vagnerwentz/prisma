@@ -2,7 +2,7 @@ import { lazy, memo, Suspense, useMemo, useState } from 'react'
 import { X } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router'
 import { PrismLogo } from '@/components/brand/PrismLogo'
-import { EntryTile, TransferTile } from '@/components/brand/Tiles'
+import { AssetTile, EntryTile, TransferTile } from '@/components/brand/Tiles'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -10,6 +10,9 @@ import { MonthSwitcher } from '@/components/MonthSwitcher'
 import { StaleFade } from '@/components/StaleFade'
 import { useMonthParam } from '@/lib/monthParam'
 import { useAccounts } from '@/features/accounts/queries'
+import type { PayoutView } from '@/features/investments/PayoutSheet'
+import { logoSrc } from '@/features/investments/assets'
+import { payoutKindLabels, type PayoutKind } from '@/features/investments/payouts'
 import { categoryLabels, useCategories, type CategoryLabel } from '@/features/categories/queries'
 import { formatDayHeading, formatMonth, monthRange, todayInSaoPaulo, type YearMonth } from '@/lib/dates'
 import { shortInstallments } from '@/lib/money'
@@ -21,6 +24,8 @@ import { buildTimeline, type TimelineEntry } from './timeline'
 
 // O painel (detalhes e edição) só carrega quando alguém toca num lançamento.
 const EntrySheet = lazy(() => import('./EntrySheet'))
+// Proventos do dia (docs/investimentos.md, etapa 5b): o painel deles, também só ao tocar.
+const PayoutSheet = lazy(() => import('@/features/investments/PayoutSheet').then((m) => ({ default: m.PayoutSheet })))
 
 type Lookups = { accounts: Map<string, string>; categories: Map<string, CategoryLabel> }
 
@@ -68,6 +73,9 @@ export function TransactionsPage() {
 
   // Guarda a chave, não o lançamento: depois de editar, o painel lê a versão recarregada.
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  // Proventos: a visão é guardada ao tocar, não recalculada. Excluir um deles muda o grupo do dia, e o painel não
+  // pode trocar de visão no meio da exclusão.
+  const [payoutView, setPayoutView] = useState<PayoutView | null>(null)
   const selected = selectedKey ? findEntry(days, selectedKey) : undefined
 
   return (
@@ -103,7 +111,13 @@ export function TransactionsPage() {
                 </h2>
                 <ul>
                   {day.entries.map((entry) => (
-                    <EntryRow key={entryKey(entry)} entry={entry} lookups={lookups} onOpen={setSelectedKey} />
+                    <EntryRow
+                      key={entryKey(entry)}
+                      entry={entry}
+                      lookups={lookups}
+                      onOpen={setSelectedKey}
+                      onOpenPayouts={setPayoutView}
+                    />
                   ))}
                 </ul>
               </section>
@@ -112,7 +126,13 @@ export function TransactionsPage() {
         )}
       </StaleFade>
 
-      {selectedKey && accounts.data && categories.data && (
+      {payoutView && (
+        <Suspense>
+          <PayoutSheet view={payoutView} onClose={() => setPayoutView(null)} />
+        </Suspense>
+      )}
+
+      {selectedKey && selected?.kind !== 'payouts' && accounts.data && categories.data && (
         <Suspense>
           <EntrySheet
             entry={selected}
@@ -136,12 +156,28 @@ const EntryRow = memo(function EntryRow({
   entry,
   lookups,
   onOpen,
+  onOpenPayouts,
 }: {
   entry: TimelineEntry<Transaction>
   lookups: Lookups
   onOpen: (key: string) => void
+  onOpenPayouts: (view: PayoutView) => void
 }) {
   if (entry.kind === 'transfer') return <TransferRow entry={entry} lookups={lookups} onOpen={() => onOpen(entryKey(entry))} />
+  if (entry.kind === 'payouts')
+    return (
+      <PayoutsRow
+        entry={entry}
+        lookups={lookups}
+        onOpen={() =>
+          onOpenPayouts(
+            entry.items.length === 1
+              ? { kind: 'edit', id: entry.items[0].id }
+              : { kind: 'day', ids: entry.items.map((t) => t.id) },
+          )
+        }
+      />
+    )
   const first = entry.kind === 'single' ? entry.transaction : entry.installments[0]
   const category = first.categoryId ? lookups.categories.get(first.categoryId) : undefined
   const account = lookups.accounts.get(first.accountId)
@@ -219,6 +255,49 @@ function TransferRow({
           <p className="truncate text-sm text-muted-foreground">{route}</p>
         </div>
         <Amount type="Transfer" cents={entry.amountCents} className="text-muted-foreground" />
+      </button>
+    </li>
+  )
+}
+
+// Proventos do dia nesta conta (docs/investimentos.md, etapa 5b): um só mostra o tipo e o ativo; vários, quantos
+// e quais. O valor é receita, no espectro.
+function PayoutsRow({
+  entry,
+  lookups,
+  onOpen,
+}: {
+  entry: Extract<TimelineEntry<Transaction>, { kind: 'payouts' }>
+  lookups: Lookups
+  onOpen: () => void
+}) {
+  const [first] = entry.items
+  const single = entry.items.length === 1
+  const symbols = entry.items.map((t) => t.assetSymbol ?? '').filter(Boolean)
+  const title = single
+    ? `${payoutKindLabels[first.payoutKind as PayoutKind]} · ${first.assetSymbol ?? ''}`
+    : `Proventos · ${entry.items.length} ativos`
+  const details = [single ? null : symbols.join(', '), lookups.accounts.get(entry.accountId)].filter(Boolean)
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors outline-none hover:bg-muted/40 focus-visible:bg-muted/60 active:bg-muted/70"
+      >
+        <AssetTile
+          symbol={first.assetSymbol ?? ''}
+          logo={
+            first.assetId && first.assetKind
+              ? logoSrc({ id: first.assetId, kind: first.assetKind, hasLogo: !!first.assetHasLogo })
+              : undefined
+          }
+        />
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium">{title}</p>
+          {details.length > 0 && <p className="truncate text-sm text-muted-foreground">{details.join(' · ')}</p>}
+        </div>
+        <Amount type="Income" cents={entry.totalCents} />
       </button>
     </li>
   )

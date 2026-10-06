@@ -10,6 +10,8 @@ export type EditKind = 'simple' | 'card' | 'purchase' | 'transfer'
 export function editKind<T extends Editable>(entry: TimelineEntry<T>): EditKind {
   if (entry.kind === 'purchase') return 'purchase'
   if (entry.kind === 'transfer') return 'transfer'
+  // Proventos abrem o painel deles, não o do lançamento (TransactionsPage).
+  if (entry.kind === 'payouts') return 'simple'
   return entry.transaction.statementId ? 'card' : 'simple'
 }
 
@@ -17,6 +19,7 @@ export function editKind<T extends Editable>(entry: TimelineEntry<T>): EditKind 
 // da transferência.
 export function entryKey<T extends TimelineTransaction>(entry: TimelineEntry<T>): string {
   if (entry.kind === 'single') return entry.transaction.id
+  if (entry.kind === 'payouts') return entry.key
   return entry.kind === 'purchase' ? entry.purchaseId : entry.pairId
 }
 

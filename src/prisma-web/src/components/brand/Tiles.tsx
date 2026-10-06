@@ -1,6 +1,7 @@
 import { ArrowLeftRight, CreditCard, PenLine } from 'lucide-react'
-import { createElement, type CSSProperties } from 'react'
+import { createElement, useState, type CSSProperties } from 'react'
 import type { AccountType } from '@/features/accounts/labels'
+import { splitSymbol } from '@/features/investments/assets'
 import { findBrand, readableTextOn, type BrandMark } from '@/lib/brands/merchants'
 import { cn } from '@/lib/utils'
 import { accountTypeIcons, categoryIcon } from './categoryIcons'
@@ -114,6 +115,61 @@ export function DraftTile({ size = 'md' }: { size?: Size }) {
   return (
     <span className={cn('flex shrink-0 items-center justify-center bg-secondary text-muted-foreground', box[size])}>
       <PenLine aria-hidden strokeWidth={1.75} />
+    </span>
+  )
+}
+
+const assetText: Record<Size, { root: string; suffix: string }> = {
+  sm: { root: 'text-[0.45rem]', suffix: 'text-[0.4rem]' },
+  md: { root: 'text-[0.625rem]', suffix: 'text-[0.55rem]' },
+  lg: { root: 'text-xs', suffix: 'text-[0.625rem]' },
+  xl: { root: 'text-sm', suffix: 'text-xs' },
+}
+
+// Ativo da bolsa (docs/investimentos.md, seção 5 e etapa 4). Com logo (logoSrc), o logo guardado pelo Prisma, como
+// imagem: SVG nunca entra no HTML. Sem logo, ou se a imagem falhar, o código no ladrilho, a raiz em destaque e o
+// número menor, numa faixa do espectro tirada da raiz. O mesmo ativo tem sempre a mesma cor, e ITSA3 e ITSA4 (a
+// mesma empresa) também.
+export function AssetTile({
+  symbol,
+  logo,
+  size = 'md',
+  className,
+}: {
+  symbol: string
+  logo?: string
+  size?: Size
+  className?: string
+}) {
+  const [failed, setFailed] = useState<string | null>(null)
+  if (logo && failed !== logo)
+    return (
+      <span aria-hidden className={cn('flex shrink-0 overflow-hidden bg-muted', box[size], className)}>
+        <img
+          src={logo}
+          alt=""
+          draggable={false}
+          loading="lazy"
+          decoding="async"
+          onError={() => setFailed(logo)}
+          className="size-full"
+        />
+      </span>
+    )
+
+  const { root, suffix } = splitSymbol(symbol)
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'category-tile flex shrink-0 flex-col items-center justify-center leading-none font-semibold tracking-tight',
+        box[size],
+        className,
+      )}
+      style={{ '--tile': fallbackColor(root) } as CSSProperties}
+    >
+      <span className={assetText[size].root}>{root}</span>
+      {suffix && <span className={cn('mt-0.5 opacity-75', assetText[size].suffix)}>{suffix}</span>}
     </span>
   )
 }

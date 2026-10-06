@@ -90,3 +90,51 @@ describe('buildTimeline com transferências', () => {
     expect(day.entries).toHaveLength(2)
   })
 })
+
+// docs/investimentos.md, etapa 5b: proventos do mesmo dia na mesma conta viram uma linha.
+describe('buildTimeline com proventos', () => {
+  const payout = (id: string, date: string, cents: number, accountId: string, assetId: string): TimelineTransaction => ({
+    id,
+    purchaseDate: date,
+    amountCents: cents,
+    accountId,
+    assetId,
+  })
+
+  it('junta os proventos do dia na mesma conta, com o total', () => {
+    const [day] = buildTimeline([
+      payout('a', '2026-09-30', 4120, 'ion', 'bbas'),
+      tx('pão', '2026-09-30', 459),
+      payout('b', '2026-09-30', 1500, 'ion', 'itsa'),
+    ])
+
+    expect(day.entries.map((e) => e.kind)).toEqual(['payouts', 'single'])
+    const group = day.entries[0]
+    if (group.kind !== 'payouts') throw new Error('esperava proventos')
+    expect(group.items.map((t) => t.id)).toEqual(['a', 'b'])
+    expect(group.totalCents).toBe(5620)
+    expect(group.accountId).toBe('ion')
+  })
+
+  it('separa por conta e por dia', () => {
+    const days = buildTimeline([
+      payout('a', '2026-09-30', 4120, 'ion', 'bbas'),
+      payout('b', '2026-09-30', 980, 'itau', 'mxrf'),
+      payout('c', '2026-09-15', 980, 'ion', 'mxrf'),
+    ])
+
+    expect(days.map((d) => d.entries.map((e) => (e.kind === 'payouts' ? e.items.map((t) => t.id).join('+') : e.kind)))).toEqual([
+      ['a', 'b'],
+      ['c'],
+    ])
+  })
+
+  it('receita comum não entra no grupo', () => {
+    const [day] = buildTimeline([
+      payout('a', '2026-09-30', 4120, 'ion', 'bbas'),
+      { ...tx('sal', '2026-09-30', 500000), accountId: 'ion' },
+    ])
+
+    expect(day.entries.map((e) => e.kind)).toEqual(['payouts', 'single'])
+  })
+})
