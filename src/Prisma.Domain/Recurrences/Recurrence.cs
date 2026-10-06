@@ -84,6 +84,10 @@ public sealed class Recurrence : Entity
         if (first.InstallmentPurchaseId is not null)
             return Invalid("Compra parcelada não se repete.");
 
+        // O valor do provento muda a cada pagamento (docs/investimentos.md, etapa 5b).
+        if (first.AssetId is not null)
+            return Invalid("Provento não se repete.");
+
         if (!Enum.IsDefined(frequency))
             return Invalid("Frequência inválida.");
 

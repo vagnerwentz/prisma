@@ -34,7 +34,7 @@ Estas estão fechadas. Não reabrir sem conversa explícita.
 | Visão do dashboard | **Caixa**: gasto do cartão conta no mês do vencimento da fatura |
 | Dinheiro | `long` em centavos, sempre |
 | Multiusuário | Dados por `UserId`, sem grupo familiar |
-| Investimentos | Fase 1 registra aporte como transferência; rentabilidade fica para depois |
+| Investimentos | Aporte é transferência (Fase 1). Carteira e proventos na Fase I (`docs/investimentos.md`): provento é receita na conta onde caiu, ligada ao ativo; catálogo de ativos global, vindo da brapi. Rentabilidade (operações, preço médio, cotação) fica para depois |
 | Hospedagem | Uso próprio: Railway, com API, React e Postgres num só projeto e o React servido pela API (mesmo domínio). Cadastro público: reavaliar antes de abrir |
 
 ---
@@ -47,6 +47,7 @@ Estas estão fechadas. Não reabrir sem conversa explícita.
 | **1** | Núcleo: auth, contas, categorias, transações, parcelamento, transferências | `docs/fase-1.md` |
 | **2** | Dashboard: receitas, despesas, sobra, investido, por categoria, comparativo mensal | `docs/fase-2.md` |
 | **H** | Hospedagem para uso próprio: build de produção e deploy no Railway | etapas no próprio `PLAN.md` |
+| **I** | Investimentos: catálogo de ativos (brapi), carteira, proventos e logos | `docs/investimentos.md` |
 | **3** | Entrada inteligente: QR Code da NFC-e, CNPJ/CNAE, merchants, regras que aprendem | a escrever |
 | **4** | Importação: OFX, fatura do Itaú em PDF, deduplicação | a escrever |
 | **5** | PWA instalável, orçamentos por categoria, metas, E2E com Playwright | a escrever |
@@ -774,6 +775,23 @@ conversa e o TCP Proxy do Postgres ficou ligado. A H.2 foi dividida em três (de
 
 ---
 
+## Fase I — Investimentos
+
+Pedida pelo dono (2026-10-02), fora da ordem das fases. Especificação, decisões e achados de cada etapa em
+`docs/investimentos.md`, seção 8. Tudo na branch `feat/brapi-asset-list`, num commit só quando o dono pedir.
+
+- [x] **I.1 Cliente da brapi** — lista inteira de ativos da B3, traduzida para `ListedAsset`/`AssetKind`.
+- [x] **I.2 Catálogo e sincronização diária** — tabela global `assets` (exceção à regra 6), tarefa às 4h.
+- [x] **I.3 Busca de ativos** — `GET /assets?q=` sem acento, e o `AssetPicker`; fracionário junto do lote padrão.
+- [x] **I.5a Carteira** — `Holding`, Investimentos dentro de Contas, adicionar e tirar com "Desfazer".
+- [x] **I.5b Proventos** — receita na conta onde caiu, ligada ao ativo; agrupados por dia nos Lançamentos.
+- [x] **I.4 Logos** — baixados, limpos e servidos pelo Prisma; ação, unit e BDR mostram o logo, fundo o código.
+- [x] **I.6 Importar o histórico de proventos** — 142 proventos na Íon (banco local), e a soma deles sai do saldo
+  inicial (sem saída para zerar). Produção pelo mesmo importador (não por dump), quando o dono pedir (`docs/investimentos.md`, seção 9).
+- [ ] **I.7 Operações** — compra e venda, quantidade, preço médio, eventos da empresa; depois, cotação.
+
+---
+
 ## Fases 3 a 5
 
 Escopo em uma linha cada, para orientar decisões sem antecipar detalhe.
@@ -810,7 +828,8 @@ Decidir quando a fase correspondente chegar:
   documento e, se mudarem o produto, viram decisão aqui.
 
 - Envio de fatura para LLM externo é opt-in explícito do usuário? (Fase 4)
-- Acompanhar rentabilidade de investimento ou só aporte? (Fase 5 ou depois)
+- Acompanhar rentabilidade de investimento ou só aporte? Respondida em parte pela Fase I (carteira e proventos);
+  rentabilidade (operações, preço médio, cotação) segue em aberto (I.7).
 - Hospedagem para cadastro público: o Railway basta, ou os dados devem ficar numa região no
   Brasil por causa da LGPD? Qual orçamento mensal? (antes de abrir cadastro público)
 - Política de privacidade e termos de uso, por causa da LGPD. (antes de abrir cadastro público)

@@ -19,6 +19,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="Market\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Prisma.Api\Prisma.Api.csproj" />
   </ItemGroup>
 

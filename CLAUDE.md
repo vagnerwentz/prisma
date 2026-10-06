@@ -56,6 +56,10 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 | Débito automático | `RecurrenceKind.AutoDebit` | série que o banco debita da conta corrente no próximo dia útil do vencimento |
 | Valor que muda a cada mês | `AmountVaries` | no débito automático, o valor da série é a estimativa |
 | Lançamento a conferir | `Transaction.AmountEstimated` | saiu com a estimativa; a pessoa confirma ou corrige (`ConfirmAmount`) |
+| Ativo da bolsa | `Asset` (catálogo global) / `ListedAsset` (como o fornecedor o lista) | código em `Symbol`, tipo em `AssetKind`; `docs/investimentos.md` |
+| Ativo na carteira | `Holding` | "eu tenho BBAS3", do usuário; aponta para o `Asset` global; sem quantidade até as operações |
+| Provento | `Transaction` com `AssetId` + `PayoutKind` | receita na conta onde o dinheiro caiu; dividendo, JCP (`InterestOnEquity`), rendimento (`FundIncome`) |
+| Mercado fracionário | `AssetSymbol.BaseOf` | "BBAS3F" é o mesmo ativo que BBAS3: nunca vira ativo próprio |
 | Dia útil bancário | `BankCalendar` | fins de semana e feriados nacionais; só débito automático e vencimento da fatura |
 
 ---
@@ -81,6 +85,7 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 | Gráficos | Recharts |
 | Hospedagem | Railway: serviço da API (`Dockerfile` da raiz), Postgres e serviço `backup` (cron), no mesmo projeto |
 | Backup | Imagem Alpine (`ops/backup/Dockerfile`) com `pg_dump` 18, `age` (criptografia), `rclone` (envio) e `curl`; Cloudflare R2 (destino, fora do Railway); Healthchecks.io (alerta quando o backup falha ou não roda) |
+| Dados de mercado | brapi.dev (lista de ativos da B3; `HttpClient` tipado do `IHttpClientFactory`, sem pacote). Fica atrás de `IAssetListSource`, em `Infrastructure/Market/Brapi` (`docs/investimentos.md`) |
 
 ### Proibido
 
@@ -112,6 +117,7 @@ tests/
 └── Prisma.Architecture.Tests/  # NetArchTest
 docs/
 ├── fase-N.md                   # Detalhamento da fase em execução
+├── investimentos.md            # Fase I: catálogo de ativos (brapi), carteira, proventos, logos; decisões e achados
 ├── operacao.md                 # Roteiros da produção: usuários do banco, backup, restauração, logs; versão do Postgres local
 └── validacao-premissas.md      # Premissas do produto e o resultado de cada validação
 ops/
@@ -165,6 +171,10 @@ validação de invariante pertencem ao `Prisma.Domain`.
   fica série "ativa" sem conta (2.14, regra 8). No débito automático (2.26), a ocorrência só é gerada quando
   chega o dia útil do débito, e a de valor que muda sai com `AmountEstimated`, a conferir pelo sino
   (`docs/fase-2.md`, 2.15).
+- **Segunda tarefa em segundo plano:** `AssetListWorker` sincroniza o catálogo global de ativos com a brapi
+  uma vez por dia, às 4h de São Paulo, e logo ao subir se o catálogo estiver vazio. O domínio decide
+  (`AssetListReconciliation`): código novo entra, conhecido atualiza, o que sumiu fica inativo e nunca é
+  apagado; lista com menos da metade dos ativos é recusada e nada é gravado (`docs/investimentos.md`, seção 4).
 - **Única consulta que grava:** `GET /categories` entrega ao usuário as categorias das versões novas do
   catálogo (`CategoryCatalog`, uma vez por versão, só para ele; `docs/fase-2.md`, 2.11). Sincronizar no
   login não bastaria: a sessão é persistente.
@@ -216,6 +226,11 @@ Não são preferências. Quebrá-las gera erro de dinheiro que passa despercebid
    **Fora de uma requisição** (tarefa em segundo plano, 2.25), o código age como cada usuário: abre um
    escopo de DI e preenche `ScopedUser.UserId`, que o `HttpCurrentUser` lê antes do cookie. Filtro e
    trava de gravação valem igual; nunca desligue o filtro para "ver todos".
+   **Exceção: dados de mercado** (decisão do dono, 2026-10-04). O catálogo de ativos da bolsa (`Asset`) é o
+   mesmo para todo mundo: não tem `UserId`, não herda `Entity`, só a sincronização diária escreve e o usuário
+   só lê. Tabela sem dono só existe se estiver em `AppDbContext.GlobalTables`, com o motivo; o teste de
+   arquitetura `OwnershipTests` recusa tabela que não tenha dono nem esteja na lista. Dado do usuário que
+   aponta para um ativo (rendimento, operação) continua com dono e filtro.
 
 7. **Exclusão é soft delete** (`DeletedAt` + filtro global), para permitir desfazer.
 
@@ -259,7 +274,8 @@ infraestrutura (NetArchTest), e nenhum tipo fora da implementação de
 `Prisma.Domain.IClock` lê o relógio do sistema: `DateTime.Now`/`UtcNow`/`Today` e
 `DateTimeOffset.Now`/`UtcNow`. Essa segunda regra inspeciona o IL com Mono.Cecil (que
 vem junto com o NetArchTest), porque o NetArchTest só enxerga dependência de tipo, não
-de membro. Também confere que todo ícone do catálogo de categorias (`DefaultCategories`) está no mapa
+de membro. Confere que toda tabela tem dono (herda `Entity`, com o filtro) ou está na lista fechada de
+tabelas globais (`AppDbContext.GlobalTables`; `OwnershipTests`, regra 6). Também confere que todo ícone do catálogo de categorias (`DefaultCategories`) está no mapa
 fechado do front (`categoryIcons.ts`); ícone novo no catálogo entra nos dois lugares. E que só a série
 (débito automático) e a fatura (vencimento em dia útil) usam o calendário bancário (`BankCalendar`,
 `docs/fase-2.md`, 2.15): o resto fica na data em que aconteceu.
@@ -267,6 +283,11 @@ fechado do front (`categoryIcons.ts`); ícone novo no catálogo entra nos dois l
 **Fixtures de parser** (Fase 4): arquivos reais de OFX e de fatura em PDF,
 anonimizados, com o resultado esperado versionado ao lado. Quando o banco mudar o
 layout, o teste acusa antes de importar dado errado.
+
+**Serviço externo** (hoje, a brapi): os testes nunca o chamam. Um `HttpMessageHandler` falso responde
+com fixtures de respostas reais (`tests/Prisma.Api.Tests/Market/Fixtures`). O contrato com o serviço de
+verdade fica num teste `[LiveFact]` (`Category=Live`), ignorado no `dotnet test` e no CI; rode-o ao mexer
+no cliente ou desconfiar de mudança no serviço.
 
 ### Cobertura
 
@@ -356,6 +377,7 @@ docker compose up -d                                  # Postgres
 
 dotnet build
 dotnet test
+PRISMA_LIVE_TESTS=1 dotnet test tests/Prisma.Api.Tests --filter Category=Live   # contrato com a brapi real
 dotnet run --project src/Prisma.Api
 
 dotnet ef migrations add <Name> -p src/Prisma.Api -s src/Prisma.Api
@@ -450,7 +472,10 @@ por conversa, arquivo versionado ou histórico do shell.
   `simple-icons` quando existe (`npm run gen:brands` reescreve o `logos.generated.ts`; desenho
   acrescentado à mão vai no `logos.manual.ts`); bancos e corretoras com o ícone da instituição em
   `lib/brands/institutions/*.svg` (já com o fundo, otimizado com SVGO, mostrado como imagem);
-  monograma na cor da marca quando não há desenho (Amazon, Inter, C6). Nome de marca que é palavra
+  monograma na cor da marca quando não há desenho (Amazon, Inter, C6). Ativo da bolsa: `AssetTile`. Ação, unit
+  e BDR mostram o logo da empresa, guardado e servido pelo Prisma (`/api/assets/{id}/logo`, sempre como `<img>`);
+  fundo (o logo do fornecedor é o da gestora) e ativo sem logo mostram o código (raiz em destaque, número menor) numa
+  faixa do espectro tirada da raiz (`logoSrc`, decisão do dono). Nome de marca que é palavra
   comum ("agora", "rico") casa só com o texto inteiro (`=agora`). Nunca desenhe um logo à mão.
 - **Modo escuro** segue o sistema até a pessoa escolher claro ou escuro (botão do cabeçalho, ou o
   menu da conta, que também volta a seguir o sistema). O CSS lê só `[data-theme="dark"]` no `<html>`

@@ -50,7 +50,8 @@ import { repeatDraftOf } from './repeat'
 import { moveOptions, moveTexts, shiftReference, type StatementShift } from './statementMove'
 import type { TimelineEntry } from './timeline'
 
-type AnyEntry = TimelineEntry<Transaction>
+// Proventos têm o painel deles (features/investments), aberto pela própria lista.
+type AnyEntry = Exclude<TimelineEntry<Transaction>, { kind: 'payouts' }>
 type TransferEntry = Extract<AnyEntry, { kind: 'transfer' }>
 // Lançamentos editáveis; transferência tem painel próprio, só com "Excluir".
 type Entry = Exclude<AnyEntry, TransferEntry>

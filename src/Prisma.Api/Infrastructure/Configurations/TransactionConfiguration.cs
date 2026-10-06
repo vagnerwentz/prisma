@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Prisma.Api.Infrastructure.Auth;
 using Prisma.Domain.Accounts;
 using Prisma.Domain.Categories;
+using Prisma.Domain.Market;
 using Prisma.Domain.Recurrences;
 using Prisma.Domain.Statements;
 using Prisma.Domain.Transactions;
@@ -33,6 +34,10 @@ public sealed class TransactionConfiguration : IEntityTypeConfiguration<Transact
             // Só o débito automático gera lançamento a conferir (docs/fase-2.md, 2.15, regra 5).
             table.HasCheckConstraint("ck_transactions_amount_estimated",
                 "NOT amount_estimated OR recurrence_id IS NOT NULL");
+            // Provento tem o ativo e o tipo, os dois, e só em receita (docs/investimentos.md, etapa 5b).
+            table.HasCheckConstraint("ck_transactions_payout",
+                "(asset_id IS NULL AND payout_kind IS NULL) OR " +
+                "(asset_id IS NOT NULL AND payout_kind IS NOT NULL AND type = 'Income')");
         });
 
         builder.Property(t => t.Type).HasConversion<string>().HasMaxLength(20);
@@ -40,6 +45,7 @@ public sealed class TransactionConfiguration : IEntityTypeConfiguration<Transact
         builder.Property(t => t.Source).HasConversion<string>().HasMaxLength(20);
         builder.Property(t => t.TransferDirection).HasConversion<string>().HasMaxLength(10);
         builder.Property(t => t.Description).HasMaxLength(Transaction.DescriptionMaxLength);
+        builder.Property(t => t.PayoutKind).HasConversion<string>().HasMaxLength(20);
 
         builder.HasOne<AppUser>().WithMany().HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Account>().WithMany().HasForeignKey(t => t.AccountId).OnDelete(DeleteBehavior.Restrict);
@@ -48,6 +54,7 @@ public sealed class TransactionConfiguration : IEntityTypeConfiguration<Transact
         builder.HasOne<InstallmentPurchase>().WithMany().HasForeignKey(t => t.InstallmentPurchaseId)
             .OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Recurrence>().WithMany().HasForeignKey(t => t.RecurrenceId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Asset>().WithMany().HasForeignKey(t => t.AssetId).OnDelete(DeleteBehavior.Restrict);
         // Ligar um lançamento a uma série confere que ele ainda não tinha série: dois toques em "se repete"
         // ao mesmo tempo criariam duas séries e o lançamento em dobro. O segundo recebe 409.
         builder.Property(t => t.RecurrenceId).IsConcurrencyToken();

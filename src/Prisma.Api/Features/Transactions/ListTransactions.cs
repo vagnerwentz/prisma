@@ -80,7 +80,8 @@ public static class ListTransactions
                 .ThenByDescending(t => t.CreatedAt)
                 .Select(TransactionResponse.Projection)
                 .ToListAsync(ct);
-            return Result<IReadOnlyList<TransactionResponse>>.Success(await RefundAmounts.Fill(db, list, ct));
+            return Result<IReadOnlyList<TransactionResponse>>.Success(
+                await PayoutAssets.Fill(db, await RefundAmounts.Fill(db, list, ct), ct));
         }
 
         private static string EscapeLike(string value) =>

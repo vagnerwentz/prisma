@@ -8,7 +8,7 @@ namespace Prisma.Api.Infrastructure.Logging;
 // propriedades viram campos filtráveis no JSON de produção (@userId:…, @eventName:LoginFailed).
 // Regra 8: nunca valor, descrição, nome, e-mail, senha ou token. Só ids, tipos e motivos; um teste de
 // arquitetura recusa parâmetro com nome sensível.
-// Ids: 1xxx requisição e infraestrutura, 2xxx acesso, 3xxx dinheiro.
+// Ids: 1xxx requisição e infraestrutura, 2xxx acesso, 3xxx dinheiro, 4xxx investimentos e dados de mercado.
 public static partial class AppLog
 {
     // O userId vem do escopo da requisição, fora da frase: anônima não vira "(user (null))".
@@ -97,6 +97,53 @@ public static partial class AppLog
 
     [LoggerMessage(3015, LogLevel.Information, "Transaction {TransactionId} amount confirmed (corrected: {Corrected})")]
     public static partial void AmountConfirmed(this ILogger logger, Guid transactionId, bool corrected);
+
+    [LoggerMessage(4000, LogLevel.Information, "Asset list fetched from {Provider}: {Assets} assets in {Pages} pages, {Skipped} skipped, in {ElapsedMs} ms")]
+    public static partial void AssetListFetched(this ILogger logger, string provider, int assets, int pages, int skipped, double elapsedMs);
+
+    [LoggerMessage(4001, LogLevel.Warning, "Asset list item from {Provider} skipped: {Symbol} ({Reason})")]
+    public static partial void AssetListItemSkipped(this ILogger logger, string provider, string? symbol, string reason);
+
+    // Tipo novo do fornecedor: os ativos entram como Unknown até a tradução aprender o tipo.
+    [LoggerMessage(4002, LogLevel.Warning, "Asset list from {Provider} has an unknown kind: assetType {ProviderAssetType}, subType {ProviderSubType} ({Count} assets)")]
+    public static partial void AssetKindUnknown(this ILogger logger, string provider, string? providerAssetType, string? providerSubType, int count);
+
+    [LoggerMessage(4003, LogLevel.Information, "Asset catalog synced with {Listed} listed: {Added} added, {Updated} updated, {Reactivated} reactivated, {Deactivated} deactivated")]
+    public static partial void AssetListSynced(this ILogger logger, int listed, int added, int updated, int reactivated, int deactivated);
+
+    // Trava de sanidade: a lista veio muito menor que o catálogo e nada foi gravado.
+    [LoggerMessage(4004, LogLevel.Warning, "Asset catalog sync refused: {Listed} listed against {ActiveBefore} active; nothing was written")]
+    public static partial void AssetListSyncRefused(this ILogger logger, int activeBefore, int listed);
+
+    [LoggerMessage(4005, LogLevel.Warning, "Asset catalog sync skipped: the market data provider is unavailable; the next run tries again")]
+    public static partial void AssetListSyncUnavailable(this ILogger logger, Exception exception);
+
+    [LoggerMessage(4006, LogLevel.Error, "Asset catalog sync failed; the next run tries again")]
+    public static partial void AssetListSyncFailed(this ILogger logger, Exception exception);
+
+    [LoggerMessage(4007, LogLevel.Information, "Next asset catalog sync at {NextRunUtc:o}")]
+    public static partial void AssetListNextRun(this ILogger logger, DateTime nextRunUtc);
+
+    [LoggerMessage(4008, LogLevel.Information, "Asset logos synced: {Pending} pending, {Saved} saved, {Removed} removed, {Failed} failed, {Rejected} rejected")]
+    public static partial void AssetLogosSynced(this ILogger logger, int pending, int saved, int removed, int failed, int rejected);
+
+    [LoggerMessage(4009, LogLevel.Warning, "Asset logo skipped for {Symbol}: {Reason}; the next run tries again")]
+    public static partial void AssetLogoSkipped(this ILogger logger, string symbol, string reason);
+
+    [LoggerMessage(4010, LogLevel.Error, "Asset logo sync failed; the next run tries again")]
+    public static partial void AssetLogoSyncFailed(this ILogger logger, Exception exception);
+
+    [LoggerMessage(4100, LogLevel.Information, "Holding {HoldingId} of asset {AssetId} added to the portfolio")]
+    public static partial void HoldingAdded(this ILogger logger, Guid holdingId, Guid assetId);
+
+    [LoggerMessage(4101, LogLevel.Information, "Holding {HoldingId} removed from the portfolio")]
+    public static partial void HoldingRemoved(this ILogger logger, Guid holdingId);
+
+    [LoggerMessage(4102, LogLevel.Information, "Payout {TransactionId} of asset {AssetId} recorded ({Kind})")]
+    public static partial void PayoutCreated(this ILogger logger, Guid transactionId, Guid assetId, Prisma.Domain.Investments.PayoutKind kind);
+
+    [LoggerMessage(4103, LogLevel.Information, "Payout {TransactionId} edited")]
+    public static partial void PayoutEdited(this ILogger logger, Guid transactionId);
 
     // Rota modelo (/statements/{id}/pay), nunca o caminho cru: ele pode levar ids e consulta. Depois de
     // uma exceção, o ASP.NET tira o endpoint do contexto e o guarda no IExceptionHandlerFeature.

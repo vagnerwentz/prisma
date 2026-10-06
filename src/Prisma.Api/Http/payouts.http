@@ -1,0 +1,36 @@
+# Proventos (docs/investimentos.md, etapa 5b). Exige sessão: rode antes o Login de auth.http. O provento é uma
+# receita na conta onde o dinheiro caiu, ligada ao ativo; o ativo entra na carteira junto. Excluir e desfazer usam
+# os endpoints de lançamento (transactions.http).
+
+### Achar o ativo
+GET {{baseUrl}}/assets?q=bbas3
+
+### Lançar (kind: Dividend, InterestOnEquity ou FundIncome; valor líquido em centavos)
+POST {{baseUrl}}/payouts
+Content-Type: application/json
+
+{
+  "accountId": "<id da conta>",
+  "assetId": "<id do ativo>",
+  "kind": "InterestOnEquity",
+  "amountCents": 3579,
+  "date": "2026-09-30"
+}
+
+### Todos os proventos, do mais recente ao mais antigo
+GET {{baseUrl}}/payouts
+
+### Editar
+PUT {{baseUrl}}/payouts/<id do provento>
+Content-Type: application/json
+
+{
+  "accountId": "<id da conta>",
+  "assetId": "<id do ativo>",
+  "kind": "Dividend",
+  "amountCents": 4120,
+  "date": "2026-09-30"
+}
+
+### Excluir (desfazer: POST /transactions/{id}/restore)
+DELETE {{baseUrl}}/transactions/<id do provento>

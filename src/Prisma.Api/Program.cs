@@ -6,11 +6,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Console;
 using Npgsql;
 using Prisma.Api.Features.Accounts;
+using Prisma.Api.Features.Assets;
 using Prisma.Api.Features.Recurrences;
 using Prisma.Api.Features.Auth;
 using Prisma.Api.Features.Categories;
 using Prisma.Api.Features.Dashboard;
 using Prisma.Api.Features.Diagnostics;
+using Prisma.Api.Features.Investments;
 using Prisma.Api.Features.Statements;
 using Prisma.Api.Features.Transactions;
 using Prisma.Api.Features.Transfers;
@@ -18,6 +20,7 @@ using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Auth;
 using Prisma.Api.Infrastructure.Http;
 using Prisma.Api.Infrastructure.Logging;
+using Prisma.Api.Infrastructure.Market;
 using Prisma.Domain;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -73,6 +76,9 @@ builder.Services.AddTransferFeatures();
 builder.Services.AddDashboardFeatures();
 builder.Services.AddRecurrenceFeatures(builder.Configuration);
 builder.Services.AddDiagnosticsFeatures();
+builder.Services.AddMarketData(builder.Configuration);
+builder.Services.AddAssetFeatures(builder.Configuration);
+builder.Services.AddInvestmentFeatures();
 
 builder.Services.AddHealthChecks()
     .AddCheck<DatabaseHealthCheck>("database");
@@ -130,6 +136,8 @@ app.MapCardEndpoints();
 app.MapTransferEndpoints();
 app.MapRecurrenceEndpoints();
 app.MapDashboardEndpoints();
+app.MapAssetEndpoints();
+app.MapInvestmentEndpoints();
 app.MapDiagnosticsEndpoints();
 
 app.Run();
