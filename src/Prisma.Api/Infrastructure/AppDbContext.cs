@@ -123,7 +123,10 @@ public sealed class AppDbContext(
     // Datas de auditoria vêm do IClock; Remove vira soft delete (CLAUDE.md, regra 7).
     private void ApplyAuditing()
     {
-        var now = clock.UtcNow;
+        // Na precisão do Postgres (microssegundo): a resposta de quem grava traz o mesmo instante que a leitura depois.
+        // O .NET conta décimos de microssegundo, e o relógio do Linux usa o dígito a mais.
+        var utcNow = clock.UtcNow;
+        var now = utcNow.AddTicks(-(utcNow.Ticks % (TimeSpan.TicksPerMillisecond / 1000)));
 
         foreach (var entry in ChangeTracker.Entries<Entity>())
         {

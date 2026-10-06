@@ -10,6 +10,7 @@ using Prisma.Api.Features.Assets;
 using Prisma.Api.Infrastructure.Market;
 using Prisma.Api.Tests.Infrastructure;
 using Prisma.Api.Tests.Market;
+using Prisma.Domain;
 using Prisma.Domain.Market;
 using Shouldly;
 using static Prisma.Api.Tests.Market.FakeAssetListSource;
@@ -82,6 +83,20 @@ public sealed class HoldingsTests(PostgresFixture postgres)
 
         added.Id.ShouldBe(racer.WinnerId!.Value);
         (await List(client)).Single().Id.ShouldBe(racer.WinnerId.Value);
+    }
+
+    // O Postgres guarda o instante em microssegundos e o .NET em décimos de microssegundo. A resposta de quem grava
+    // precisa trazer o mesmo instante que a leitura depois traz; o relógio do Linux (CI) tem o dígito a mais, o do Mac não.
+    [Fact]
+    public async Task Added_at_is_the_same_in_the_answer_and_in_the_list()
+    {
+        var clock = new FakeClock(new DateTime(2026, 10, 6, 11, 32, 21, DateTimeKind.Utc).AddTicks(1008345));
+        await using var factory = await Seeded(clock: clock);
+        var client = await factory.CreateAuthenticatedClientAsync();
+
+        var added = await Add(client, await AssetId(client, "BBAS3"));
+
+        (await List(client)).Single().AddedAt.ShouldBe(added.AddedAt);
     }
 
     [Fact]
@@ -175,10 +190,10 @@ public sealed class HoldingsTests(PostgresFixture postgres)
             .ShouldBe(HttpStatusCode.Unauthorized);
     }
 
-    private async Task<PrismaApiFactory> Seeded(Action<IServiceCollection>? more = null)
+    private async Task<PrismaApiFactory> Seeded(Action<IServiceCollection>? more = null, IClock? clock = null)
     {
         await MarketCatalog.ClearAsync(postgres.ConnectionString);
-        var factory = new PrismaApiFactory(postgres.ConnectionString, null, null, _logs,
+        var factory = new PrismaApiFactory(postgres.ConnectionString, null, clock, _logs,
             services =>
             {
                 services.AddScoped<IAssetListSource>(_ => _source);
