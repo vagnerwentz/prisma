@@ -113,6 +113,40 @@ repetidas da mesma série não somem sozinhas: o id no log leva à série (tabel
 
 Como os outros eventos, estes só levam ids, tipos e contagens: nunca valor, descrição ou nome.
 
+## 4.1 Catálogo de ativos da bolsa (investimentos, etapa 2)
+
+A API mantém a lista de ativos da B3 (ações, FIIs, ETFs, BDRs) numa tabela global, `assets`, sincronizada com a
+brapi por uma tarefa dentro da própria API (`AssetListWorker`): uma vez por dia, às 4h de São Paulo, e logo ao
+subir se a tabela estiver vazia (o primeiro deploy). São 3 requisições por sincronização; a lista não exige
+token. A brapi lista 2.337 códigos, mas o catálogo fica com uns 1.960 ativos: o fracionário ("BBAS3F") é o mesmo
+ativo do lote padrão e entra uma vez só, com o código dele. Depois da lista, a mesma tarefa baixa os logos que faltam
+(ou mudaram de endereço), limpa o SVG e guarda em `asset_logos` (uns 1.900 logos, 3 MB, na primeira vez); a tela os
+pede ao Prisma, nunca à brapi. Sem nenhum logo guardado, a tarefa roda ao subir. Ativo que some da lista fica inativo (`inactive_since`) e nunca é apagado. Uma falha nunca derruba a
+API: vai para o log, e o dia seguinte tenta de novo; perder um dia não muda nada.
+
+| Pergunta | Filtro no Railway |
+|---|---|
+| A sincronização rodou? (contagens de novos, atualizados, reativados e inativados) | `@eventName:AssetListSynced` |
+| Quando roda a próxima? (uma linha ao subir e depois de cada execução) | `@eventName:AssetListNextRun` |
+| A brapi respondeu? (páginas, total, itens pulados, tempo) | `@eventName:AssetListFetched` |
+| A brapi estava fora do ar ou respondeu errado (aviso, sem ação) | `@eventName:AssetListSyncUnavailable` |
+| A lista veio pequena demais e nada foi gravado (trava de sanidade) | `@eventName:AssetListSyncRefused` |
+| Falha inesperada (ex.: banco fora do ar) | `@eventName:AssetListSyncFailed` |
+| Tipo de ativo novo na brapi, que entrou como `Unknown` | `@eventName:AssetKindUnknown` |
+| Item da brapi pulado (código inválido, sem nome, repetido) | `@eventName:AssetListItemSkipped` |
+| Logos: quantos pendentes, guardados, removidos, falhos e recusados (depois de cada sincronização) | `@eventName:AssetLogosSynced` |
+| Logo que não veio ou não passou na limpeza (com o código do ativo; tenta de novo no dia seguinte) | `@eventName:AssetLogoSkipped` |
+| Falha inesperada dos logos | `@eventName:AssetLogoSyncFailed` |
+
+- **`AssetListSyncRefused` repetido** por vários dias: a lista da brapi encolheu de verdade ou mudou de
+  formato. Rode o teste de contrato (`PRISMA_LIVE_TESTS=1 dotnet test tests/Prisma.Api.Tests --filter
+  Category=Live`) para saber qual.
+- **`AssetKindUnknown`**: ensine o tipo novo ao `BrapiAssetKinds` (e ao `AssetKind`, com migration, se for um
+  tipo de verdade novo).
+- **Configuração** (todas opcionais): `Brapi__Token` (a lista não precisa; a cotação, numa etapa futura, sim),
+  `Brapi__BaseUrl`, `Brapi__TimeoutSeconds`, `Brapi__PageSize` (até 2.000), `Brapi__MaxPages`,
+  `Assets__Sync__HourOfDay` (0 a 23, hora de São Paulo) e `Assets__Sync__Enabled=false` para desligar.
+
 ## 5. Backup fora do Railway (H.2b)
 
 Todo dia às 03:00 de São Paulo, o serviço `backup` copia o banco (`pg_dump`), tranca a cópia com a sua chave
