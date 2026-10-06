@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using Prisma.Domain.Investments;
 using Prisma.Domain.Transactions;
 
 namespace Prisma.Api.Features.Transactions;
@@ -30,14 +31,21 @@ public sealed record TransactionResponse(
     // A série de que o lançamento faz parte (docs/fase-2.md, 2.14).
     Guid? RecurrenceId,
     // Débito automático com o valor estimado, a conferir (docs/fase-2.md, 2.15, regras 5 a 8).
-    bool AmountEstimated)
+    bool AmountEstimated,
+    // Provento (docs/investimentos.md, etapa 5b): o ativo e o tipo. O código do ativo vem só na lista e no
+    // detalhe (PayoutAssets.Fill).
+    Guid? AssetId = null,
+    PayoutKind? PayoutKind = null,
+    string? AssetSymbol = null,
+    bool AssetHasLogo = false,
+    Prisma.Domain.Market.AssetKind? AssetKind = null)
 {
     public static readonly Expression<Func<Transaction, TransactionResponse>> Projection = t =>
         new TransactionResponse(
             t.Id, t.AccountId, t.Type, t.AmountCents, t.PurchaseDate, t.SettlementDate, t.StatementId,
             t.CategoryId, t.Method, t.Description, t.RawDescription, t.InstallmentPurchaseId,
             t.InstallmentNumber, t.TransferPairId, t.TransferDirection, t.Source, t.RefundedTransactionId, t.StatementPinned,
-            null, null, t.RecurrenceId, t.AmountEstimated);
+            null, null, t.RecurrenceId, t.AmountEstimated, t.AssetId, t.PayoutKind, null);
 
     private static readonly Func<Transaction, TransactionResponse> Compiled = Projection.Compile();
 

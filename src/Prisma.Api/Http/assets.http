@@ -1,0 +1,17 @@
+# Catálogo de ativos da bolsa (docs/investimentos.md, seção 8, etapa 3). Exige sessão: rode antes o Login de
+# auth.http. O catálogo se enche sozinho ao subir a API com a tabela vazia (tarefa diária, brapi).
+
+### Por código: o exato vem primeiro
+GET {{baseUrl}}/assets?q=bbas3
+
+### Por começo do código: ITSA3 e ITSA4 antes de quem só tem "itsa" no nome
+GET {{baseUrl}}/assets?q=itsa
+
+### Por nome, sem acento e em qualquer ordem
+GET {{baseUrl}}/assets?q=eletrica alianca
+
+### Fundo: mostrado pelo nome longo
+GET {{baseUrl}}/assets?q=maxi renda
+
+### Termo vazio: lista vazia
+GET {{baseUrl}}/assets?q=

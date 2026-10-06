@@ -1,0 +1,180 @@
+{
+  "results": [
+    {
+      "symbol": "AAPL34",
+      "name": "AAPL34",
+      "longName": "Apple Inc. Shs Unsponsored Brazilian Depository Receipt Repr 0.05 Sh",
+      "assetType": "bdr",
+      "subType": "bdr",
+      "exchange": "B3",
+      "currency": "BRL",
+      "sector": "Electronic Technology",
+      "subsector": null,
+      "isActive": true,
+      "logoUrl": "https://icons.brapi.dev/icons/BRAPI.svg",
+      "quote": {
+        "lastPrice": 87.06,
+        "changePercent": 0.95,
+        "volume": 237767,
+        "marketCap": 25252747727951.805
+      }
+    },
+    {
+      "symbol": "AAGR11",
+      "name": "AAGR11",
+      "longName": "Asset Bank Agronegocios Fundo de Investimento nas Cadeias Produtivas Agroindustriais Direitos Creditorios",
+      "assetType": "fund",
+      "subType": "fi-agro",
+      "exchange": "B3",
+      "currency": "BRL",
+      "sector": null,
+      "subsector": null,
+      "isActive": true,
+      "logoUrl": "https://icons.brapi.dev/icons/BRAPI.svg",
+      "quote": {
+        "lastPrice": 106,
+        "changePercent": 0.95,
+        "volume": 114,
+        "marketCap": null
+      }
+    },
+    {
+      "symbol": "AZIN11",
+      "name": "AZIN11",
+      "longName": "AZ Quest Infra Yield II Fundo de Investimento em Participacoes em Infraestrutura",
+      "assetType": "fund",
+      "subType": "fi-infra",
+      "exchange": "B3",
+      "currency": "BRL",
+      "sector": "Miscellaneous",
+      "subsector": null,
+      "isActive": true,
+      "logoUrl": "https://icons.brapi.dev/icons/BRAPI.svg",
+      "quote": {
+        "lastPrice": 95.04,
+        "changePercent": 0.13,
+        "volume": 8707,
+        "marketCap": null
+      }
+    },
+    {
+      "symbol": "BDIV11",
+      "name": "BDIV11",
+      "longName": "BTG Pactual Infraestrutura Dividendos Fundo de Investimento em Participacoes em Infraestrutura",
+      "assetType": "fund",
+      "subType": "fip",
+      "exchange": "B3",
+      "currency": "BRL",
+      "sector": null,
+      "subsector": null,
+      "isActive": true,
+      "logoUrl": "https://icons.brapi.dev/icons/BRAPI.svg",
+      "quote": {
+        "lastPrice": 36.8,
+        "changePercent": -0.54,
+        "volume": 3760,
+        "marketCap": null
+      }
+    },
+    {
+      "symbol": "BDOM",
+      "name": "BDOM",
+      "longName": "INVESTO BDOM",
+      "assetType": "fund",
+      "subType": null,
+      "exchange": "B3",
+      "currency": "BRL",
+      "sector": null,
+      "subsector": null,
+      "isActive": true,
+      "logoUrl": "https://icons.brapi.dev/icons/BRAPI.svg",
+      "quote": {
+        "lastPrice": 145.3,
+        "changePercent": 2.63,
+        "volume": 0,
+        "marketCap": null
+      }
+    },
+    {
+      "symbol": "BOVA11",
+      "name": "BOVA11",
+      "longName": "iShares Ibovespa Fundo de Indice",
+      "assetType": "fund",
+      "subType": "etf",
+      "exchange": "B3",
+      "currency": "BRL",
+      "sector": "Miscellaneous",
+      "subsector": null,
+      "isActive": true,
+      "logoUrl": "https://icons.brapi.dev/icons/BRAPI.svg",
+      "quote": {
+        "lastPrice": 190,
+        "changePercent": 3.03,
+        "volume": 6977538,
+        "marketCap": null
+      }
+    },
+    {
+      "symbol": "CAUT11",
+      "name": "CAUT11",
+      "longName": "Cauris Fundo de Investimento em Cotas de Fundo de Investimento em Direitos Creditorios",
+      "assetType": "fund",
+      "subType": "fidc",
+      "exchange": "B3",
+      "currency": "BRL",
+      "sector": null,
+      "subsector": null,
+      "isActive": true,
+      "logoUrl": "https://icons.brapi.dev/icons/BRAPI.svg",
+      "quote": {
+        "lastPrice": 100,
+        "changePercent": 0,
+        "volume": 1395,
+        "marketCap": null
+      }
+    }
+  ],
+  "indexes": [
+    {
+      "symbol": "^BVSP",
+      "name": "IBOVESPA",
+      "exchange": "B3",
+      "assetType": "index"
+    },
+    {
+      "symbol": "IFIX.SA",
+      "name": "Índice de Fundos Imobiliários",
+      "exchange": "B3",
+      "assetType": "index"
+    }
+  ],
+  "facets": {
+    "sectors": [],
+    "subsectors": [],
+    "assetTypes": [
+      "stock",
+      "fund",
+      "bdr"
+    ],
+    "subTypes": [
+      "stock",
+      "unit",
+      "fii",
+      "etf",
+      "fi-infra",
+      "fi-agro",
+      "fip",
+      "fidc",
+      "bdr"
+    ]
+  },
+  "pagination": {
+    "page": 2,
+    "limit": 7,
+    "totalItems": 11,
+    "totalPages": 2,
+    "hasNextPage": false
+  },
+  "requestedAt": "2026-10-03T22:54:23.637Z",
+  "took": 30
+}

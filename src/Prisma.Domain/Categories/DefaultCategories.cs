@@ -15,6 +15,11 @@ public sealed record CatalogSync(IReadOnlyList<Category> Added, IReadOnlyList<Ca
 // Para acrescentar categorias: suba Version e marque as novas com ela; cada usuário as recebe uma vez.
 public static class DefaultCategories
 {
+    // Categoria que o provento recebe sozinho (docs/investimentos.md, etapa 5b). A chave guardada leva o tipo na
+    // frente (Template.Key).
+    private const string InvestmentIncomeSlug = "investment-income";
+    public const string InvestmentIncomeKey = "income." + InvestmentIncomeSlug;
+
     public const int Version = 2;
 
     private sealed record Entry(string Slug, string Name, string Icon, int AddedIn, Entry[] Subcategories);
@@ -61,7 +66,7 @@ public static class DefaultCategories
         new(TransactionType.Expense, "#94A3B8", E("other", "Outros", "shapes")),
         new(TransactionType.Income, "#84CC16", E("salary", "Salário", "briefcase")),
         new(TransactionType.Income, "#22D3EE", E("freelance", "Freelance", "laptop")),
-        new(TransactionType.Income, "#A78BFA", E("investment-income", "Rendimentos", "sprout")),
+        new(TransactionType.Income, "#A78BFA", E(InvestmentIncomeSlug, "Rendimentos", "sprout")),
         new(TransactionType.Income, "#FBBF24", E("reimbursement", "Reembolso", "undo-2")),
         new(TransactionType.Income, "#94A3B8", E("other", "Outros", "shapes")),
     ];

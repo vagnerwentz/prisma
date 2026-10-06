@@ -1,0 +1,123 @@
+{
+  "results": [
+    {
+      "symbol": "BBAS3",
+      "name": "BCO BRASIL S.A.",
+      "longName": "Banco do Brasil S.A.",
+      "assetType": "stock",
+      "subType": "stock",
+      "exchange": "B3",
+      "currency": "BRL",
+      "sector": "Finance",
+      "subsector": "Bancos Diversificados",
+      "isActive": true,
+      "logoUrl": "https://icons.brapi.dev/icons/BBAS3.svg",
+      "quote": {
+        "lastPrice": 23.72,
+        "changePercent": 3.04,
+        "volume": 51578000,
+        "marketCap": 131647156290.00002
+      }
+    },
+    {
+      "symbol": "ITSA4",
+      "name": "ITAUSA S.A.",
+      "longName": "Itausa SA Non-Cum Perp Pfd Registered Shs",
+      "assetType": "stock",
+      "subType": "stock",
+      "exchange": "B3",
+      "currency": "BRL",
+      "sector": "Finance",
+      "subsector": null,
+      "isActive": true,
+      "logoUrl": "https://icons.brapi.dev/icons/BRAPI.svg",
+      "quote": {
+        "lastPrice": 14.67,
+        "changePercent": 2.02,
+        "volume": 36976200,
+        "marketCap": 162133972135
+      }
+    },
+    {
+      "symbol": "MXRF11",
+      "name": "MXRF11",
+      "longName": "Maxi Renda Fundo de Investimento Imobiliario Cotas",
+      "assetType": "fund",
+      "subType": "fii",
+      "exchange": "B3",
+      "currency": "BRL",
+      "sector": "Miscellaneous",
+      "subsector": "Logística",
+      "isActive": true,
+      "logoUrl": "https://icons.brapi.dev/icons/BRAPI.svg",
+      "quote": {
+        "lastPrice": 9.09,
+        "changePercent": 0,
+        "volume": 2013948,
+        "marketCap": null
+      }
+    },
+    {
+      "symbol": "TAEE11",
+      "name": "TRANSMISSORA ALIANÇA DE ENERGIA ELÉTRICA S.A.",
+      "longName": "Transmissora Alianca De Energia Eletrica S.A. Unit",
+      "assetType": "stock",
+      "subType": "unit",
+      "exchange": "B3",
+      "currency": "BRL",
+      "sector": "Industrial Services",
+      "subsector": "Energia Elétrica",
+      "isActive": true,
+      "logoUrl": "https://icons.brapi.dev/icons/TAEE11.svg",
+      "quote": {
+        "lastPrice": 42.85,
+        "changePercent": 2.41,
+        "volume": 2273200,
+        "marketCap": null
+      }
+    }
+  ],
+  "indexes": [
+    {
+      "symbol": "^BVSP",
+      "name": "IBOVESPA",
+      "exchange": "B3",
+      "assetType": "index"
+    },
+    {
+      "symbol": "IFIX.SA",
+      "name": "Índice de Fundos Imobiliários",
+      "exchange": "B3",
+      "assetType": "index"
+    }
+  ],
+  "facets": {
+    "sectors": [],
+    "subsectors": [],
+    "assetTypes": [
+      "stock",
+      "fund",
+      "bdr"
+    ],
+    "subTypes": [
+      "stock",
+      "unit",
+      "fii",
+      "etf",
+      "fi-infra",
+      "fi-agro",
+      "fip",
+      "fidc",
+      "bdr"
+    ]
+  },
+  "pagination": {
+    "page": 1,
+    "limit": 7,
+    "totalItems": 11,
+    "totalPages": 2,
+    "hasNextPage": true
+  },
+  "requestedAt": "2026-10-03T22:54:23.637Z",
+  "took": 30
+}

@@ -13,7 +13,8 @@ public sealed class PrismaApiFactory(
     string connectionString,
     IReadOnlyDictionary<string, string>? settings = null,
     IClock? clock = null,
-    LogSink? logs = null)
+    LogSink? logs = null,
+    Action<IServiceCollection>? services = null)
     : WebApplicationFactory<Program>
 {
     public const string Password = "senha-forte-123";
@@ -31,6 +32,9 @@ public sealed class PrismaApiFactory(
         // O gerador dos lançamentos que se repetem passa por todos os usuários do banco compartilhado: fica
         // desligado, e cada teste o chama quando quer. Quem quiser a tarefa ligada passa "true".
         builder.UseSetting("Recurrences:Runner:Enabled", "false");
+        // A sincronização do catálogo de ativos chamaria a brapi de verdade: fica desligada, e os testes dela
+        // trocam a fonte por uma falsa.
+        builder.UseSetting("Assets:Sync:Enabled", "false");
 
         foreach (var (key, value) in settings ?? DefaultSettings)
             builder.UseSetting(key, value);
@@ -40,6 +44,10 @@ public sealed class PrismaApiFactory(
 
         if (logs is not null)
             builder.ConfigureLogging(logging => logging.AddProvider(logs));
+
+        // Troca de serviços pelo teste (ex.: a fonte da lista de ativos por uma falsa).
+        if (services is not null)
+            builder.ConfigureTestServices(services);
     }
 
     // HTTPS porque o cookie de sessão é Secure: por HTTP o cliente não o reenviaria. Os testes

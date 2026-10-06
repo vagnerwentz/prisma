@@ -1,5 +1,6 @@
 using Prisma.Domain.Accounts;
 using Prisma.Domain.Categories;
+using Prisma.Domain.Investments;
 using Prisma.Domain.Statements;
 
 namespace Prisma.Domain.Transactions;
@@ -41,6 +42,63 @@ public sealed class Transaction : Entity
     // Débito automático de valor que muda (docs/fase-2.md, 2.15, regras 5 e 6): o valor é a estimativa da
     // série até a pessoa conferir.
     public bool AmountEstimated { get; private set; }
+
+    // Provento (docs/investimentos.md, etapa 5b): receita paga por um ativo, com o tipo. Os dois juntos, só em
+    // receita; fora disso, nulos.
+    public Guid? AssetId { get; private set; }
+    public PayoutKind? PayoutKind { get; private set; }
+
+    public const string PayoutUsesItsOwnEdit = "Provento usa a edição de provento.";
+
+    // O dinheiro cai na conta e o dia do pagamento é o dia do caixa (CLAUDE.md, regra 4). Sem descrição: a tela
+    // mostra o tipo e o ativo. TED é como a corretora paga.
+    public static Result<Transaction> CreatePayout(
+        Guid userId, Account account, Guid assetId, PayoutKind kind, long amountCents, DateOnly date, Category? category)
+    {
+        if (ValidatePayout(account, kind, amountCents, category) is { } error)
+            return error;
+
+        var transaction = new Transaction { UserId = userId, Source = TransactionSource.Manual };
+        transaction.ApplyPayout(account, assetId, kind, amountCents, date, category);
+        return transaction;
+    }
+
+    public Result<Transaction> UpdatePayout(
+        Account account, Guid assetId, PayoutKind kind, long amountCents, DateOnly date, Category? category)
+    {
+        if (AssetId is null)
+            return Invalid("Este lançamento não é um provento.");
+
+        if (ValidatePayout(account, kind, amountCents, category) is { } error)
+            return error;
+
+        ApplyPayout(account, assetId, kind, amountCents, date, category);
+        return this;
+    }
+
+    private void ApplyPayout(Account account, Guid assetId, PayoutKind kind, long amountCents, DateOnly date, Category? category)
+    {
+        ApplySimple(account, TransactionType.Income, amountCents, date, category, PaymentMethod.Ted, description: null);
+        AssetId = assetId;
+        PayoutKind = kind;
+    }
+
+    private static Error? ValidatePayout(Account account, PayoutKind kind, long amountCents, Category? category)
+    {
+        if (account.Type == AccountType.CreditCard)
+            return Invalid("Provento cai numa conta, não no cartão de crédito.");
+
+        if (!Enum.IsDefined(kind))
+            return Invalid("Tipo de provento inválido.");
+
+        if (amountCents <= 0)
+            return Invalid("O valor deve ser maior que zero.");
+
+        if (category is not null && category.Type != TransactionType.Income)
+            return Invalid("A categoria do provento deve ser de receita.");
+
+        return null;
+    }
 
     internal void MarkAmountEstimated() => AmountEstimated = true;
 
@@ -151,6 +209,9 @@ public sealed class Transaction : Entity
 
         if (Type == TransactionType.Refund)
             return Invalid("Estorno usa a edição de estorno.");
+
+        if (AssetId is not null)
+            return Invalid(PayoutUsesItsOwnEdit);
 
         if (ValidateSimple(account, type, amountCents, category, method, description) is { } error)
             return error;

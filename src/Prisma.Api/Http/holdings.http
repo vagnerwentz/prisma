@@ -1,0 +1,19 @@
+# Carteira: os ativos que se tem (docs/investimentos.md, seção 8, etapa 5a). Exige sessão: rode antes o Login de
+# auth.http. O id do ativo sai da busca (assets.http).
+
+### Achar o ativo
+GET {{baseUrl}}/assets?q=bbas3
+
+### Pôr na carteira (já está: devolve o mesmo; tinha sido tirado: volta o mesmo registro)
+POST {{baseUrl}}/holdings
+Content-Type: application/json
+
+{
+  "assetId": "<id do ativo>"
+}
+
+### A carteira, em ordem de código
+GET {{baseUrl}}/holdings
+
+### Tirar da carteira
+DELETE {{baseUrl}}/holdings/<id da carteira>

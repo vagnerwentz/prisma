@@ -20,7 +20,7 @@ public static class GetTransaction
             if (transaction is null)
                 return new Error(ErrorType.NotFound, "Transação não encontrada.");
 
-            return (await RefundAmounts.Fill(db, [transaction], ct))[0];
+            return (await PayoutAssets.Fill(db, await RefundAmounts.Fill(db, [transaction], ct), ct))[0];
         }
     }
 
