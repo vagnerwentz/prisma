@@ -10,5 +10,9 @@ export const recurrencesKey = ['recurrences'] as const
 export const holdingsKey = ['holdings'] as const
 // Proventos (etapa 5b): mudam com qualquer lançamento (excluir pela lista, excluir a conta).
 export const payoutsKey = ['payouts'] as const
+// Notas de corretagem e a carteira calculada delas (docs/investimentos.md, I.7b2). Não são dinheiro: não mexem em
+// saldos nem no resumo, só umas nas outras e na carteira.
+export const tradeNotesKey = ['trade-notes'] as const
+export const positionsKey = ['positions'] as const
 // Usuário da sessão: null quando não há sessão.
 export const meKey = ['auth', 'me'] as const

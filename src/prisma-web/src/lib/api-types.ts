@@ -2415,6 +2415,15 @@ export interface paths {
                         "application/problem+json": components["schemas"]["ProblemDetails"];
                     };
                 };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
             };
         };
         options?: never;
@@ -2550,6 +2559,355 @@ export interface paths {
                 };
             };
         };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/trade-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    take?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TradeNoteResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SaveTradeNoteRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TradeNoteResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/trade-notes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TradeNoteResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SaveTradeNoteRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TradeNoteResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/trade-notes/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TradeNoteResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/positions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ListPositionsPositionResponse"][];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/positions/{assetId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assetId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ListPositionsStepResponse"][];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -2828,6 +3186,59 @@ export interface components {
             /** Format: date */
             lastUsedOn: string;
         };
+        ListPositionsPositionResponse: {
+            /** Format: uuid */
+            assetId: string;
+            symbol: string;
+            name: string;
+            kind: components["schemas"]["AssetKind"];
+            hasLogo: boolean;
+            isActive: boolean;
+            /** Format: int64 */
+            quantity: number;
+            /** Format: int64 */
+            grossCostCents: number;
+            /** Format: int64 */
+            costBasisCents: number;
+            /** Format: int64 */
+            averagePriceCents: null | number;
+            /** Format: int64 */
+            averageCostCents: null | number;
+            /** Format: int64 */
+            realizedCents: number;
+        };
+        ListPositionsStepResponse: {
+            kind: components["schemas"]["PositionStepKind"];
+            /** Format: uuid */
+            noteId: null | string;
+            /** Format: date */
+            date: string;
+            broker: null | string;
+            side: null | components["schemas"]["TradeSide"];
+            /** Format: int64 */
+            quantity: number;
+            /** Format: int64 */
+            grossCents: number;
+            /** Format: int64 */
+            costsCents: number;
+            /** Format: int64 */
+            quantityAfter: number;
+            /** Format: int64 */
+            grossCostAfterCents: number;
+            /** Format: int64 */
+            costBasisAfterCents: number;
+            /** Format: int64 */
+            averagePriceCents: null | number;
+            /** Format: int64 */
+            averageCostCents: null | number;
+            /** Format: int64 */
+            realizedCents: null | number;
+            relatedSymbol: null | string;
+            /** Format: int32 */
+            fromQuantity: null | number;
+            /** Format: int32 */
+            toQuantity: null | number;
+        };
         ListStatementsStatementResponse: {
             /** Format: uuid */
             id: string;
@@ -2907,6 +3318,8 @@ export interface components {
         };
         /** @enum {unknown} */
         PendingLaunch: "NextStatement" | "SameStatement";
+        /** @enum {unknown} */
+        PositionStepKind: "Trade" | "Split" | "ConversionOut" | "ConversionIn";
         PreviewStatementDatesMovedPurchase: {
             /** Format: uuid */
             transactionId: string;
@@ -3018,6 +3431,26 @@ export interface components {
             /** Format: date */
             date: string;
         };
+        SaveTradeNoteLine: {
+            /** Format: uuid */
+            assetId: string;
+            side: components["schemas"]["TradeSide"];
+            /** Format: int64 */
+            quantity: number;
+            /** Format: int64 */
+            unitPriceCents: number;
+        };
+        SaveTradeNoteRequest: {
+            broker: string;
+            /** Format: date */
+            date: string;
+            /** Format: int64 */
+            feesCents: number;
+            /** Format: int64 */
+            brokerageFeeCents: number;
+            brokerageFeeOnAllKinds: boolean;
+            trades: components["schemas"]["SaveTradeNoteLine"][];
+        };
         SearchAssetsItem: {
             /** Format: uuid */
             id: string;
@@ -3026,9 +3459,44 @@ export interface components {
             kind: components["schemas"]["AssetKind"];
             isActive: boolean;
             hasLogo: boolean;
+            convertedToSymbol?: null | string;
+            /** Format: date */
+            convertedOn?: null | string;
         };
         /** @enum {unknown} */
         StatementShift: "Next" | "Previous";
+        TradeLineResponse: {
+            /** Format: uuid */
+            assetId: string;
+            symbol: string;
+            assetName: string;
+            assetKind: components["schemas"]["AssetKind"];
+            assetHasLogo: boolean;
+            side: components["schemas"]["TradeSide"];
+            /** Format: int64 */
+            quantity: number;
+            /** Format: int64 */
+            unitPriceCents: number;
+            /** Format: int64 */
+            grossCents: number;
+            /** Format: int64 */
+            costsCents: number;
+        };
+        TradeNoteResponse: {
+            /** Format: uuid */
+            id: string;
+            broker: string;
+            /** Format: date */
+            date: string;
+            /** Format: int64 */
+            feesCents: number;
+            /** Format: int64 */
+            brokerageFeeCents: number;
+            brokerageFeeOnAllKinds: boolean;
+            trades: components["schemas"]["TradeLineResponse"][];
+        };
+        /** @enum {unknown} */
+        TradeSide: "Buy" | "Sell";
         TransactionResponse: {
             /** Format: uuid */
             id: string;

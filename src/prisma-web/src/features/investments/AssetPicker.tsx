@@ -5,6 +5,7 @@ import { StaleFade } from '@/components/StaleFade'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { assetKindLabel, logoSrc, type AssetItem } from './assets'
+import { assetStatus } from './trades'
 import { useAssetSearch } from './queries'
 
 // Escolher um ativo da bolsa (docs/investimentos.md, seção 8, etapa 3): por código ou nome, sem acento.
@@ -134,18 +135,18 @@ export function AssetPicker({
 }
 
 // Código e tipo na primeira linha, nome na segunda. O ativo que saiu da bolsa continua escolhível
-// (rendimento antigo), com o aviso.
+// (rendimento antigo, nota antiga), com o aviso; o que virou outro diz qual e quando (I.7c1).
 function AssetText({ asset }: { asset: AssetItem }) {
+  const status = assetStatus(asset)
   return (
     <span className="flex min-w-0 flex-1 flex-col">
       <span className="flex items-baseline gap-2">
         <span className="font-medium">{asset.symbol}</span>
-        <span className="truncate text-xs text-muted-foreground">
-          {assetKindLabel(asset.kind)}
-          {!asset.isActive && ' · saiu da bolsa'}
-        </span>
+        <span className="truncate text-xs text-muted-foreground">{assetKindLabel(asset.kind)}</span>
       </span>
       <span className="truncate text-sm text-muted-foreground">{asset.name}</span>
+      {/* Linha própria: em 320 px, ao lado do tipo, a data do "virou BTHF11 em 16/12/2024" era cortada. */}
+      {status && <span className="text-xs text-muted-foreground">{status}</span>}
     </span>
   )
 }
