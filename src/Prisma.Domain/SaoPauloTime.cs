@@ -15,4 +15,8 @@ public static class SaoPauloTime
 
         return DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(utc, Zone));
     }
+
+    // O instante, em UTC, em que o dia começa em São Paulo.
+    public static DateTime StartOf(DateOnly date) =>
+        TimeZoneInfo.ConvertTimeToUtc(date.ToDateTime(TimeOnly.MinValue), Zone);
 }
