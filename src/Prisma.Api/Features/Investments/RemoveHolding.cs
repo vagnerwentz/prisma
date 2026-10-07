@@ -6,7 +6,8 @@ using Prisma.Domain;
 
 namespace Prisma.Api.Features.Investments;
 
-// Tira um ativo da carteira: soft delete. Pôr de novo (POST /holdings) devolve o mesmo registro.
+// Tira um ativo da carteira: soft delete. Pôr de novo (POST /holdings) devolve o mesmo registro. Com ações pelas notas,
+// recusa: a carteira tem que bater com as notas (decisão do dono, docs/investimentos.md, I.7b).
 public static class RemoveHolding
 {
     public sealed class Handler(AppDbContext db, ILogger<Handler> logger)
@@ -16,6 +17,17 @@ public static class RemoveHolding
             var holding = await db.Holdings.SingleOrDefaultAsync(h => h.Id == id, ct);
             if (holding is null)
                 return new Error(ErrorType.NotFound, "Ativo não encontrado na carteira.");
+
+            var notes = await TradeBook.Notes(db, ct);
+            var positions = await TradeBook.Positions(db, notes, ct);
+            var held = positions.IsSuccess
+                ? positions.Value.SingleOrDefault(p => p.AssetId == holding.AssetId)?.Current.Quantity ?? 0
+                : 0;
+            if (held > 0)
+            {
+                var symbol = (await TradeBook.Assets(db, [holding.AssetId], ct))[holding.AssetId].Symbol;
+                return new Error(ErrorType.Conflict, $"Ainda há {held} {symbol} pelas notas. Só sai da carteira com a posição zerada.");
+            }
 
             db.Holdings.Remove(holding);
             await db.SaveChangesAsync(ct);
@@ -31,5 +43,6 @@ public static class RemoveHolding
                 return result.IsSuccess ? Results.NoContent() : result.Error.ToProblem();
             })
             .Produces(204)
-            .ProducesProblem(404);
+            .ProducesProblem(404)
+            .ProducesProblem(409);
 }

@@ -15,7 +15,11 @@ public static class SearchAssets
     public const int MaxResults = 20;
 
     // HasLogo: a tela pede o logo (GET /assets/{id}/logo) só de quem tem; os outros mostram o código.
-    public sealed record Item(Guid Id, string Symbol, string Name, AssetKind Kind, bool IsActive, bool HasLogo);
+    // ConvertedToSymbol e ConvertedOn (I.7c1): o ativo virou outro ("BCFF11 · virou BTHF11 em 16/12/2024"). A nota
+    // antiga se lança com o código antigo, como está no papel; a conversão é do Prisma.
+    public sealed record Item(
+        Guid Id, string Symbol, string Name, AssetKind Kind, bool IsActive, bool HasLogo, string? ConvertedToSymbol = null,
+        DateOnly? ConvertedOn = null);
 
     public sealed class Handler(AppDbContext db)
     {
@@ -44,7 +48,17 @@ public static class SearchAssets
             var ids = rows.Select(a => a.Id).ToList();
             var withLogo = (await db.AssetLogos.AsNoTracking().Where(l => ids.Contains(l.AssetId)).Select(l => l.AssetId).ToListAsync(ct))
                 .ToHashSet();
-            return rows.Select(a => new Item(a.Id, a.Symbol, a.DisplayName, a.Kind, a.IsActive, withLogo.Contains(a.Id))).ToList();
+            var conversions = await db.CorporateEvents.AsNoTracking()
+                .Where(e => e.Kind == CorporateEventKind.Conversion && ids.Contains(e.AssetId))
+                .Join(db.Assets.AsNoTracking(), e => e.TargetAssetId, a => a.Id, (e, target) => new { e.AssetId, target.Symbol, e.Date })
+                .ToListAsync(ct);
+            var convertedTo = conversions.GroupBy(c => c.AssetId).ToDictionary(g => g.Key, g => g.OrderBy(c => c.Date).First());
+            return rows.Select(a =>
+                {
+                    var conversion = convertedTo.GetValueOrDefault(a.Id);
+                    return new Item(a.Id, a.Symbol, a.DisplayName, a.Kind, a.IsActive, withLogo.Contains(a.Id), conversion?.Symbol, conversion?.Date);
+                })
+                .ToList();
         }
     }
 

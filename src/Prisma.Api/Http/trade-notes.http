@@ -1,0 +1,57 @@
+# Notas de corretagem e carteira (docs/investimentos.md, I.7b1). Exige sessão: rode antes o Login de auth.http. A nota
+# é digitada (o Prisma não importa nota) e não mexe em saldo de conta. Toda gravação confere a carteira inteira: uma
+# venda maior do que se tinha é recusada, e nada é gravado.
+
+### Achar os ativos
+GET {{baseUrl}}/assets?q=itub3
+
+### Lançar (side: Buy ou Sell; valores em centavos). Taxas = liquidação, emolumentos, ISS, "outros"…, num total só;
+### IRRF fica de fora. Corretagem só para ação e unit, salvo brokerageFeeOnAllKinds.
+POST {{baseUrl}}/trade-notes
+Content-Type: application/json
+
+{
+  "broker": "XP",
+  "date": "2024-03-10",
+  "feesCents": 85,
+  "brokerageFeeCents": 1000,
+  "brokerageFeeOnAllKinds": false,
+  "trades": [
+    { "assetId": "<id do ITUB3>", "side": "Buy", "quantity": 50, "unitPriceCents": 2000 },
+    { "assetId": "<id do ITUB3>", "side": "Buy", "quantity": 30, "unitPriceCents": 2010 },
+    { "assetId": "<id do BBSE3>", "side": "Buy", "quantity": 20, "unitPriceCents": 3200 }
+  ]
+}
+
+### As notas, da mais recente para a mais antiga (take: só as últimas N)
+GET {{baseUrl}}/trade-notes?take=5
+
+### Uma nota
+GET {{baseUrl}}/trade-notes/<id da nota>
+
+### Editar (troca tudo, linhas inclusive)
+PUT {{baseUrl}}/trade-notes/<id da nota>
+Content-Type: application/json
+
+{
+  "broker": "Íon",
+  "date": "2024-03-10",
+  "feesCents": 85,
+  "brokerageFeeCents": 0,
+  "brokerageFeeOnAllKinds": false,
+  "trades": [
+    { "assetId": "<id do ITUB3>", "side": "Buy", "quantity": 80, "unitPriceCents": 2004 }
+  ]
+}
+
+### Excluir (recusada se uma venda depois precisava desta nota)
+DELETE {{baseUrl}}/trade-notes/<id da nota>
+
+### Desfazer a exclusão
+POST {{baseUrl}}/trade-notes/<id da nota>/restore
+
+### Carteira atual: quantidade, custo, os dois preços médios e o resultado das vendas
+GET {{baseUrl}}/positions
+
+### Histórico de um ativo, um passo por ordem
+GET {{baseUrl}}/positions/<id do ativo>

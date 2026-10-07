@@ -21,4 +21,9 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- A curadoria dos eventos da empresa vai dentro da imagem (docs/investimentos.md, I.7c1). -->
+    <EmbeddedResource Include="Infrastructure/Market/corporate-events.json" LogicalName="Prisma.Api.corporate-events.json" />
+  </ItemGroup>
+
 </Project>

@@ -35,6 +35,8 @@ public sealed class PrismaApiFactory(
         // A sincronização do catálogo de ativos chamaria a brapi de verdade: fica desligada, e os testes dela
         // trocam a fonte por uma falsa.
         builder.UseSetting("Assets:Sync:Enabled", "false");
+        // Os eventos da empresa também: cada teste os sincroniza quando quer, com a fonte dele.
+        builder.UseSetting("Assets:Events:Enabled", "false");
 
         foreach (var (key, value) in settings ?? DefaultSettings)
             builder.UseSetting(key, value);

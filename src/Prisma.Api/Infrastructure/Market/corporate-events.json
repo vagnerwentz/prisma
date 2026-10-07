@@ -1,0 +1,27 @@
+{
+  "comment": "Curadoria dos eventos da empresa (docs/investimentos.md, I.7c1). Igual para todos: a regra, nunca a quantidade de alguém. Cada evento tem chave estável; corrigir um evento é mudar a linha dele, e tirar a linha tira o evento. Ativo antigo (saiu da bolsa antes de o catálogo existir) entra em historicalAssets, com o último pregão. Datas: a data-com, o evento vale no fim desse dia.",
+  "historicalAssets": [
+    { "symbol": "BCFF11", "name": "BTG Pactual Fundo de Fundos FII", "kind": "Fii", "lastTradingDay": "2024-10-18" }
+  ],
+  "events": [
+    {
+      "key": "bcff11-desdobramento-2023-11-28",
+      "kind": "Split",
+      "symbol": "BCFF11",
+      "date": "2023-11-28",
+      "from": 1,
+      "to": 8,
+      "source": "Desdobramento 1:8 (Status Invest; conferir com o fato relevante)"
+    },
+    {
+      "key": "bcff11-bthf11-2024-12-16",
+      "kind": "Conversion",
+      "symbol": "BCFF11",
+      "target": "BTHF11",
+      "date": "2024-12-16",
+      "from": 100,
+      "to": 80,
+      "source": "Incorporação do BCFF11 pelo BTHF11, 100 para 80 (Status Invest; conferir com o fato relevante)"
+    }
+  ]
+}

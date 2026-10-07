@@ -3,11 +3,13 @@ using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Prisma.Api.Infrastructure.Auth;
 using Prisma.Domain;
 using Prisma.Domain.Accounts;
 using Prisma.Domain.Categories;
 using Prisma.Domain.Investments;
+using Prisma.Domain.Investments.Trades;
 using Prisma.Domain.Market;
 using Prisma.Domain.Recurrences;
 using Prisma.Domain.Statements;
@@ -44,6 +46,9 @@ public sealed class AppDbContext(
     // Ativos da carteira de cada pessoa (docs/investimentos.md, etapa 5a).
     public DbSet<Holding> Holdings => Set<Holding>();
 
+    // Notas de corretagem digitadas, com as linhas dentro (docs/investimentos.md, I.7b1).
+    public DbSet<TradeNote> TradeNotes => Set<TradeNote>();
+
     // Chaves que assinam o cookie de sessão. No banco, e não no disco do contêiner, para que um
     // deploy novo não derrube a sessão de quem está logado. Não é do usuário: fica sem filtro.
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
@@ -53,6 +58,9 @@ public sealed class AppDbContext(
 
     // O logo de cada ativo, já limpo (etapa 4). Global, como o catálogo.
     public DbSet<AssetLogo> AssetLogos => Set<AssetLogo>();
+
+    // Eventos da empresa (desdobramento, grupamento, conversão; I.7c1). Globais, como o catálogo.
+    public DbSet<CorporateEvent> CorporateEvents => Set<CorporateEvent>();
 
     // Tabelas sem dono, de propósito (CLAUDE.md, regra 6). Toda outra tabela herda Entity e recebe o filtro
     // de dono; um teste de arquitetura recusa tabela que não seja nem uma coisa nem outra. Tabela global
@@ -69,6 +77,7 @@ public sealed class AppDbContext(
         // Dados de mercado.
         typeof(Asset),
         typeof(AssetLogo),
+        typeof(CorporateEvent),
     };
 
     // Lido pelo EF a cada consulta, não no momento em que o modelo é construído.
@@ -128,7 +137,8 @@ public sealed class AppDbContext(
         var utcNow = clock.UtcNow;
         var now = utcNow.AddTicks(-(utcNow.Ticks % (TimeSpan.TicksPerMillisecond / 1000)));
 
-        foreach (var entry in ChangeTracker.Entries<Entity>())
+        // Lista fechada antes: o soft delete muda o estado de outras entradas (as partes da entidade).
+        foreach (var entry in ChangeTracker.Entries<Entity>().ToList())
         {
             switch (entry.State)
             {
@@ -147,7 +157,26 @@ public sealed class AppDbContext(
                     entry.State = EntityState.Modified;
                     entry.Property(e => e.DeletedAt).CurrentValue = now;
                     entry.Property(e => e.UpdatedAt).CurrentValue = now;
+                    KeepOwnedParts(entry);
                     break;
+            }
+        }
+    }
+
+    // O EF apaga junto com o dono as partes que vivem dentro dele (tipos owned, ex.: as linhas da nota). No soft delete o
+    // dono fica, então as partes ficam: sem isto, desfazer a exclusão devolveria a nota sem linhas.
+    private void KeepOwnedParts(EntityEntry entry)
+    {
+        foreach (var navigation in entry.Navigations.Where(n => n.Metadata.TargetEntityType.IsOwned()))
+        {
+            var parts = navigation is CollectionEntry collection
+                ? collection.CurrentValue?.Cast<object>() ?? []
+                : navigation.CurrentValue is { } single ? [single] : [];
+            foreach (var part in parts)
+            {
+                var partEntry = Entry(part);
+                if (partEntry.State == EntityState.Deleted)
+                    partEntry.State = EntityState.Unchanged;
             }
         }
     }
