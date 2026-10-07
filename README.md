@@ -44,7 +44,10 @@ reality, so the monthly numbers match your bank account instead of your receipts
   counted twice.
 - **Investments:** a portfolio of B3 stocks, REITs (FIIs) and ETFs picked from a catalog synced daily, and the
   payouts each one made (dividends, interest on equity, fund income), recorded as income in the account where the
-  money landed. Company logos are downloaded,
+  money landed. Brokerage notes are typed in (buys, sells and their fees); quantity, average price with and without
+  costs, and realized results are recalculated from them on every read, never stored. Corporate events (splits,
+  reverse splits, conversions such as a fund merged into another) come from a curated shared catalog and apply on
+  their record date, for everyone holding the asset. Company logos are downloaded,
   sanitized and served by the app itself.
 - **Cash-flow dashboard:** what came in, what went out and what was invested each month, by
   settlement date; category breakdown, month-over-month explanation and upcoming commitments.

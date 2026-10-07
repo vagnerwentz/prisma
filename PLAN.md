@@ -778,7 +778,8 @@ conversa e o TCP Proxy do Postgres ficou ligado. A H.2 foi dividida em três (de
 ## Fase I — Investimentos
 
 Pedida pelo dono (2026-10-02), fora da ordem das fases. Especificação, decisões e achados de cada etapa em
-`docs/investimentos.md`, seção 8. Tudo na branch `feat/brapi-asset-list`, num commit só quando o dono pedir.
+`docs/investimentos.md`, seção 8. I.1 a I.6 na branch `feat/brapi-asset-list` (com commits); a I.7 na
+`feat/investment-trades`, criada dela, sem commit até o dono pedir.
 
 - [x] **I.1 Cliente da brapi** — lista inteira de ativos da B3, traduzida para `ListedAsset`/`AssetKind`.
 - [x] **I.2 Catálogo e sincronização diária** — tabela global `assets` (exceção à regra 6), tarefa às 4h.
@@ -787,8 +788,23 @@ Pedida pelo dono (2026-10-02), fora da ordem das fases. Especificação, decisõ
 - [x] **I.5b Proventos** — receita na conta onde caiu, ligada ao ativo; agrupados por dia nos Lançamentos.
 - [x] **I.4 Logos** — baixados, limpos e servidos pelo Prisma; ação, unit e BDR mostram o logo, fundo o código.
 - [x] **I.6 Importar o histórico de proventos** — 142 proventos na Íon (banco local), e a soma deles sai do saldo
-  inicial (sem saída para zerar). Produção pelo mesmo importador (não por dump), quando o dono pedir (`docs/investimentos.md`, seção 9).
-- [ ] **I.7 Operações** — compra e venda, quantidade, preço médio, eventos da empresa; depois, cotação.
+  inicial (sem saída para zerar). Na produção desde 2026-10-06, junto com os dados do dono (`docs/investimentos.md`, seção 9).
+- **I.7 Operações** — compra e venda pela nota, preço médio, eventos da empresa; depois, cotação. Decisões do dono
+  (2026-10-06) e especificação em `docs/investimentos.md`, seção 8 ("I.7"). Branch `feat/investment-trades`.
+  - [x] **I.7a Cálculo** — só domínio: rateio de taxas e corretagem da nota (`Money.Allocate`), compra, venda, os
+    dois preços médios, resultado da venda e histórico por ativo.
+  - [x] **I.7b1 Notas pela API** — tabelas, gravar/editar/excluir/desfazer conferindo a carteira inteira, posição e
+    histórico por ativo, tirar da carteira só zerado; medir com 5.000 operações.
+  - [x] **I.7b2 Notas na tela** — lançar nota (corretora da lista, a última usada), "Meus ativos" com quantidade e os
+    dois preços médios, histórico no painel do ativo, "Últimas notas".
+  - **I.7c Eventos da empresa** — catálogo comum de eventos, aplicados sozinhos pela data-com; ativo antigo nasce com
+    o evento, por curadoria (decisões do dono, 2026-10-07).
+    - [x] **I.7c1 Eventos e ativos antigos** — arquivo de eventos versionado e tabela global; desdobramento, grupamento
+      e conversão no cálculo; nota de ativo já convertido recusada; começa com BCFF11 → BTHF11.
+    - [ ] **I.7c2 Pendências** — "Confere / Não confere" na primeira vez que um evento afeta a pessoa; dinheiro de frações.
+    - [ ] **I.7c3 Ativo faltando** — "Não encontrou? Avise a gente", a fila e o aviso quando o ativo chega.
+    - Depois: bonificação (com custo atribuído), subscrição, tela de administração.
+  - [ ] **I.7d Cotação** — valor de hoje e ganho não realizado.
 
 ---
 

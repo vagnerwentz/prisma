@@ -1,7 +1,7 @@
 # Investimentos — Fase I
 
-> **Status (2026-10-05):** etapas 1 a 5 feitas (seção 8), na branch `feat/brapi-asset-list`, ainda sem commit; as
-> etapas estão no `PLAN.md` (Fase I). Este é o documento da fase: as seções 1 a 7 guardam a conversa que levou ao
+> **Status (2026-10-07):** I.1 a I.6 feitas (branch `feat/brapi-asset-list`); da I.7, a, b1, b2 e c1 feitas na
+> `feat/investment-trades`, sem commit; abertas I.7c2, I.7c3 e I.7d. As etapas estão no `PLAN.md` (Fase I). Este é o documento da fase: as seções 1 a 7 guardam a conversa que levou ao
 > desenho; a seção 8, a especificação e o que foi feito em cada etapa; a seção 9, o que segue em aberto. As
 > decisões do dono estão marcadas com data.
 
@@ -527,6 +527,328 @@ O que mudou em relação à especificação logo abaixo, ao rodar contra a brapi
 - **As respostas** de busca, carteira, proventos e lançamentos dizem se o ativo tem logo, para a tela não pedir
   imagem que não existe.
 
+### I.7 Operações: decisões do dono (2026-10-06)
+
+Desenho conversado a partir de um plano sobre custos e preço médio. As notas de corretagem reais serviram só para
+entender os custos: **o Prisma não importa nota** (nada de PDF, OCR ou upload). A pessoa digita a nota.
+
+- **A unidade da entrada é a nota** (`TradeNote`): corretora, data do pregão, as operações (ativo, compra ou venda,
+  quantidade, preço) e, embaixo, os custos. É o envelope que diz quais operações dividem quais custos.
+- **Custos em dois totais:** taxas (`FeesCents`: liquidação, emolumentos, registro, ISS, transferência, "outros",
+  qualquer custo novo) e corretagem (`BrokerageFeeCents`). Pedir cada taxa num campo é fricção sem ganho: para o preço
+  médio só importa como cada total se divide. **IRRF não é custo** (é IR antecipado, o "dedo-duro"); fica fora do
+  cálculo.
+- **"Clearing" não é corretagem.** Na nota da B3, a seção "Clearing" traz a taxa de liquidação e a de registro, que
+  se dividem por valor como as outras taxas. A exceção é a **corretagem** (a "taxa operacional"), cobrada por ordem.
+  Nome no código: `BrokerageFee`.
+- **Corretagem só em ações (ação e unit), salvo marcação na nota inteira:** "esta corretagem vale também para FII,
+  ETF e outros" (`BrokerageFeeOnAllKinds`). Marcar por linha foi descartado: fica ruim no celular. Configurar na
+  corretora também: a regra muda com o tempo (em 2020 quase todas cobravam, hoje quase nenhuma).
+- **Ordem = mesmo ativo + mesma direção + mesma nota.** A nota lista negócios, não ordens; preço diferente
+  (`50 × 20,00` e `30 × 20,10`) não separa. Fracionário não separa (no catálogo é o mesmo ativo). As linhas digitadas
+  ficam gravadas como estão: a junção existe só no cálculo.
+- **A carteira não mexe em dinheiro.** Comprar e vender não alteram saldo de conta nenhuma e não entram em "Entrou"
+  nem "Saiu"; lucro de venda não é receita. O dinheiro que vai para a corretora segue como hoje (transferência, o
+  "Investido"). Sem isso, as notas desde 2020 exigiriam saldos de contas que não existiam no Prisma. **Sem D+2:** vale
+  a data da nota, e o calendário bancário continua só na série e na fatura.
+- **Corretora da nota:** escolhida de uma **lista de corretoras** (com o ícone da instituição; "Outra" para digitar),
+  não das contas: a nota não mexe em dinheiro e a corretora de 2020 pode não existir mais como conta. Vem preenchida
+  com a última usada. O dono lançará o histórico todo como Íon; a corretora só serve para ver "quanto tenho em cada
+  uma" no futuro.
+- **Preço médio único por pessoa e ativo**, somando as corretoras (é a regra da Receita).
+- **A tela mostra a carteira atual e o histórico** de cada ativo, com **dois preços médios**: só o preço (o que se
+  compara com a cotação) e com os custos de aquisição (o da Receita e do lucro).
+- **Posição calculada, não guardada:** gravam-se as notas; quantidade, preços médios e lucro saem de percorrer as
+  notas em ordem de data, como o saldo da conta sai dos lançamentos (`ListAccountBalances`). Corrigir ou excluir uma
+  nota antiga refaz tudo o que vem depois, sem código de sincronização. Medir com um usuário de 5.000 operações na
+  I.7b; se um dia ficar lento (medido), uma tabela entra como cópia refeita pelo mesmo cálculo, nunca atualizada
+  aos poucos.
+- **Começa zerado:** o dono digita as notas desde 2020 (cerca de 70). Sem posição inicial.
+- **Eventos da empresa um de cada vez**, quando uma nota real esbarrar neles (a venda de mais do que o Prisma acha
+  que se tem é recusada, e isso aponta o evento que falta). Ordem provável: bonificação (ITSA4), desdobramento e
+  grupamento, subscrição.
+- **Day trade ignorado:** compra e venda do mesmo ativo na mesma nota entram como operações comuns, na ordem digitada.
+- **Fora, por análise do plano:** banco novo, NoSQL, eventos de domínio, mensageria, Redis e tarefa em segundo plano.
+  São poucas pessoas e dezenas de operações por ano; o cálculo é síncrono, numa requisição, sem estado incremental
+  para duplicar ou reprocessar.
+
+### I.7a Cálculo: especificação
+
+Só domínio (`Prisma.Domain/Investments/Trades`), sem banco nem tela. Valores em centavos (`long`); conta
+intermediária em `Int128`, para `custo × valor` não estourar.
+
+**Nota válida** (`TradeNote.Create`): ao menos uma operação; quantidade e preço maiores que zero; taxas e corretagem
+não negativas. Corretagem maior que zero sem nenhuma ordem que a receba é recusada: "A corretagem desta nota não
+tem ação para receber. Marque que ela vale também para FII, ETF e outros." Custo maior que o valor da operação é
+aceito (operação pequena).
+
+**Valor da operação:** quantidade × preço.
+
+**Rateio das taxas:** entre todas as operações da nota, compras e vendas, proporcional ao valor. Centavo que sobra:
+maior resto (`Money.Allocate`), empate para a operação que vem antes. A soma das partes é sempre o total.
+
+| Exemplo | Valores | Taxas | Partes |
+|---|---|---|---|
+| Proporcional | ITUB3 R$ 8.000, BBSE3 R$ 2.000 | R$ 10,00 | R$ 8,00 e R$ 2,00 |
+| Maior resto | R$ 100, R$ 200, R$ 700 | R$ 0,11 | 1, 2 e **8** centavos (exatos: 1,1 · 2,2 · 7,7) |
+| Empate | três de R$ 1.000 | R$ 1,00 | 34, 33 e 33 centavos |
+| Compra e venda | compra R$ 2.000, venda R$ 3.000 | R$ 1,00 | 40 e 60 centavos |
+
+**Corretagem:** dividida igualmente entre as ordens que a recebem (`Money.SplitInto`, centavo extra para a primeira
+ordem na nota); dentro da ordem, entre as linhas, proporcional ao valor (maior resto). Recebem: ação e unit; com a
+marcação, todas.
+
+| Exemplo | Nota | Corretagem | Partes |
+|---|---|---|---|
+| Ordem com duas linhas | ITUB3 C 50 × 20,00 · ITUB3 C 30 × 20,10 · BBSE3 C 20 × 32,00 | R$ 10,00 | ITUB3 R$ 5,00 (3,12 + 1,88), BBSE3 R$ 5,00 |
+| FII sem marcação | MXRF11 C 100 × 10,00 · ITUB3 C 10 × 20,00 | R$ 4,90 | MXRF11 zero, ITUB3 R$ 4,90 |
+| FII com marcação | a mesma | R$ 4,90 | R$ 2,45 cada |
+| Três ordens | três ativos | R$ 10,00 | 3,34 · 3,33 · 3,33 |
+| Compra e venda do mesmo ativo | ITUB3 C e ITUB3 V | R$ 10,00 | duas ordens, R$ 5,00 cada |
+
+**Posição** (`PositionCalculator`), por ativo, somando as corretoras: quantidade, **custo bruto** (só preço) e **custo
+de aquisição** (preço + custos). Notas em ordem de data (mesma data: a ordem recebida); dentro da nota, ordem a ordem,
+na ordem em que aparecem.
+
+- **Compra:** quantidade + q; custo bruto + valor; custo de aquisição + valor + custos.
+- **Venda:** recusada se q passa da quantidade ("Venda de 110 em 10/03/2024, mas a carteira tinha 100."). Sai a
+  fração q/quantidade de cada custo, arredondada (meio centavo para cima); a venda que zera leva o resto inteiro, e
+  a soma do que saiu é sempre o que entrou. **Valor líquido** = valor − custos da venda (pode ser negativo).
+  **Resultado** = valor líquido − custo de aquisição que saiu (pode ser prejuízo). Os preços médios do que fica não
+  mudam (salvo fração de centavo do arredondamento).
+- **Preço médio** = custo bruto ÷ quantidade; **com custos** = custo de aquisição ÷ quantidade; em centavos, meio
+  centavo para cima. Sem quantidade, sem preço médio. Zerar e comprar de novo começa do zero.
+- **Histórico:** um passo por ordem, com a posição depois dela (quantidade, custos, preços médios) e, na venda, o
+  resultado.
+
+| Exemplo | Operações | Esperado |
+|---|---|---|
+| Custo na compra | C 100 × 20,00, custos R$ 10,00 | aquisição R$ 2.010,00; PM R$ 20,00; com custos R$ 20,10 |
+| Ordem com duas linhas | a nota da corretagem acima (taxas zero) | 80 ITUB3; bruto R$ 1.603,00 → PM R$ 20,04 (20,0375); aquisição R$ 1.608,00 → R$ 20,10 |
+| Venda total | C 100 × 20,00 sem custos; V 100 × 25,00, custos R$ 10,00 | líquido R$ 2.490,00; resultado R$ 490,00; posição zerada |
+| Venda parcial | C 100 × 20,00, custos R$ 10,00; V 30 × 25,00 sem custos | sai R$ 603,00; resultado R$ 147,00; ficam 70, PM R$ 20,00 e R$ 20,10 |
+| Arredondamento | C 3 × 10,00, custos R$ 0,01; três vendas de 1 | saem 10,00 · 10,01 · 10,00 (soma R$ 30,01) |
+| Duas compras | C 100 × 20,00; C 100 × 22,00 | PM R$ 21,00 |
+| Custo maior que o valor | C 1 × 1,00, custos R$ 5,00; V 1 × 1,00, custos R$ 5,00 | com custos R$ 6,00; líquido −R$ 4,00; resultado −R$ 10,00 |
+| Zerar e recomprar | C 10 × 20,00; V 10 × 25,00; C 10 × 30,00 | PM R$ 30,00 |
+| Venda acima | C 100; V 110 | recusada |
+
+**Testes de propriedade** (CsCheck): `Allocate` soma o total e cada parte fica a menos de um centavo da parte exata;
+pesos iguais dão o mesmo que `SplitInto`; o rateio da nota soma taxas + corretagem; comprar e vender tudo em partes
+aleatórias zera os dois custos, e a soma dos resultados é o líquido das vendas menos o custo de aquisição.
+
+### I.7a Cálculo: feita (2026-10-06)
+
+- **Código:** `Money.Allocate` (maior resto, em `Int128`) e `Prisma.Domain/Investments/Trades`: `Trade` (linha da
+  nota, com código e tipo do ativo), `TradeSide`, `TradeNote` (validação, `Orders`, `AllocateCosts`),
+  `PositionCalculator` e `AssetPosition`/`PositionTotals`/`PositionStep`. Sem banco, sem tela, sem pacote novo.
+- **A nota é cálculo, ainda não entidade:** a I.7b decide como gravá-la (dono, corretora, soft delete) e entrega ao
+  `PositionCalculator` as notas do usuário. O tipo do ativo vem do catálogo na hora do cálculo: se um dia o
+  fornecedor reclassificar um ativo, a corretagem de notas antigas pode mudar de lado. Raro; a I.7b decide se guarda
+  o tipo na linha.
+- **A venda que zera não precisa de caso especial:** `custo × q ÷ q` é exato, então a fração dela já é o custo
+  inteiro.
+- **Testes (I.7a):** `MoneyTests` (Allocate: exemplos da tabela, 3 propriedades, entradas inválidas), `TradeNoteTests`
+  (validação, taxas, corretagem por ordem e por tipo, propriedade da soma), `PositionCalculatorTests` (os exemplos
+  da tabela, ordem das notas, histórico, propriedade de vender tudo). Provados com 19 mutações, todas pegas.
+
+### I.7b Notas e carteira: decisões do dono (2026-10-06)
+
+- **Digitada, nunca importada:** nada de PDF ou leitura de nota; a pessoa copia a nota olhando para ela.
+- **"Meus ativos":** duas linhas por ativo: código e quantidade em cima; embaixo os dois preços médios ("PM R$ 20,04 ·
+  com custos R$ 20,20"); depois o total recebido em proventos.
+- **Onde ficam as notas:** no painel do ativo, o histórico (cada passo abre a nota para editar ou excluir); em
+  Investimentos, "Últimas notas", como os "Últimos proventos".
+- **Tirar da carteira** só com a posição zerada. Zerado, pode tirar, e notas e resultado continuam no histórico.
+- **Divisão:** I.7b1 (API) e I.7b2 (tela).
+
+### I.7b1 API: especificação
+
+- **Tabelas:** `trade_notes` (`TradeNote`, herda `Entity`: dono, filtro e exclusão que se desfaz): `broker` (texto, até
+  60), `trade_date`, `fees_cents`, `brokerage_fee_cents`, `brokerage_fee_on_all_kinds`. `trades` (linhas, dentro da
+  nota: gravadas e trocadas com ela): `asset_id` (chave para `assets`), `asset_kind`, `side`, `quantity`,
+  `unit_price_cents`, `line_number`. Checagens: quantidade e preço maiores que zero, custos não negativos.
+- **O tipo do ativo fica na linha**, copiado do catálogo ao gravar (e ao editar): a corretagem é dividida pelo que a
+  nota era quando foi lançada, e uma reclassificação do fornecedor não muda notas antigas.
+- **A corretora é o nome** ("XP", "BTG Pactual", "Íon"); a tela mostra o ícone pelo reconhecimento de marca que já
+  existe (`findBrand`). Obrigatória.
+- **Toda gravação confere a carteira inteira antes de salvar:** criar, editar, excluir e desfazer a exclusão
+  calculam a posição de todos os ativos com a mudança (`PositionCalculator`); se alguma venda passar do que se tinha,
+  nada é gravado (400 com a mensagem do domínio). Notas do mesmo dia: na ordem em que foram lançadas.
+- **Carteira:** gravar (ou desfazer a exclusão de) uma nota põe os ativos dela na carteira (`Portfolio.Ensure`).
+  `DELETE /holdings/{id}` com posição aberta é recusado (409).
+- **Endpoints:** `GET /trade-notes` (mais recentes primeiro; `take` opcional), `GET /trade-notes/{id}`, `POST`, `PUT
+  /trade-notes/{id}`, `DELETE /trade-notes/{id}`, `POST /trade-notes/{id}/restore`. A nota volta com as linhas (código,
+  nome, tipo, logo do ativo) e o custo de cada linha. `GET /positions`: um item por ativo com notas (quantidade, custo
+  bruto, custo de aquisição, os dois preços médios, resultado das vendas). `GET /positions/{assetId}`: o histórico.
+- **Corrida conhecida:** duas gravações ao mesmo tempo conferem a carteira cada uma sem a outra (uma venda pode passar
+  junto com a exclusão da compra de que ela depende). Uma pessoa digitando sozinha: aceito, sem trava.
+- **Medição:** usuário com 5.000 operações, tempo de `GET /positions` e de gravar uma nota.
+
+### I.7b1 API: feita (2026-10-06)
+
+- **Código:** `TradeNote` virou entidade (dono, corretora, `Update`, `Restore`) e `Trade` a linha guardada nela, com o
+  tipo do ativo; `PositionCalculator.Build` recebe o código de cada ativo para a mensagem. Banco: migration
+  `AddTradeNotes` (`trade_notes`, `trades` dentro da nota, checagens de quantidade, preço, custos, tipo e direção).
+  API em `Features/Investments`: `SaveTradeNote`, `DeleteTradeNote`, `RestoreTradeNote`, `ListTradeNotes`,
+  `ListPositions`, `TradeBook` (as notas e a conferência), `TradeNoteResponse`; `RemoveHolding` recusa com posição
+  aberta. Logs 4104 a 4107. `Http/trade-notes.http`. Tipos do front gerados (`api-types.ts`).
+- **Achado: o soft delete apagava as linhas.** O EF apaga junto com o dono o que vive dentro dele, e o
+  `AppDbContext` só trocava o dono para "excluído": desfazer devolvia a nota vazia. Agora o soft delete mantém as
+  partes da entidade (`KeepOwnedParts`). A nota é a única entidade com partes assim.
+- **Achado: as linhas voltam do banco em qualquer ordem;** a nota as ordena pelo número antes de usar.
+- **Leitura com `GET /positions` em conflito (409)** só se duas gravações ao mesmo tempo passarem uma sem a outra (a
+  corrida aceita): a mensagem diz qual venda corrigir.
+- **Medição** (Release, Postgres local, 1.667 notas com 5.000 operações, mediana de 15 chamadas depois de aquecer):
+  `GET /positions` 48 ms, histórico de um ativo 46 ms, `GET /trade-notes?take=20` 3,5 ms, todas as notas 51 ms,
+  gravar uma nota 56 ms. Gravar começou em 226 ms porque acompanhava todas as notas no EF só para conferir; lidas
+  sem acompanhamento (só a nota que muda é acompanhada), caiu para 56 ms, com as leituras iguais nas duas rodadas.
+  Conclusão: calcular sempre basta; sem tabela de resultado.
+- **Testes:** domínio (a nota com corretora, editar troca tudo, editar recusado não muda nada, linhas numeradas),
+  integração (`TradeNotesTests`, 22: os dois preços médios, nota não mexe em saldo nem no mês, venda acima recusada sem
+  gravar, excluir e desfazer conferindo, editar nota antiga, histórico, ordem no mesmo dia e ao mudar de dia, carteira,
+  tirar só zerado, tipo guardado na linha, lista e `take`, validação, 404, isolamento, login). Provados com 14 mutações
+  na API, todas pegas; duas só depois de testes novos (ordem no mesmo dia com o relógio avançando, nota que muda de
+  dia).
+
+
+### I.7b2 Tela: especificação (2026-10-06)
+
+Decisão do dono: **operação entra por um mini-form dentro da própria nota** (não num segundo painel).
+
+- **Painel "Nova nota"** (e "Editar nota", com "Excluir" e o aviso com "Desfazer"): corretora em chips (a última
+  usada primeiro e já escolhida; "Outra" abre um campo de nome), data do pregão (hoje, ontem, outra), a lista das
+  operações incluídas (tocar reabre para corrigir ou tirar), "Adicionar operação" (ativo, compra ou venda,
+  quantidade, preço, "Incluir"), taxas e corretagem. A marcação "Vale também para FII, ETF e outros" só aparece com
+  corretagem e alguma operação que não seja ação. No fim, o total de compras e de vendas. Recusa da API (venda acima
+  da carteira) aparece no próprio painel. O custo de cada linha só é mostrado depois de gravar (vem da API): a tela
+  não refaz o rateio.
+- **Corretoras da lista:** Íon, XP, BTG Pactual, Rico, Clear, Nubank, Inter, Toro, Ágora, Itaú, Banco do Brasil,
+  Bradesco, Santander, Caixa, Safra, Modalmais, Genial, C6 Bank; ícone pelo reconhecimento de marca.
+- **"Meus ativos":** com notas, a linha mostra o código e a quantidade ("80 ações", "10 cotas", "5 BDRs"), embaixo
+  "PM R$ 20,04 · com custos R$ 20,20" e, se houver, "R$ 412,00 em proventos". Sem notas, como antes (nome e total
+  recebido). Zerado: "zerado" no lugar da quantidade.
+- **Painel do ativo:** quantidade, os dois preços médios, custo total, resultado das vendas (se houver) e o histórico
+  (data, compra ou venda, quantidade, corretora; a posição depois). Tocar num passo abre a nota. "Nova nota" já com o
+  ativo e "Novo provento". "Tirar da carteira" só zerado.
+- **"Últimas notas"** em Investimentos (as 6 mais recentes), com "Nova nota". Sem notas, um convite curto.
+- **Cache:** gravar, excluir e desfazer recarregam notas, posições e carteira (nunca saldos: a nota não é dinheiro).
+
+### I.7b2 Tela: feita (2026-10-06)
+
+- **Código:** `TradeNoteSheet` (lançar e editar a nota, com o mini-form `LineEditor` e o campo de valor pequeno
+  `MoneyInput`), `trades.ts` (corretoras, "80 ações"/"10 cotas"/"5 BDRs", os dois preços médios em duas partes, total
+  de compras e vendas, título da nota, validação da operação), consultas e mutações em `queries.ts` (`tradeNotesKey`,
+  `positionsKey`: gravar recarrega notas, carteira calculada e lista de ativos, nunca saldos). `InvestmentsPage`:
+  "Meus ativos" com quantidade e os dois preços médios, painel do ativo com posição, notas e proventos ("Tirar da
+  carteira" só zerado), "Últimas notas" e o convite quando não há nota.
+- **Última corretora:** guardada no navegador (`prisma.lastBroker`, preferência de tela como o tema); sem ela, a da
+  nota mais recente. A lista da API vem por data do pregão, e quem lança o histórico de 2020 em diante não quer a
+  corretora da nota mais nova, e sim a da última que digitou.
+- **Achado em 320 px:** "com custos R$ 29,35" quebrava no meio do valor; os dois preços médios viraram blocos que
+  não se partem, e a linha quebra no "·". O nome do ativo zerado voltou a ser cortado em uma linha.
+- **Conferido com toque real** em 390 px (claro e escuro) e 320 px: lançar (incluir operação, "Lançar nota",
+  aviso), excluir com "Desfazer" (a nota volta e a quantidade também), venda acima da carteira e exclusão de uma
+  compra de que uma venda depende (as duas recusas aparecem no próprio painel). Sem rolagem lateral.
+- **Testes:** Vitest (`trades.test.ts`, 21), provados com 7 mutações, todas pegas. Pacote principal sem mudança
+  (130,52 kB comprimido); a tela de Investimentos é um pacote à parte (6,5 kB).
+
+### I.7c Eventos da empresa: decisões do dono (2026-10-07)
+
+Ponto de partida: BCFF11, comprado desde 2020, virou BTHF11; o catálogo (brapi, montado em outubro de 2026) só tem o
+BTHF11. O mesmo com CVBI11 → PCIP11.
+
+- **O Prisma sabe o que aconteceu; a pessoa não escolhe.** Os eventos (desdobramento, grupamento, conversão; depois
+  bonificação e subscrição) formam um **catálogo comum**, como o de ativos: a regra da empresa (proporção, data-com),
+  nunca a quantidade de alguém. Cada evento vale sozinho na carteira de quem tinha o ativo na data-com. Sem
+  "Recusar" (o Status Invest tem: recusar um desdobramento real deixa a quantidade 8 vezes menor, e o "pendente até
+  aceitar" travaria quem lança as notas em ordem, com a venda depois do evento recusada).
+- **Pendência só para o que é da pessoa** (I.7c2): conferir na primeira vez que um evento a afeta ("Confere / Não
+  confere"; "Não confere" vira aviso para revisar o evento, não o desliga só para ela), dinheiro de frações,
+  subscrição exercida ou não.
+- **Ativo antigo nasce com o evento, por curadoria.** Quem registra "BCFF11 virou BTHF11" registra o ativo antigo
+  junto, já como "saiu da bolsa". Nada de ativo digitado pelo usuário (risco de ativo inventado, levantado pelo
+  dono). O trabalho cresce com os eventos da bolsa, não com o número de usuários: cada evento vale para todos.
+- **Na busca, o código antigo aparece como ele mesmo,** com o que virou ("BCFF11 · virou BTHF11 em 16/12/2024"). A
+  pessoa lança a nota como está no papel; a conversão é do Prisma. Mostrar BTHF11 no lugar (ideia do "placeholder")
+  confundiria quantidade e preço.
+- **Ativo que falta:** "Não encontrou? Avise a gente" vira um pedido numa fila (I.7c3); a curadoria registra o
+  evento e avisa quem pediu.
+- **Curadoria, primeiro passo:** um arquivo de eventos versionado no repositório, aplicado ao subir a API (como o
+  catálogo). Tela de administração e papel de administrador depois, quando a fila pedir.
+- **Pensar para crescer** (correção do dono): os caminhos se comparam pelo comportamento com muitos usuários, não
+  pelo tamanho de hoje.
+- **Investigado e deixado de lado, por ora: a COTAHIST da B3** (séries históricas, um arquivo por ano, público,
+  colunas fixas, com ISIN e o último pregão de cada código). 764 códigos negociados em 2023–2024 não estão no
+  catálogo; a extração de 2015, 2023, 2024 e 2026 deu 1.168 códigos em 69 KB (os arquivos brutos, ~2 GB, nunca iriam
+  ao banco). Fica como complemento se a fila de ativos faltando crescer; o dono acha que o público começa a investir
+  a partir de 2020. Termos de uso da B3 não conferidos.
+- **Referências:** o Status Invest mostra o BCFF11 com desdobramento 1:8 (data-com 28/11/2023) e conversão 100 → 80
+  BTHF11 (16/12/2024), e aceitou uma compra de BCFF11 em 2026, impossível (o último pregão foi 18/10/2024, pela
+  COTAHIST). O TCC do dono (Python, OCR) tinha os mesmos quatro tipos de evento numa linha do tempo recalculada; não
+  levar dele: evento com a quantidade da pessoa, bonificação a custo zero (vale o custo atribuído pela empresa),
+  incorporação com preço médio fixo e que sobrescrevia a posição do destino, fração em ponto flutuante, venda sem os
+  custos dela, corretagem por linha.
+
+### I.7c1 Eventos e ativos antigos: especificação
+
+- **Arquivo** `Infrastructure/Market/corporate-events.json` (dentro da imagem): ativos antigos (código, nome, tipo,
+  último pregão) e eventos (chave estável, tipo, código, data, proporção `from:to`, código de destino na conversão,
+  fonte). Começa com BCFF11: desdobramento 1:8 com data-com 28/11/2023 e conversão 100:80 em BTHF11 em 16/12/2024
+  (números do Status Invest; conferir com o fato relevante).
+- **Tabela global** `corporate_events` (na lista `GlobalTables`): chave única, tipo (`Split`, `Conversion`), ativo,
+  ativo de destino, data, `from_quantity`, `to_quantity`, fonte. O ativo antigo entra em `assets` já inativo
+  (`inactive_since` no dia seguinte ao último pregão).
+- **Sincronização** ao subir a API e depois de cada sincronização do catálogo: entra o que é novo, muda o que mudou,
+  sai o que saiu do arquivo; evento com ativo desconhecido fica de fora com aviso no log (o catálogo pode ainda não
+  ter o destino). Rodar duas vezes não muda nada.
+- **Cálculo:** o evento vale no fim do dia da data (quem compra na data-com tem direito), depois das notas do dia.
+  - **Desdobramento e grupamento** (`Split`): quantidade × to ÷ from, para baixo; os custos não mudam (o preço médio
+    acompanha). A fração que sobra fica sem custo próprio por ora (o dinheiro do leilão é da I.7c2).
+  - **Conversão:** a origem zera; o destino soma a quantidade convertida (para baixo) e os dois custos inteiros, sem
+    resultado (não é venda). Soma a uma posição que já exista no destino.
+  - Sem posição na data, o evento não aparece.
+- **Nota de ativo que já virou outro** (data depois da conversão) é recusada: "BCFF11 virou BTHF11 em 16/12/2024.
+  Desde então, lance como BTHF11."
+- **Histórico:** passos de evento sem nota ("Desdobramento 1:8", "Virou BTHF11", "Veio de BCFF11"), com a posição
+  depois.
+- **API** (só acrescenta): o passo do histórico ganha `kind`, `relatedSymbol`, `fromQuantity`, `toQuantity`, e
+  `noteId`, `broker` e `side` ficam nulos nos eventos; a busca ganha `convertedToSymbol` e `convertedOn`; a carteira
+  calculada ganha `isActive`.
+- **Tela:** a busca mostra "virou BTHF11 em 16/12/2024"; "Meus ativos" mostra também ativo com posição e fora da
+  carteira (o destino da conversão); o histórico mostra os passos de evento.
+
+### I.7c1 Eventos e ativos antigos: feita (2026-10-07)
+
+- **Domínio:** `CorporateEvent` (global, sem dono, como o `Asset`), `CorporateEventKind` (`Split`, `Conversion`),
+  `CorporateEventReconciliation` (arquivo × tabela), `Asset.FromHistory`, `SaoPauloTime.StartOf`. O
+  `PositionCalculator` recebe os eventos: valem no fim do dia, depois das notas; no mesmo dia, desdobramento antes da
+  conversão (ao contrário, o desdobramento cairia no ativo já zerado). Passos de evento no histórico
+  (`PositionStepKind`).
+- **API:** `corporate-events.json` (recurso dentro da imagem, `EmbeddedCorporateEventSource`), migration
+  `AddCorporateEvents` (tabela global em `GlobalTables`, chave única, checagens de tipo, proporção e destino),
+  `CorporateEventSync` (ao subir, `CorporateEventStartup`, e depois de cada sincronização do catálogo, no
+  `AssetListWorker`), logs 4011 a 4014. Quem perde a corrida no índice único ao subir encontra o trabalho feito. A
+  busca diz o que o ativo virou; o histórico traz `kind`, `relatedSymbol` e a proporção; a carteira calculada traz
+  `isActive`. Roteiro da curadoria em `docs/operacao.md`, seção 4.2.
+- **Tela:** a busca mostra "virou BTHF11 em 16/12/2024" numa linha própria (ao lado do tipo, a data era cortada em
+  320 px); "Meus ativos" mostra o ativo recebido numa conversão mesmo fora da carteira (`withPositions`, sem "Tirar da
+  carteira"); o histórico do ativo virou "Histórico", com "Desdobramento 1:8 · 110 → 880 cotas", "Virou BTHF11" e
+  "Veio de BCFF11", sem seta (não há nota para abrir).
+- **O caso do dono, conferido pela tela:** compras de BCFF11 em 30/09/2020 (10 × 90,28) e 02/10/2023 (100 × 72,19)
+  terminam em 704 BTHF11, custo R$ 8.121,80, PM R$ 11,54; a compra de BCFF11 em 2026 é recusada no painel com
+  "BCFF11 virou BTHF11 em 16/12/2024. Desde então, lance como BTHF11."
+- **Números do BCFF11 vieram do Status Invest:** conferir com o fato relevante antes da produção (a `source` no arquivo
+  diz isso).
+- **Testes:** domínio (`CorporateEventsInPositionTests`, `CorporateEventTests`), integração (`CorporateEventsTests`:
+  sincronização, caso do dono, recusa, correção, idempotência, evento pulado, tarefa diária, o arquivo de verdade),
+  Vitest (`stepTitle`, `assetStatus`, `withPositions`). Provados com 24 mutações, todas pegas; 3 só depois de testes
+  novos (nota no dia da conversão, desdobramento e conversão no mesmo dia, ativo da carteira com posição não repete) e
+  1 refeita porque a expressão não tinha casado. Os dois testes do catálogo que contam ativos ganharam uma fonte de eventos vazia: a tarefa
+  diária agora também traz os ativos antigos.
+- **Incidente na sessão:** ao gerar os tipos do front, a API do dono estava na porta 5151; a minha não subiu e o
+  `kill` derrubou a dele. Daqui em diante: conferir a porta antes e derrubar só o processo que eu subi.
+
 ## 9. Em aberto
 
 - Operações (compra e venda, quantidade, preço médio): depois da 5b. Depende também de saber se o pai e a
@@ -545,18 +867,18 @@ O que mudou em relação à especificação logo abaixo, ao rodar contra a brapi
   dono; o saldo inicial da Íon ficou negativo na soma deles, e o saldo, zero. Valores nunca no repositório. "Rend. Tributado" (correção de
   dividendo pago com atraso) e a venda de fração de ITSA4 entraram como dividendo (decisão do dono). Gravado por um
   importador descartável, fora do repositório, pelo `SavePayout.Handler` agindo como o usuário (`ScopedUser`), sem
-  senha. Falta levar à produção, só com o "pode" do dono: **não por dump** (o
-  banco local tem contas de teste, e restaurá-lo apagaria os dados reais da produção). Caminho: publicar a branch (o
-  catálogo se preenche ao subir), o dono cria a Íon pela tela e o importador roda contra a produção, com a mesma trava
-  (recusa se a Íon já tiver lançamentos). A tabela nunca entra no repositório.
+  senha. **Na produção desde 2026-10-06**, com o "pode" do dono: não por dump nem pelo importador, mas junto com todos
+  os dados do usuário dele (contas, faturas, lançamentos, carteira), copiados do banco local numa transação só e
+  conferidos nas duas pontas. A tabela nunca entra no repositório.
 - **Em espera (dono, 2026-10-06), para estudar junto com as operações (I.7):**
-  - O mesmo ativo em duas corretoras (BBAS3 na Íon e no BTG). Hoje a carteira (`Holding`) é uma por ativo, sem
-    conta; a quantidade e o preço médio vão precisar saber de qual corretora é cada posição.
+  - ~~O mesmo ativo em duas corretoras~~ resolvido na I.7 (2026-10-06): a nota tem a corretora; o preço médio é um
+    só por pessoa e ativo (regra da Receita), somando as corretoras. Ver "quanto tenho em cada corretora" fica para
+    quando alguém pedir; os dados já existem.
   - Proventos por ano e por mês. Hoje o valor de cada ativo em "Meus ativos" é a soma de todos os anos ("total
     recebido"), e o topo mostra só o ano corrente; com proventos de 2025, os dois deixam de bater. A ideia é ver os
     proventos separados por ano ou mês e ter outra tela para a soma de todos os anos.
   - Teste da corrida ao lançar provento (dois pedidos que põem o mesmo ativo novo na carteira ao mesmo tempo). O
-    código já trata (refaz uma vez); o teste fica para quando a carteira mudar com as corretoras.
+    código já trata (refaz uma vez); o teste continua em aberto (a carteira não mudou com as corretoras).
 - Licença dos ícones da brapi: o dono decidiu seguir sem conferir (2026-10-05).
 - Licença de dados de mercado: mostrar cotação a terceiros é redistribuição. Conferir antes de abrir
   cadastro público, junto com a LGPD.

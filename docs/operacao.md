@@ -147,6 +147,38 @@ API: vai para o log, e o dia seguinte tenta de novo; perder um dia não muda nad
   `Brapi__BaseUrl`, `Brapi__TimeoutSeconds`, `Brapi__PageSize` (até 2.000), `Brapi__MaxPages`,
   `Assets__Sync__HourOfDay` (0 a 23, hora de São Paulo) e `Assets__Sync__Enabled=false` para desligar.
 
+## 4.2 Eventos da empresa e ativos antigos (investimentos, I.7c1)
+
+Desdobramento, grupamento e conversão (incorporação ou troca de código) ficam numa tabela global,
+`corporate_events`, alimentada pela **curadoria**: o arquivo `src/Prisma.Api/Infrastructure/Market/corporate-events.json`,
+que vai dentro da imagem. A API o aplica ao subir e depois de cada sincronização do catálogo. Na mesma passada entram,
+já inativos, os ativos que saíram da bolsa antes de o catálogo existir (ex.: BCFF11). A carteira de cada pessoa é
+recalculada na leitura, então um evento novo ou corrigido vale na hora para todos, sem migração de dados.
+
+**Cadastrar uma troca ou um desdobramento** (ex.: alguém avisa que falta CVBI11):
+
+1. Leia o fato relevante do fundo ou da empresa: data-com (ou o dia da troca), proporção, código de destino. Na troca,
+   o último pregão do código antigo sai do fato relevante ou da COTAHIST da B3 (`docs/investimentos.md`, I.7c).
+2. No arquivo, acrescente o ativo antigo em `historicalAssets` (código, nome, tipo, último pregão), se ele não estiver
+   no catálogo, e o evento em `events`, com uma `key` nova e estável e a `source` (de onde veio o número).
+3. `dotnet test` (o teste `Embedded_file_is_valid` confere o arquivo), PR e deploy.
+4. Conferir no log: `@eventName:CorporateEventsSynced` (ativos antigos e eventos acrescentados).
+
+Corrigir um evento é mudar a linha dele (a mesma `key`); tirar a linha tira o evento. Nunca troque a `key` de um evento
+que já foi para a produção: vira um evento novo e o antigo sai.
+
+| Pergunta | Filtro no Railway |
+|---|---|
+| A curadoria foi aplicada? (ativos antigos, eventos novos, mudados e tirados) | `@eventName:CorporateEventsSynced` |
+| Evento pulado porque o código (ou o destino) não está no catálogo | `@eventName:CorporateEventSkipped` |
+| Arquivo recusado e nada mudou (chave repetida, proporção inválida) | `@eventName:CorporateEventsRefused` |
+| Falha inesperada | `@eventName:CorporateEventSyncFailed` |
+
+- **`CorporateEventSkipped`**: o destino ainda não veio da brapi (código novo) ou foi digitado errado. Se for código
+  novo, a próxima sincronização do catálogo resolve; se não, corrija o arquivo.
+- **Configuração:** `Assets__Events__Enabled=false` desliga a passada ao subir (a da tarefa diária continua junto com
+  o catálogo).
+
 ## 5. Backup fora do Railway (H.2b)
 
 Todo dia às 03:00 de São Paulo, o serviço `backup` copia o banco (`pg_dump`), tranca a cópia com a sua chave
