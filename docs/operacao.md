@@ -164,6 +164,19 @@ recalculada na leitura, então um evento novo ou corrigido vale na hora para tod
 3. `dotnet test` (o teste `Embedded_file_is_valid` confere o arquivo), PR e deploy.
 4. Conferir no log: `@eventName:CorporateEventsSynced` (ativos antigos e eventos acrescentados).
 
+**O arquivo conhece `Split`, `Conversion` e `Liquidation`.** Qual usar sai do fato relevante:
+
+- `Conversion`: troca de código ou incorporação em que o custo antigo segue para o destino.
+- `Liquidation` (I.7c4): o fundo foi liquidado e pago em cotas de outro, com valor atribuído a elas (ex.: BCFF11 → BTHF11,
+  "custo médio de aquisição das novas cotas em R$ 10,25"). Leva `targetUnitPrice` (o valor de cada cota recebida) e,
+  se houve dinheiro, `cashPerUnit` (por cota da origem, antes do IR retido; rendimentos do mês ficam fora, são
+  proventos). Em texto, com ponto e até 8 casas: `"10.25"`, `"83.3946076"`.
+
+Tipo desconhecido, campo de outro formato ou valor por cota fora do padrão (`"10,25"`, 9 casas) recusa o arquivo
+inteiro: nenhum evento muda, e o `dotnet test` acusa (`Embedded_file_is_valid`). Caso com escolha da pessoa (CRFB3) ou
+sem documento oficial (IRDM11, por ora): só o ativo em `historicalAssets`, e a pessoa lança as notas
+(`docs/investimentos.md`, "Casos reais da curadoria").
+
 Corrigir um evento é mudar a linha dele (a mesma `key`); tirar a linha tira o evento. Nunca troque a `key` de um evento
 que já foi para a produção: vira um evento novo e o antigo sai.
 
@@ -178,6 +191,65 @@ que já foi para a produção: vira um evento novo e o antigo sai.
   novo, a próxima sincronização do catálogo resolve; se não, corrija o arquivo.
 - **Configuração:** `Assets__Events__Enabled=false` desliga a passada ao subir (a da tarefa diária continua junto com
   o catálogo).
+
+## 4.3 Ativos que faltam: a fila da curadoria (investimentos, I.7c3)
+
+Quem não acha um código na busca toca em "Avisar que falta". O pedido é só o código, um por pessoa, na tabela
+`asset_requests` (com dono). Quando o código entra no catálogo, pela brapi ou pelo arquivo da seção 4.2, a pessoa vê
+"CVBI11 chegou" na tela de Investimentos: nada a fazer além de trazer o ativo.
+
+**Ver a fila** (os códigos que esperam, do mais pedido ao menos pedido; sem nome nem e-mail de ninguém). A consulta é a
+mesma do teste `AssetRequestsTests`; mudou uma, muda a outra. Na produção, pelo `psql` como na seção 1 (o TCP Proxy
+fica ligado só enquanto se consulta):
+
+```sql
+SELECT r.symbol, count(*) AS requests, min(r.created_at) AS first_requested_at
+FROM asset_requests r
+WHERE r.deleted_at IS NULL
+  AND NOT EXISTS (SELECT 1 FROM assets a WHERE a.symbol = r.symbol)
+GROUP BY r.symbol
+ORDER BY requests DESC, first_requested_at;
+```
+
+**Atender um código:** pesquisar o que aconteceu com ele (fato relevante, COTAHIST) e seguir o roteiro da seção 4.2.
+Código que nunca vai entrar (erro de digitação, ativo de fora da bolsa) fica na fila por ora: a recusa com motivo vem
+com a tela de administração (`docs/investimentos.md`, I.7c3).
+
+| Pergunta | Filtro no Railway |
+|---|---|
+| Quem pediu o quê, quando (só o código e o `userId`) | `@eventName:AssetRequested` |
+| Pedidos de um código | `@eventName:AssetRequested @symbol:CVBI11` |
+| Avisos cancelados ou dispensados, e desfeitos | `@eventName:AssetRequestRemoved`, `@eventName:AssetRequestRestored` |
+
+- **Limites:** 20 avisos esperando por pessoa; 10 envios por minuto por pessoa (`RateLimiting__AssetRequests__PermitLimit`).
+
+## 4.4 Eventos que alguém disse que não conferem (investimentos, I.7c2)
+
+Cada pessoa confere, uma vez, o que um evento fez com a quantidade dela ("Conferir eventos", em Investimentos). O "Não
+confere" fica na tabela `event_reviews` (com dono), com a quantidade que a corretora mostra, quando a pessoa sabe. A
+carteira dela não muda: o evento vale até a curadoria corrigir a linha dele no arquivo (seção 4.2) ou tirá-la.
+
+**Ver os "Não confere"** da versão atual de cada evento (sem nome nem e-mail de ninguém). A consulta é a mesma do teste
+`EventReviewsTests`; mudou uma, muda a outra:
+
+```sql
+SELECT e.key, a.symbol, count(*) AS people, array_agg(r.reported_quantity ORDER BY r.created_at) AS reported
+FROM event_reviews r
+JOIN corporate_events e ON e.id = r.corporate_event_id
+JOIN assets a ON a.id = e.asset_id
+WHERE r.verdict = 'Disputed' AND r.deleted_at IS NULL AND r.event_version = e.updated_at
+GROUP BY e.key, a.symbol
+ORDER BY people DESC, e.key;
+```
+
+**Atender:** conferir o evento no fato relevante. Se estiver errado, corrigir a linha dele no arquivo (a mesma `key`):
+no deploy, o evento muda, e ele volta a pedir conferência a quem já tinha conferido, inclusive a quem disse que não
+conferia. Se estiver certo, nada a fazer por ora (a resposta à pessoa vem com a tela de administração).
+
+| Pergunta | Filtro no Railway |
+|---|---|
+| Quem disse que um evento não confere (só o evento e o `userId`) | `@eventName:EventReviewDisputed` |
+| Conferências feitas e desfeitas | `@eventName:EventReviewsConfirmed`, `@eventName:EventReviewUndone` |
 
 ## 5. Backup fora do Railway (H.2b)
 

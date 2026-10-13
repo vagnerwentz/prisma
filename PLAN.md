@@ -34,7 +34,7 @@ Estas estão fechadas. Não reabrir sem conversa explícita.
 | Visão do dashboard | **Caixa**: gasto do cartão conta no mês do vencimento da fatura |
 | Dinheiro | `long` em centavos, sempre |
 | Multiusuário | Dados por `UserId`, sem grupo familiar |
-| Investimentos | Aporte é transferência (Fase 1). Carteira e proventos na Fase I (`docs/investimentos.md`): provento é receita na conta onde caiu, ligada ao ativo; catálogo de ativos global, vindo da brapi. Rentabilidade (operações, preço médio, cotação) fica para depois |
+| Investimentos | Aporte é transferência (Fase 1). Carteira e proventos na Fase I (`docs/investimentos.md`): provento é receita na conta onde caiu, ligada ao ativo; catálogo de ativos global, vindo da brapi. Operações e preço médio pelas notas digitadas, com os eventos da empresa (I.7); cotação fica para depois |
 | Hospedagem | Uso próprio: Railway, com API, React e Postgres num só projeto e o React servido pela API (mesmo domínio). Cadastro público: reavaliar antes de abrir |
 
 ---
@@ -779,7 +779,8 @@ conversa e o TCP Proxy do Postgres ficou ligado. A H.2 foi dividida em três (de
 
 Pedida pelo dono (2026-10-02), fora da ordem das fases. Especificação, decisões e achados de cada etapa em
 `docs/investimentos.md`, seção 8. I.1 a I.6 na branch `feat/brapi-asset-list` (com commits); a I.7 na
-`feat/investment-trades`, criada dela, sem commit até o dono pedir.
+`feat/investment-trades`, criada dela: a até e com commit (2026-10-12), sem push até o dono pedir.
+O dono lançou todas as notas que tem (2026-10-12).
 
 - [x] **I.1 Cliente da brapi** — lista inteira de ativos da B3, traduzida para `ListedAsset`/`AssetKind`.
 - [x] **I.2 Catálogo e sincronização diária** — tabela global `assets` (exceção à regra 6), tarefa às 4h.
@@ -797,14 +798,25 @@ Pedida pelo dono (2026-10-02), fora da ordem das fases. Especificação, decisõ
     histórico por ativo, tirar da carteira só zerado; medir com 5.000 operações.
   - [x] **I.7b2 Notas na tela** — lançar nota (corretora da lista, a última usada), "Meus ativos" com quantidade e os
     dois preços médios, histórico no painel do ativo, "Últimas notas".
+  - [x] **I.7b3 Corretagem por tipo** — "Corretagem cobrada em" com caixas de seleção dos tipos da nota (padrão: ação);
+    substitui a marcação "vale também para FII, ETF e outros" (decisão do dono, 2026-10-08).
   - **I.7c Eventos da empresa** — catálogo comum de eventos, aplicados sozinhos pela data-com; ativo antigo nasce com
     o evento, por curadoria (decisões do dono, 2026-10-07).
     - [x] **I.7c1 Eventos e ativos antigos** — arquivo de eventos versionado e tabela global; desdobramento, grupamento
       e conversão no cálculo; nota de ativo já convertido recusada; começa com BCFF11 → BTHF11.
-    - [ ] **I.7c2 Pendências** — "Confere / Não confere" na primeira vez que um evento afeta a pessoa; dinheiro de frações.
-    - [ ] **I.7c3 Ativo faltando** — "Não encontrou? Avise a gente", a fila e o aviso quando o ativo chega.
-    - Depois: bonificação (com custo atribuído), subscrição, tela de administração.
+    - [x] **I.7c2 Conferir eventos** — "Confere / Não confere" do que cada evento fez com a quantidade da pessoa: uma
+      linha no sino e o bloco em Investimentos (`docs/investimentos.md`, I.7c2). O dinheiro de frações fica para depois.
+    - [x] **I.7c3 Ativo faltando** — "Não encontrou? Avise a gente", a fila e o aviso quando o ativo chega
+      (decisões e especificação em `docs/investimentos.md`, 2026-10-08).
+    - [x] **I.7c4 Liquidação paga em cotas** — a origem sai como venda (cotas + fração + caixa) e o destino entra pelo
+      valor oficial da cota; BCFF11 → BTHF11 a R$ 10,25 (fato relevante, `docs/investimentos.md`, I.7c4) e IRDM11 → IRIM11 a
+      R$ 83,39 (2026-10-12).
+    - Depois: bonificação (com custo atribuído), evento com opções (CRFB3), parte em dinheiro da conversão (PETZ3) e das
+      frações, confirmar PETZ3 e CVBI11, tela de administração. Subscrição: nota de compra (a confirmar).
+      Casos em `docs/investimentos.md`, "Casos reais da curadoria".
   - [ ] **I.7d Cotação** — valor de hoje e ganho não realizado.
+  - [x] **I.7e Visão da carteira** — três abas (Carteira, Proventos, Notas) com o ano escolhido: investido pelo custo, o
+    espectro por tipo, peso de cada ativo, proventos com filtros, mês a mês e ano a ano (`docs/investimentos.md`, I.7e).
 
 ---
 
@@ -844,8 +856,8 @@ Decidir quando a fase correspondente chegar:
   documento e, se mudarem o produto, viram decisão aqui.
 
 - Envio de fatura para LLM externo é opt-in explícito do usuário? (Fase 4)
-- Acompanhar rentabilidade de investimento ou só aporte? Respondida em parte pela Fase I (carteira e proventos);
-  rentabilidade (operações, preço médio, cotação) segue em aberto (I.7).
+- Acompanhar rentabilidade de investimento ou só aporte? Respondida em parte pela Fase I: carteira, proventos,
+  operações, preço médio e resultado das vendas (I.7). Segue em aberto o valor de hoje (cotação, I.7d).
 - Hospedagem para cadastro público: o Railway basta, ou os dados devem ficar numa região no
   Brasil por causa da LGPD? Qual orçamento mensal? (antes de abrir cadastro público)
 - Política de privacidade e termos de uso, por causa da LGPD. (antes de abrir cadastro público)

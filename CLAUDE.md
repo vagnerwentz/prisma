@@ -63,14 +63,18 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 | Nota de corretagem | `TradeNote` | digitada (nunca importada): corretora, data, operações e custos; envelope do rateio |
 | Operação (linha da nota) | `Trade` (`TradeSide.Buy`/`Sell`) | não mexe em saldo de conta: carteira não é caixa |
 | Taxas da nota | `FeesCents` | liquidação, emolumentos, ISS, "outros"…: um total, rateado por valor; IRRF não é custo |
-| Corretagem | `BrokerageFee` | "taxa operacional"; por ordem, só em ações salvo `BrokerageFeeOnAllKinds`. Não é o "Clearing" da nota |
+| Corretagem | `BrokerageFee` | "taxa operacional"; por ordem, só nos tipos marcados na nota (`BrokerageFeeKinds`, unit conta como ação; padrão: ação). Não é o "Clearing" da nota |
 | Posição | `AssetPosition` | calculada das notas (`PositionCalculator`), nunca gravada |
+| Carteira em um ano | `PortfolioSnapshot` | no fim de 31/12 (ou hoje), pelo custo; grupos (`PortfolioGroup`: unit com ações, fundos menores juntos) e pesos que somam 100% (`PortfolioWeights`) |
 | Preço médio | `AveragePriceCents` (só preço) / `AverageCostCents` (com custos) | custo bruto e custo de aquisição (`CostBasis`) ÷ quantidade |
 | Resultado da venda | `RealizedCents` | valor líquido − custo de aquisição que saiu; não é receita |
 | Evento da empresa | `CorporateEvent` (catálogo global) | a regra (proporção, data-com), nunca a quantidade de alguém; só a curadoria escreve (`corporate-events.json`) |
 | Desdobramento / grupamento | `CorporateEventKind.Split` | `from:to` (1:8, 10:1); custos ficam, quantidade muda |
 | Conversão (incorporação, troca de código) | `CorporateEventKind.Conversion` | origem zera; destino recebe quantidade e custos inteiros, sem resultado |
+| Liquidação paga em cotas | `CorporateEventKind.Liquidation` | origem sai como venda (cotas, fração e caixa: `TargetUnitPrice`, `CashPerUnit`, em 10⁻⁸ real); destino entra como compra pelo preço de referência |
 | Ativo que saiu da bolsa antes do catálogo | `Asset.FromHistory` | entra inativo com o evento; nunca digitado pelo usuário |
+| Aviso de ativo faltando | `AssetRequest` | "Não encontrou? Avise a gente": só o código, um por pessoa; "chegou" é calculado pelo catálogo, nunca gravado |
+| Conferir um evento | `EventReview` | o que o evento fez com a quantidade da pessoa: "Confere" ou "Não confere" (para a curadoria); guarda a versão do evento, e o evento corrigido volta a pedir |
 | Dia útil bancário | `BankCalendar` | fins de semana e feriados nacionais; só débito automático e vencimento da fatura |
 
 ---
@@ -454,7 +458,8 @@ por conversa, arquivo versionado ou histórico do shell.
   deriva fundo e ícone da cor com `oklch(from …)`. Subcategoria herda a cor da categoria pai.
 - **Assinaturas:** logo `PrismLogo` (SVG próprio), filete `spectrum-line` sob títulos, anel
   `spectrum-ring` no item selecionado, halo `--halo` (só tons frios: complementares desfocados
-  viram marrom).
+  viram marrom), e o espectro da carteira (`PrismSpectrum`, I.7e: a luz sai do prisma em faixas, uma cor fixa por tipo
+  de ativo).
 - **Ações com cor:** ação secundária leva a faixa do espectro que a representa (`.tinted-action`
   com `data-tint`): lançar de novo em violeta, estornar no azul do "saldo a favor". Editar fica em
   tinta e excluir, neutro. Ação dentro de aviso ("Desfazer", "Lançar de novo") usa o espectro frio
@@ -503,7 +508,8 @@ por conversa, arquivo versionado ou histórico do shell.
   longa é memoizada (`memo`) e recebe só dados e callbacks estáveis (ex.: o setter do estado, com a
   chave da linha): abrir um painel não pode redesenhar a lista inteira (`TransactionsPage`).
 - **O sino** (2.26) é o que falta conferir, não uma caixa de avisos: conta os lançamentos a conferir, e cada
-  um sai quando é resolvido. Nada de "marcar todas como lidas", que deixaria a estimativa passar por valor
+  um sai quando é resolvido. Os eventos da carteira a conferir (I.7c2) entram no mesmo número, mas viram uma linha só no
+  painel, que leva a Investimentos (onde se confere cada um): o sino não cresce com eles. Nada de "marcar todas como lidas", que deixaria a estimativa passar por valor
   real. Ele está em toda tela, então o painel dele carrega sob demanda (`lazy`), fora do pacote principal.
   Com algo a conferir, o número ganha o anel `--spectrum-conic` (o do avatar), em tinta para ler bem; o sino
   balança uma vez quando a contagem cresce, nunca ao abrir a tela nem em repetição. O último número fica guardado
