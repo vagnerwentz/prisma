@@ -8,7 +8,7 @@ import { defineConfig } from 'vite'
 // no celular: o cookie de sessão é Secure e o navegador não o grava em http://192.168...
 const lan = process.env.PRISMA_LAN === '1'
 
-export default defineConfig({
+export default defineConfig(({ isSsrBuild }) => ({
   // Versão do app nos relatos de erro do navegador (etapa H.3b): o momento do build, que diz de qual
   // deploy o erro veio.
   define: { __APP_VERSION__: JSON.stringify(new Date().toISOString().slice(0, 16) + 'Z') },
@@ -16,6 +16,19 @@ export default defineConfig({
   resolve: {
     alias: { '@': path.resolve(import.meta.dirname, './src') },
   },
+  // Duas páginas: o app (index.html) e a apresentação (landing.html, docs/landing.md), que não carrega o app. A API
+  // decide qual entregar em "/" (FrontendHosting). A apresentação é React pré-renderizado: o build de servidor
+  // (--ssr, src/landing/server.tsx) gera o HTML dela, que scripts/prerender-landing.mjs põe no landing.html.
+  build: isSsrBuild
+    ? {}
+    : {
+        rollupOptions: {
+          input: {
+            index: path.resolve(import.meta.dirname, 'index.html'),
+            landing: path.resolve(import.meta.dirname, 'landing.html'),
+          },
+        },
+      },
   server: {
     host: lan,
     // O frontend chama /api/...; o proxy repassa para a API, que responde sob /api como em
@@ -29,4 +42,4 @@ export default defineConfig({
       },
     },
   },
-})
+}))

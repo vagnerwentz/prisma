@@ -1,0 +1,148 @@
+<!doctype html>
+<!--
+  Imagem de compartilhamento da página de apresentação (docs/landing.md, D19): public/og.jpg, 1200×630, a que aparece
+  quando o link é colado no WhatsApp, no Instagram ou no Google. Para refazer, abra este arquivo no Chrome sem cabeça em
+  1200×630 e salve a captura em public/og.jpg, JPEG qualidade 88 (método na memória de capturas). Usa as fontes do próprio app.
+-->
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      @font-face {
+        font-family: 'Instrument Serif';
+        src: url('../node_modules/@fontsource/instrument-serif/files/instrument-serif-latin-400-normal.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Geist';
+        src: url('../node_modules/@fontsource-variable/geist/files/geist-latin-wght-normal.woff2') format('woff2');
+        font-weight: 100 900;
+      }
+      * {
+        margin: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+      }
+      body {
+        position: relative;
+        background: #15121f;
+        color: #f1eefb;
+        font-family: 'Geist', sans-serif;
+      }
+      .halo {
+        position: absolute;
+        width: 900px;
+        height: 900px;
+        left: 180px;
+        top: -520px;
+        border-radius: 50%;
+        background: conic-gradient(from 180deg, #8b5cf6, #3b82f6, #22d3ee, #a78bfa, #8b5cf6);
+        opacity: 0.22;
+        filter: blur(90px);
+      }
+      .text {
+        position: absolute;
+        left: 72px;
+        top: 64px;
+        width: 640px;
+        display: flex;
+        flex-direction: column;
+        height: 502px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-family: 'Instrument Serif', serif;
+        font-size: 38px;
+        line-height: 1;
+      }
+      h1 {
+        margin-top: 56px;
+        font-family: 'Instrument Serif', serif;
+        font-weight: 400;
+        font-size: 82px;
+        line-height: 0.98;
+        letter-spacing: -1px;
+      }
+      .spectrum {
+        background: linear-gradient(90deg, #8b5cf6, #3b82f6, #22d3ee);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      .sub {
+        margin-top: 28px;
+        font-size: 27px;
+        line-height: 1.35;
+        color: #b9b3cf;
+      }
+      .url {
+        margin-top: auto;
+        font-size: 24px;
+        color: #8d86a6;
+        letter-spacing: 0.2px;
+      }
+      svg.scene {
+        position: absolute;
+        right: 0;
+        top: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="halo"></div>
+    <div class="text">
+      <div class="brand">
+        <svg viewBox="0 0 48 48" width="44" height="44" fill="none">
+          <path d="M1 29.5 17 24" stroke="#f1eefb" stroke-width="2.2" stroke-linecap="round" />
+          <path d="M31 23.5 47 16" stroke="#8b5cf6" stroke-width="2.2" stroke-linecap="round" />
+          <path d="M31 23.5 47 19.4" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" />
+          <path d="M31 23.5 47 22.8" stroke="#22d3ee" stroke-width="2.2" stroke-linecap="round" />
+          <path d="M31 23.5 47 26.2" stroke="#84cc16" stroke-width="2.2" stroke-linecap="round" />
+          <path d="M31 23.5 47 29.6" stroke="#f59e0b" stroke-width="2.2" stroke-linecap="round" />
+          <path d="M31 23.5 47 33" stroke="#f43f5e" stroke-width="2.2" stroke-linecap="round" />
+          <path d="M24 6.5 40.5 40H7.5L24 6.5Z" fill="#f1eefb" fill-opacity="0.08" stroke="#f1eefb" stroke-width="2.2" stroke-linejoin="round" />
+        </svg>
+        Prisma Money
+      </div>
+      <h1>A compra é hoje.<br /><span class="spectrum">O dinheiro sai no vencimento.</span></h1>
+      <p class="sub">Cartão, parcelas, Pix e investimentos,<br />cada um na sua cor.</p>
+      <p class="url">prismamoney.com.br</p>
+    </div>
+
+    <!-- A luz entra no prisma e sai decomposta até a borda da imagem. -->
+    <svg class="scene" width="520" height="630" viewBox="0 0 520 630">
+      <defs>
+        <linearGradient id="beam" x1="0" x2="1">
+          <stop offset="0" stop-color="#f1eefb" stop-opacity="0" />
+          <stop offset="1" stop-color="#f1eefb" stop-opacity="0.9" />
+        </linearGradient>
+        <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#f1eefb" stop-opacity="0.12" />
+          <stop offset="1" stop-color="#f1eefb" stop-opacity="0.03" />
+        </linearGradient>
+        <linearGradient id="b0" x1="240" x2="520" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#8b5cf6" stop-opacity=".3" /><stop offset="1" stop-color="#8b5cf6" /></linearGradient>
+        <linearGradient id="b1" x1="240" x2="520" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3b82f6" stop-opacity=".3" /><stop offset="1" stop-color="#3b82f6" /></linearGradient>
+        <linearGradient id="b2" x1="240" x2="520" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#22d3ee" stop-opacity=".3" /><stop offset="1" stop-color="#22d3ee" /></linearGradient>
+        <linearGradient id="b3" x1="240" x2="520" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#84cc16" stop-opacity=".3" /><stop offset="1" stop-color="#84cc16" /></linearGradient>
+        <linearGradient id="b4" x1="240" x2="520" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#f59e0b" stop-opacity=".3" /><stop offset="1" stop-color="#f59e0b" /></linearGradient>
+        <linearGradient id="b5" x1="240" x2="520" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#f43f5e" stop-opacity=".3" /><stop offset="1" stop-color="#f43f5e" /></linearGradient>
+      </defs>
+      <!-- Prisma: vértice (190,150), base (110,470)–(270,470). Entrada no meio da face esquerda; saída na face direita. -->
+      <polygon points="0,307 150,309 150,313 0,315" fill="url(#beam)" />
+      <polygon points="150,309 225,290 240,350 150,313" fill="#f1eefb" fill-opacity="0.12" />
+      <polygon points="225,290 520,130 520,196 228,302" fill="url(#b0)" />
+      <polygon points="228,302 520,206 520,272 231,314" fill="url(#b1)" />
+      <polygon points="231,314 520,282 520,348 234,326" fill="url(#b2)" />
+      <polygon points="234,326 520,358 520,424 237,338" fill="url(#b3)" />
+      <polygon points="237,338 520,434 520,466 238.5,344" fill="url(#b4)" />
+      <polygon points="238.5,344 520,476 520,508 240,350" fill="url(#b5)" />
+      <polygon points="190,150 270,470 110,470" fill="url(#glass)" stroke="#f1eefb" stroke-opacity="0.5" stroke-width="2.5" stroke-linejoin="round" />
+    </svg>
+  </body>
+</html>

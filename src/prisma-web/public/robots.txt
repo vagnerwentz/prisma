@@ -1,0 +1,6 @@
+# Prisma Money (docs/landing.md, D19). Só a página de apresentação interessa ao Google: as telas do app já dizem
+# "noindex" (index.html), e a API não é página.
+User-agent: *
+Disallow: /api/
+
+Sitemap: https://prismamoney.com.br/sitemap.xml
