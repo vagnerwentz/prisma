@@ -5,14 +5,14 @@ using Prisma.Domain;
 
 namespace Prisma.Api.Features.Assets;
 
-// Roda a sincronização do catálogo de ativos e, em seguida, a dos logos, uma vez por dia (AssetSyncSchedule). Com o
+// Roda a sincronização do catálogo de ativos e, em seguida, a dos eventos da empresa (I.7c1) e a dos logos, uma vez por dia (AssetSyncSchedule). Com o
 // catálogo vazio ou sem nenhum logo (a primeira subida), roda logo ao iniciar, sem esperar a madrugada. Os logos rodam
 // mesmo se a lista falhar: o que estava pendente pode ser baixado.
 //
 // Uma falha nunca derruba a API: exceção que escapasse do ExecuteAsync pararia o host. Ela vai para o log,
 // e o dia seguinte tenta de novo; perder um dia não muda nada, porque a lista muda pouco.
 public sealed class AssetListWorker(
-    AssetListSync sync, AssetLogoSync logos, IClock clock, IOptions<AssetSyncOptions> options, ILogger<AssetListWorker> logger)
+    AssetListSync sync, AssetLogoSync logos, CorporateEventSync events, IClock clock, IOptions<AssetSyncOptions> options, ILogger<AssetListWorker> logger)
     : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -52,6 +52,16 @@ public sealed class AssetListWorker(
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             logger.AssetListSyncFailed(ex);
+        }
+
+        // O destino de uma conversão pode ter acabado de entrar no catálogo.
+        try
+        {
+            await events.RunAsync(ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            logger.CorporateEventSyncFailed(ex);
         }
 
         try

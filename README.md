@@ -44,8 +44,17 @@ reality, so the monthly numbers match your bank account instead of your receipts
   counted twice.
 - **Investments:** a portfolio of B3 stocks, REITs (FIIs) and ETFs picked from a catalog synced daily, and the
   payouts each one made (dividends, interest on equity, fund income), recorded as income in the account where the
-  money landed. Company logos are downloaded,
-  sanitized and served by the app itself.
+  money landed. Brokerage notes are typed in (buys, sells and their fees, with the brokerage fee charged only on the
+  asset types the note says); quantity, average price with and without costs, and realized results are recalculated
+  from them on every read, never stored. Corporate events come from a curated shared catalog and apply on their record
+  date, for everyone holding the asset: splits and reverse splits, conversions that carry the cost over, and fund
+  liquidations paid in units of another fund, where the old position closes as a sale and the new units cost the
+  official reference price. Each person confirms once what an event did to their own quantity, or reports that it does
+  not match, which goes to the curator without changing anything on its own. An asset missing from the catalog can be
+  reported in one tap, and the app says when it arrives. Company logos are downloaded, sanitized and served by the app itself.
+- **Portfolio by year:** how much is invested (at cost) at the end of any year, or today, split by asset type and drawn
+  as light leaving a prism, one band per type; each asset's weight; payouts month by month and year by year, filtered
+  by payout type and asset type, with what is still to be received kept apart.
 - **Cash-flow dashboard:** what came in, what went out and what was invested each month, by
   settlement date; category breakdown, month-over-month explanation and upcoming commitments.
 - **Categories:** a default set per user that evolves: new default categories reach existing users
@@ -80,6 +89,9 @@ reality, so the monthly numbers match your bank account instead of your receipts
   never deleted, and tests replay recorded real responses instead of calling the provider. Company logos are SVGs from
   that provider, so they are sanitized (no scripts, external references or foreign elements) and served by the app
   under a locked-down content security policy.
+- **Percentages that add up.** Portfolio weights are integers in hundredths of a percent, distributed by the largest
+  remainder so they always total exactly 100%, verified by property-based tests. Per-unit prices from official
+  documents keep eight decimal places, and only the final amount becomes cents.
 - **Tests that prove themselves.** Rules about money and dates are tested before they are written,
   integration tests run against a real PostgreSQL (Testcontainers, never an in-memory provider), and
   new rules are checked by breaking them on purpose and watching a test fail.

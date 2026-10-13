@@ -133,6 +133,19 @@ public static partial class AppLog
     [LoggerMessage(4010, LogLevel.Error, "Asset logo sync failed; the next run tries again")]
     public static partial void AssetLogoSyncFailed(this ILogger logger, Exception exception);
 
+    [LoggerMessage(4011, LogLevel.Information,
+        "Corporate events synced: {AssetsAdded} historical assets added, {Added} events added, {Updated} updated, {Removed} removed")]
+    public static partial void CorporateEventsSynced(this ILogger logger, int assetsAdded, int added, int updated, int removed);
+
+    [LoggerMessage(4012, LogLevel.Warning, "Corporate event {Key} skipped: asset {Symbol} is not in the catalog")]
+    public static partial void CorporateEventSkipped(this ILogger logger, string key, string symbol);
+
+    [LoggerMessage(4013, LogLevel.Error, "Corporate events file refused, nothing changed: {Reason}")]
+    public static partial void CorporateEventsRefused(this ILogger logger, string reason);
+
+    [LoggerMessage(4014, LogLevel.Error, "Corporate events sync failed; the next start or catalog sync tries again")]
+    public static partial void CorporateEventSyncFailed(this ILogger logger, Exception exception);
+
     [LoggerMessage(4100, LogLevel.Information, "Holding {HoldingId} of asset {AssetId} added to the portfolio")]
     public static partial void HoldingAdded(this ILogger logger, Guid holdingId, Guid assetId);
 
@@ -144,6 +157,39 @@ public static partial class AppLog
 
     [LoggerMessage(4103, LogLevel.Information, "Payout {TransactionId} edited")]
     public static partial void PayoutEdited(this ILogger logger, Guid transactionId);
+
+    [LoggerMessage(4104, LogLevel.Information, "Trade note {NoteId} recorded with {TradeCount} trades")]
+    public static partial void TradeNoteCreated(this ILogger logger, Guid noteId, int tradeCount);
+
+    [LoggerMessage(4105, LogLevel.Information, "Trade note {NoteId} edited")]
+    public static partial void TradeNoteEdited(this ILogger logger, Guid noteId);
+
+    [LoggerMessage(4106, LogLevel.Information, "Trade note {NoteId} deleted")]
+    public static partial void TradeNoteDeleted(this ILogger logger, Guid noteId);
+
+    [LoggerMessage(4107, LogLevel.Information, "Trade note {NoteId} restored")]
+    public static partial void TradeNoteRestored(this ILogger logger, Guid noteId);
+
+    // O código não é dado pessoal; quem pediu vem no escopo (userId). A curadoria filtra por este evento (docs/operacao.md, 4.3).
+    [LoggerMessage(4108, LogLevel.Information, "Asset {Symbol} requested ({RequestId})")]
+    public static partial void AssetRequested(this ILogger logger, Guid requestId, string symbol);
+
+    [LoggerMessage(4109, LogLevel.Information, "Asset request {RequestId} removed")]
+    public static partial void AssetRequestRemoved(this ILogger logger, Guid requestId);
+
+    [LoggerMessage(4110, LogLevel.Information, "Asset request {RequestId} restored")]
+    public static partial void AssetRequestRestored(this ILogger logger, Guid requestId);
+
+    // Conferência dos eventos (docs/investimentos.md, I.7c2): quantos, nunca a quantidade de ninguém. O "Não confere" é o
+    // que a curadoria procura (docs/operacao.md, 4.4).
+    [LoggerMessage(4111, LogLevel.Information, "{Count} corporate events confirmed")]
+    public static partial void EventReviewsConfirmed(this ILogger logger, int count);
+
+    [LoggerMessage(4112, LogLevel.Information, "Corporate event {EventId} disputed")]
+    public static partial void EventReviewDisputed(this ILogger logger, Guid eventId);
+
+    [LoggerMessage(4113, LogLevel.Information, "Review of corporate event {EventId} undone")]
+    public static partial void EventReviewUndone(this ILogger logger, Guid eventId);
 
     // Rota modelo (/statements/{id}/pay), nunca o caminho cru: ele pode levar ids e consulta. Depois de
     // uma exceção, o ASP.NET tira o endpoint do contexto e o guarda no IExceptionHandlerFeature.

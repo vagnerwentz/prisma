@@ -1,10 +1,12 @@
 import { Bell } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { bellLabel, bellRings } from './autoDebit'
+import { useEventReviews } from '@/features/investments/eventReviewQueries'
 import { useToConfirm } from './queries'
 import { OpenToConfirmContext, useOpenToConfirm } from './toConfirmContext'
 
-// O sino (docs/fase-2.md, 2.15, D4): os débitos automáticos que saíram com o valor médio. Não é uma caixa de
+// O sino (docs/fase-2.md, 2.15, D4): os débitos automáticos que saíram com o valor médio e, numa linha só, os eventos
+// da carteira a conferir (docs/investimentos.md, I.7c2). Não é uma caixa de
 // avisos: cada item sai quando é conferido ou excluído, e não há "marcar todas como lidas", que deixaria a
 // estimativa passar por valor real.
 
@@ -39,13 +41,17 @@ let lastSeenCount: number | undefined
 // ver, em tinta para ler bem. Quando a contagem cresce, o sino balança uma vez.
 export function ToConfirmBell() {
   const data = useToConfirm().data
-  const count = data?.length ?? 0
+  // Os eventos da carteira a conferir (I.7c2) contam no mesmo número; no painel, viram uma linha só.
+  const eventsData = useEventReviews().data
+  const events = eventsData?.length ?? 0
+  const count = (data?.length ?? 0) + events
   const open = useOpenToConfirm()
   // Balançar é mexer no elemento (a animação é do CSS, que respeita quem desliga movimento): tira e põe a
   // classe, com uma leitura de layout no meio para a animação recomeçar.
   const bell = useRef<SVGSVGElement>(null)
   useEffect(() => {
-    if (data === undefined) return
+    // Só com as duas listas: a que chegasse depois pareceria uma contagem que cresceu, e o sino balançaria ao abrir.
+    if (data === undefined || eventsData === undefined) return
     const element = bell.current
     if (bellRings(lastSeenCount, count) && element) {
       element.classList.remove('bell-ring')
@@ -53,11 +59,11 @@ export function ToConfirmBell() {
       element.classList.add('bell-ring')
     }
     lastSeenCount = count
-  }, [data, count])
+  }, [data, eventsData, count])
   return (
     <button
       type="button"
-      aria-label={bellLabel(count)}
+      aria-label={bellLabel(data?.length ?? 0, events)}
       onClick={open}
       className="relative flex size-9 items-center justify-center rounded-full text-foreground transition-colors outline-none hover:bg-muted/70 focus-visible:ring-2 focus-visible:ring-ring active:bg-muted"
     >

@@ -1,0 +1,93 @@
+{
+  "comment": "Curadoria dos eventos da empresa (docs/investimentos.md, I.7c1). Igual para todos: a regra, nunca a quantidade de alguém. Cada evento tem chave estável; corrigir um evento é mudar a linha dele, e tirar a linha tira o evento. Ativo antigo (saiu da bolsa antes de o catálogo existir) entra em historicalAssets, com o último pregão. Datas: a data-com, o evento vale no fim desse dia.",
+  "historicalAssets": [
+    { "symbol": "BCFF11", "name": "BTG Pactual Fundo de Fundos FII", "kind": "Fii", "lastTradingDay": "2024-10-18" },
+    { "symbol": "CVBI11", "name": "FUNDO DE INVESTIMENTO IMOBILIÁRIO - VBI CRI", "kind": "Fii", "lastTradingDay": "2025-09-24" },
+    { "symbol": "PETZ3", "name": "PET CENTER COMERCIO E PARTICIPACOES S.A.", "kind": "Stock", "lastTradingDay": "2026-01-02" },
+    { "symbol": "CRFB3", "name": "ATACADÃO S.A.", "kind": "Stock", "lastTradingDay": "2025-05-30" },
+    { "symbol": "ENBR3", "name": "EDP - ENERGIAS DO BRASIL S.A.", "kind": "Stock", "lastTradingDay": "2023-07-10" },
+    { "symbol": "IRDM11", "name": "FII Iridium Recebíveis Imobiliários", "kind": "Fii", "lastTradingDay": "2025-10-23" }
+  ],
+  "events": [
+    {
+      "key": "bcff11-desdobramento-2023-11-28",
+      "kind": "Split",
+      "symbol": "BCFF11",
+      "date": "2023-11-28",
+      "from": 1,
+      "to": 8,
+      "source": "Desdobramento 1:8"
+    },
+    {
+      "key": "bbas3-desdobramento-2024-04-15",
+      "kind": "Split",
+      "symbol": "BBAS3",
+      "date": "2024-04-15",
+      "from": 1,
+      "to": 2,
+      "source": "Desdobramento 1:2, anunciado em 05/02/2024, data-com 15/04/2024"
+    },
+    {
+      "key": "snag11-desdobramento-2023-08-01",
+      "kind": "Split",
+      "symbol": "SNAG11",
+      "date": "2023-08-01",
+      "from": 1,
+      "to": 10,
+      "source": "Desdobramento 1:10, posição de 01/08/2023, cotas novas creditadas em 04/08/2023"
+    },
+    {
+      "key": "cpts11-desdobramento-2023-09-25",
+      "kind": "Split",
+      "symbol": "CPTS11",
+      "date": "2023-09-25",
+      "from": 1,
+      "to": 10,
+      "source": "Desdobramento 1:10, anunciado em 04/09/2023, data-com 25/09/2023"
+    },
+    {
+      "key": "bcff11-bthf11-2024-12-16",
+      "kind": "Liquidation",
+      "symbol": "BCFF11",
+      "target": "BTHF11",
+      "date": "2024-12-16",
+      "from": 100,
+      "to": 80,
+      "targetUnitPrice": "10.25",
+      "cashPerUnit": "0.56",
+      "source": "Fato relevante dez/2024: cota de R$ 8,90 = 0,8 BTHF11 a R$ 10,25 + R$ 0,56 de caixa + rendimentos de set e out"
+    },
+    {
+      "key": "cvbi11-pcip11-2025-09-24",
+      "kind": "Conversion",
+      "symbol": "CVBI11",
+      "target": "PCIP11",
+      "date": "2025-09-24",
+      "from": 1,
+      "to": 1,
+      "source": "Incorporação do CVBI11 pelo PCIP11, 1 para 1"
+    },
+        {
+      "key": "petz3-auau3-2026-01-02",
+      "kind": "Conversion",
+      "symbol": "PETZ3",
+      "target": "AUAU3",
+      "date": "2026-01-02",
+      "from": 1,
+      "to": 1,
+      "source": "Incorporação do PETZ3 pelo AUAU3, 1 para 1 + R$ 0,7109 em dinheiro"
+    },
+    {
+      "key": "irdm11-irim11-2025-10-23",
+      "kind": "Liquidation",
+      "symbol": "IRDM11",
+      "target": "IRIM11",
+      "date": "2025-10-23",
+      "from": 1000000000,
+      "to": 884794245,
+      "targetUnitPrice": "83.3946076",
+      "cashPerUnit": "4.30605192",
+      "source": "Fato relevante 27/11/2025: R$ 78,09312078 por cota = 0,884794245 IRIM11 a R$ 83,3946076 + R$ 4,306051918 em dinheiro (aqui com 8 casas); último pregão 23/10/2025"
+    }
+  ]
+}

@@ -2415,6 +2415,15 @@ export interface paths {
                         "application/problem+json": components["schemas"]["ProblemDetails"];
                     };
                 };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
             };
         };
         options?: never;
@@ -2557,6 +2566,813 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/trade-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    take?: number;
+                    year?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TradeNoteResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SaveTradeNoteRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TradeNoteResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/trade-notes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TradeNoteResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SaveTradeNoteRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TradeNoteResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/trade-notes/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TradeNoteResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/positions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ListPositionsPositionResponse"][];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/positions/{assetId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assetId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ListPositionsStepResponse"][];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/portfolio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    year?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GetPortfolioPortfolioResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/asset-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssetRequestResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RequestAssetRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssetRequestResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/asset-requests/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/asset-requests/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssetRequestResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/event-reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ListEventReviewsEventReviewItem"][];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/event-reviews/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ConfirmEventsRequest"];
+                };
+            };
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/event-reviews/{eventId}/dispute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    eventId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["DisputeEventRequest"];
+                };
+            };
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/event-reviews/{eventId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    eventId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2582,8 +3398,27 @@ export interface components {
             /** Format: uuid */
             assetId: string;
         };
+        ArrivedAsset: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            kind: components["schemas"]["AssetKind"];
+            hasLogo: boolean;
+            isActive: boolean;
+        };
         /** @enum {unknown} */
         AssetKind: "Stock" | "Unit" | "Fii" | "Etf" | "FiInfra" | "FiAgro" | "Fip" | "Fidc" | "OtherFund" | "Bdr" | "Unknown" | null;
+        AssetRequestResponse: {
+            /** Format: uuid */
+            id: string;
+            symbol: string;
+            /** Format: date */
+            requestedOn: string;
+            status: components["schemas"]["AssetRequestStatus"];
+            asset: null | components["schemas"]["ArrivedAsset"];
+        };
+        /** @enum {unknown} */
+        AssetRequestStatus: "Waiting" | "Arrived";
         AutoDebitTerms: {
             amountVaries: boolean;
             /** Format: date */
@@ -2603,6 +3438,11 @@ export interface components {
             /** Format: int64 */
             amountCents: null | number;
         };
+        ConfirmEventsRequest: {
+            eventIds: string[];
+        };
+        /** @enum {unknown} */
+        CorporateEventKind: "Split" | "Conversion" | "Liquidation";
         CreateAccountRequest: {
             name: string;
             type: components["schemas"]["AccountType"];
@@ -2655,6 +3495,10 @@ export interface components {
         };
         /** @enum {unknown} */
         DateBasis: "Purchase" | "Settlement" | null;
+        DisputeEventRequest: {
+            /** Format: int64 */
+            reportedQuantity: null | number;
+        };
         GetCommittedMonthsItem: {
             month: string;
             /** Format: int64 */
@@ -2712,6 +3556,60 @@ export interface components {
              * @default 0
              */
             estimatedExpenseCents: number;
+        };
+        GetPortfolioPortfolioAssetResponse: {
+            /** Format: uuid */
+            assetId: string;
+            symbol: string;
+            name: string;
+            kind: components["schemas"]["AssetKind"];
+            group: components["schemas"]["PortfolioGroup"];
+            hasLogo: boolean;
+            isActive: boolean;
+            /** Format: int64 */
+            quantity: number;
+            /** Format: int64 */
+            grossCostCents: number;
+            /** Format: int64 */
+            costBasisCents: number;
+            /** Format: int64 */
+            averagePriceCents: null | number;
+            /** Format: int64 */
+            averageCostCents: null | number;
+            /** Format: int32 */
+            weightBasisPoints: number;
+            /** Format: int64 */
+            payoutsCents: number;
+            /** Format: int64 */
+            realizedCents: number;
+        };
+        GetPortfolioPortfolioGroupResponse: {
+            group: components["schemas"]["PortfolioGroup"];
+            /** Format: int64 */
+            investedCents: number;
+            /** Format: int32 */
+            weightBasisPoints: number;
+            /** Format: int32 */
+            assetCount: number;
+            /** Format: int64 */
+            payoutsCents: number;
+            /** Format: int64 */
+            realizedCents: number;
+        };
+        GetPortfolioPortfolioResponse: {
+            /** Format: int32 */
+            year: number;
+            /** Format: date */
+            asOf: string;
+            years: number[];
+            /** Format: int64 */
+            investedCents: number;
+            /** Format: int64 */
+            payoutsCents: number;
+            /** Format: int64 */
+            realizedCents: number;
+            groups: components["schemas"]["GetPortfolioPortfolioGroupResponse"][];
+            assets: components["schemas"]["GetPortfolioPortfolioAssetResponse"][];
         };
         GetSpendingVariationEntry: {
             /** Format: uuid */
@@ -2828,6 +3726,82 @@ export interface components {
             /** Format: date */
             lastUsedOn: string;
         };
+        ListEventReviewsEventReviewItem: {
+            /** Format: uuid */
+            eventId: string;
+            kind: components["schemas"]["CorporateEventKind"];
+            /** Format: date */
+            date: string;
+            /** Format: uuid */
+            assetId: string;
+            symbol: string;
+            assetKind: components["schemas"]["AssetKind"];
+            hasLogo: boolean;
+            targetSymbol: null | string;
+            /** Format: int32 */
+            fromQuantity: number;
+            /** Format: int32 */
+            toQuantity: number;
+            /** Format: int64 */
+            quantityBefore: number;
+            /** Format: int64 */
+            quantityAfter: number;
+            /** Format: int64 */
+            targetUnitPriceCents: null | number;
+        };
+        ListPositionsPositionResponse: {
+            /** Format: uuid */
+            assetId: string;
+            symbol: string;
+            name: string;
+            kind: components["schemas"]["AssetKind"];
+            hasLogo: boolean;
+            isActive: boolean;
+            /** Format: int64 */
+            quantity: number;
+            /** Format: int64 */
+            grossCostCents: number;
+            /** Format: int64 */
+            costBasisCents: number;
+            /** Format: int64 */
+            averagePriceCents: null | number;
+            /** Format: int64 */
+            averageCostCents: null | number;
+            /** Format: int64 */
+            realizedCents: number;
+        };
+        ListPositionsStepResponse: {
+            kind: components["schemas"]["PositionStepKind"];
+            /** Format: uuid */
+            noteId: null | string;
+            /** Format: date */
+            date: string;
+            broker: null | string;
+            side: null | components["schemas"]["TradeSide"];
+            /** Format: int64 */
+            quantity: number;
+            /** Format: int64 */
+            grossCents: number;
+            /** Format: int64 */
+            costsCents: number;
+            /** Format: int64 */
+            quantityAfter: number;
+            /** Format: int64 */
+            grossCostAfterCents: number;
+            /** Format: int64 */
+            costBasisAfterCents: number;
+            /** Format: int64 */
+            averagePriceCents: null | number;
+            /** Format: int64 */
+            averageCostCents: null | number;
+            /** Format: int64 */
+            realizedCents: null | number;
+            relatedSymbol: null | string;
+            /** Format: int32 */
+            fromQuantity: null | number;
+            /** Format: int32 */
+            toQuantity: null | number;
+        };
         ListStatementsStatementResponse: {
             /** Format: uuid */
             id: string;
@@ -2907,6 +3881,10 @@ export interface components {
         };
         /** @enum {unknown} */
         PendingLaunch: "NextStatement" | "SameStatement";
+        /** @enum {unknown} */
+        PortfolioGroup: "Stocks" | "Fiis" | "Etfs" | "Bdrs" | "OtherFunds" | "Other";
+        /** @enum {unknown} */
+        PositionStepKind: "Trade" | "Split" | "ConversionOut" | "ConversionIn" | "LiquidationOut" | "LiquidationIn";
         PreviewStatementDatesMovedPurchase: {
             /** Format: uuid */
             transactionId: string;
@@ -3007,6 +3985,9 @@ export interface components {
             kind: string;
             appVersion: null | string;
         };
+        RequestAssetRequest: {
+            symbol: null | string;
+        };
         SavePayoutRequest: {
             /** Format: uuid */
             accountId: string;
@@ -3018,6 +3999,27 @@ export interface components {
             /** Format: date */
             date: string;
         };
+        SaveTradeNoteLine: {
+            /** Format: uuid */
+            assetId: string;
+            side: components["schemas"]["TradeSide"];
+            /** Format: int64 */
+            quantity: number;
+            /** Format: int64 */
+            unitPriceCents: number;
+        };
+        SaveTradeNoteRequest: {
+            broker: string;
+            /** Format: date */
+            date: string;
+            /** Format: int64 */
+            feesCents: number;
+            /** Format: int64 */
+            brokerageFeeCents: number;
+            brokerageFeeOnAllKinds: null | boolean;
+            trades: components["schemas"]["SaveTradeNoteLine"][];
+            brokerageFeeKinds?: null | components["schemas"]["AssetKind"][];
+        };
         SearchAssetsItem: {
             /** Format: uuid */
             id: string;
@@ -3026,9 +4028,45 @@ export interface components {
             kind: components["schemas"]["AssetKind"];
             isActive: boolean;
             hasLogo: boolean;
+            convertedToSymbol?: null | string;
+            /** Format: date */
+            convertedOn?: null | string;
         };
         /** @enum {unknown} */
         StatementShift: "Next" | "Previous";
+        TradeLineResponse: {
+            /** Format: uuid */
+            assetId: string;
+            symbol: string;
+            assetName: string;
+            assetKind: components["schemas"]["AssetKind"];
+            assetHasLogo: boolean;
+            side: components["schemas"]["TradeSide"];
+            /** Format: int64 */
+            quantity: number;
+            /** Format: int64 */
+            unitPriceCents: number;
+            /** Format: int64 */
+            grossCents: number;
+            /** Format: int64 */
+            costsCents: number;
+        };
+        TradeNoteResponse: {
+            /** Format: uuid */
+            id: string;
+            broker: string;
+            /** Format: date */
+            date: string;
+            /** Format: int64 */
+            feesCents: number;
+            /** Format: int64 */
+            brokerageFeeCents: number;
+            brokerageFeeOnAllKinds: boolean;
+            trades: components["schemas"]["TradeLineResponse"][];
+            brokerageFeeKinds: components["schemas"]["AssetKind"][];
+        };
+        /** @enum {unknown} */
+        TradeSide: "Buy" | "Sell";
         TransactionResponse: {
             /** Format: uuid */
             id: string;

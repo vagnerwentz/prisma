@@ -1,3 +1,5 @@
+using Prisma.Api.Infrastructure.Market;
+
 namespace Prisma.Api.Features.Assets;
 
 // Catálogo de ativos da bolsa (docs/investimentos.md): a sincronização diária (lista e logos), a busca e o logo.
@@ -11,6 +13,8 @@ public static class AssetsModule
             .ValidateOnStart();
 
         services.AddSingleton<AssetListSync>();
+        services.AddSingleton<CorporateEventSync>();
+        services.AddSingleton<ICorporateEventSource, EmbeddedCorporateEventSource>();
         services.AddSingleton<AssetLogoSync>();
         services.AddScoped<SearchAssets.Handler>();
 
@@ -18,6 +22,9 @@ public static class AssetsModule
         // sincronização quando quer.
         if (configuration.GetValue($"{AssetSyncOptions.Section}:{nameof(AssetSyncOptions.Enabled)}", defaultValue: true))
             services.AddHostedService<AssetListWorker>();
+        // Os eventos da empresa ao subir (I.7c1). Os testes desligam e chamam a sincronização quando querem.
+        if (configuration.GetValue("Assets:Events:Enabled", defaultValue: true))
+            services.AddHostedService<CorporateEventStartup>();
         return services;
     }
 

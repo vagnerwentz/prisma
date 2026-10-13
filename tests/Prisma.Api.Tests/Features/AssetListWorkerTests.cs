@@ -99,9 +99,12 @@ public sealed class AssetListWorkerTests
             .AddScoped<AppDbContext>(_ => throw new InvalidOperationException("banco fora do ar"))
             .AddSingleton<AssetListSync>()
             .AddSingleton<AssetLogoSync>()
+            .AddSingleton<ICorporateEventSource>(new EmbeddedCorporateEventSource())
+            .AddSingleton<CorporateEventSync>()
             .BuildServiceProvider();
 
-        var worker = new AssetListWorker(provider.GetRequiredService<AssetListSync>(), provider.GetRequiredService<AssetLogoSync>(), clock,
+        var worker = new AssetListWorker(provider.GetRequiredService<AssetListSync>(), provider.GetRequiredService<AssetLogoSync>(),
+            provider.GetRequiredService<CorporateEventSync>(), clock,
             Options.Create(new AssetSyncOptions()), provider.GetRequiredService<ILogger<AssetListWorker>>());
         return (worker, logs, provider);
     }

@@ -105,6 +105,14 @@ describe('the bell', () => {
     expect(bellLabel(3)).toBe('3 débitos para conferir')
   })
 
+  // docs/investimentos.md, "I.7c2": os eventos da carteira entram no mesmo sino.
+  it('counts the portfolio events too', () => {
+    expect(bellLabel(0, 1)).toBe('1 evento para conferir')
+    expect(bellLabel(0, 8)).toBe('8 eventos para conferir')
+    expect(bellLabel(1, 8)).toBe('1 débito e 8 eventos para conferir')
+    expect(bellLabel(0, 0)).toBe('Nada para conferir')
+  })
+
   it('shows where and when the money left', () => {
     expect(debitDetails({ purchaseDate: '2026-11-16' }, 'Itaú', '2026-11-20')).toBe('Saiu em 16/11 · Itaú')
     expect(debitDetails({ purchaseDate: '2026-12-15' }, undefined, '2027-01-05')).toBe('Saiu em 15/12/2026')

@@ -1,0 +1,17 @@
+# Avisos de ativo faltando (docs/investimentos.md, I.7c3). Exige sessão: rode antes o Login de auth.http. O pedido é só o
+# código; quando ele entra no catálogo (brapi ou curadoria, docs/operacao.md, 4.2), o aviso passa a "Arrived".
+
+### Avisar que falta (minúsculas, espaços e o "F" do fracionário são ignorados). Código do catálogo: 409.
+POST {{baseUrl}}/asset-requests
+Content-Type: application/json
+
+{ "symbol": "cvbi11" }
+
+### Os avisos: esperando e os que chegaram (o que já tem nota sai da lista)
+GET {{baseUrl}}/asset-requests
+
+### Cancelar o que espera ou dispensar o que chegou
+DELETE {{baseUrl}}/asset-requests/<id do aviso>
+
+### Desfazer
+POST {{baseUrl}}/asset-requests/<id do aviso>/restore

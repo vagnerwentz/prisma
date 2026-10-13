@@ -362,6 +362,107 @@ namespace Prisma.Api.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Prisma.Domain.Investments.AssetRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("symbol");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_asset_requests");
+
+                    b.HasIndex("Symbol")
+                        .HasDatabaseName("ix_asset_requests_symbol");
+
+                    b.HasIndex("UserId", "Symbol")
+                        .IsUnique()
+                        .HasDatabaseName("ux_asset_requests_user_symbol");
+
+                    b.ToTable("asset_requests", (string)null);
+                });
+
+            modelBuilder.Entity("Prisma.Domain.Investments.EventReview", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CorporateEventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("corporate_event_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<DateTime>("EventVersion")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("event_version");
+
+                    b.Property<long?>("ReportedQuantity")
+                        .HasColumnType("bigint")
+                        .HasColumnName("reported_quantity");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<string>("Verdict")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("verdict");
+
+                    b.HasKey("Id")
+                        .HasName("pk_event_reviews");
+
+                    b.HasIndex("CorporateEventId")
+                        .HasDatabaseName("ix_event_reviews_corporate_event_id");
+
+                    b.HasIndex("UserId", "CorporateEventId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_event_reviews_user_event");
+
+                    b.ToTable("event_reviews", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_event_reviews_reported_quantity", "reported_quantity IS NULL OR (verdict = 'Disputed' AND reported_quantity BETWEEN 0 AND 100000000)");
+
+                            t.HasCheckConstraint("ck_event_reviews_verdict", "verdict IN ('Confirmed', 'Disputed')");
+                        });
+                });
+
             modelBuilder.Entity("Prisma.Domain.Investments.Holding", b =>
                 {
                     b.Property<Guid>("Id")
@@ -400,6 +501,68 @@ namespace Prisma.Api.Infrastructure.Migrations
                         .HasDatabaseName("ux_holdings_user_asset");
 
                     b.ToTable("holdings", (string)null);
+                });
+
+            modelBuilder.Entity("Prisma.Domain.Investments.Trades.TradeNote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Broker")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("broker");
+
+                    b.Property<long>("BrokerageFeeCents")
+                        .HasColumnType("bigint")
+                        .HasColumnName("brokerage_fee_cents");
+
+                    b.PrimitiveCollection<string[]>("BrokerageFeeKinds")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("brokerage_fee_kinds");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date")
+                        .HasColumnName("trade_date");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<long>("FeesCents")
+                        .HasColumnType("bigint")
+                        .HasColumnName("fees_cents");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_trade_notes");
+
+                    b.HasIndex("UserId", "Date")
+                        .HasDatabaseName("ix_trade_notes_user_id_trade_date");
+
+                    b.ToTable("trade_notes", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_trade_notes_broker", "length(btrim(broker)) > 0");
+
+                            t.HasCheckConstraint("ck_trade_notes_brokerage_fee_kinds", "brokerage_fee_kinds <@ ARRAY['Stock', 'Fii', 'Etf', 'FiInfra', 'FiAgro', 'Fip', 'Fidc', 'OtherFund', 'Bdr', 'Unknown']::text[]");
+
+                            t.HasCheckConstraint("ck_trade_notes_costs", "fees_cents >= 0 AND brokerage_fee_cents >= 0");
+                        });
                 });
 
             modelBuilder.Entity("Prisma.Domain.Market.Asset", b =>
@@ -497,6 +660,92 @@ namespace Prisma.Api.Infrastructure.Migrations
                         .HasName("pk_asset_logos");
 
                     b.ToTable("asset_logos", (string)null);
+                });
+
+            modelBuilder.Entity("Prisma.Domain.Market.CorporateEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AssetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("asset_id");
+
+                    b.Property<long?>("CashPerUnit")
+                        .HasColumnType("bigint")
+                        .HasColumnName("cash_per_unit");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date")
+                        .HasColumnName("event_date");
+
+                    b.Property<int>("FromQuantity")
+                        .HasColumnType("integer")
+                        .HasColumnName("from_quantity");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("key");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("source");
+
+                    b.Property<Guid?>("TargetAssetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("target_asset_id");
+
+                    b.Property<long?>("TargetUnitPrice")
+                        .HasColumnType("bigint")
+                        .HasColumnName("target_unit_price");
+
+                    b.Property<int>("ToQuantity")
+                        .HasColumnType("integer")
+                        .HasColumnName("to_quantity");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_corporate_events");
+
+                    b.HasIndex("AssetId")
+                        .HasDatabaseName("ix_corporate_events_asset_id");
+
+                    b.HasIndex("Key")
+                        .IsUnique()
+                        .HasDatabaseName("ux_corporate_events_key");
+
+                    b.HasIndex("TargetAssetId")
+                        .HasDatabaseName("ix_corporate_events_target_asset_id");
+
+                    b.ToTable("corporate_events", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_corporate_events_kind", "kind IN ('Split', 'Conversion', 'Liquidation')");
+
+                            t.HasCheckConstraint("ck_corporate_events_liquidation", "(kind = 'Liquidation' AND target_unit_price > 0 AND (cash_per_unit IS NULL OR cash_per_unit >= 0)) OR (kind <> 'Liquidation' AND target_unit_price IS NULL AND cash_per_unit IS NULL)");
+
+                            t.HasCheckConstraint("ck_corporate_events_proportion", "from_quantity > 0 AND to_quantity > 0");
+
+                            t.HasCheckConstraint("ck_corporate_events_target", "(kind IN ('Conversion', 'Liquidation') AND target_asset_id IS NOT NULL AND target_asset_id <> asset_id) OR (kind NOT IN ('Conversion', 'Liquidation') AND target_asset_id IS NULL)");
+                        });
                 });
 
             modelBuilder.Entity("Prisma.Domain.Recurrences.Recurrence", b =>
@@ -1052,6 +1301,33 @@ namespace Prisma.Api.Infrastructure.Migrations
                         .HasConstraintName("fk_categories_users_user_id");
                 });
 
+            modelBuilder.Entity("Prisma.Domain.Investments.AssetRequest", b =>
+                {
+                    b.HasOne("Prisma.Api.Infrastructure.Auth.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_asset_requests_users_user_id");
+                });
+
+            modelBuilder.Entity("Prisma.Domain.Investments.EventReview", b =>
+                {
+                    b.HasOne("Prisma.Domain.Market.CorporateEvent", null)
+                        .WithMany()
+                        .HasForeignKey("CorporateEventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_event_reviews_corporate_events_corporate_event_id");
+
+                    b.HasOne("Prisma.Api.Infrastructure.Auth.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_event_reviews_users_user_id");
+                });
+
             modelBuilder.Entity("Prisma.Domain.Investments.Holding", b =>
                 {
                     b.HasOne("Prisma.Domain.Market.Asset", null)
@@ -1069,6 +1345,92 @@ namespace Prisma.Api.Infrastructure.Migrations
                         .HasConstraintName("fk_holdings_users_user_id");
                 });
 
+            modelBuilder.Entity("Prisma.Domain.Investments.Trades.TradeNote", b =>
+                {
+                    b.HasOne("Prisma.Api.Infrastructure.Auth.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_trade_notes_users_user_id");
+
+                    b.OwnsMany("Prisma.Domain.Investments.Trades.Trade", "Trades", b1 =>
+                        {
+                            b1.Property<long>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("bigint")
+                                .HasColumnName("id");
+
+                            NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<long>("Id"));
+
+                            b1.Property<Guid>("AssetId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("asset_id");
+
+                            b1.Property<string>("AssetKind")
+                                .IsRequired()
+                                .HasMaxLength(20)
+                                .HasColumnType("character varying(20)")
+                                .HasColumnName("asset_kind");
+
+                            b1.Property<int>("LineNumber")
+                                .HasColumnType("integer")
+                                .HasColumnName("line_number");
+
+                            b1.Property<long>("Quantity")
+                                .HasColumnType("bigint")
+                                .HasColumnName("quantity");
+
+                            b1.Property<string>("Side")
+                                .IsRequired()
+                                .HasMaxLength(10)
+                                .HasColumnType("character varying(10)")
+                                .HasColumnName("side");
+
+                            b1.Property<Guid>("TradeNoteId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("trade_note_id");
+
+                            b1.Property<long>("UnitPriceCents")
+                                .HasColumnType("bigint")
+                                .HasColumnName("unit_price_cents");
+
+                            b1.HasKey("Id")
+                                .HasName("pk_trades");
+
+                            b1.HasIndex("AssetId")
+                                .HasDatabaseName("ix_trades_asset_id");
+
+                            b1.HasIndex("TradeNoteId", "LineNumber")
+                                .IsUnique()
+                                .HasDatabaseName("ix_trades_trade_note_id_line_number");
+
+                            b1.ToTable("trades", null, t =>
+                                {
+                                    t.HasCheckConstraint("ck_trades_asset_kind", "asset_kind IN ('Stock', 'Unit', 'Fii', 'Etf', 'FiInfra', 'FiAgro', 'Fip', 'Fidc', 'OtherFund', 'Bdr', 'Unknown')");
+
+                                    t.HasCheckConstraint("ck_trades_quantity", "quantity > 0");
+
+                                    t.HasCheckConstraint("ck_trades_side", "side IN ('Buy', 'Sell')");
+
+                                    t.HasCheckConstraint("ck_trades_unit_price", "unit_price_cents > 0");
+                                });
+
+                            b1.HasOne("Prisma.Domain.Market.Asset", null)
+                                .WithMany()
+                                .HasForeignKey("AssetId")
+                                .OnDelete(DeleteBehavior.Restrict)
+                                .IsRequired()
+                                .HasConstraintName("fk_trades_assets_asset_id");
+
+                            b1.WithOwner()
+                                .HasForeignKey("TradeNoteId")
+                                .HasConstraintName("fk_trades_trade_notes_trade_note_id");
+                        });
+
+                    b.Navigation("Trades");
+                });
+
             modelBuilder.Entity("Prisma.Domain.Market.AssetLogo", b =>
                 {
                     b.HasOne("Prisma.Domain.Market.Asset", null)
@@ -1077,6 +1439,22 @@ namespace Prisma.Api.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_asset_logos_assets_asset_id");
+                });
+
+            modelBuilder.Entity("Prisma.Domain.Market.CorporateEvent", b =>
+                {
+                    b.HasOne("Prisma.Domain.Market.Asset", null)
+                        .WithMany()
+                        .HasForeignKey("AssetId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_corporate_events_assets_asset_id");
+
+                    b.HasOne("Prisma.Domain.Market.Asset", null)
+                        .WithMany()
+                        .HasForeignKey("TargetAssetId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_corporate_events_assets_target_asset_id");
                 });
 
             modelBuilder.Entity("Prisma.Domain.Recurrences.Recurrence", b =>

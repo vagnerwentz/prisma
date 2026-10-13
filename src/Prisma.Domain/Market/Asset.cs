@@ -57,6 +57,11 @@ public sealed class Asset
 
     internal static Asset From(ListedAsset listed, DateTime utcNow) => new(listed, utcNow);
 
+    // Ativo que saiu da bolsa antes de o catálogo existir, trazido pela curadoria dos eventos (docs/investimentos.md,
+    // I.7c1): entra já inativo, desde o dia seguinte ao último pregão.
+    public static Asset FromHistory(ListedAsset listed, DateOnly lastTradingDay, DateTime utcNow) =>
+        new(listed, utcNow) { InactiveSince = SaoPauloTime.StartOf(lastTradingDay.AddDays(1)) };
+
     // Devolve o que aconteceu, para a contagem da sincronização.
     internal AssetRefresh Refresh(ListedAsset listed, DateTime utcNow)
     {

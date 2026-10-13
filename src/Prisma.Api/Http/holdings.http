@@ -15,5 +15,5 @@ Content-Type: application/json
 ### A carteira, em ordem de código
 GET {{baseUrl}}/holdings
 
-### Tirar da carteira
+### Tirar da carteira (com ações pelas notas, 409: só sai com a posição zerada)
 DELETE {{baseUrl}}/holdings/<id da carteira>

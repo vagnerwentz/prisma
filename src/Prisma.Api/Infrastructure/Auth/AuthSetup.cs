@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
@@ -13,6 +14,9 @@ public static class AuthSetup
 
     // Relatos de erro do navegador (etapa H.3b): abertos sem login, então limitados por IP.
     public const string ClientErrorsRateLimitPolicy = "client-errors";
+
+    // "Avise a gente" (I.7c3): exige login, então limitado por pessoa, não por IP.
+    public const string AssetRequestsRateLimitPolicy = "asset-requests";
 
     public static IServiceCollection AddAuth(this IServiceCollection services, IConfiguration configuration)
     {
@@ -99,6 +103,17 @@ public static class AuthSetup
                     _ => new FixedWindowRateLimiterOptions
                     {
                         PermitLimit = clientErrorsLimit,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                    }));
+
+            var assetRequestsLimit = configuration.GetValue("RateLimiting:AssetRequests:PermitLimit", 10);
+            options.AddPolicy(AssetRequestsRateLimitPolicy, context =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = assetRequestsLimit,
                         Window = TimeSpan.FromMinutes(1),
                         QueueLimit = 0,
                     }));

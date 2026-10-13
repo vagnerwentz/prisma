@@ -228,6 +228,9 @@ public sealed class AssetListSyncTests(PostgresFixture postgres)
             {
                 services.AddScoped<IAssetListSource>(_ => _source);
                 services.AddScoped<IAssetLogoDownloader>(_ => _logos);
+                // A tarefa diária também roda os eventos da empresa (I.7c1), que têm testes próprios
+                // (CorporateEventsTests): aqui, sem eventos, o catálogo é só o que a lista trouxe.
+                services.AddSingleton<ICorporateEventSource>(new NoCorporateEvents());
             });
     }
 
@@ -240,5 +243,10 @@ public sealed class AssetListSyncTests(PostgresFixture postgres)
     {
         using var scope = factory.Services.CreateScope();
         return await scope.ServiceProvider.GetRequiredService<AppDbContext>().Assets.AsNoTracking().ToListAsync();
+    }
+
+    private sealed class NoCorporateEvents : ICorporateEventSource
+    {
+        public CorporateEventFile Load() => new([], []);
     }
 }
