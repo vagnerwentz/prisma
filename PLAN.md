@@ -868,9 +868,10 @@ Decidir quando a fase correspondente chegar:
   sozinha em `/` quando o cadastro abrir (`Registration:Open`); antes disso, o rodapé dela ganha os links de
   privacidade, termos e contato. Em aberto lá (seção 7): o nome visível do app ("Prisma" → "Prisma Money", com os
   vídeos regravados), "não vendemos seus dados" e como medir quem chega.
-- Domínio `prismamoney.com.br` (a comprar pelo dono): DNS na Cloudflare, site no Railway, envio pelo Resend e
-  recebimento do `contato@` pelo Email Routing da Cloudflare (`docs/landing.md`, seção 10). O Resend entra com aval,
-  na etapa da confirmação de e-mail. (antes de abrir cadastro público)
+- Domínio `prismamoney.com.br`: no ar desde 2026-10-13 (comprado na GoDaddy, DNS na Cloudflare, site no Railway;
+  `docs/operacao.md`, seção 7). Faltam o recebimento do `contato@` (Email Routing da Cloudflare) e o envio pelo
+  Resend, que entra com aval, na etapa da confirmação de e-mail (`docs/landing.md`, seção 10). (antes de abrir
+  cadastro público)
 - Confirmação de e-mail no cadastro. Hoje o cadastro loga direto, sem confirmar; entra junto
   com o envio de e-mail (recuperação de senha). (antes de abrir cadastro público)
 - Contador de senhas erradas não expira: o Identity só zera no login certo ou ao bloquear, então

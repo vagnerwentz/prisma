@@ -434,7 +434,9 @@ escreva as rotas sem ele.
 **Produção** (`Dockerfile` na raiz): o ASP.NET serve os estáticos do React **no mesmo domínio**,
 eliminando CORS e problemas de SameSite com o cookie de sessão. Fora de `/api`, arquivo existente é
 servido (`/assets` com cache eterno, o resto revalidado) e rota de tela devolve o `index.html`. A
-imagem liga `ForwardedHeaders:Enabled` (IP real atrás do proxy) e `Database:MigrateOnStartup`. As
+imagem liga `ForwardedHeaders:Enabled` (IP real atrás do proxy) e `Database:MigrateOnStartup`. O
+domínio `prismamoney.com.br` (GoDaddy, DNS na Cloudflare) aponta para o Railway com a **nuvem cinza**: a laranja
+poria a Cloudflare na frente, e o rate limit por IP passaria a ver o IP dela (`docs/operacao.md`, seção 7). As
 chaves do cookie ficam no Postgres (`data_protection_keys`): deploy não derruba a sessão. O cookie
 fica no caminho `/`, nunca herdando o `/api`: dois cookies de mesmo nome em caminhos diferentes
 convivem, e o ASP.NET lê o último (o velho), derrubando a sessão logo depois do login. Em `/`, quem

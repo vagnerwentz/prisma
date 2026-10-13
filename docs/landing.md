@@ -1,8 +1,8 @@
 # Página de apresentação (landing)
 
 > **Situação (2026-10-13):** página feita, na branch `feat/landing-page`, e **fora do ar**: ela aparece em `/` sozinha
-> quando o cadastro abrir (`Registration:Open`). Antes disso faltam os itens da seção 6 e o domínio (seção 10). Fora da
-> ordem do `PLAN.md`, a pedido do dono.
+> quando o cadastro abrir (`Registration:Open`). Antes disso faltam os itens da seção 6 (o domínio já está no ar,
+> seção 10). Fora da ordem do `PLAN.md`, a pedido do dono.
 
 Hoje quem chega ao app sem sessão cai direto no `/entrar`. Esta página explica o que o Prisma Money faz e leva a
 pessoa a criar a conta.
@@ -227,8 +227,6 @@ Respondidas: a ordem (D5), o nome (D14), o domínio (D14, seção 10) e o texto 
 - Os itens da seção 6.
 - Rodapé com os links de **Política de privacidade**, **Termos de uso** e um **e-mail de contato** (as páginas e o
   e-mail ainda não existem).
-- O domínio `prismamoney.com.br` apontando para o Railway: a imagem de compartilhamento e o `canonical` já usam esse
-  endereço.
 - O app ainda se chama "Prisma" nas telas (cabeçalho, login, título da aba), e os vídeos mostram esse nome.
 
 ---
@@ -263,18 +261,18 @@ incidente: a Res. ANPD 15/2024 o lista entre os que tornam a comunicação obrig
 
 ---
 
-## 10. Domínio e e-mail (a configurar pelo dono)
+## 10. Domínio e e-mail
 
-Recomendação de 2026-10-13. Um domínio serve ao site e ao envio de e-mail ao mesmo tempo: cada uso fica em registros
-DNS diferentes.
+Domínio no ar desde 2026-10-13 (passo a passo e registros em `docs/operacao.md`, seção 7). Um domínio serve ao site e ao
+envio de e-mail ao mesmo tempo: cada uso fica em registros DNS diferentes.
 
-- **Compra:** `prismamoney.com.br` no Registro.br, com renovação automática (domínio vencido derruba o site e os
-  e-mails juntos).
-- **DNS na Cloudflare** (plano gratuito; a conta já existe por causa do R2): no Registro.br, só trocar os servidores DNS.
-  O Railway aponta o domínio raiz com um tipo de registro que o DNS do Registro.br não aceita na raiz (conferir na
-  documentação do Railway na hora).
-- **Site:** domínio personalizado no serviço da API no Railway (raiz e `www`); o certificado HTTPS sai sozinho. Nada muda
-  no código: o cookie de sessão não depende do domínio, e `og:image`, `canonical` e o sitemap já usam o endereço.
+- **Compra:** `prismamoney.com.br` na **GoDaddy** (revendedora do Registro.br), com renovação automática (domínio
+  vencido derruba o site e os e-mails juntos). A Cloudflare não registra `.com.br`, mas responde o DNS dele.
+- **DNS na Cloudflare** (plano gratuito, conta do R2): na GoDaddy, só os nameservers apontam para ela. O Railway pede
+  CNAME na raiz, que a Cloudflare aceita (*CNAME flattening*) e o DNS da GoDaddy não.
+- **Site:** domínio personalizado no serviço da API no Railway (raiz e `www`), certificado HTTPS do Railway, registros
+  com a **nuvem cinza** (motivo em `docs/operacao.md`, seção 7). Nada mudou no código: o cookie de sessão não depende
+  do domínio, e `og:image`, `canonical` e o sitemap já usam o endereço.
 - **Envio (Resend):** os registros que o Resend der (SPF, DKIM e o de retorno), num subdomínio de envio como
   `send.prismamoney.com.br`, e um registro DMARC. O Resend é dependência nova: entra com o aval do dono na etapa da
   confirmação de e-mail, chamado por HTTP, sem pacote.

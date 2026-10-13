@@ -464,15 +464,29 @@ antigo e restaurar no novo, num volume novo, deixando o antigo como plano B. Foi
    o volume antigos ao compose e rode `docker compose up -d`. Quando não precisar mais do antigo,
    `docker volume rm prisma_postgres-data` (o nome antigo; `docker volume ls` lista).
 
-## 7. Página de apresentação e domínio (a configurar)
+## 7. Página de apresentação e domínio
 
 A página de apresentação (`docs/landing.md`) já vai na imagem, mas só aparece em `/` com o cadastro aberto
 (`Registration__Open=true`). Até lá, nada muda na produção.
 
-- **Domínio `prismamoney.com.br`:** o passo a passo recomendado (Registro.br, DNS na Cloudflare, domínio no serviço da API
-  no Railway, Resend para enviar e Email Routing da Cloudflare para receber o `contato@`) está em `docs/landing.md`,
-  seção 10. Depois de ligar o domínio, conferir que `https://prismamoney.com.br/og.jpg`, `/robots.txt` e
-  `/sitemap.xml` respondem.
+- **Domínio `prismamoney.com.br`** (no ar desde 2026-10-13; o porquê de cada escolha em `docs/landing.md`, seção 10):
+
+  | Peça | Onde | O que tem |
+  |---|---|---|
+  | Registro | **GoDaddy** (revendedora do Registro.br) | renovação automática; nameservers `gemma.ns.cloudflare.com` e `otto.ns.cloudflare.com`, sem IP. A lista de DNS do painel da GoDaddy não vale mais |
+  | DNS | **Cloudflare** (plano Free, conta do R2) → DNS → Records | CNAME `@` → `n16bbu6d.up.railway.app`; CNAME `www` → `psxfoc41.up.railway.app`; TXT `_railway-verify` e `_railway-verify.www` (prova de posse para o Railway); TXT `_dmarc` (`p=quarantine`, veio da GoDaddy, relatórios para um endereço dela até o Resend) |
+  | Site | **Railway** → serviço da API → *Settings* → *Networking* | domínios `prismamoney.com.br` e `www.prismamoney.com.br`, porta 8080; certificado HTTPS do Railway |
+
+  - **Nuvem cinza (*DNS only*) nos dois CNAME, sempre.** A laranja (*Proxied*) poria a Cloudflare na frente: a API
+    lê o IP do último salto (`ForwardedHeaders`, `Program.cs`), que passaria a ser o da Cloudflare, e o rate limit
+    do login juntaria pessoas diferentes num IP só. Ligar a laranja exige antes ajustar a API (cabeçalho
+    `CF-Connecting-IP` ou as redes da Cloudflare como proxies conhecidos). Por isso as opções da Cloudflare para robôs
+    de IA, cache e SSL/TLS não agem no site.
+  - **`www` não redireciona:** responde o mesmo site, com sessão separada (cookie por host). O `canonical` aponta
+    para a raiz. Redirecionar seria na API (a regra de redirecionamento da Cloudflare só age com a nuvem laranja).
+  - **Conferir:** `https://prismamoney.com.br/`, `/og.jpg`, `/robots.txt`, `/sitemap.xml` e `/api/health`
+    respondem 200, e `http://` redireciona para `https://`.
+  - **Falta:** Email Routing do `contato@` e os registros do Resend (`docs/landing.md`, seção 10).
 - **Imagem do link no WhatsApp:** os apps guardam a prévia por um tempo. Para conferir depois de mudar a `og.jpg`,
   colar o link numa conversa nova. O depurador de compartilhamento do Facebook mostra a prévia que os sites leem e
   renova o cache do Facebook; o WhatsApp renova o dele com o tempo.
