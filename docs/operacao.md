@@ -463,3 +463,19 @@ antigo e restaurar no novo, num volume novo, deixando o antigo como plano B. Foi
 6. **Limpar**: apague `~/prisma-local-dumpall.sql` e as contagens. **Voltar atrás**, se preciso: devolva a imagem e
    o volume antigos ao compose e rode `docker compose up -d`. Quando não precisar mais do antigo,
    `docker volume rm prisma_postgres-data` (o nome antigo; `docker volume ls` lista).
+
+## 7. Página de apresentação e domínio (a configurar)
+
+A página de apresentação (`docs/landing.md`) já vai na imagem, mas só aparece em `/` com o cadastro aberto
+(`Registration__Open=true`). Até lá, nada muda na produção.
+
+- **Domínio `prismamoney.com.br`:** o passo a passo recomendado (Registro.br, DNS na Cloudflare, domínio no serviço da API
+  no Railway, Resend para enviar e Email Routing da Cloudflare para receber o `contato@`) está em `docs/landing.md`,
+  seção 10. Depois de ligar o domínio, conferir que `https://prismamoney.com.br/og.jpg`, `/robots.txt` e
+  `/sitemap.xml` respondem.
+- **Imagem do link no WhatsApp:** os apps guardam a prévia por um tempo. Para conferir depois de mudar a `og.jpg`,
+  colar o link numa conversa nova. O depurador de compartilhamento do Facebook mostra a prévia que os sites leem e
+  renova o cache do Facebook; o WhatsApp renova o dele com o tempo.
+- **Compressão:** o front sai comprimido pela própria API (Brotli ou gzip, conforme o navegador pede). Para conferir:
+  `curl -sI -H "Accept-Encoding: br" https://prismamoney.com.br/` deve trazer `content-encoding: br`; um endereço
+  sob `/api` não traz.

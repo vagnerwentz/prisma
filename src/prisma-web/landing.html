@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Prisma Money: controle financeiro com cartão, Pix e parcelas</title>
+    <meta
+      name="description"
+      content="Controle financeiro pessoal feito para o Brasil: a fatura do cartão no mês em que você paga, parcelas sem perder centavo, Pix e notas de corretagem. Sem senha do banco."
+    />
+    <link rel="canonical" href="https://prismamoney.com.br/" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#faf8f3" />
+    <!-- Compartilhamento (docs/landing.md, D19): o cartão do link no WhatsApp, no Instagram e no Google. A imagem sai de
+         scripts/og-image.html. Endereços absolutos, como os sites que leem estas etiquetas exigem. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:site_name" content="Prisma Money" />
+    <meta property="og:url" content="https://prismamoney.com.br/" />
+    <meta property="og:title" content="Prisma Money: a compra é hoje, o dinheiro sai no vencimento" />
+    <meta property="og:description" content="Cartão, parcelas, Pix e investimentos, cada um na sua cor. Controle financeiro pessoal feito para o Brasil." />
+    <meta property="og:image" content="https://prismamoney.com.br/og.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Prisma Money: a luz entra no prisma e sai em faixas coloridas, ao lado da frase A compra é hoje, o dinheiro sai no vencimento." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <!-- Página de apresentação (docs/landing.md). React pré-renderizado: o corpo é gerado no build
+         (scripts/prerender-landing.mjs). Sem script de terceiros, sem cookie e sem fonte de fora: nada sai do navegador
+         de quem só está conhecendo o Prisma. Tema como no app (index.html): a escolha salva, ou o sistema. -->
+    <script>
+      ;(function () {
+        var choice = null
+        try {
+          choice = localStorage.getItem('prisma.theme')
+        } catch (e) {}
+        var dark = choice === 'dark' || (choice !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', dark ? '#15121f' : '#faf8f3')
+      })()
+    </script>
+  </head>
+  <body class="landing relative">
+    <div id="landing"><!--landing-html--></div>
+    <script type="module" src="/src/landing/main.tsx"></script>
+  </body>
+</html>

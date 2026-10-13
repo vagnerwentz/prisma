@@ -7,7 +7,7 @@ import * as si from 'simple-icons'
 const slugs = [
   'airbnb', 'aliexpress', 'anthropic', 'apple', 'applemusic', 'appletv', 'bookingdotcom', 'burgerking',
   'carrefour', 'claude', 'crunchyroll', 'cursor', 'deezer', 'discord', 'duolingo', 'github', 'google',
-  'googleplay', 'hbo', 'icloud', 'ifood', 'ikea', 'leroymerlin', 'mcdonalds', 'mercadopago', 'netflix',
+  'googleplay', 'hbo', 'icloud', 'ifood', 'ikea', 'instagram', 'leroymerlin', 'mcdonalds', 'mercadopago', 'netflix',
   'nike', 'notion', 'nubank', 'paypal', 'perplexity', 'picpay', 'playstation', 'samsung', 'shell',
   'shopee', 'spotify', 'starbucks', 'steam', 'tinder', 'twitch', 'uber', 'ubereats', 'xiaomi', 'youtube', 'zara',
 ]

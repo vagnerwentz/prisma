@@ -1,5 +1,7 @@
 # Prisma
 
+Public name: **Prisma Money**. The code keeps `Prisma`.
+
 **Personal finance built for how money actually moves in Brazil:** Pix, credit card statements with
 real closing and due dates, installments that never lose a cent, and refunds that behave like refunds.
 
@@ -145,7 +147,8 @@ flowchart LR
 - **`src/Prisma.Domain`:** entities, value objects and rules; no EF Core, ASP.NET Core or Npgsql.
 - **`src/Prisma.Api`:** one file per use case (request, validator, handler and endpoint together),
   EF Core configuration, migrations, authentication.
-- **`src/prisma-web`:** React app, served by the API in production (same origin, no CORS).
+- **`src/prisma-web`:** React app, served by the API in production (same origin, no CORS), plus a static
+  landing page (`landing.html`, React prerendered at build time) shown at `/` to visitors without a session while sign-up is open.
 - **`tests/`:** domain, integration and architecture tests.
 
 In production the API and the React build ship as one Docker image on Railway, with migrations applied

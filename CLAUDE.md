@@ -5,6 +5,9 @@
 >
 > **Nome de trabalho:** `Prisma`. Trocar o nome é um localizar-e-substituir no
 > namespace raiz e no nome dos projetos. Nada mais depende dele.
+>
+> **Nome público:** `Prisma Money` (decisão do dono, 2026-10-13): domínio `prismamoney.com.br`, Instagram `@prismamoneybrasil`,
+> página de apresentação (`docs/landing.md`, D14). O código continua `Prisma`.
 
 ---
 
@@ -90,7 +93,7 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 | Banco | PostgreSQL 18 em todo lugar: Docker no desenvolvimento, Testcontainers nos testes, Railway na produção. Mudou a versão da produção, mudam juntos o `docker-compose.yml`, o `PostgresFixture` e a imagem do backup |
 | Validação | FluentValidation |
 | Testes | xUnit + Shouldly + Testcontainers + NetArchTest + CsCheck + `Microsoft.AspNetCore.Mvc.Testing` (`WebApplicationFactory`) |
-| Frontend | React 19 + TypeScript + Vite + React Router |
+| Frontend | React 19 + TypeScript + Vite + React Router; a página de apresentação é uma segunda entrada do Vite, pré-renderizada no build com `react-dom/server` (`scripts/prerender-landing.mjs`) |
 | Cliente da API | `openapi-typescript` (tipos gerados) + `openapi-fetch` (chamadas tipadas) |
 | Testes do frontend | Vitest (formatação e conversão de dinheiro e data) |
 | UI | Tailwind CSS + shadcn/ui + `sonner` (avisos) + Instrument Serif (`@fontsource`, fonte hospedada no app) |
@@ -125,15 +128,16 @@ src/
 ├── Prisma.Api/
 │   ├── Features/               # Vertical slices: um arquivo por caso de uso
 │   └── Infrastructure/         # DbContext, configurações EF, migrations, auth
-└── prisma-web/                 # React + Vite
+└── prisma-web/                 # React + Vite (o app em index.html; a apresentação em landing.html + src/landing/)
 tests/
 ├── Prisma.Domain.Tests/        # Unitários puros, sem banco
 ├── Prisma.Api.Tests/           # Integração por slice, com Testcontainers
 └── Prisma.Architecture.Tests/  # NetArchTest
 docs/
 ├── fase-N.md                   # Detalhamento da fase em execução
+├── landing.md                  # Página de apresentação: o que promete, visual, LGPD, como é servida e o que falta para ir ao ar
 ├── investimentos.md            # Fase I: catálogo de ativos (brapi), carteira, proventos, logos, notas, eventos; decisões e achados
-├── operacao.md                 # Roteiros da produção: usuários do banco, backup, restauração, logs; versão do Postgres local
+├── operacao.md                 # Roteiros da produção: usuários do banco, backup, restauração, logs; versão do Postgres local; página e domínio
 └── validacao-premissas.md      # Premissas do produto e o resultado de cada validação
 ops/
 ├── backup/                     # Serviço de backup: Dockerfile, backup.sh, restore.sh, teste de ida e volta
@@ -406,7 +410,7 @@ cd src/prisma-web && npm install && npm run dev    # http://localhost:5173, prox
 npm run gen:api       # tipos TS do OpenAPI; exige a API rodando (lê http://localhost:5151)
 npm run dev:lan       # rede local com HTTPS, para testar no celular (aceite o certificado local)
 npm test              # Vitest
-npm run build         # checagem de tipos + build
+npm run build         # checagem de tipos + build (+ pré-renderização da página de apresentação)
 npm run lint          # oxlint
 
 docker build -t prisma .                           # imagem de produção (API + React), na raiz
@@ -433,8 +437,13 @@ servido (`/assets` com cache eterno, o resto revalidado) e rota de tela devolve 
 imagem liga `ForwardedHeaders:Enabled` (IP real atrás do proxy) e `Database:MigrateOnStartup`. As
 chaves do cookie ficam no Postgres (`data_protection_keys`): deploy não derruba a sessão. O cookie
 fica no caminho `/`, nunca herdando o `/api`: dois cookies de mesmo nome em caminhos diferentes
-convivem, e o ASP.NET lê o último (o velho), derrubando a sessão logo depois do login. Cadastro
-fechado fora de desenvolvimento (`Registration:Open`); libere e-mails em
+convivem, e o ASP.NET lê o último (o velho), derrubando a sessão logo depois do login. Em `/`, quem
+chega sem sessão recebe a página de apresentação (`landing.html`, React pré-renderizado no `npm run build`, `docs/landing.md`),
+mas só com o cadastro aberto: o botão dela leva ao cadastro. Com o cadastro fechado, `/` segue para o login.
+O front sai comprimido (Brotli/gzip); a API não, por causa do ataque BREACH (`docs/landing.md`, D20).
+`/landing.html` direto dá 404 (a página só existe em `/`). `robots.txt`, `sitemap.xml` e `og.jpg` ficam em `public/`, e as
+telas do app levam `noindex`.
+Cadastro fechado fora de desenvolvimento (`Registration:Open`); libere e-mails em
 `Registration__AllowedEmails__0`. A connection string vem de `ConnectionStrings__Default`.
 Em produção a API entra no banco como `prisma_app` (dono das tabelas, sem superusuário; criado por
 `ops/postgres/app-user.sql`), e o `postgres` fica só para administração. O TCP Proxy do Postgres fica
@@ -472,7 +481,8 @@ por conversa, arquivo versionado ou histórico do shell.
   qualquer tela; contorno só no que se preenche ou escolhe (campo, chip, seletor, botão secundário).
   Divisória interna em `border-border/60`. Títulos e rótulos em caixa normal, nunca em maiúsculas
   espaçadas (exceção: o selo de status da fatura).
-- **Movimento:** só para mostrar mudança de estado, nunca decoração. Curvas dos tokens (`ease-out`,
+- **Movimento:** só para mostrar mudança de estado, nunca decoração (exceção: a página de apresentação, que pode
+  encenar uma vez, sem repetir e parada com `prefers-reduced-motion`; `docs/landing.md`, D8). Curvas dos tokens (`ease-out`,
   `ease-in-out`, `ease-drawer`), nada de `ease-in` nem de `transition-all`; animar `transform`,
   `opacity` ou `clip-path`, não largura. Até 300 ms na interface (painel: 420 ms na entrada, 260 ms na
   saída). Ação frequente (trocar de mês, filtrar) não anima: mantém o dado anterior esmaecido
@@ -520,6 +530,10 @@ por conversa, arquivo versionado ou histórico do shell.
   explica o mês vai na Análise (`/analise`), e o que olha para a frente, na seção "Daqui para frente"
   dela. Bloco novo entra na tela da pergunta que responde, não no fim do Resumo. O `?mes=` passa
   entre as telas (`withMonth`).
+- **Página de apresentação** (`docs/landing.md`): as mesmas peças e tokens do app; o movimento pode encenar (D8). O app
+  aparece por vídeos e números gravados de um usuário de exemplo (nunca dado real); mudou muito uma tela mostrada,
+  grava-se de novo. Toda conta que a página mostra (fatura, parcelas, rateio, preço médio) sai de `demoMath.ts`, com
+  teste contra as regras do domínio.
 - **Telas de erro:** `ErrorScreen` com a cena `BrokenPrism` (espectro desalinhado que se
   recompõe ao passar o ponteiro na ação), para erro inesperado (`ErrorBoundary`), versão nova
   publicada com o app aberto e endereço inexistente. Ficam no pacote principal, porque precisam
@@ -538,6 +552,9 @@ por conversa, arquivo versionado ou histórico do shell.
 - Rate limit em login e recuperação de senha.
 - Nunca logar valor, descrição de transação, nome, e-mail, senha ou token: só ids, tipos e motivos. Um
   teste de arquitetura recusa evento de `AppLog` com parâmetro de nome sensível.
+- **LGPD:** as skills `lgpd-*` (`.claude/skills`, locais, fora do git; goul4rt/lgpd-skills) são consultivas e
+  não substituem advogado. Texto jurídico (política de privacidade, termos) nunca vai ao ar sem revisão jurídica.
+  Página para quem não entrou não carrega script, fonte nem imagem de terceiros e não grava cookie.
 - Segredos via User Secrets em desenvolvimento e variáveis de ambiente em produção.
   Nada de connection string ou client secret commitado.
 

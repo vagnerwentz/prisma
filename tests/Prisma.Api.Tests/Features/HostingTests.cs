@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Testing.Handlers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Prisma.Api.Infrastructure;
@@ -16,19 +17,26 @@ namespace Prisma.Api.Tests.Features;
 public sealed class HostingTests(PostgresFixture postgres) : IDisposable
 {
     private const string IndexHtml = "<!doctype html><title>Prisma</title><div id=\"root\"></div>";
+    private const string LandingHtml = "<!doctype html><title>Prisma: apresentação</title><a href=\"/cadastro\">Criar minha conta</a>";
 
     // Um build de frontend de mentira: o index.html e um arquivo com hash em /assets.
     private readonly string _webRoot = Directory.CreateTempSubdirectory("prisma-web-").FullName;
 
     public void Dispose() => Directory.Delete(_webRoot, recursive: true);
 
-    private PrismaApiFactory FrontendFactory()
+    private PrismaApiFactory FrontendFactory(bool withLanding = false, bool registrationOpen = true)
     {
         File.WriteAllText(Path.Combine(_webRoot, "index.html"), IndexHtml);
+        if (withLanding)
+            File.WriteAllText(Path.Combine(_webRoot, "landing.html"), LandingHtml);
         Directory.CreateDirectory(Path.Combine(_webRoot, "assets"));
         File.WriteAllText(Path.Combine(_webRoot, "assets", "index-B1a2c3.js"), "console.log('prisma')");
-        return new PrismaApiFactory(postgres.ConnectionString,
-            new Dictionary<string, string> { [WebHostDefaults.WebRootKey] = _webRoot });
+        return new PrismaApiFactory(postgres.ConnectionString, new Dictionary<string, string>
+        {
+            [WebHostDefaults.WebRootKey] = _webRoot,
+            ["Registration:Open"] = registrationOpen ? "true" : "false",
+            ["RateLimiting:Auth:PermitLimit"] = "1000",
+        });
     }
 
     private static string NewEmail() => $"{Guid.NewGuid():N}@teste.com.br";
@@ -52,6 +60,67 @@ public sealed class HostingTests(PostgresFixture postgres) : IDisposable
         (await response.Content.ReadAsStringAsync()).ShouldBe(IndexHtml);
     }
 
+    // Página de apresentação (docs/landing.md): em "/", quem chega sem sessão a vê; quem tem sessão vê o app.
+    [Fact]
+    public async Task Without_a_session_the_root_shows_the_landing_page()
+    {
+        await using var factory = FrontendFactory(withLanding: true);
+        using var client = factory.CreateRawClient();
+
+        var response = await client.GetAsync("/");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Content.Headers.ContentType!.MediaType.ShouldBe("text/html");
+        response.Headers.CacheControl!.NoCache.ShouldBeTrue();
+        (await response.Content.ReadAsStringAsync()).ShouldBe(LandingHtml);
+    }
+
+    [Fact]
+    public async Task With_a_session_the_root_shows_the_app()
+    {
+        await using var factory = FrontendFactory(withLanding: true);
+        using var client = factory.CreateDefaultClient(new Uri("https://localhost"), new CookieContainerHandler());
+        (await client.PostAsJsonAsync("/api/auth/register", new { email = NewEmail(), password = PrismaApiFactory.Password }))
+            .StatusCode.ShouldBe(HttpStatusCode.Created);
+
+        (await client.GetStringAsync("/")).ShouldBe(IndexHtml);
+    }
+
+    // Só a raiz é a página: as telas do app continuam com o app, inclusive as de quem não entrou.
+    [Theory]
+    [InlineData("/entrar")]
+    [InlineData("/cadastro")]
+    [InlineData("/lancamentos")]
+    public async Task Other_screens_stay_with_the_app_without_a_session(string path)
+    {
+        await using var factory = FrontendFactory(withLanding: true);
+        using var client = factory.CreateRawClient();
+
+        (await client.GetStringAsync(path)).ShouldBe(IndexHtml);
+    }
+
+    // A página só existe em "/": o arquivo dela não abre direto, nem com o cadastro fechado (o botão levaria a um erro).
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task The_landing_file_is_not_served_directly(bool registrationOpen)
+    {
+        await using var factory = FrontendFactory(withLanding: true, registrationOpen: registrationOpen);
+        using var client = factory.CreateRawClient();
+
+        (await client.GetAsync("/landing.html")).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    // O botão da página leva ao cadastro: com o cadastro fechado, a página não aparece, e "/" leva ao login como antes.
+    [Fact]
+    public async Task With_registration_closed_the_root_shows_the_app()
+    {
+        await using var factory = FrontendFactory(withLanding: true, registrationOpen: false);
+        using var client = factory.CreateRawClient();
+
+        (await client.GetStringAsync("/")).ShouldBe(IndexHtml);
+    }
+
     [Fact]
     public async Task Hashed_assets_are_cached_forever_and_a_missing_file_is_a_404()
     {
@@ -64,6 +133,38 @@ public sealed class HostingTests(PostgresFixture postgres) : IDisposable
 
         // O pedaço de uma versão antiga não vira index.html.
         (await client.GetAsync("/assets/index-velho.js")).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    // Compressão só no front (docs/landing.md, D20): HTML, CSS e JS saem comprimidos; a API não, porque dado do usuário
+    // comprimido junto com texto que outro site injeta abre a porta para o ataque BREACH.
+    [Theory]
+    [InlineData("/assets/index-B1a2c3.js")]
+    [InlineData("/")]
+    public async Task The_frontend_is_compressed(string path)
+    {
+        await using var factory = FrontendFactory(withLanding: true);
+        using var client = factory.CreateRawClient();
+        var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Add("Accept-Encoding", "br, gzip");
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Content.Headers.ContentEncoding.ShouldBe(["br"]);
+    }
+
+    [Fact]
+    public async Task The_api_is_not_compressed()
+    {
+        await using var factory = FrontendFactory();
+        using var signedIn = await factory.CreateAuthenticatedClientAsync();
+        var request = new HttpRequestMessage(HttpMethod.Get, "/auth/me");
+        request.Headers.Add("Accept-Encoding", "br, gzip");
+
+        var response = await signedIn.SendAsync(request);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Content.Headers.ContentEncoding.ShouldBeEmpty();
     }
 
     [Fact]

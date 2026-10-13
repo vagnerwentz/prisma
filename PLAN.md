@@ -36,6 +36,8 @@ Estas estão fechadas. Não reabrir sem conversa explícita.
 | Multiusuário | Dados por `UserId`, sem grupo familiar |
 | Investimentos | Aporte é transferência (Fase 1). Carteira e proventos na Fase I (`docs/investimentos.md`): provento é receita na conta onde caiu, ligada ao ativo; catálogo de ativos global, vindo da brapi. Operações e preço médio pelas notas digitadas, com os eventos da empresa (I.7); cotação fica para depois |
 | Hospedagem | Uso próprio: Railway, com API, React e Postgres num só projeto e o React servido pela API (mesmo domínio). Cadastro público: reavaliar antes de abrir |
+| Nome público | **Prisma Money** (2026-10-13): domínio `prismamoney.com.br`, Instagram `@prismamoneybrasil`. O código continua `Prisma` |
+| Página de apresentação | React pré-renderizado em `/` para quem não tem sessão, só com o cadastro aberto (`docs/landing.md`) |
 
 ---
 
@@ -861,6 +863,14 @@ Decidir quando a fase correspondente chegar:
 - Hospedagem para cadastro público: o Railway basta, ou os dados devem ficar numa região no
   Brasil por causa da LGPD? Qual orçamento mensal? (antes de abrir cadastro público)
 - Política de privacidade e termos de uso, por causa da LGPD. (antes de abrir cadastro público)
+- Apagar a própria conta (LGPD, direito de eliminação). Não existe hoje. (antes de abrir cadastro público)
+- Página de apresentação (`docs/landing.md`, 2026-10-12 e 13, branch `feat/landing-page`): feita e fora do ar. Aparece
+  sozinha em `/` quando o cadastro abrir (`Registration:Open`); antes disso, o rodapé dela ganha os links de
+  privacidade, termos e contato. Em aberto lá (seção 7): o nome visível do app ("Prisma" → "Prisma Money", com os
+  vídeos regravados), "não vendemos seus dados" e como medir quem chega.
+- Domínio `prismamoney.com.br` (a comprar pelo dono): DNS na Cloudflare, site no Railway, envio pelo Resend e
+  recebimento do `contato@` pelo Email Routing da Cloudflare (`docs/landing.md`, seção 10). O Resend entra com aval,
+  na etapa da confirmação de e-mail. (antes de abrir cadastro público)
 - Confirmação de e-mail no cadastro. Hoje o cadastro loga direto, sem confirmar; entra junto
   com o envio de e-mail (recuperação de senha). (antes de abrir cadastro público)
 - Contador de senhas erradas não expira: o Identity só zera no login certo ou ao bloquear, então

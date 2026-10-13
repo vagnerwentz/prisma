@@ -1,0 +1,488 @@
+/* Página de apresentação (landing.html, docs/landing.md). Os mesmos tokens, fontes e peças do app (index.css):
+   quem sai da página e entra no app precisa sentir que é o mesmo lugar. A página pode encenar (D8): cada cena toca
+   uma vez, sem repetir, e com menos movimento tudo aparece pronto (fim do arquivo). */
+@import "../index.css";
+
+@layer components {
+    .landing .halo {
+        background: var(--halo);
+    }
+
+    /* O botão da página: o primário do app, maior, com o brilho frio do espectro. */
+    .landing .cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 3.25rem;
+        padding-inline: 1.75rem;
+        border-radius: 0.875rem;
+        background: var(--primary);
+        color: var(--primary-foreground);
+        font-size: 1.0625rem;
+        font-weight: 500;
+        box-shadow: 0 10px 30px -12px #8b5cf6;
+        transition: transform 160ms var(--ease-out), filter 160ms var(--ease-out);
+    }
+    .landing .cta:hover {
+        filter: brightness(1.08);
+    }
+    .landing .cta:active {
+        transform: scale(0.98);
+    }
+    .landing .cta:focus-visible {
+        outline: 2px solid var(--ring);
+        outline-offset: 3px;
+    }
+
+    .landing .cta-small {
+        min-height: 2.25rem;
+        padding-inline: 1rem;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        box-shadow: 0 6px 18px -10px #8b5cf6;
+    }
+
+    /* A barra que acompanha a rolagem (StickyBar.tsx): desce do topo quando a abertura sai da tela. */
+    .landing .sticky-bar {
+        position: fixed;
+        inset: 0 0 auto;
+        z-index: 40;
+        padding-top: env(safe-area-inset-top);
+        background: var(--background);
+        box-shadow: 0 8px 24px -18px oklch(0.21 0.025 285 / 40%);
+        border-bottom: 1px solid oklch(from var(--border) l c h / 60%);
+        transition: transform 260ms var(--ease-out), opacity 260ms var(--ease-out);
+    }
+    .landing .sticky-bar[data-shown="false"] {
+        transform: translateY(-100%);
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    /* Título de seção com o filete do espectro embaixo, como nos títulos do app. */
+    .landing .section-title {
+        font-family: var(--font-display);
+        font-size: 2.25rem;
+        line-height: 1.05;
+        text-wrap: balance;
+    }
+    .landing .section-title::after {
+        content: "";
+        display: block;
+        width: 3rem;
+        height: 2px;
+        margin-top: 1rem;
+        border-radius: 9999px;
+        background: var(--spectrum);
+    }
+    @media (min-width: 40rem) {
+        .landing .section-title {
+            font-size: 3rem;
+        }
+    }
+
+    .landing .feature-title {
+        color: var(--foreground);
+        font-family: var(--font-display);
+        font-size: 2.25rem;
+        line-height: 1.05;
+        text-wrap: balance;
+    }
+    @media (min-width: 40rem) {
+        .landing .feature-title {
+            font-size: 2.75rem;
+        }
+    }
+    .landing .lead {
+        color: var(--muted-foreground);
+        font-size: 1.0625rem;
+        text-wrap: pretty;
+    }
+
+    /* Rótulo da seção com a faixa do espectro que a representa (--band). */
+    .landing .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--foreground);
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    .landing .eyebrow::before {
+        content: "";
+        width: 0.625rem;
+        height: 0.625rem;
+        border-radius: 9999px;
+        background: var(--band);
+        box-shadow: 0 0 10px -1px var(--band);
+    }
+
+    /* Tela do app num celular. As duas versões (clara e escura) estão no HTML; o tema mostra uma, e a escondida não
+       carrega (lazy). */
+    .landing .phone {
+        width: min(18.5rem, 78vw);
+        padding: 0.5rem;
+        border-radius: 2.6rem;
+        background: var(--card);
+        box-shadow:
+            0 1px 2px oklch(0.21 0.025 285 / 6%),
+            0 30px 60px -30px oklch(0.21 0.025 285 / 35%);
+    }
+    [data-theme="dark"] .landing .phone {
+        box-shadow:
+            inset 0 1px 0 oklch(1 0 0 / 7%),
+            0 30px 60px -30px oklch(0 0 0 / 70%);
+    }
+    .landing .phone img,
+    .landing .phone video {
+        width: 100%;
+        height: auto;
+        border-radius: 2.1rem;
+    }
+    .landing .shot-dark {
+        display: none;
+    }
+    [data-theme="dark"] .landing .shot-light {
+        display: none;
+    }
+    [data-theme="dark"] .landing .shot-dark {
+        display: block;
+    }
+
+    /* Número do passo: o espectro frio, como a fatura aberta. */
+    .landing .step {
+        display: inline-grid;
+        place-items: center;
+        width: 2rem;
+        height: 2rem;
+        margin-bottom: 0.5rem;
+        border-radius: 9999px;
+        background: var(--spectrum-cool);
+        color: white;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    /* --- Abertura: a luz entra no prisma e sai nas faixas (Hero.tsx) --- */
+    .landing .prism-beam .beam-in {
+        animation: beam-in 520ms var(--ease-out) both;
+    }
+    .landing .prism-beam .beam-glass {
+        animation: fade-in 300ms var(--ease-out) 420ms both;
+    }
+    .landing .prism-beam .beam-band {
+        animation: band-out 700ms var(--ease-out) both;
+        animation-delay: calc(560ms + var(--i) * 90ms);
+    }
+    /* Passar o dedo ou o mouse numa linha do cartão acende a faixa dela (Hero.tsx). */
+    .landing .prism-beam .beam-band {
+        transition: fill-opacity 200ms var(--ease-out);
+    }
+    .landing .prism-beam .beam-band[data-dim="true"] {
+        fill-opacity: 0.25;
+    }
+    /* Tela muito estreita: o cartão avança sobre a ponta das faixas, que somem por baixo dele, e o texto cabe. */
+    @media (max-width: 23.75rem) {
+        .landing .prism-beam .beam-card {
+            left: 33% !important;
+        }
+    }
+    /* O cartão aparece quando a luz chega nele; as linhas, uma a uma, junto com a faixa de cada uma. */
+    .landing .prism-beam .beam-card {
+        animation: fade-in 320ms var(--ease-out) 820ms both;
+    }
+    .landing .prism-beam .beam-row {
+        animation: row-in 420ms var(--ease-out) both;
+        animation-delay: calc(980ms + var(--i) * 90ms);
+    }
+    @keyframes row-in {
+        from {
+            opacity: 0;
+            transform: translateX(-8px);
+        }
+        to {
+            opacity: 1;
+            transform: none;
+        }
+    }
+    @keyframes beam-in {
+        from {
+            clip-path: inset(0 100% 0 0);
+        }
+        to {
+            clip-path: inset(0 0 0 0);
+        }
+    }
+    @keyframes band-out {
+        from {
+            clip-path: inset(0 100% 0 0);
+            opacity: 0.4;
+        }
+        to {
+            clip-path: inset(0 0 0 0);
+            opacity: 1;
+        }
+    }
+    @keyframes fade-in {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+
+    /* --- "Em qual fatura cai?" (StatementDemo.tsx) --- */
+    .landing .day-slider {
+        position: relative;
+        padding-bottom: 1.5rem;
+    }
+    .landing .day-slider input {
+        width: 100%;
+        height: 2.75rem;
+        appearance: none;
+        background: transparent;
+        cursor: pointer;
+    }
+    .landing .day-slider input::-webkit-slider-runnable-track {
+        height: 0.5rem;
+        border-radius: 9999px;
+        background:
+            linear-gradient(90deg, #8b5cf6, #3b82f6, #22d3ee) 0 0 / var(--fill) 100% no-repeat,
+            var(--muted);
+    }
+    .landing .day-slider input::-moz-range-track {
+        height: 0.5rem;
+        border-radius: 9999px;
+        background:
+            linear-gradient(90deg, #8b5cf6, #3b82f6, #22d3ee) 0 0 / var(--fill) 100% no-repeat,
+            var(--muted);
+    }
+    .landing .day-slider input::-webkit-slider-thumb {
+        appearance: none;
+        width: 1.75rem;
+        height: 1.75rem;
+        margin-top: -0.625rem;
+        border-radius: 9999px;
+        background: var(--card);
+        box-shadow: 0 0 0 2px #3b82f6, 0 4px 14px -4px #8b5cf6;
+    }
+    .landing .day-slider input::-moz-range-thumb {
+        width: 1.75rem;
+        height: 1.75rem;
+        border: none;
+        border-radius: 9999px;
+        background: var(--card);
+        box-shadow: 0 0 0 2px #3b82f6, 0 4px 14px -4px #8b5cf6;
+    }
+    .landing .day-slider input:focus-visible {
+        outline: 2px solid var(--ring);
+        outline-offset: 4px;
+        border-radius: 9999px;
+    }
+    /* A marca do fechamento, no centro do polegar no dia dele (StatementDemo.tsx calcula o "left"). */
+    .landing .closing-mark {
+        position: absolute;
+        bottom: 0;
+        translate: -50%;
+        color: var(--muted-foreground);
+        font-size: 0.75rem;
+        white-space: nowrap;
+    }
+    .landing .closing-mark::before {
+        content: "";
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        width: 1px;
+        height: 0.75rem;
+        margin-bottom: 0.25rem;
+        background: currentColor;
+    }
+    /* O resultado novo entra de leve: a fatura mudou. */
+    .landing .swap-in {
+        animation: swap-in 260ms var(--ease-out) both;
+    }
+    @keyframes swap-in {
+        from {
+            opacity: 0;
+            transform: translateY(6px);
+        }
+        to {
+            opacity: 1;
+            transform: none;
+        }
+    }
+
+    /* --- Parcelas ao vivo (InstallmentsDemo.tsx) --- */
+    .landing .stepper {
+        display: grid;
+        place-items: center;
+        width: 2.75rem;
+        height: 2.75rem;
+        border-radius: 9999px;
+        border: 1px solid var(--border);
+        transition: background-color 150ms var(--ease-out), transform 150ms var(--ease-out);
+    }
+    .landing .stepper:hover {
+        background: var(--muted);
+    }
+    .landing .stepper:active {
+        transform: scale(0.94);
+    }
+    .landing .installment-chip {
+        display: flex;
+        flex-direction: column;
+        gap: 0.125rem;
+        padding: 0.625rem 0.875rem;
+        border-radius: 1rem;
+        background: oklch(from var(--muted) l c h / 70%);
+        border-top: 2px solid oklch(from #3b82f6 l c h / 55%);
+    }
+
+    /* --- Nota de corretagem em cena (TradeNoteScene.tsx) --- */
+    .landing .scene-item {
+        transition: opacity 420ms var(--ease-out), transform 420ms var(--ease-out);
+    }
+    .landing .scene-item[data-shown="false"] {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    /* --- Vídeos do app (PhoneVideo.tsx) --- */
+    .landing .phone .video-poster {
+        position: absolute;
+        inset: 0.5rem;
+        width: calc(100% - 1rem);
+        height: calc(100% - 1rem);
+    }
+    .landing .video-play {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        display: grid;
+        place-items: center;
+        width: 4rem;
+        height: 4rem;
+        translate: -50% -50%;
+        border-radius: 9999px;
+        background: var(--spectrum-cool);
+        color: white;
+        box-shadow: 0 10px 30px -8px #8b5cf6;
+        transition: transform 160ms var(--ease-out);
+    }
+    .landing .video-play:active {
+        transform: scale(0.95);
+    }
+    .landing .chapter {
+        transition: background-color 250ms var(--ease-out), opacity 250ms var(--ease-out);
+        opacity: 0.6;
+    }
+    .landing .chapter:hover {
+        opacity: 0.85;
+    }
+    .landing .chapter-active {
+        opacity: 1;
+        background: var(--card);
+        box-shadow: 0 1px 2px oklch(0.21 0.025 285 / 5%), 0 6px 20px -10px oklch(0.21 0.025 285 / 14%);
+    }
+    [data-theme="dark"] .landing .chapter-active {
+        box-shadow: inset 0 1px 0 oklch(1 0 0 / 5%);
+    }
+    .landing .chapter-number {
+        display: inline-grid;
+        place-items: center;
+        width: 1.75rem;
+        height: 1.75rem;
+        border-radius: 9999px;
+        background: var(--muted);
+        font-size: 0.8125rem;
+        font-weight: 600;
+    }
+    .landing .chapter-active .chapter-number {
+        background: var(--spectrum-cool);
+        color: white;
+    }
+
+    /* --- Comparação (Sections.tsx) --- */
+    .landing .compare-prisma {
+        background: var(--card);
+    }
+    [data-theme="dark"] .landing .compare-prisma {
+        background: oklch(from var(--card) calc(l + 0.03) c h);
+    }
+    .landing .compare-row > * {
+        border-top: 1px solid oklch(from var(--border) l c h / 60%);
+    }
+    /* No celular, cada linha vira um bloco: a pergunta inteira em cima, as três respostas embaixo. */
+    @media (max-width: 39.99rem) {
+        .landing .compare tr {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+        .landing .compare thead th:first-child {
+            display: none;
+        }
+        .landing .compare tbody th {
+            grid-column: 1 / -1;
+            padding-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        .landing .compare tbody td {
+            border-top: none;
+            padding-top: 0;
+        }
+    }
+
+    /* --- Perguntas: abrir e fechar é do navegador (<details>) --- */
+    .landing .faq details {
+        border-bottom: 1px solid oklch(from var(--border) l c h / 60%);
+    }
+    .landing .faq summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding-block: 1.25rem;
+        font-size: 1.0625rem;
+        font-weight: 500;
+        cursor: pointer;
+        list-style: none;
+    }
+    .landing .faq summary::-webkit-details-marker {
+        display: none;
+    }
+    .landing .faq summary::after {
+        content: "+";
+        flex-shrink: 0;
+        color: var(--muted-foreground);
+        font-size: 1.5rem;
+        font-weight: 300;
+        line-height: 1;
+        transition: transform 200ms var(--ease-out);
+    }
+    .landing .faq details[open] summary::after {
+        transform: rotate(45deg);
+    }
+    .landing .faq details p {
+        padding-bottom: 1.25rem;
+        color: var(--muted-foreground);
+    }
+
+    /* Menos movimento: tudo aparece pronto, sem deslocar. */
+    @media (prefers-reduced-motion: reduce) {
+        .landing .prism-beam *,
+        .landing .swap-in {
+            animation: none;
+        }
+        .landing .cta,
+        .landing .sticky-bar,
+        .landing .stepper,
+        .landing .scene-item,
+        .landing .chapter,
+        .landing .video-play,
+        .landing .faq summary::after {
+            transition: none;
+        }
+    }
+}
