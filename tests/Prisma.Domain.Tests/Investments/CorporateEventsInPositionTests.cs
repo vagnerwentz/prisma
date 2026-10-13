@@ -18,7 +18,7 @@ public sealed class CorporateEventsInPositionTests
     private static string Symbol(Guid id) => id == Bcff11 ? "BCFF11" : "BTHF11";
 
     private static TradeNote Note(DateOnly date, Guid asset, TradeSide side, long quantity, long price) =>
-        TradeNote.Create(Guid.CreateVersion7(), "Íon", date, [new Trade(asset, AssetKind.Fii, side, quantity, price)], 0, 0, false).Value;
+        TradeNote.Create(Guid.CreateVersion7(), "Íon", date, [new Trade(asset, AssetKind.Fii, side, quantity, price)], 0, 0, TradeNote.StockOnly).Value;
 
     private static CorporateEvent Split(DateOnly date, int from, int to, Guid? asset = null) =>
         CorporateEvent.Create($"split-{date}", CorporateEventKind.Split, asset ?? Bcff11, null, date, from, to, "teste", Now).Value;

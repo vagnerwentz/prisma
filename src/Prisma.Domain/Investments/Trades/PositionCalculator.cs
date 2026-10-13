@@ -24,7 +24,7 @@ public static class PositionCalculator
         var timeline = new Timeline();
         var ordered = events.OrderBy(e => e.Date).ThenBy(e => e.Kind).ThenBy(e => e.Key, StringComparer.Ordinal).ToList();
         var pending = new Queue<CorporateEvent>(ordered);
-        var convertedOn = ordered.Where(e => e.Kind == CorporateEventKind.Conversion)
+        var convertedOn = ordered.Where(e => e.Kind is CorporateEventKind.Conversion or CorporateEventKind.Liquidation)
             .GroupBy(e => e.AssetId)
             .ToDictionary(g => g.Key, g => g.First());
 
@@ -91,6 +91,14 @@ public static class PositionCalculator
                 return;
             }
 
+            if (e.Kind == CorporateEventKind.Liquidation)
+            {
+                var received = source.LiquidateOut(e);
+                if (received.Quantity > 0)
+                    Of(e.TargetAssetId!.Value).LiquidateIn(e, received);
+                return;
+            }
+
             var moved = source.Totals;
             source.ConvertOut(e);
             Of(e.TargetAssetId!.Value).ConvertIn(e, moved);
@@ -150,6 +158,35 @@ public static class PositionCalculator
             Totals = new PositionTotals(
                 Totals.Quantity + received, Totals.GrossCostCents + moved.GrossCostCents, Totals.CostBasisCents + moved.CostBasisCents);
             _history.Add(new PositionStep(PositionStepKind.ConversionIn, e.Date, null, e, e.AssetId, null, received, 0, 0, Totals, null));
+        }
+
+        // Liquidação paga em cotas (I.7c4): sai tudo como numa venda. Recebe ⌊Q × to ÷ from⌋ cotas pelo preço de
+        // referência, a fração pelo mesmo preço e o caixa por cota; cada parte vira centavo meio para cima. Devolve as
+        // cotas recebidas e o valor delas, que é o custo no destino.
+        public (long Quantity, long ValueCents) LiquidateOut(CorporateEvent e)
+        {
+            var before = Totals.Quantity;
+            var price = e.TargetUnitPrice!.Value;
+            var received = e.Convert(before);
+            var quotas = PositionMath.RoundHalfUp((Int128)received * price, CorporateEvent.UnitValueScale / 100);
+            var fraction = PositionMath.RoundHalfUp(((Int128)before * e.ToQuantity - (Int128)received * e.FromQuantity) * price,
+                (Int128)e.FromQuantity * (CorporateEvent.UnitValueScale / 100));
+            var cash = PositionMath.RoundHalfUp((Int128)before * (e.CashPerUnit ?? 0), CorporateEvent.UnitValueScale / 100);
+            var value = quotas + fraction + cash;
+            var realized = value - Totals.CostBasisCents;
+            _realized += realized;
+            Totals = PositionTotals.Empty;
+            _history.Add(new PositionStep(PositionStepKind.LiquidationOut, e.Date, null, e, e.TargetAssetId, null, before, value, 0, Totals, realized));
+            return (received, quotas);
+        }
+
+        // Entra como compra, sem custos de nota; com posição anterior, a média fica ponderada.
+        public void LiquidateIn(CorporateEvent e, (long Quantity, long ValueCents) received)
+        {
+            Totals = new PositionTotals(
+                Totals.Quantity + received.Quantity, Totals.GrossCostCents + received.ValueCents, Totals.CostBasisCents + received.ValueCents);
+            _history.Add(new PositionStep(PositionStepKind.LiquidationIn, e.Date, null, e, e.AssetId, null, received.Quantity, received.ValueCents, 0,
+                Totals, null));
         }
 
         // A parte do custo que sai com a venda. Vendendo tudo, a conta dá exatamente o custo inteiro.

@@ -19,7 +19,9 @@ public sealed record PositionTotals(long Quantity, long GrossCostCents, long Cos
 // juntas); na venda, o resultado (valor líquido − custo de aquisição que saiu). Evento da empresa (I.7c1): Split traz a
 // quantidade de antes; ConversionOut, a que saiu para o destino (RelatedAssetId); ConversionIn, a que entrou vinda da
 // origem. Evento não tem nota, direção nem valor.
-public enum PositionStepKind { Trade, Split, ConversionOut, ConversionIn }
+// LiquidationOut (I.7c4): a origem saiu como venda; GrossCents é o valor recebido (cotas, fração e caixa) e RealizedCents
+// o resultado. LiquidationIn: as cotas recebidas, com GrossCents igual ao custo delas.
+public enum PositionStepKind { Trade, Split, ConversionOut, ConversionIn, LiquidationOut, LiquidationIn }
 
 public sealed record PositionStep(
     PositionStepKind Kind,
@@ -36,7 +38,16 @@ public sealed record PositionStep(
 
 // A posição de um ativo, somando as corretoras (o preço médio da Receita é um por pessoa): a atual, o resultado
 // das vendas e o histórico, do mais antigo ao mais recente. Fica na lista mesmo zerada.
-public sealed record AssetPosition(Guid AssetId, PositionTotals Current, long RealizedCents, IReadOnlyList<PositionStep> History);
+public sealed record AssetPosition(Guid AssetId, PositionTotals Current, long RealizedCents, IReadOnlyList<PositionStep> History)
+{
+    // A posição no fim do dia (I.7e): depois do último passo até a data. O histórico já vem em ordem de data, com os
+    // eventos depois das notas do dia.
+    public PositionTotals On(DateOnly date) => History.LastOrDefault(s => s.Date <= date)?.After ?? PositionTotals.Empty;
+
+    // O resultado das vendas com data no intervalo, contando as duas pontas.
+    public long RealizedBetween(DateOnly from, DateOnly to) =>
+        History.Where(s => s.Date >= from && s.Date <= to).Sum(s => s.RealizedCents ?? 0);
+}
 
 internal static class PositionMath
 {

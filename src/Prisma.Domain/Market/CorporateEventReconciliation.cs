@@ -29,7 +29,7 @@ public static class CorporateEventReconciliation
 
             var created = CorporateEvent.Create(
                 definition.Key, definition.Kind, definition.AssetId, definition.TargetAssetId, definition.Date,
-                definition.FromQuantity, definition.ToQuantity, definition.Source, utcNow);
+                definition.FromQuantity, definition.ToQuantity, definition.Source, utcNow, definition.TargetUnitPrice, definition.CashPerUnit);
             if (!created.IsSuccess)
                 return created.Error;
             added.Add(created.Value);

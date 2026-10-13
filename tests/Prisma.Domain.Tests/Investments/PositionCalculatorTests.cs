@@ -13,7 +13,7 @@ public sealed class PositionCalculatorTests
     private static readonly DateOnly Day1 = new(2024, 3, 10);
 
     private static TradeNote Note(DateOnly date, Trade[] trades, long fees = 0, long brokerage = 0) =>
-        TradeNote.Create(Guid.CreateVersion7(), "XP", date, trades, fees, brokerage, false).Value;
+        TradeNote.Create(Guid.CreateVersion7(), "XP", date, trades, fees, brokerage, TradeNote.StockOnly).Value;
 
     private static TradeNote Buy(DateOnly date, long quantity, long price, long fees = 0, Guid? asset = null) =>
         Note(date, [Trade(asset ?? Itub3, TradeSide.Buy, quantity, price)], fees);

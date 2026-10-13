@@ -33,6 +33,6 @@ public sealed class Trade
 
     public long GrossCents => checked(Quantity * UnitPriceCents);
 
-    // Ação e unit pagam corretagem; os outros tipos, só com a marcação na nota.
-    public bool IsStock => AssetKind is AssetKind.Stock or AssetKind.Unit;
+    // O tipo para a corretagem (I.7b3): unit conta como ação.
+    public AssetKind BrokerageKind => TradeNote.BrokerageKindOf(AssetKind);
 }

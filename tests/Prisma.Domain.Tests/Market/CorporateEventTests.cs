@@ -102,3 +102,89 @@ public sealed class CorporateEventTests
         asset.Symbol.ShouldBe("BCFF11");
     }
 }
+
+// docs/investimentos.md, "I.7c4": a liquidação paga em cotas tem destino, preço de referência e, às vezes, caixa.
+public sealed class LiquidationEventTests
+{
+    private static readonly Guid A = Guid.CreateVersion7();
+    private static readonly Guid B = Guid.CreateVersion7();
+    private static readonly DateTime Now = new(2026, 10, 9, 12, 0, 0, DateTimeKind.Utc);
+    private static readonly DateOnly Day = new(2024, 12, 16);
+
+    private static Result<CorporateEvent> Create(CorporateEventKind kind, Guid? target, long? price, long? cash) =>
+        CorporateEvent.Create("k", kind, A, target, Day, 100, 80, "fonte", Now, price, cash);
+
+    [Fact]
+    public void Liquidation_needs_another_asset_and_a_positive_price()
+    {
+        Create(CorporateEventKind.Liquidation, B, 1_025_000_000, 56_000_000).IsSuccess.ShouldBeTrue();
+        Create(CorporateEventKind.Liquidation, B, 1_025_000_000, null).IsSuccess.ShouldBeTrue();
+        Create(CorporateEventKind.Liquidation, B, 1_025_000_000, 0).IsSuccess.ShouldBeTrue();
+        Create(CorporateEventKind.Liquidation, null, 1_025_000_000, null).IsSuccess.ShouldBeFalse();
+        Create(CorporateEventKind.Liquidation, A, 1_025_000_000, null).IsSuccess.ShouldBeFalse();
+        Create(CorporateEventKind.Liquidation, B, null, null).Error!.Message.ShouldBe("Evento k: a liquidação precisa do preço de referência do destino, maior que zero.");
+        Create(CorporateEventKind.Liquidation, B, 0, null).IsSuccess.ShouldBeFalse();
+        Create(CorporateEventKind.Liquidation, B, 1_025_000_000, -1).Error!.Message.ShouldBe("Evento k: o caixa por cota não pode ser negativo.");
+    }
+
+    [Fact]
+    public void Price_and_cash_are_only_for_liquidation()
+    {
+        Create(CorporateEventKind.Conversion, B, 1_025_000_000, null).Error!.Message.ShouldBe("Evento k: preço e caixa por cota são só da liquidação.");
+        Create(CorporateEventKind.Conversion, B, null, 56_000_000).IsSuccess.ShouldBeFalse();
+        Create(CorporateEventKind.Split, null, 1_025_000_000, null).IsSuccess.ShouldBeFalse();
+    }
+
+    // A curadoria corrige um evento existente: troca o tipo e os valores.
+    [Fact]
+    public void Reconciliation_turns_a_conversion_into_a_liquidation()
+    {
+        var existing = CorporateEvent.Create("bcff", CorporateEventKind.Conversion, A, B, Day, 100, 80, "f", Now).Value;
+
+        var changes = CorporateEventReconciliation.Apply([existing],
+            [new("bcff", CorporateEventKind.Liquidation, A, B, Day, 100, 80, "f", 1_025_000_000, 56_000_000)], Now).Value;
+
+        changes.Updated.ShouldBe(1);
+        (existing.Kind, existing.TargetUnitPrice, existing.CashPerUnit).ShouldBe((CorporateEventKind.Liquidation, (long?)1_025_000_000, (long?)56_000_000));
+        CorporateEventReconciliation.Apply([existing],
+            [new("bcff", CorporateEventKind.Liquidation, A, B, Day, 100, 80, "f", 1_025_000_000, 56_000_000)], Now).Value.Updated.ShouldBe(0);
+    }
+
+    // Corrigir só o preço ou o caixa também é mudança.
+    [Theory]
+    [InlineData(1_030_000_000L, 56_000_000L)]
+    [InlineData(1_025_000_000L, 57_000_000L)]
+    [InlineData(1_025_000_000L, null)]
+    public void Correcting_only_the_values_updates_the_event(long price, long? cash)
+    {
+        var existing = CorporateEvent.Create("bcff", CorporateEventKind.Liquidation, A, B, Day, 100, 80, "f", Now, 1_025_000_000, 56_000_000).Value;
+
+        CorporateEventReconciliation.Apply([existing], [new("bcff", CorporateEventKind.Liquidation, A, B, Day, 100, 80, "f", price, cash)], Now)
+            .Value.Updated.ShouldBe(1);
+        (existing.TargetUnitPrice, existing.CashPerUnit).ShouldBe(((long?)price, cash));
+    }
+
+    [Theory]
+    [InlineData("10.25", 1_025_000_000L)]
+    [InlineData("0.56", 56_000_000L)]
+    [InlineData("83.3946076", 8_339_460_760L)]
+    [InlineData("4.30605192", 430_605_192L)]
+    [InlineData("10", 1_000_000_000L)]
+    [InlineData("0", 0L)]
+    public void Unit_value_is_read_with_up_to_eight_decimals(string text, long expected)
+    {
+        CorporateEvent.TryParseUnitValue(text, out var value).ShouldBeTrue();
+        value.ShouldBe(expected);
+    }
+
+    [Theory]
+    [InlineData("4.306051918")] // 9 casas
+    [InlineData("10,25")]
+    [InlineData("-1")]
+    [InlineData("")]
+    [InlineData(" 10.25")]
+    [InlineData("1e3")]
+    [InlineData("99999999999")] // passa de R$ 1 bilhão por cota
+    public void Unit_value_refuses_what_is_not_a_plain_decimal(string text) =>
+        CorporateEvent.TryParseUnitValue(text, out _).ShouldBeFalse();
+}

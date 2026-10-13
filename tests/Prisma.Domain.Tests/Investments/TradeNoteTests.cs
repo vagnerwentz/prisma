@@ -13,6 +13,8 @@ public sealed class TradeNoteTests
     private static readonly Guid Itub3 = Guid.CreateVersion7();
     private static readonly Guid Bbse3 = Guid.CreateVersion7();
     private static readonly Guid Mxrf11 = Guid.CreateVersion7();
+    private static readonly Guid Xina11 = Guid.CreateVersion7();
+    private static readonly Guid Taee11 = Guid.CreateVersion7();
 
     private static Trade Buy(Guid asset, long quantity, long priceCents, AssetKind kind = AssetKind.Stock) =>
         new(asset, kind, TradeSide.Buy, quantity, priceCents);
@@ -20,11 +22,11 @@ public sealed class TradeNoteTests
     private static Trade Sell(Guid asset, long quantity, long priceCents, AssetKind kind = AssetKind.Stock) =>
         new(asset, kind, TradeSide.Sell, quantity, priceCents);
 
-    private static Result<TradeNote> Create(Trade[] trades, long fees = 0, long brokerage = 0, bool onAllKinds = false) =>
-        TradeNote.Create(UserId, "XP", Day, trades, fees, brokerage, onAllKinds);
+    private static Result<TradeNote> Create(Trade[] trades, long fees = 0, long brokerage = 0, AssetKind[]? kinds = null) =>
+        TradeNote.Create(UserId, "XP", Day, trades, fees, brokerage, kinds ?? TradeNote.StockOnly);
 
-    private static TradeNote Note(Trade[] trades, long fees = 0, long brokerage = 0, bool onAllKinds = false) =>
-        Create(trades, fees, brokerage, onAllKinds).Value;
+    private static TradeNote Note(Trade[] trades, long fees = 0, long brokerage = 0, AssetKind[]? kinds = null) =>
+        Create(trades, fees, brokerage, kinds).Value;
 
     // --- Validação ---
 
@@ -47,15 +49,21 @@ public sealed class TradeNoteTests
         Create([Buy(Itub3, 100, 2000)], fees, brokerage).Error!.Type.ShouldBe(ErrorType.Validation);
 
     [Fact]
-    public void Brokerage_without_a_stock_to_receive_it_is_refused() =>
+    public void Brokerage_without_a_marked_kind_to_receive_it_is_refused() =>
         Create([Buy(Mxrf11, 100, 1000, AssetKind.Fii)], brokerage: 490).Error!.Message
-            .ShouldBe("A corretagem desta nota não tem ação para receber. Marque que ela vale também para FII, ETF e outros.");
+            .ShouldBe("Marque em quais ativos a corretagem foi cobrada.");
 
     [Fact]
-    public void Fund_only_note_is_fine_without_brokerage_or_with_the_mark()
+    public void Brokerage_with_no_kind_marked_is_refused() =>
+        Create([Buy(Itub3, 100, 2000)], brokerage: 490, kinds: []).Error!.Message
+            .ShouldBe("Marque em quais ativos a corretagem foi cobrada.");
+
+    [Fact]
+    public void Fund_only_note_is_fine_without_brokerage_or_with_its_kind_marked()
     {
         Create([Buy(Mxrf11, 100, 1000, AssetKind.Fii)], fees: 50).IsSuccess.ShouldBeTrue();
-        Create([Buy(Mxrf11, 100, 1000, AssetKind.Fii)], 50, 490, true).IsSuccess.ShouldBeTrue();
+        Create([Buy(Mxrf11, 100, 1000, AssetKind.Fii)], fees: 50, kinds: []).IsSuccess.ShouldBeTrue();
+        Create([Buy(Mxrf11, 100, 1000, AssetKind.Fii)], 50, 490, [AssetKind.Fii]).IsSuccess.ShouldBeTrue();
     }
 
     [Fact]
@@ -70,13 +78,13 @@ public sealed class TradeNoteTests
     [InlineData("")]
     [InlineData("   ")]
     public void Note_needs_a_broker(string broker) =>
-        TradeNote.Create(UserId, broker, Day, [Buy(Itub3, 100, 2000)], 0, 0, false).Error!.Message.ShouldBe("Escolha a corretora.");
+        TradeNote.Create(UserId, broker, Day, [Buy(Itub3, 100, 2000)], 0, 0, TradeNote.StockOnly).Error!.Message.ShouldBe("Escolha a corretora.");
 
     [Fact]
     public void Broker_is_trimmed_and_limited()
     {
-        TradeNote.Create(UserId, "  BTG Pactual ", Day, [Buy(Itub3, 100, 2000)], 0, 0, false).Value.Broker.ShouldBe("BTG Pactual");
-        TradeNote.Create(UserId, new string('x', 61), Day, [Buy(Itub3, 100, 2000)], 0, 0, false).IsSuccess.ShouldBeFalse();
+        TradeNote.Create(UserId, "  BTG Pactual ", Day, [Buy(Itub3, 100, 2000)], 0, 0, TradeNote.StockOnly).Value.Broker.ShouldBe("BTG Pactual");
+        TradeNote.Create(UserId, new string('x', 61), Day, [Buy(Itub3, 100, 2000)], 0, 0, TradeNote.StockOnly).IsSuccess.ShouldBeFalse();
     }
 
     [Fact]
@@ -89,10 +97,10 @@ public sealed class TradeNoteTests
     {
         var note = Note([Buy(Itub3, 100, 2000)], fees: 50);
 
-        note.Update("Íon", Day.AddDays(1), [Sell(Bbse3, 5, 3000), Buy(Itub3, 1, 2000)], 10, 490, true).ShouldBeNull();
+        note.Update("Íon", Day.AddDays(1), [Sell(Bbse3, 5, 3000), Buy(Itub3, 1, 2000)], 10, 490, [AssetKind.Etf, AssetKind.Stock]).ShouldBeNull();
 
-        (note.Broker, note.Date, note.FeesCents, note.BrokerageFeeCents, note.BrokerageFeeOnAllKinds)
-            .ShouldBe(("Íon", Day.AddDays(1), 10L, 490L, true));
+        (note.Broker, note.Date, note.FeesCents, note.BrokerageFeeCents).ShouldBe(("Íon", Day.AddDays(1), 10L, 490L));
+        note.BrokerageFeeKinds.ShouldBe([AssetKind.Stock, AssetKind.Etf]);
         note.Trades.Select(t => (t.AssetId, t.Side, t.LineNumber)).ShouldBe([(Bbse3, TradeSide.Sell, 1), (Itub3, TradeSide.Buy, 2)]);
     }
 
@@ -101,7 +109,7 @@ public sealed class TradeNoteTests
     {
         var note = Note([Buy(Itub3, 100, 2000)], fees: 50);
 
-        note.Update("Íon", Day, [], 0, 0, false).ShouldNotBeNull();
+        note.Update("Íon", Day, [], 0, 0, TradeNote.StockOnly).ShouldNotBeNull();
 
         (note.Broker, note.FeesCents, note.Trades.Count).ShouldBe(("XP", 50L, 1));
     }
@@ -138,7 +146,7 @@ public sealed class TradeNoteTests
             .AllocateCosts().ShouldBe([312, 188, 500]);
 
     [Fact]
-    public void Brokerage_goes_only_to_stocks_without_the_mark() =>
+    public void Brokerage_goes_only_to_stocks_by_default() =>
         Note([Buy(Mxrf11, 100, 1000, AssetKind.Fii), Buy(Itub3, 10, 2000)], brokerage: 490)
             .AllocateCosts().ShouldBe([0, 490]);
 
@@ -150,9 +158,56 @@ public sealed class TradeNoteTests
             .AllocateCosts().ShouldBe([30 + 490, 30]);
 
     [Fact]
-    public void Brokerage_goes_to_every_kind_with_the_mark() =>
-        Note([Buy(Mxrf11, 100, 1000, AssetKind.Fii), Buy(Itub3, 10, 2000)], brokerage: 490, onAllKinds: true)
+    public void Brokerage_goes_to_every_kind_when_all_are_marked() =>
+        Note([Buy(Mxrf11, 100, 1000, AssetKind.Fii), Buy(Itub3, 10, 2000)], brokerage: 490, kinds: [.. TradeNote.AllKinds])
             .AllocateCosts().ShouldBe([245, 245]);
+
+    // Caso do dono (2026-10-08): venda de XINA11 (ETF) e compra de MXRF11 (FII), corretagem só no ETF. O FII fica só
+    // com a parte dele nas taxas.
+    [Fact]
+    public void Etf_sale_and_fund_buy_put_the_brokerage_on_the_etf_only() =>
+        Note([Sell(Xina11, 50, 1000, AssetKind.Etf), Buy(Mxrf11, 50, 1000, AssetKind.Fii)], fees: 30, brokerage: 490, kinds: [AssetKind.Etf])
+            .AllocateCosts().ShouldBe([15 + 490, 15]);
+
+    [Fact]
+    public void Brokerage_can_skip_the_stocks() =>
+        Note([Buy(Itub3, 10, 2000), Sell(Xina11, 50, 1000, AssetKind.Etf)], brokerage: 490, kinds: [AssetKind.Etf])
+            .AllocateCosts().ShouldBe([0, 490]);
+
+    [Fact]
+    public void Two_marked_kinds_split_the_brokerage_by_order() =>
+        Note([Buy(Itub3, 10, 2000), Sell(Xina11, 50, 1000, AssetKind.Etf), Buy(Mxrf11, 50, 1000, AssetKind.Fii)], brokerage: 491,
+                kinds: [AssetKind.Etf, AssetKind.Stock])
+            .AllocateCosts().ShouldBe([246, 245, 0]);
+
+    // Marcar um tipo que não está na nota não muda nada: só as ordens da nota recebem.
+    [Fact]
+    public void A_marked_kind_absent_from_the_note_receives_nothing() =>
+        Note([Buy(Itub3, 10, 2000), Buy(Mxrf11, 50, 1000, AssetKind.Fii)], brokerage: 490, kinds: [AssetKind.Stock, AssetKind.Etf])
+            .AllocateCosts().ShouldBe([490, 0]);
+
+    // Unit é ação para a corretagem: "Unit" vira "Stock", sem repetição, em ordem fixa.
+    [Fact]
+    public void Kinds_are_kept_without_unit_or_repetition() =>
+        Note([Buy(Itub3, 10, 2000)], brokerage: 490, kinds: [AssetKind.Fii, AssetKind.Unit, AssetKind.Stock, AssetKind.Fii])
+            .BrokerageFeeKinds.ShouldBe([AssetKind.Stock, AssetKind.Fii]);
+
+    [Fact]
+    public void Marking_units_also_marks_stocks() =>
+        Note([Buy(Itub3, 10, 2000), Buy(Taee11, 10, 3000, AssetKind.Unit)], brokerage: 490, kinds: [AssetKind.Unit])
+            .AllocateCosts().ShouldBe([245, 245]);
+
+    // A marcação antiga (I.7b1): ligada, todos os tipos; desligada ou ausente, só ação. A lista nova, quando vem, decide.
+    [Fact]
+    public void Old_mark_translates_to_kinds()
+    {
+        TradeNote.BrokerageKindsFrom(null, true).ShouldBe(TradeNote.AllKinds);
+        TradeNote.BrokerageKindsFrom(null, false).ShouldBe(TradeNote.StockOnly);
+        TradeNote.BrokerageKindsFrom(null, null).ShouldBe(TradeNote.StockOnly);
+        TradeNote.BrokerageKindsFrom([AssetKind.Etf], true).ShouldBe([AssetKind.Etf]);
+        TradeNote.AllKinds.ShouldNotContain(AssetKind.Unit);
+        TradeNote.AllKinds.Count.ShouldBe(Enum.GetValues<AssetKind>().Length - 1);
+    }
 
     [Theory]
     [InlineData(AssetKind.Stock, 490)]
@@ -164,6 +219,17 @@ public sealed class TradeNoteTests
     public void Units_count_as_stocks_for_brokerage(AssetKind kind, long expected) =>
         Note([Buy(Mxrf11, 10, 1000, kind), Buy(Itub3, 10, 2000)], brokerage: 980)
             .AllocateCosts()[0].ShouldBe(expected);
+
+    // Cada tipo marcado sozinho: só ele recebe (ação e unit juntas).
+    [Theory]
+    [InlineData(AssetKind.Fii)]
+    [InlineData(AssetKind.Etf)]
+    [InlineData(AssetKind.Bdr)]
+    [InlineData(AssetKind.FiInfra)]
+    [InlineData(AssetKind.Unknown)]
+    public void Each_marked_kind_receives_alone(AssetKind kind) =>
+        Note([Buy(Mxrf11, 10, 1000, kind), Buy(Itub3, 10, 2000)], brokerage: 980, kinds: [kind])
+            .AllocateCosts().ShouldBe([980, 0]);
 
     [Fact]
     public void Brokerage_extra_cent_goes_to_the_first_order() =>
@@ -187,14 +253,14 @@ public sealed class TradeNoteTests
         var assets = Gen.OneOfConst(Itub3, Bbse3, Mxrf11);
         var trade = Gen.Select(assets, Gen.Bool, Gen.Long[1, 100_000], Gen.Long[1, 1_000_000]);
 
-        Gen.Select(trade.Array[1, 12], kinds.Array[3], Gen.Long[0, 10_000_000], Gen.Long[0, 1_000_000], Gen.Bool)
-            .Sample((lines, kindOf, fees, brokerage, onAllKinds) =>
+        Gen.Select(trade.Array[1, 12], kinds.Array[3], Gen.Long[0, 10_000_000], Gen.Long[0, 1_000_000], kinds.Array[0, 4])
+            .Sample((lines, kindOf, fees, brokerage, marked) =>
             {
                 // O mesmo ativo tem um tipo só.
                 Guid[] ids = [Itub3, Bbse3, Mxrf11];
                 var trades = lines.Select(l => new Trade(l.Item1, kindOf[Array.IndexOf(ids, l.Item1)],
                     l.Item2 ? TradeSide.Buy : TradeSide.Sell, l.Item3, l.Item4)).ToArray();
-                var note = Create(trades, fees, brokerage, onAllKinds);
+                var note = Create(trades, fees, brokerage, marked);
                 return !note.IsSuccess || note.Value.AllocateCosts().Sum() == fees + brokerage;
             });
     }

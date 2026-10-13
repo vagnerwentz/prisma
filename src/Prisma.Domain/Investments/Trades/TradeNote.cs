@@ -1,3 +1,5 @@
+using Prisma.Domain.Market;
+
 namespace Prisma.Domain.Investments.Trades;
 
 // A nota de corretagem digitada pela pessoa (o Prisma não importa nota): a corretora, as operações de um pregão e,
@@ -6,6 +8,12 @@ namespace Prisma.Domain.Investments.Trades;
 public sealed class TradeNote : Entity
 {
     public const int BrokerMaxLength = 60;
+
+    // A regra de antes da escolha por tipo (I.7b3): só ação recebe a corretagem. É o que vem marcado na tela.
+    public static readonly IReadOnlyList<AssetKind> StockOnly = [AssetKind.Stock];
+
+    // Todos os tipos, com unit dentro de ação: a marcação antiga "vale também para FII, ETF e outros".
+    public static readonly IReadOnlyList<AssetKind> AllKinds = Enum.GetValues<AssetKind>().Where(k => k != AssetKind.Unit).ToArray();
 
     private readonly List<Trade> _trades = [];
 
@@ -27,22 +35,33 @@ public sealed class TradeNote : Entity
     // A "taxa operacional": por ordem. Não é a seção "Clearing" da nota, que é liquidação e registro (taxas).
     public long BrokerageFeeCents { get; private set; }
 
-    // Sem a marcação, só ação e unit recebem a corretagem.
-    public bool BrokerageFeeOnAllKinds { get; private set; }
+    // Os tipos em que a corretora cobrou a corretagem (I.7b3): só as ordens desses tipos a recebem. Sem Unit (conta
+    // como Stock), sem repetição, na ordem do enum.
+    public IReadOnlyList<AssetKind> BrokerageFeeKinds { get; private set; } = StockOnly;
+
+    // Unit é ação para a corretagem.
+    public static AssetKind BrokerageKindOf(AssetKind kind) => kind == AssetKind.Unit ? AssetKind.Stock : kind;
+
+    // O pedido de antes da escolha por tipo manda só a marcação: ligada, todos os tipos; desligada ou ausente, só ação.
+    public static IReadOnlyList<AssetKind> BrokerageKindsFrom(IReadOnlyCollection<AssetKind>? kinds, bool? onAllKinds) =>
+        kinds is not null ? [.. kinds] : onAllKinds == true ? AllKinds : StockOnly;
 
     public static Result<TradeNote> Create(
         Guid userId, string broker, DateOnly date, IReadOnlyList<Trade> trades, long feesCents, long brokerageFeeCents,
-        bool brokerageFeeOnAllKinds)
+        IReadOnlyCollection<AssetKind> brokerageFeeKinds)
     {
         var note = new TradeNote { UserId = userId };
-        var error = note.Update(broker, date, trades, feesCents, brokerageFeeCents, brokerageFeeOnAllKinds);
+        var error = note.Update(broker, date, trades, feesCents, brokerageFeeCents, brokerageFeeKinds);
         return error is null ? note : error;
     }
 
     // Troca tudo, linhas inclusive. Recusada, a nota fica como estava.
     public Error? Update(
-        string broker, DateOnly date, IReadOnlyList<Trade> trades, long feesCents, long brokerageFeeCents, bool brokerageFeeOnAllKinds)
+        string broker, DateOnly date, IReadOnlyList<Trade> trades, long feesCents, long brokerageFeeCents,
+        IReadOnlyCollection<AssetKind> brokerageFeeKinds)
     {
+        var kinds = brokerageFeeKinds.Select(BrokerageKindOf).Distinct().Order().ToArray();
+
         broker = broker.Trim();
         if (broker.Length == 0)
             return Invalid("Escolha a corretora.");
@@ -62,14 +81,14 @@ public sealed class TradeNote : Entity
         if (feesCents < 0 || brokerageFeeCents < 0)
             return Invalid("Os custos não podem ser negativos.");
 
-        if (brokerageFeeCents > 0 && !brokerageFeeOnAllKinds && !trades.Any(t => t.IsStock))
-            return Invalid("A corretagem desta nota não tem ação para receber. Marque que ela vale também para FII, ETF e outros.");
+        if (brokerageFeeCents > 0 && !trades.Any(t => kinds.Contains(t.BrokerageKind)))
+            return Invalid("Marque em quais ativos a corretagem foi cobrada.");
 
         Broker = broker;
         Date = date;
         FeesCents = feesCents;
         BrokerageFeeCents = brokerageFeeCents;
-        BrokerageFeeOnAllKinds = brokerageFeeOnAllKinds;
+        BrokerageFeeKinds = kinds;
         _trades.Clear();
         _trades.AddRange(trades);
         for (var i = 0; i < _trades.Count; i++)
@@ -94,7 +113,7 @@ public sealed class TradeNote : Entity
         var costs = new Money(FeesCents).Allocate(_trades.Select(t => t.GrossCents).ToArray())
             .Select(part => part.Cents).ToArray();
 
-        var orders = Orders().Where(order => BrokerageFeeOnAllKinds || _trades[order.First()].IsStock).ToList();
+        var orders = Orders().Where(order => BrokerageFeeKinds.Contains(_trades[order.First()].BrokerageKind)).ToList();
         if (BrokerageFeeCents == 0 || orders.Count == 0)
             return costs;
 
