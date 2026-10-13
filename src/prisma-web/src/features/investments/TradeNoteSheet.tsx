@@ -7,19 +7,23 @@ import { FieldError } from '@/components/FieldError'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { SheetTitle } from '@/components/ui/sheet'
-import { Chip, ChipRow, DateChooser, Section } from '@/features/transactions/fields'
+import { CheckChip, Chip, ChipRow, DateChooser, Section } from '@/features/transactions/fields'
 import { todayInSaoPaulo } from '@/lib/dates'
 import { formatCents, parseCentsInput } from '@/lib/money'
 import { AssetPicker } from './AssetPicker'
 import { logoSrc, type AssetItem } from './assets'
 import { useDeleteTradeNote, useRestoreTradeNote, useSaveTradeNote, useTradeNote } from './queries'
 import {
+  brokerageKindLabel,
+  brokerageKindOptions,
+  brokerageKindsError,
   brokerChoices,
+  defaultBrokerageKinds,
   draftErrors,
-  isStock,
   noteTitle,
   noteTotals,
   parseQuantity,
+  showsBrokerageKinds,
   sideLabels,
   type DraftErrors,
   type DraftLine,
@@ -83,7 +87,7 @@ function EditNote({ id, onDone }: { id: string; onDone: () => void }) {
 
 type Line = DraftLine & { asset: AssetItem }
 
-type Errors = Partial<Record<'broker' | 'lines' | 'root', string>>
+type Errors = Partial<Record<'broker' | 'lines' | 'brokerage' | 'root', string>>
 
 const emptyDraft = (asset?: AssetItem): DraftLine => ({ asset: asset ?? null, side: 'Buy', quantity: 0, unitPriceCents: 0 })
 
@@ -118,11 +122,19 @@ function NoteForm({
   const [editing, setEditing] = useState<number | 'new' | null>(note ? null : 'new')
   const [feesCents, setFeesCents] = useState(note?.feesCents ?? 0)
   const [brokerageCents, setBrokerageCents] = useState(note?.brokerageFeeCents ?? 0)
-  const [onAllKinds, setOnAllKinds] = useState(note?.brokerageFeeOnAllKinds ?? false)
+  // Em quais tipos a corretagem foi cobrada (I.7b3). A nota guardada traz os dela; a nova começa só com ação.
+  const [brokerageKinds, setBrokerageKinds] = useState(() =>
+    note ? note.brokerageFeeKinds.flatMap((k) => (k ? [k] : [])) : defaultBrokerageKinds,
+  )
   const [errors, setErrors] = useState<Errors>({})
 
   const totals = noteTotals(lines)
-  const showOnAllKinds = brokerageCents > 0 && lines.some((l) => !isStock(l.asset.kind))
+  const kindOptions = brokerageKindOptions(lines.map((l) => l.asset.kind))
+  const showKinds = showsBrokerageKinds(brokerageCents, kindOptions, brokerageKinds)
+  const toggleKind = (kind: (typeof kindOptions)[number], checked: boolean) => {
+    setBrokerageKinds((current) => (checked ? [...current, kind] : current.filter((k) => k !== kind)))
+    setErrors((e) => ({ ...e, brokerage: undefined }))
+  }
   const costsByLine = note && editing === null && sameLines(note, lines) ? note.trades.map((t) => t.costsCents) : null
 
   const putLine = (line: Line) => {
@@ -143,10 +155,11 @@ function NoteForm({
     const found: Errors = {
       broker: broker?.trim() ? undefined : 'Escolha a corretora.',
       lines: lines.length > 0 ? undefined : 'Inclua ao menos uma operação.',
+      brokerage: lines.length > 0 ? brokerageKindsError(brokerageCents, kindOptions, brokerageKinds) : undefined,
       root: editing !== null && lines.length > 0 ? 'Termine a operação em aberto: toque em Incluir ou Cancelar.' : undefined,
     }
     setErrors(found)
-    if (found.broker || found.lines || found.root || !broker) return
+    if (found.broker || found.lines || found.brokerage || found.root || !broker) return
 
     try {
       const saved = await save.mutateAsync({
@@ -156,8 +169,9 @@ function NoteForm({
           date,
           feesCents,
           brokerageFeeCents: brokerageCents,
-          // Sem corretagem ou só com ações, a marcação não muda nada: vai desligada.
-          brokerageFeeOnAllKinds: showOnAllKinds && onAllKinds,
+          // A marcação de antes fica de fora: a lista decide (I.7b3).
+          brokerageFeeOnAllKinds: null,
+          brokerageFeeKinds: brokerageKinds,
           trades: lines.map((l) => ({
             assetId: l.asset.id,
             side: l.side,
@@ -300,13 +314,19 @@ function NoteForm({
             <MoneyInput label="Corretagem" value={brokerageCents} onChange={setBrokerageCents} />
           </div>
           <p className="text-xs text-muted-foreground">Taxas: liquidação, emolumentos, ISS e outros. O IRRF não entra.</p>
-          {showOnAllKinds && (
-            <ChipRow>
-              <Chip selected={onAllKinds} onClick={() => setOnAllKinds((v) => !v)}>
-                Corretagem vale também para FII, ETF e outros
-              </Chip>
-            </ChipRow>
+          {showKinds && (
+            <fieldset className="flex flex-col gap-2 pt-1">
+              <legend className="mb-2 text-xs text-muted-foreground">Corretagem cobrada em</legend>
+              <div className="flex flex-wrap gap-2">
+                {kindOptions.map((kind) => (
+                  <CheckChip key={kind} checked={brokerageKinds.includes(kind)} onCheckedChange={(checked) => toggleKind(kind, checked)}>
+                    {brokerageKindLabel(kind)}
+                  </CheckChip>
+                ))}
+              </div>
+            </fieldset>
           )}
+          <FieldError message={errors.brokerage} />
         </Section>
 
         {lines.length > 0 && (

@@ -314,6 +314,41 @@
         box-shadow: inset 0 1px 0 oklch(1 0 0 / 5%);
     }
 
+    /* Caixa de seleção (Checkbox, CheckChip): vazia, só o contorno; marcada, o espectro frio com o visto branco. O
+       visto entra por escala e opacidade (mudança de estado); sem movimento, só a opacidade. */
+    .check-box {
+        display: inline-grid;
+        place-items: center;
+        flex-shrink: 0;
+        width: 1.125rem;
+        height: 1.125rem;
+        border-radius: 0.375rem;
+        color: white;
+        box-shadow: inset 0 0 0 1.5px oklch(from var(--muted-foreground) l c h / 0.6);
+    }
+    [data-state="checked"] > .check-box,
+    .check-box[data-state="checked"] {
+        background: var(--spectrum-cool);
+        box-shadow: 0 0 10px -3px #8b5cf6;
+    }
+    .check-mark {
+        transition:
+            transform 160ms var(--ease-out),
+            opacity 160ms var(--ease-out);
+    }
+    .check-mark[data-state="unchecked"] {
+        opacity: 0;
+        transform: scale(0.5);
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .check-mark {
+            transition: opacity 160ms var(--ease-out);
+        }
+        .check-mark[data-state="unchecked"] {
+            transform: none;
+        }
+    }
+
     .font-display {
         font-family: var(--font-display);
         font-weight: 400;
@@ -468,6 +503,20 @@
     transition: clip-path 360ms var(--ease-out);
 }
 
+/* O espectro da carteira (I.7e): a luz atravessa o prisma da esquerda para a direita uma vez, quando ele aparece.
+   Trocar de ano não repete (o componente fica montado). Sem movimento, já aparece pronto. */
+.prism-reveal {
+    animation: prism-reveal 300ms var(--ease-out);
+}
+@keyframes prism-reveal {
+    from {
+        clip-path: inset(0 100% 0 0);
+    }
+    to {
+        clip-path: inset(0 0 0 0);
+    }
+}
+
 /* Menos movimento: nada se desloca, só aparece e some. Os painéis viram um fade curto; as entradas
    prontas (tw-animate) perdem o deslize e a escala, mas mantêm a opacidade. */
 @media (prefers-reduced-motion: reduce) {
@@ -488,6 +537,9 @@
     }
     .meter-fill {
         transition: none;
+    }
+    .prism-reveal {
+        animation: none;
     }
 }
 

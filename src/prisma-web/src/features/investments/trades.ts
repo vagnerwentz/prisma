@@ -1,7 +1,7 @@
 import type { Schemas } from '@/lib/api'
 import { formatShortDate } from '@/lib/dates'
 import { formatCents } from '@/lib/money'
-import type { AssetItem } from './assets'
+import { assetKindLabels, type AssetItem } from './assets'
 
 // Notas de corretagem e carteira (docs/investimentos.md, I.7b2): textos e somas da tela. O rateio dos custos e os
 // preços médios vêm prontos da API; a tela não refaz a conta.
@@ -80,6 +80,9 @@ export function noteTotals(lines: LineValue[]): { buyCents: number; sellCents: n
   return { buyCents, sellCents }
 }
 
+// O comprado e o vendido de várias notas juntas (as notas do ano, I.7e).
+export const notesTotals = (notes: { trades: LineValue[] }[]) => noteTotals(notes.flatMap((n) => n.trades))
+
 // "Compra · ITUB3, BBSE3", "Compra e venda · …": o que a nota fez e com quais ativos.
 export function noteTitle(lines: { side: TradeSide; symbol: string }[]): string {
   const sides = new Set(lines.map((l) => l.side))
@@ -109,8 +112,33 @@ export function draftErrors(draft: DraftLine): DraftErrors {
   return errors
 }
 
-// Ação e unit pagam corretagem; para os outros tipos, a nota precisa da marcação (I.7a).
-export const isStock = (kind: AssetKind | null) => kind === 'Stock' || kind === 'Unit'
+// Corretagem por tipo (docs/investimentos.md, I.7b3), como na API: unit conta como ação.
+export const brokerageKindOf = (kind: AssetKind | null): AssetKind => (kind === 'Unit' ? 'Stock' : (kind ?? 'Unknown'))
+
+// O que vem marcado: a regra de antes, só ação.
+export const defaultBrokerageKinds: AssetKind[] = ['Stock']
+
+// As opções de "Corretagem cobrada em": os tipos da nota, sem repetir, na ordem em que aparecem.
+export function brokerageKindOptions(kinds: (AssetKind | null)[]): AssetKind[] {
+  return [...new Set(kinds.map(brokerageKindOf))]
+}
+
+export function brokerageKindLabel(kind: AssetKind): string {
+  return kind === 'Stock' ? 'Ação' : assetKindLabels[kind]
+}
+
+// A escolha aparece com corretagem e algo a decidir: um tipo que não é ação, ou um tipo da nota desmarcado (nota
+// editada). Nota só com ações e "Ação" marcada: nada aparece.
+export function showsBrokerageKinds(brokerageCents: number, options: AssetKind[], marked: AssetKind[]): boolean {
+  return brokerageCents > 0 && (options.some((k) => k !== 'Stock') || options.some((k) => !marked.includes(k)))
+}
+
+// A mesma recusa da API, antes de mandar: corretagem sem nenhuma ordem de tipo marcado.
+export function brokerageKindsError(brokerageCents: number, options: AssetKind[], marked: AssetKind[]): string | undefined {
+  return brokerageCents > 0 && !options.some((k) => marked.includes(k))
+    ? 'Marque em quais ativos a corretagem foi cobrada.'
+    : undefined
+}
 
 // Um passo do histórico do ativo: uma ordem da nota ou um evento da empresa (I.7c1).
 export function stepTitle(step: PositionStep, kind: AssetKind): string {
@@ -123,9 +151,35 @@ export function stepTitle(step: PositionStep, kind: AssetKind): string {
     case 'ConversionOut':
       return `Virou ${step.relatedSymbol}`
     case 'ConversionIn':
+    case 'LiquidationIn':
       return `Veio de ${step.relatedSymbol}`
+    case 'LiquidationOut':
+      return `Liquidado em ${step.relatedSymbol}`
     default:
       return `${sideLabels[step.side ?? 'Buy']} · ${unitsLabel(kind, step.quantity)}`
+  }
+}
+
+// O que o evento fez com a quantidade: "110 → 880 cotas", "880 cotas saíram", "704 cotas entraram". Na liquidação (I.7c4),
+// o destino diz o preço: "716 cotas a R$ 10,25" (o preço de referência, que é o custo).
+// A segunda linha da liquidação na origem (I.7c4): o que recebeu e o resultado, como numa venda.
+export function liquidationLine(step: PositionStep): string | null {
+  if (step.kind !== 'LiquidationOut' || step.realizedCents === null) return null
+  const result = step.realizedCents < 0 ? `−${formatCents(-step.realizedCents)}` : `+${formatCents(step.realizedCents)}`
+  return `recebeu ${formatCents(step.grossCents)} · resultado ${result}`
+}
+
+export function eventDetail(step: PositionStep, kind: AssetKind): string {
+  switch (step.kind) {
+    case 'Split':
+      return `${step.quantity.toLocaleString('pt-BR')} → ${unitsLabel(kind, step.quantityAfter)}`
+    case 'ConversionOut':
+    case 'LiquidationOut':
+      return `${unitsLabel(kind, step.quantity)} saíram`
+    case 'LiquidationIn':
+      return `${unitsLabel(kind, step.quantity)} a ${formatCents(Math.round(step.grossCents / step.quantity))}`
+    default:
+      return `${unitsLabel(kind, step.quantity)} entraram`
   }
 }
 
@@ -138,47 +192,4 @@ export function assetStatus(asset: {
   if (asset.convertedToSymbol && asset.convertedOn)
     return `virou ${asset.convertedToSymbol} em ${formatShortDate(asset.convertedOn)}`
   return asset.isActive ? null : 'saiu da bolsa'
-}
-
-type HoldingLike = {
-  id: string
-  assetId: string
-  symbol: string
-  name: string
-  kind: Schemas['AssetKind']
-  isActive: boolean
-  addedAt: string
-  hasLogo: boolean
-}
-type PositionLike = {
-  assetId: string
-  symbol: string
-  name: string
-  kind: Schemas['AssetKind']
-  hasLogo: boolean
-  isActive: boolean
-  quantity: number
-}
-
-// "Meus ativos": a carteira e, junto, o ativo com posição que nunca entrou nela (o recebido numa conversão). Esse não
-// tem registro de carteira (fromPositionOnly): não se tira, porque tem posição.
-export function withPositions<H extends HoldingLike>(
-  holdings: H[],
-  positions: PositionLike[],
-): (H | (HoldingLike & { fromPositionOnly: true }))[] {
-  const held = new Set(holdings.map((h) => h.assetId))
-  const extra = positions
-    .filter((p) => p.quantity > 0 && !held.has(p.assetId))
-    .map((p) => ({
-      id: `position-${p.assetId}`,
-      assetId: p.assetId,
-      symbol: p.symbol,
-      name: p.name,
-      kind: p.kind,
-      isActive: p.isActive,
-      addedAt: '',
-      hasLogo: p.hasLogo,
-      fromPositionOnly: true as const,
-    }))
-  return [...holdings, ...extra].sort((a, b) => (a.symbol < b.symbol ? -1 : a.symbol > b.symbol ? 1 : 0))
 }

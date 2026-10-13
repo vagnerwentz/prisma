@@ -35,9 +35,13 @@ export function autoDebitLine({ due, endDate, today }: { due: string; endDate: s
 }
 
 // O sino (D4): conta o que falta conferir.
-export function bellLabel(count: number): string {
-  if (count === 0) return 'Nada para conferir'
-  return count === 1 ? '1 débito para conferir' : `${count} débitos para conferir`
+// Débitos e, desde a I.7c2, eventos da carteira: "1 débito e 8 eventos para conferir".
+export function bellLabel(debits: number, events = 0): string {
+  const parts = [
+    debits > 0 && (debits === 1 ? '1 débito' : `${debits} débitos`),
+    events > 0 && (events === 1 ? '1 evento' : `${events} eventos`),
+  ].filter(Boolean)
+  return parts.length === 0 ? 'Nada para conferir' : `${parts.join(' e ')} para conferir`
 }
 
 // O sino balança uma vez quando chega um débito novo (CLAUDE.md, 7.1: movimento mostra mudança de estado). Não

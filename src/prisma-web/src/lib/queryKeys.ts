@@ -14,5 +14,11 @@ export const payoutsKey = ['payouts'] as const
 // saldos nem no resumo, só umas nas outras e na carteira.
 export const tradeNotesKey = ['trade-notes'] as const
 export const positionsKey = ['positions'] as const
+// A carteira em um ano (I.7e): muda com as notas e com os proventos.
+export const portfolioKey = ['portfolio'] as const
+// Avisos de ativo faltando (I.7c3): mudam com o pedido, com a nota (o aviso sai) e com o catálogo.
+export const assetRequestsKey = ['asset-requests'] as const
+// Eventos a conferir (I.7c2): mudam com as notas (outra posição, outros eventos) e com a conferência.
+export const eventReviewsKey = ['event-reviews'] as const
 // Usuário da sessão: null quando não há sessão.
 export const meKey = ['auth', 'me'] as const

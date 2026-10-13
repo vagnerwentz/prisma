@@ -1,7 +1,9 @@
 import { CalendarDays } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type ReactNode, type Ref } from 'react'
+import { Checkbox as CheckboxPrimitive } from 'radix-ui'
 import { CategoryTile } from '@/components/brand/Tiles'
 import { FieldError } from '@/components/FieldError'
+import { CheckMark } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { resolveCategory, type CategoryNode } from '@/features/categories/queries'
 import { addDays, formatShortDate, todayInSaoPaulo } from '@/lib/dates'
@@ -31,6 +33,34 @@ export function ChipRow({ children, className }: { children: ReactNode; classNam
     >
       {children}
     </div>
+  )
+}
+
+// Chip de marcar e desmarcar, para escolher vários (ex.: em quais tipos a corretagem foi cobrada, I.7b3). A caixa de
+// seleção à esquerda diz que é escolha múltipla; marcado, ganha o anel do espectro, como o Chip escolhido.
+export function CheckChip({
+  checked,
+  onCheckedChange,
+  children,
+}: {
+  checked: boolean
+  onCheckedChange: (checked: boolean) => void
+  children: ReactNode
+}) {
+  return (
+    <CheckboxPrimitive.Root
+      checked={checked}
+      onCheckedChange={(value) => onCheckedChange(value === true)}
+      className={cn(
+        'flex h-10 shrink-0 items-center gap-2 rounded-full border pr-3.5 pl-3 text-sm whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.97]',
+        checked ? 'spectrum-ring font-medium' : 'bg-card text-foreground/80 hover:text-foreground',
+      )}
+    >
+      <span className="check-box">
+        <CheckMark />
+      </span>
+      {children}
+    </CheckboxPrimitive.Root>
   )
 }
 

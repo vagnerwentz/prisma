@@ -1,14 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import {
   assetStatus,
+  brokerageKindLabel,
+  brokerageKindOptions,
+  brokerageKindsError,
   brokerChoices,
+  defaultBrokerageKinds,
   draftErrors,
+  eventDetail,
+  liquidationLine,
   noteTitle,
   noteTotals,
+  notesTotals,
   parseQuantity,
   priceParts,
+  showsBrokerageKinds,
   stepTitle,
-  withPositions,
   type PositionStep,
   unitsLabel,
   type DraftLine,
@@ -83,6 +90,23 @@ describe('noteTotals', () => {
         { side: 'Sell', quantity: 10, unitPriceCents: 3000 },
       ]),
     ).toEqual({ buyCents: 160300, sellCents: 30000 })
+  })
+})
+
+describe('notesTotals', () => {
+  it('soma o comprado e o vendido de todas as notas', () => {
+    expect(
+      notesTotals([
+        { trades: [{ side: 'Buy', quantity: 50, unitPriceCents: 2000 }] },
+        {
+          trades: [
+            { side: 'Sell', quantity: 10, unitPriceCents: 3000 },
+            { side: 'Buy', quantity: 1, unitPriceCents: 500 },
+          ],
+        },
+      ]),
+    ).toEqual({ buyCents: 100500, sellCents: 30000 })
+    expect(notesTotals([])).toEqual({ buyCents: 0, sellCents: 0 })
   })
 })
 
@@ -165,8 +189,53 @@ describe('stepTitle', () => {
     [step({ kind: 'Split', side: null, fromQuantity: 10, toQuantity: 1 }), 'Grupamento 10:1'],
     [step({ kind: 'ConversionOut', side: null, relatedSymbol: 'BTHF11' }), 'Virou BTHF11'],
     [step({ kind: 'ConversionIn', side: null, relatedSymbol: 'BCFF11' }), 'Veio de BCFF11'],
+    [step({ kind: 'LiquidationOut', side: null, relatedSymbol: 'BTHF11' }), 'Liquidado em BTHF11'],
+    [step({ kind: 'LiquidationIn', side: null, relatedSymbol: 'BCFF11' }), 'Veio de BCFF11'],
   ])('%#', (s, expected) => {
     expect(stepTitle(s, 'Fii')).toBe(expected)
+  })
+})
+
+// docs/investimentos.md, "I.7c1" e "I.7c4": o detalhe de cada evento no histórico do ativo.
+describe('eventDetail', () => {
+  const step = (over: Partial<PositionStep>): PositionStep => ({
+    kind: 'Split',
+    noteId: null,
+    date: '2024-12-16',
+    broker: null,
+    side: null,
+    quantity: 0,
+    grossCents: 0,
+    costsCents: 0,
+    quantityAfter: 0,
+    grossCostAfterCents: 0,
+    costBasisAfterCents: 0,
+    averagePriceCents: null,
+    averageCostCents: null,
+    realizedCents: null,
+    relatedSymbol: null,
+    fromQuantity: null,
+    toQuantity: null,
+    ...over,
+  })
+
+  it.each([
+    [step({ kind: 'Split', quantity: 112, quantityAfter: 896 }), '112 → 896 cotas'],
+    [step({ kind: 'ConversionOut', quantity: 880 }), '880 cotas saíram'],
+    [step({ kind: 'ConversionIn', quantity: 704 }), '704 cotas entraram'],
+    [step({ kind: 'LiquidationOut', quantity: 896, grossCents: 784896, realizedCents: 30464 }), '896 cotas saíram'],
+    [step({ kind: 'LiquidationIn', quantity: 716, grossCents: 733900 }), '716 cotas a R$\u00a010,25'],
+  ])('%#', (s, expected) => {
+    expect(eventDetail(s, 'Fii')).toBe(expected)
+  })
+  it('a liquidação na origem diz o que recebeu e o resultado, com sinal', () => {
+    expect(liquidationLine(step({ kind: 'LiquidationOut', grossCents: 784896, realizedCents: 30464 }))).toBe(
+      'recebeu R$\u00a07.848,96 · resultado +R$\u00a0304,64',
+    )
+    expect(liquidationLine(step({ kind: 'LiquidationOut', grossCents: 100, realizedCents: -41400 }))).toBe(
+      'recebeu R$\u00a01,00 · resultado −R$\u00a0414,00',
+    )
+    expect(liquidationLine(step({ kind: 'ConversionOut' }))).toBeNull()
   })
 })
 
@@ -188,24 +257,40 @@ describe('assetStatus', () => {
   })
 })
 
-describe('withPositions', () => {
-  const holding = (symbol: string, assetId = symbol) =>
-    ({ id: `h-${symbol}`, assetId, symbol, name: symbol, kind: 'Fii', isActive: true, addedAt: '', hasLogo: false }) as const
-  const position = (symbol: string, quantity: number) =>
-    ({ assetId: symbol, symbol, name: `Nome ${symbol}`, kind: 'Fii', hasLogo: false, isActive: true, quantity }) as const
-
-  it('adds the asset received in a conversion, in code order', () => {
-    const list = withPositions([holding('BCFF11'), holding('MXRF11')], [position('BCFF11', 0), position('BTHF11', 704)])
-
-    expect(list.map((h) => h.symbol)).toEqual(['BCFF11', 'BTHF11', 'MXRF11'])
-    expect(list[1]).toMatchObject({ assetId: 'BTHF11', name: 'Nome BTHF11', fromPositionOnly: true })
+// docs/investimentos.md, "I.7b3": em quais tipos a corretagem foi cobrada.
+describe('corretagem por tipo', () => {
+  it('unit conta como ação; as opções seguem a ordem da nota, sem repetir', () => {
+    expect(brokerageKindOptions(['Etf', 'Unit', 'Fii', 'Stock', 'Etf'])).toEqual(['Etf', 'Stock', 'Fii'])
   })
 
-  it('does not repeat an asset that is already in the portfolio', () => {
-    expect(withPositions([holding('MXRF11')], [position('MXRF11', 120)]).map((h) => h.id)).toEqual(['h-MXRF11'])
+  it('rótulos: ação e os tipos do catálogo', () => {
+    expect(['Stock', 'Etf', 'Fii', 'Bdr'].map((k) => brokerageKindLabel(k as 'Stock'))).toEqual(['Ação', 'ETF', 'FII', 'BDR'])
   })
 
-  it('does not add a closed position outside the portfolio', () => {
-    expect(withPositions([], [position('BCFF11', 0)])).toEqual([])
+  it('vem marcado só "Ação"', () => {
+    expect(defaultBrokerageKinds).toEqual(['Stock'])
+  })
+
+  it('o caso do dono: ETF e FII com corretagem mostram a escolha', () => {
+    expect(showsBrokerageKinds(490, ['Etf', 'Fii'], ['Stock'])).toBe(true)
+  })
+
+  it('com tudo marcado, a escolha continua à vista para desmarcar', () => {
+    expect(showsBrokerageKinds(490, ['Stock', 'Etf'], ['Stock', 'Etf'])).toBe(true)
+  })
+
+  it('sem corretagem, ou só ações com "Ação" marcada, nada aparece', () => {
+    expect(showsBrokerageKinds(0, ['Etf', 'Fii'], ['Stock'])).toBe(false)
+    expect(showsBrokerageKinds(490, ['Stock'], ['Stock'])).toBe(false)
+  })
+
+  it('nota só com ações, mas "Ação" desmarcada (editada): a escolha aparece para corrigir', () => {
+    expect(showsBrokerageKinds(490, ['Stock'], ['Etf'])).toBe(true)
+  })
+
+  it('recusa corretagem sem tipo marcado da nota, como a API', () => {
+    expect(brokerageKindsError(490, ['Etf', 'Fii'], ['Stock'])).toBe('Marque em quais ativos a corretagem foi cobrada.')
+    expect(brokerageKindsError(490, ['Etf', 'Fii'], ['Etf'])).toBeUndefined()
+    expect(brokerageKindsError(0, ['Etf'], [])).toBeUndefined()
   })
 })

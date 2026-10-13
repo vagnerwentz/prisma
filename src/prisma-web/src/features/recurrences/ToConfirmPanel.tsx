@@ -1,4 +1,6 @@
+import { ChevronRight, CandlestickChart } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
+import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { BottomSheet } from '@/components/BottomSheet'
 import { EntryTile } from '@/components/brand/Tiles'
@@ -13,6 +15,7 @@ import { todayInSaoPaulo } from '@/lib/dates'
 import { formatCents } from '@/lib/money'
 import { cn } from '@/lib/utils'
 import { confirmedMessage, debitDetails } from './autoDebit'
+import { useEventReviews } from '@/features/investments/eventReviewQueries'
 import { useConfirmAmount, useToConfirm } from './queries'
 
 // O painel "Para conferir" (docs/fase-2.md, 2.15, D4), carregado só quando alguém o abre: os logos de marca e
@@ -20,13 +23,15 @@ import { useConfirmAmount, useToConfirm } from './queries'
 export default function ToConfirmSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <BottomSheet open={open} onClose={onClose}>
-      <ToConfirmPanel />
+      <ToConfirmPanel onClose={onClose} />
     </BottomSheet>
   )
 }
 
-function ToConfirmPanel() {
+function ToConfirmPanel({ onClose }: { onClose: () => void }) {
   const toConfirm = useToConfirm()
+  const events = useEventReviews().data?.length ?? 0
+  const navigate = useNavigate()
   const accounts = useAccounts()
   const categories = useCategories()
   const today = todayInSaoPaulo()
@@ -41,8 +46,28 @@ function ToConfirmPanel() {
         {items.length > 0 && <p className="text-xs text-muted-foreground">Débitos automáticos que saíram com o valor médio.</p>}
       </header>
       <div className="flex min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-        {toConfirm.isSuccess && items.length === 0 && (
+        {toConfirm.isSuccess && items.length === 0 && events === 0 && (
           <p className="px-1 pt-2 pb-6 text-sm text-muted-foreground">Nada para conferir.</p>
+        )}
+        {/* Os eventos da carteira (I.7c2): uma linha só, que leva a Investimentos, onde se confere cada um. */}
+        {events > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              onClose()
+              navigate('/contas/investimentos')
+            }}
+            className="surface flex items-center gap-3 rounded-2xl p-4 text-left transition-colors hover:bg-muted/40 active:bg-muted/70"
+          >
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted">
+              <CandlestickChart className="size-5" aria-hidden />
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="font-medium">{events === 1 ? '1 evento na carteira' : `${events} eventos na carteira`}</span>
+              <span className="text-sm text-muted-foreground">Desdobramentos e trocas de ativo para conferir</span>
+            </span>
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          </button>
         )}
         {items.map((t) => (
           <ConfirmCard

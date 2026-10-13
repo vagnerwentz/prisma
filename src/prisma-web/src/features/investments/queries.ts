@@ -1,7 +1,15 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, unwrap, type Schemas } from '@/lib/api'
 import { invalidateMoney } from '@/features/transactions/queries'
-import { holdingsKey, payoutsKey, positionsKey, tradeNotesKey } from '@/lib/queryKeys'
+import {
+  assetRequestsKey,
+  eventReviewsKey,
+  holdingsKey,
+  payoutsKey,
+  portfolioKey,
+  positionsKey,
+  tradeNotesKey,
+} from '@/lib/queryKeys'
 import { useDebouncedValue } from '@/lib/useDebouncedValue'
 
 // Busca de ativos enquanto se digita: espera a pessoa parar um instante e mantém o resultado anterior na
@@ -71,10 +79,12 @@ export function useSavePayout() {
 }
 
 // Notas de corretagem e carteira (docs/investimentos.md, I.7b2). A carteira é calculada pela API a cada leitura.
-export function useTradeNotes(take?: number) {
+// take: as últimas; year: as daquele ano (I.7e). Trocar de ano mantém a lista anterior esmaecida até a nova chegar.
+export function useTradeNotes({ take, year }: { take?: number; year?: number } = {}) {
   return useQuery({
-    queryKey: [...tradeNotesKey, 'list', take ?? 'all'],
-    queryFn: async () => unwrap(await api.GET('/trade-notes', { params: { query: { take } } })),
+    queryKey: [...tradeNotesKey, 'list', take ?? 'all', year ?? 'all'],
+    placeholderData: keepPreviousData,
+    queryFn: async () => unwrap(await api.GET('/trade-notes', { params: { query: { take, year } } })),
   })
 }
 
@@ -93,6 +103,15 @@ export function usePositions() {
   })
 }
 
+// A carteira em um ano (I.7e): grupos, pesos e o que o ano rendeu. Trocar de ano mantém a anterior esmaecida.
+export function usePortfolio(year: number) {
+  return useQuery({
+    queryKey: [...portfolioKey, year],
+    placeholderData: keepPreviousData,
+    queryFn: async () => unwrap(await api.GET('/portfolio', { params: { query: { year } } })),
+  })
+}
+
 export function usePositionHistory(assetId: string | null) {
   return useQuery({
     queryKey: [...positionsKey, 'history', assetId],
@@ -101,12 +120,16 @@ export function usePositionHistory(assetId: string | null) {
   })
 }
 
-// A nota muda as notas, a carteira calculada e a lista de ativos (a nota põe os ativos nela). Saldos, não.
+// A nota muda as notas, a carteira calculada e a lista de ativos (a nota põe os ativos nela). Saldos, não. O aviso de
+// ativo que chegou sai com a primeira nota dele.
 function invalidateTrades(queryClient: ReturnType<typeof useQueryClient>) {
   return Promise.all([
     queryClient.invalidateQueries({ queryKey: tradeNotesKey }),
     queryClient.invalidateQueries({ queryKey: positionsKey }),
+    queryClient.invalidateQueries({ queryKey: portfolioKey }),
     queryClient.invalidateQueries({ queryKey: holdingsKey }),
+    queryClient.invalidateQueries({ queryKey: assetRequestsKey }),
+    queryClient.invalidateQueries({ queryKey: eventReviewsKey }),
   ])
 }
 
@@ -139,5 +162,41 @@ export function useRestoreTradeNote() {
   return useMutation({
     mutationFn: async (id: string) => unwrap(await api.POST('/trade-notes/{id}/restore', { params: { path: { id } } })),
     onSuccess: () => invalidateTrades(queryClient),
+  })
+}
+
+// "Não encontrou? Avise a gente" (I.7c3): os avisos que esperam e os que chegaram.
+export function useAssetRequests() {
+  return useQuery({
+    queryKey: assetRequestsKey,
+    queryFn: async () => unwrap(await api.GET('/asset-requests')),
+  })
+}
+
+export function useRequestAsset() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (symbol: string) => unwrap(await api.POST('/asset-requests', { body: { symbol } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: assetRequestsKey }),
+  })
+}
+
+// Cancelar o que espera ou dispensar o que chegou; restaurar é o "Desfazer".
+export function useRemoveAssetRequest() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error, response } = await api.DELETE('/asset-requests/{id}', { params: { path: { id } } })
+      if (!response.ok) throw new ApiError(response.status, error)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: assetRequestsKey }),
+  })
+}
+
+export function useRestoreAssetRequest() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => unwrap(await api.POST('/asset-requests/{id}/restore', { params: { path: { id } } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: assetRequestsKey }),
   })
 }

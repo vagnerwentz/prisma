@@ -1,12 +1,15 @@
 import { Search } from 'lucide-react'
-import { useId, useState } from 'react'
+import { useId, useState, type ReactNode } from 'react'
+import { toast } from 'sonner'
 import { AssetTile } from '@/components/brand/Tiles'
 import { StaleFade } from '@/components/StaleFade'
 import { Button } from '@/components/ui/button'
+import { todayInSaoPaulo } from '@/lib/dates'
 import { cn } from '@/lib/utils'
+import { missingAction, requestedLabel } from './assetRequests'
 import { assetKindLabel, logoSrc, type AssetItem } from './assets'
 import { assetStatus } from './trades'
-import { useAssetSearch } from './queries'
+import { useAssetRequests, useAssetSearch, useRequestAsset } from './queries'
 
 // Escolher um ativo da bolsa (docs/investimentos.md, seção 8, etapa 3): por código ou nome, sem acento.
 // Combobox da WAI-ARIA com a lista logo abaixo do campo. Escolhido, o campo dá lugar ao ativo, com "Trocar".
@@ -124,7 +127,7 @@ export function AssetPicker({
         </ul>
       </StaleFade>
 
-      {nothing && <p className="px-2 text-sm text-muted-foreground">Nenhum ativo com “{text.trim()}”.</p>}
+      {nothing && <MissingAsset typed={text} />}
       {search.isError && typed && <p className="px-2 text-sm text-muted-foreground">Não deu para buscar agora. Tente de novo.</p>}
 
       <p role="status" className="sr-only">
@@ -148,5 +151,54 @@ function AssetText({ asset }: { asset: AssetItem }) {
       {/* Linha própria: em 320 px, ao lado do tipo, a data do "virou BTHF11 em 16/12/2024" era cortada. */}
       {status && <span className="text-xs text-muted-foreground">{status}</span>}
     </span>
+  )
+}
+
+// A busca não achou (I.7c3): com um código, "Avisar que falta"; já avisado, quando; pelo nome, a dica do código. A
+// ação espera a lista de avisos, para não trocar de "Avisar" para "já avisou" diante da pessoa.
+function MissingAsset({ typed }: { typed: string }) {
+  const requests = useAssetRequests()
+  const request = useRequestAsset()
+  const [sent, setSent] = useState<string | null>(null)
+  const action = missingAction(typed, requests.data ?? [])
+  const symbol = action.kind === 'hint' ? null : action.symbol
+
+  let detail: ReactNode = null
+  if (symbol && sent === symbol)
+    detail = (
+      <p role="status" className="text-sm">
+        Avisado. Quando {symbol} chegar, aparece em Investimentos.
+      </p>
+    )
+  else if (action.kind === 'hint')
+    detail = <p className="text-sm text-muted-foreground">Para avisar que falta, digite o código, como CVBI11.</p>
+  else if (action.kind === 'already')
+    detail = (
+      <p className="text-sm text-muted-foreground">Você já avisou em {requestedLabel(action.requestedOn, todayInSaoPaulo())}.</p>
+    )
+  else if (!requests.isPending)
+    detail = (
+      <Button
+        type="button"
+        size="sm"
+        variant="secondary"
+        className="rounded-full"
+        disabled={request.isPending}
+        onClick={() =>
+          request.mutate(action.symbol, {
+            onSuccess: () => setSent(action.symbol),
+            onError: (error) => toast.error(error.message),
+          })
+        }
+      >
+        Avisar que falta
+      </Button>
+    )
+
+  return (
+    <div className="flex flex-col items-start gap-2 px-2">
+      <p className="text-sm text-muted-foreground">Nenhum ativo com “{typed.trim()}”.</p>
+      {detail}
+    </div>
   )
 }
