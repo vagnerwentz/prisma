@@ -66,6 +66,7 @@ builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = 
     context.ProblemDetails.Extensions["traceId"] =
         Activity.Current?.TraceId.ToHexString() ?? context.HttpContext.TraceIdentifier);
 builder.Services.AddExceptionHandler<ProblemExceptionHandler>();
+builder.Services.AddFrontendCompression();
 builder.Services.AddAuth(builder.Configuration);
 builder.Services.AddAuthFeatures();
 builder.Services.AddAccountFeatures();
