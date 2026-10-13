@@ -167,6 +167,53 @@ public sealed class CorporateEventsTests(PostgresFixture postgres)
         (synced["AssetsAdded"], synced["Added"]).ShouldBe((1, 2));
     }
 
+    // docs/investimentos.md, "I.7c4": o BCFF11 foi liquidado e pago em BTHF11 a R$ 10,25, mais R$ 0,56 de caixa por cota.
+    // A curadoria troca o tipo do evento, e a carteira acompanha na leitura seguinte. O caso do dono: 112 cotas a R$ 67,36
+    // (R$ 7.544,32) → 896 no desdobramento → 716 BTHF11 a R$ 10,25; resultado +R$ 304,64 em 2024.
+    private static readonly CorporateEventEntry Liquidation =
+        Conversion with { Kind = CorporateEventKind.Liquidation, TargetUnitPrice = "10.25", CashPerUnit = "0.56" };
+
+    private sealed record PortfolioDto(long InvestedCents, long RealizedCents);
+
+    private sealed record ValueStepDto(string Kind, long Quantity, long GrossCents, long? RealizedCents, string? RelatedSymbol);
+
+    [Fact]
+    public async Task Liquidation_gives_the_reference_price_and_the_result_of_the_sale()
+    {
+        var (factory, client) = await Start();
+        await using var _ = factory;
+        var bcff = (await Asset(client, "BCFF11")).Id;
+        await Post(client, Note("2023-03-10", bcff, "Buy", 112, 6736));
+        (await client.GetFromJsonAsync<List<PositionDto>>("/positions"))!.Single(p => p.Symbol == "BTHF11").AveragePriceCents.ShouldBe(1054);
+
+        _events.File = new([Bcff11], [Split, Liquidation]);
+        await Sync(factory);
+
+        var bthf = (await client.GetFromJsonAsync<List<PositionDto>>("/positions"))!.Single(p => p.Symbol == "BTHF11");
+        (bthf.Quantity, bthf.GrossCostCents, bthf.AveragePriceCents).ShouldBe((716L, 733900L, (long?)1025));
+        var bcffOut = (await client.GetFromJsonAsync<List<ValueStepDto>>($"/positions/{bcff}"))!.Last();
+        bcffOut.ShouldBe(new ValueStepDto("LiquidationOut", 896, 784896, 30464, "BTHF11"));
+        var bthfIn = (await client.GetFromJsonAsync<List<ValueStepDto>>($"/positions/{bthf.AssetId}"))!.Single();
+        bthfIn.ShouldBe(new ValueStepDto("LiquidationIn", 716, 733900, null, "BCFF11"));
+        (await client.GetFromJsonAsync<PortfolioDto>("/portfolio?year=2024"))!.ShouldBe(new PortfolioDto(733900, 30464));
+        (await Asset(client, "BCFF11")).ConvertedToSymbol.ShouldBe("BTHF11");
+    }
+
+    // Valor por cota fora do formato recusa o arquivo inteiro: fica o que estava.
+    [Fact]
+    public async Task Invalid_unit_value_refuses_the_whole_file()
+    {
+        var (factory, client) = await Start();
+        await using var _ = factory;
+        var bcff = (await Asset(client, "BCFF11")).Id;
+        await Post(client, Note("2023-03-10", bcff, "Buy", 112, 6736));
+
+        _events.File = new([Bcff11], [Split, Liquidation with { CashPerUnit = "0,56" }]);
+        await Sync(factory);
+
+        (await client.GetFromJsonAsync<List<PositionDto>>("/positions"))!.Single(p => p.Symbol == "BTHF11").AveragePriceCents.ShouldBe(1054);
+    }
+
     // O arquivo de verdade, que vai na imagem: lê, sem chave repetida, e cada evento fecha (proporção e destino).
     [Fact]
     public void Embedded_file_is_valid()
@@ -177,7 +224,8 @@ public sealed class CorporateEventsTests(PostgresFixture postgres)
         file.Events.Select(e => e.Key).ShouldBeUnique();
         var ids = file.Events.SelectMany(e => new[] { e.Symbol, e.Target }).OfType<string>().Distinct().ToDictionary(s => s, _ => Guid.CreateVersion7());
         var definitions = file.Events
-            .Select(e => new CorporateEventDefinition(e.Key, e.Kind, ids[e.Symbol], e.Target is null ? null : ids[e.Target], e.Date, e.From, e.To, e.Source))
+            .Select(e => new CorporateEventDefinition(e.Key, e.Kind, ids[e.Symbol], e.Target is null ? null : ids[e.Target], e.Date, e.From, e.To, e.Source,
+                UnitValue(e.TargetUnitPrice, e.Key), UnitValue(e.CashPerUnit, e.Key)))
             .ToList();
         CorporateEventReconciliation.Apply([], definitions, DateTime.UtcNow).IsSuccess.ShouldBeTrue();
         foreach (var asset in file.HistoricalAssets)
@@ -198,6 +246,14 @@ public sealed class CorporateEventsTests(PostgresFixture postgres)
         await factory.Services.GetRequiredService<AssetListSync>().RunAsync(CancellationToken.None);
         await Sync(factory);
         return (factory, await factory.CreateAuthenticatedClientAsync());
+    }
+
+    private static long? UnitValue(string? text, string key)
+    {
+        if (text is null)
+            return null;
+        CorporateEvent.TryParseUnitValue(text, out var value).ShouldBeTrue(key);
+        return value;
     }
 
     private static Task Sync(PrismaApiFactory factory) => factory.Services.GetRequiredService<CorporateEventSync>().RunAsync(CancellationToken.None);

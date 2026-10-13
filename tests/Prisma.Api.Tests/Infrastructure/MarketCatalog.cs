@@ -10,7 +10,7 @@ public static class MarketCatalog
     {
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync();
-        await using var command = new NpgsqlCommand("DELETE FROM transactions WHERE asset_id IS NOT NULL; DELETE FROM trades; DELETE FROM trade_notes; DELETE FROM holdings; DELETE FROM corporate_events; DELETE FROM asset_logos; DELETE FROM assets;", connection);
+        await using var command = new NpgsqlCommand("DELETE FROM transactions WHERE asset_id IS NOT NULL; DELETE FROM trades; DELETE FROM trade_notes; DELETE FROM holdings; DELETE FROM corporate_events; DELETE FROM asset_logos; DELETE FROM assets; DELETE FROM asset_requests;", connection);
         await command.ExecuteNonQueryAsync();
     }
 }

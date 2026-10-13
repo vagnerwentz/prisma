@@ -16,7 +16,13 @@ public sealed class TradeNoteConfiguration : IEntityTypeConfiguration<TradeNote>
         {
             table.HasCheckConstraint("ck_trade_notes_costs", "fees_cents >= 0 AND brokerage_fee_cents >= 0");
             table.HasCheckConstraint("ck_trade_notes_broker", "length(btrim(broker)) > 0");
+            // Os nomes dos tipos, sem Unit (conta como Stock): I.7b3.
+            var brokerageKinds = string.Join(", ", TradeNote.AllKinds.Select(k => $"'{k}'"));
+            table.HasCheckConstraint("ck_trade_notes_brokerage_fee_kinds", $"brokerage_fee_kinds <@ ARRAY[{brokerageKinds}]::text[]");
         });
+
+        // Os tipos em que a corretagem foi cobrada, pelo nome (como o tipo da linha): text[].
+        builder.PrimitiveCollection(n => n.BrokerageFeeKinds).ElementType(e => e.HasConversion<string>());
 
         builder.Property(n => n.Broker).HasMaxLength(TradeNote.BrokerMaxLength);
         builder.Property(n => n.Date).HasColumnName("trade_date");

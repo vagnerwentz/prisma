@@ -170,6 +170,27 @@ public static partial class AppLog
     [LoggerMessage(4107, LogLevel.Information, "Trade note {NoteId} restored")]
     public static partial void TradeNoteRestored(this ILogger logger, Guid noteId);
 
+    // O código não é dado pessoal; quem pediu vem no escopo (userId). A curadoria filtra por este evento (docs/operacao.md, 4.3).
+    [LoggerMessage(4108, LogLevel.Information, "Asset {Symbol} requested ({RequestId})")]
+    public static partial void AssetRequested(this ILogger logger, Guid requestId, string symbol);
+
+    [LoggerMessage(4109, LogLevel.Information, "Asset request {RequestId} removed")]
+    public static partial void AssetRequestRemoved(this ILogger logger, Guid requestId);
+
+    [LoggerMessage(4110, LogLevel.Information, "Asset request {RequestId} restored")]
+    public static partial void AssetRequestRestored(this ILogger logger, Guid requestId);
+
+    // Conferência dos eventos (docs/investimentos.md, I.7c2): quantos, nunca a quantidade de ninguém. O "Não confere" é o
+    // que a curadoria procura (docs/operacao.md, 4.4).
+    [LoggerMessage(4111, LogLevel.Information, "{Count} corporate events confirmed")]
+    public static partial void EventReviewsConfirmed(this ILogger logger, int count);
+
+    [LoggerMessage(4112, LogLevel.Information, "Corporate event {EventId} disputed")]
+    public static partial void EventReviewDisputed(this ILogger logger, Guid eventId);
+
+    [LoggerMessage(4113, LogLevel.Information, "Review of corporate event {EventId} undone")]
+    public static partial void EventReviewUndone(this ILogger logger, Guid eventId);
+
     // Rota modelo (/statements/{id}/pay), nunca o caminho cru: ele pode levar ids e consulta. Depois de
     // uma exceção, o ASP.NET tira o endpoint do contexto e o guarda no IExceptionHandlerFeature.
     // Sem a barra final que os grupos deixam (/accounts/ → /accounts).

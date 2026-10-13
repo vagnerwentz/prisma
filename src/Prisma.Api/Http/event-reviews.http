@@ -1,0 +1,20 @@
+# Conferir eventos (docs/investimentos.md, I.7c2). Exige sessão: rode antes o Login de auth.http. A lista mostra o que
+# cada evento fez com a quantidade da pessoa; conferido, sai dela. Evento corrigido pela curadoria volta.
+
+### O que pede conferência (do mais antigo ao mais novo)
+GET {{baseUrl}}/event-reviews
+
+### Confere (um ou os que a lista mostra; até 200)
+POST {{baseUrl}}/event-reviews/confirm
+Content-Type: application/json
+
+{ "eventIds": ["<id do evento>"] }
+
+### Não confere, com a quantidade que a corretora mostra (opcional; sem ela, null)
+POST {{baseUrl}}/event-reviews/<id do evento>/dispute
+Content-Type: application/json
+
+{ "reportedQuantity": 704 }
+
+### Desfazer (o evento volta à lista)
+DELETE {{baseUrl}}/event-reviews/<id do evento>

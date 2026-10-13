@@ -49,6 +49,11 @@ public sealed class AppDbContext(
     // Notas de corretagem digitadas, com as linhas dentro (docs/investimentos.md, I.7b1).
     public DbSet<TradeNote> TradeNotes => Set<TradeNote>();
 
+    // "Não encontrou? Avise a gente": o código que falta no catálogo, pedido por cada pessoa (I.7c3).
+    public DbSet<AssetRequest> AssetRequests => Set<AssetRequest>();
+
+    public DbSet<EventReview> EventReviews => Set<EventReview>();
+
     // Chaves que assinam o cookie de sessão. No banco, e não no disco do contêiner, para que um
     // deploy novo não derrube a sessão de quem está logado. Não é do usuário: fica sem filtro.
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();

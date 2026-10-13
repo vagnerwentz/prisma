@@ -7,6 +7,7 @@ using Prisma.Api.Infrastructure.Http;
 using Prisma.Api.Infrastructure.Logging;
 using Prisma.Domain;
 using Prisma.Domain.Investments.Trades;
+using Prisma.Domain.Market;
 
 namespace Prisma.Api.Features.Investments;
 
@@ -16,8 +17,11 @@ public static class SaveTradeNote
 {
     public sealed record Line(Guid AssetId, TradeSide Side, long Quantity, long UnitPriceCents);
 
+    // BrokerageFeeKinds (I.7b3): os tipos em que a corretagem foi cobrada. Sem ele, vale a marcação de antes
+    // (BrokerageFeeOnAllKinds), como manda uma aba aberta antes do deploy.
     public sealed record Request(
-        string Broker, DateOnly Date, long FeesCents, long BrokerageFeeCents, bool BrokerageFeeOnAllKinds, IReadOnlyList<Line> Trades);
+        string Broker, DateOnly Date, long FeesCents, long BrokerageFeeCents, bool? BrokerageFeeOnAllKinds, IReadOnlyList<Line> Trades,
+        IReadOnlyList<AssetKind>? BrokerageFeeKinds = null);
 
     // Tetos que deixam qualquer soma longe do limite do long: até 100 milhões de unidades a R$ 1 milhão.
     private const long MaxQuantity = 100_000_000;
@@ -33,6 +37,8 @@ public static class SaveTradeNote
                 .MaximumLength(TradeNote.BrokerMaxLength).WithMessage($"O nome da corretora pode ter até {TradeNote.BrokerMaxLength} caracteres.");
             RuleFor(x => x.FeesCents).InclusiveBetween(0, MaxCostCents).WithMessage("Taxas inválidas.");
             RuleFor(x => x.BrokerageFeeCents).InclusiveBetween(0, MaxCostCents).WithMessage("Corretagem inválida.");
+            // Tipo desconhecido não passa da leitura do JSON (enum por nome, sem número): sobra limitar o tamanho.
+            RuleFor(x => x.BrokerageFeeKinds).Must(k => k is null || k.Count <= 20).WithMessage("Tipos demais na corretagem.");
             RuleFor(x => x.Trades).NotEmpty().WithMessage("Inclua ao menos uma operação na nota.")
                 .Must(t => t.Count <= MaxTrades).WithMessage($"Uma nota tem até {MaxTrades} operações.");
             RuleForEach(x => x.Trades).ChildRules(line =>
@@ -76,6 +82,7 @@ public static class SaveTradeNote
 
             // O tipo do ativo fica na linha: a corretagem segue o que a nota era quando foi lançada.
             var trades = req.Trades.Select(t => new Trade(t.AssetId, assets[t.AssetId].Kind, t.Side, t.Quantity, t.UnitPriceCents)).ToList();
+            var brokerageKinds = TradeNote.BrokerageKindsFrom(req.BrokerageFeeKinds, req.BrokerageFeeOnAllKinds);
 
             // As outras notas só entram na conferência: lidas sem acompanhamento, salvar não as vasculha.
             var notes = await TradeBook.Notes(db, ct);
@@ -83,7 +90,7 @@ public static class SaveTradeNote
             if (id is null)
             {
                 var created = TradeNote.Create(
-                    currentUser.UserId, req.Broker, req.Date, trades, req.FeesCents, req.BrokerageFeeCents, req.BrokerageFeeOnAllKinds);
+                    currentUser.UserId, req.Broker, req.Date, trades, req.FeesCents, req.BrokerageFeeCents, brokerageKinds);
                 if (!created.IsSuccess)
                     return created.Error;
                 note = created.Value;
@@ -96,7 +103,7 @@ public static class SaveTradeNote
                 if (existing is null)
                     return new Error(ErrorType.NotFound, "Nota não encontrada.");
                 note = existing;
-                if (note.Update(req.Broker, req.Date, trades, req.FeesCents, req.BrokerageFeeCents, req.BrokerageFeeOnAllKinds) is { } error)
+                if (note.Update(req.Broker, req.Date, trades, req.FeesCents, req.BrokerageFeeCents, brokerageKinds) is { } error)
                     return error;
                 // A data pode ter mudado: no dia novo, a nota entra na ordem em que foi lançada, como na leitura.
                 notes = [.. notes.Where(n => n.Id != id).Append(note).OrderBy(n => n.Date).ThenBy(n => n.CreatedAt).ThenBy(n => n.Id)];

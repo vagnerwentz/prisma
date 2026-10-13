@@ -18,7 +18,12 @@ public sealed class CorporateEventConfiguration : IEntityTypeConfiguration<Corpo
             table.HasCheckConstraint("ck_corporate_events_kind", $"kind IN ({kinds})");
             table.HasCheckConstraint("ck_corporate_events_proportion", "from_quantity > 0 AND to_quantity > 0");
             table.HasCheckConstraint("ck_corporate_events_target",
-                "(kind = 'Conversion' AND target_asset_id IS NOT NULL AND target_asset_id <> asset_id) OR (kind <> 'Conversion' AND target_asset_id IS NULL)");
+                "(kind IN ('Conversion', 'Liquidation') AND target_asset_id IS NOT NULL AND target_asset_id <> asset_id) " +
+                "OR (kind NOT IN ('Conversion', 'Liquidation') AND target_asset_id IS NULL)");
+            // Liquidação (I.7c4): preço de referência maior que zero e caixa não negativo; nos outros tipos, nenhum dos dois.
+            table.HasCheckConstraint("ck_corporate_events_liquidation",
+                "(kind = 'Liquidation' AND target_unit_price > 0 AND (cash_per_unit IS NULL OR cash_per_unit >= 0)) " +
+                "OR (kind <> 'Liquidation' AND target_unit_price IS NULL AND cash_per_unit IS NULL)");
         });
 
         builder.Property(e => e.Key).HasMaxLength(CorporateEvent.KeyMaxLength);

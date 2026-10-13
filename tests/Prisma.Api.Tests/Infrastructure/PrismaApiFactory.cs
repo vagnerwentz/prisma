@@ -24,6 +24,7 @@ public sealed class PrismaApiFactory(
     private static readonly Dictionary<string, string> DefaultSettings = new()
     {
         ["RateLimiting:Auth:PermitLimit"] = "1000",
+        ["RateLimiting:AssetRequests:PermitLimit"] = "1000",
     };
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)

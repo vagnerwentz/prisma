@@ -54,8 +54,15 @@ public sealed class CorporateEventSync(IServiceScopeFactory scopes, IClock clock
                 continue;
             }
 
+            if (!TryUnitValue(e.TargetUnitPrice, out var price) || !TryUnitValue(e.CashPerUnit, out var cash))
+            {
+                logger.CorporateEventsRefused($"event {e.Key} has an invalid unit value");
+                return;
+            }
+
             definitions.Add(new CorporateEventDefinition(
-                e.Key, e.Kind, catalog[e.Symbol].Id, e.Target is null ? null : catalog[e.Target].Id, e.Date, e.From, e.To, e.Source));
+                e.Key, e.Kind, catalog[e.Symbol].Id, e.Target is null ? null : catalog[e.Target].Id, e.Date, e.From, e.To, e.Source,
+                price, cash));
         }
 
         var current = await db.CorporateEvents.Where(e => !skipped.Contains(e.Key)).ToListAsync(ct);
@@ -79,6 +86,19 @@ public sealed class CorporateEventSync(IServiceScopeFactory scopes, IClock clock
             return;
         }
         logger.CorporateEventsSynced(assetsAdded, changes.Value.Added.Count, changes.Value.Updated, changes.Value.Removed.Count);
+    }
+
+    // Valor por cota do arquivo (I.7c4). Ausente: nulo. Presente e fora do formato: o arquivo inteiro é recusado, como
+    // qualquer evento inválido.
+    private static bool TryUnitValue(string? text, out long? value)
+    {
+        value = null;
+        if (text is null)
+            return true;
+        if (!CorporateEvent.TryParseUnitValue(text, out var parsed))
+            return false;
+        value = parsed;
+        return true;
     }
 }
 

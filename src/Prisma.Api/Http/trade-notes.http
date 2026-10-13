@@ -6,7 +6,8 @@
 GET {{baseUrl}}/assets?q=itub3
 
 ### Lançar (side: Buy ou Sell; valores em centavos). Taxas = liquidação, emolumentos, ISS, "outros"…, num total só;
-### IRRF fica de fora. Corretagem só para ação e unit, salvo brokerageFeeOnAllKinds.
+### IRRF fica de fora. Corretagem só nos tipos de brokerageFeeKinds (unit conta como Stock); sem a lista, só ação
+### (ou todos, com o antigo brokerageFeeOnAllKinds: true).
 POST {{baseUrl}}/trade-notes
 Content-Type: application/json
 
@@ -15,7 +16,7 @@ Content-Type: application/json
   "date": "2024-03-10",
   "feesCents": 85,
   "brokerageFeeCents": 1000,
-  "brokerageFeeOnAllKinds": false,
+  "brokerageFeeKinds": ["Stock"],
   "trades": [
     { "assetId": "<id do ITUB3>", "side": "Buy", "quantity": 50, "unitPriceCents": 2000 },
     { "assetId": "<id do ITUB3>", "side": "Buy", "quantity": 30, "unitPriceCents": 2010 },
@@ -38,7 +39,6 @@ Content-Type: application/json
   "date": "2024-03-10",
   "feesCents": 85,
   "brokerageFeeCents": 0,
-  "brokerageFeeOnAllKinds": false,
   "trades": [
     { "assetId": "<id do ITUB3>", "side": "Buy", "quantity": 80, "unitPriceCents": 2004 }
   ]
@@ -55,3 +55,26 @@ GET {{baseUrl}}/positions
 
 ### Histórico de um ativo, um passo por ordem
 GET {{baseUrl}}/positions/<id do ativo>
+
+### A carteira em um ano (I.7e): investido no fim de 31/12 (ou hoje, no ano corrente), grupos com o peso, ativos, e os
+### proventos e o resultado das vendas do ano. Sem year: o ano corrente. Ano futuro: 400.
+GET {{baseUrl}}/portfolio?year=2024
+
+### As notas de um ano
+GET {{baseUrl}}/trade-notes?year=2025
+
+### O caso da corretagem só no ETF: venda de XINA11, compra de MXRF11 (I.7b3)
+POST {{baseUrl}}/trade-notes
+Content-Type: application/json
+
+{
+  "broker": "Íon",
+  "date": "2025-06-02",
+  "feesCents": 30,
+  "brokerageFeeCents": 490,
+  "brokerageFeeKinds": ["Etf"],
+  "trades": [
+    { "assetId": "<id do XINA11>", "side": "Sell", "quantity": 50, "unitPriceCents": 1000 },
+    { "assetId": "<id do MXRF11>", "side": "Buy", "quantity": 50, "unitPriceCents": 1000 }
+  ]
+}

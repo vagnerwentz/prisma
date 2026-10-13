@@ -16,9 +16,11 @@ public sealed record CorporateEventFile(
 
 public sealed record HistoricalAssetEntry(string Symbol, string Name, AssetKind Kind, DateOnly LastTradingDay);
 
-// Target: só na conversão, o código do destino.
+// Target: na conversão e na liquidação, o código do destino. TargetUnitPrice e CashPerUnit: só na liquidação (I.7c4), em
+// texto decimal com ponto e até 8 casas ("10.25"), como o fato relevante traz.
 public sealed record CorporateEventEntry(
-    string Key, CorporateEventKind Kind, string Symbol, string? Target, DateOnly Date, int From, int To, string Source);
+    string Key, CorporateEventKind Kind, string Symbol, string? Target, DateOnly Date, int From, int To, string Source,
+    string? TargetUnitPrice = null, string? CashPerUnit = null);
 
 public sealed class EmbeddedCorporateEventSource : ICorporateEventSource
 {

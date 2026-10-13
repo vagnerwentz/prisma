@@ -49,7 +49,7 @@ public static class SearchAssets
             var withLogo = (await db.AssetLogos.AsNoTracking().Where(l => ids.Contains(l.AssetId)).Select(l => l.AssetId).ToListAsync(ct))
                 .ToHashSet();
             var conversions = await db.CorporateEvents.AsNoTracking()
-                .Where(e => e.Kind == CorporateEventKind.Conversion && ids.Contains(e.AssetId))
+                .Where(e => (e.Kind == CorporateEventKind.Conversion || e.Kind == CorporateEventKind.Liquidation) && ids.Contains(e.AssetId))
                 .Join(db.Assets.AsNoTracking(), e => e.TargetAssetId, a => a.Id, (e, target) => new { e.AssetId, target.Symbol, e.Date })
                 .ToListAsync(ct);
             var convertedTo = conversions.GroupBy(c => c.AssetId).ToDictionary(g => g.Key, g => g.OrderBy(c => c.Date).First());

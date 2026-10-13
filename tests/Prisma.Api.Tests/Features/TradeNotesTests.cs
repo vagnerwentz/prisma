@@ -24,7 +24,8 @@ public sealed class TradeNotesTests(PostgresFixture postgres)
         long UnitPriceCents, long GrossCents, long CostsCents);
 
     private sealed record NoteDto(
-        Guid Id, string Broker, string Date, long FeesCents, long BrokerageFeeCents, bool BrokerageFeeOnAllKinds, List<LineDto> Trades);
+        Guid Id, string Broker, string Date, long FeesCents, long BrokerageFeeCents, bool BrokerageFeeOnAllKinds, List<LineDto> Trades,
+        List<string> BrokerageFeeKinds);
 
     private sealed record PositionDto(
         Guid AssetId, string Symbol, long Quantity, long GrossCostCents, long CostBasisCents, long? AveragePriceCents,
@@ -280,9 +281,110 @@ public sealed class TradeNotesTests(PostgresFixture postgres)
                 Body("2024-03-10", [Line(a.Mxrf11, "Buy", 100, 1000)], brokerageFeeCents: 490));
 
             response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-            (await Detail(response)).ShouldBe(
-                "A corretagem desta nota não tem ação para receber. Marque que ela vale também para FII, ETF e outros.");
+            (await Detail(response)).ShouldBe("Marque em quais ativos a corretagem foi cobrada.");
         });
+
+    // docs/investimentos.md, "I.7b3": a corretagem por tipo. O caso do dono: venda de XINA11 (ETF) e compra de MXRF11
+    // (FII), corretagem só no ETF.
+    [Fact]
+    public async Task Brokerage_goes_only_to_the_marked_kinds() =>
+        await WithClient(async (client, a) =>
+        {
+            var xina11 = await AssetId(client, "XINA11");
+            await Create(client, Body("2025-01-10", [Line(xina11, "Buy", 50, 900)]));
+            var note = await Create(client, new
+            {
+                broker = "Íon", date = "2025-06-02", feesCents = 30L, brokerageFeeCents = 490L, brokerageFeeKinds = new[] { "Etf" },
+                trades = new[] { Line(xina11, "Sell", 50, 1000), Line(a.Mxrf11, "Buy", 50, 1000) },
+            });
+
+            note.Trades.Select(t => (t.Symbol, t.CostsCents)).ShouldBe([("XINA11", 15L + 490), ("MXRF11", 15L)]);
+            note.BrokerageFeeKinds.ShouldBe(["Etf"]);
+            note.BrokerageFeeOnAllKinds.ShouldBeFalse();
+            var mxrf = (await Positions(client)).Single(p => p.Symbol == "MXRF11");
+            (mxrf.GrossCostCents, mxrf.CostBasisCents).ShouldBe((50000L, 50015L));
+        });
+
+    // A tela aberta antes do deploy manda só a marcação antiga (ou nada): o rateio é o de antes.
+    [Theory]
+    [InlineData(true, new long[] { 245, 245 }, new[] { "Stock", "Fii", "Etf", "FiInfra", "FiAgro", "Fip", "Fidc", "OtherFund", "Bdr", "Unknown" }, true)]
+    [InlineData(false, new long[] { 0, 490 }, new[] { "Stock" }, false)]
+    public async Task Old_mark_still_works(bool onAllKinds, long[] costs, string[] kinds, bool echoed) =>
+        await WithClient(async (client, a) =>
+        {
+            var note = await Create(client, Body("2024-03-10",
+                [Line(a.Mxrf11, "Buy", 100, 1000), Line(a.Itub3, "Buy", 50, 2000)], brokerageFeeCents: 490, brokerageFeeOnAllKinds: onAllKinds));
+
+            note.Trades.Select(t => t.CostsCents).ShouldBe(costs);
+            note.BrokerageFeeKinds.ShouldBe(kinds);
+            note.BrokerageFeeOnAllKinds.ShouldBe(echoed);
+        });
+
+    [Fact]
+    public async Task Request_without_any_brokerage_field_keeps_stocks_only() =>
+        await WithClient(async (client, a) =>
+        {
+            var note = await Create(client, new
+            {
+                broker = "XP", date = "2024-03-10", feesCents = 0L, brokerageFeeCents = 490L,
+                trades = new[] { Line(a.Mxrf11, "Buy", 100, 1000), Line(a.Itub3, "Buy", 50, 2000) },
+            });
+
+            note.Trades.Select(t => t.CostsCents).ShouldBe([0L, 490L]);
+        });
+
+    [Fact]
+    public async Task Kinds_come_back_and_change_on_edit() =>
+        await WithClient(async (client, a) =>
+        {
+            var body = new
+            {
+                broker = "XP", date = "2024-03-10", feesCents = 0L, brokerageFeeCents = 490L, brokerageFeeKinds = new[] { "Fii", "Stock" },
+                trades = new[] { Line(a.Mxrf11, "Buy", 100, 1000), Line(a.Itub3, "Buy", 50, 2000) },
+            };
+            var note = await Create(client, body);
+            (await client.GetFromJsonAsync<NoteDto>($"/trade-notes/{note.Id}"))!.BrokerageFeeKinds.ShouldBe(["Stock", "Fii"]);
+
+            var edited = await client.PutAsJsonAsync($"/trade-notes/{note.Id}", body with { brokerageFeeKinds = new[] { "Fii" } });
+            edited.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+            var again = (await client.GetFromJsonAsync<NoteDto>($"/trade-notes/{note.Id}"))!;
+            again.BrokerageFeeKinds.ShouldBe(["Fii"]);
+            again.Trades.Select(t => t.CostsCents).ShouldBe([490L, 0L]);
+        });
+
+    // Tipo desconhecido (nome ou número) não passa da leitura do JSON; lista longa demais, da validação.
+    [Theory]
+    [InlineData("Crypto")]
+    [InlineData(99)]
+    public async Task Unknown_brokerage_kind_is_refused(object kind) =>
+        await WithClient(async (client, a) =>
+        {
+            var response = await client.PostAsJsonAsync("/trade-notes", new
+            {
+                broker = "XP", date = "2024-03-10", feesCents = 0L, brokerageFeeCents = 490L, brokerageFeeKinds = new[] { kind },
+                trades = new[] { Line(a.Itub3, "Buy", 50, 2000) },
+            });
+
+            response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        });
+
+    [Fact]
+    public async Task Too_many_brokerage_kinds_are_refused() =>
+        await WithClient(async (client, a) =>
+            (await client.PostAsJsonAsync("/trade-notes", new
+            {
+                broker = "XP", date = "2024-03-10", feesCents = 0L, brokerageFeeCents = 490L,
+                brokerageFeeKinds = Enumerable.Repeat("Stock", 21).ToArray(),
+                trades = new[] { Line(a.Itub3, "Buy", 50, 2000) },
+            })).StatusCode.ShouldBe(HttpStatusCode.BadRequest));
+
+    // A marcação de antes, na resposta, só liga com operação que não é ação: nota só de ações fica desligada.
+    [Fact]
+    public async Task Stock_only_note_echoes_the_old_mark_off() =>
+        await WithClient(async (client, a) =>
+            (await Create(client, Body("2024-03-10", [Line(a.Itub3, "Buy", 50, 2000)], brokerageFeeCents: 490)))
+                .BrokerageFeeOnAllKinds.ShouldBeFalse());
 
     [Fact]
     public async Task Unknown_asset_is_not_found() =>
@@ -346,6 +448,7 @@ public sealed class TradeNotesTests(PostgresFixture postgres)
             Listed("ITUB3", AssetKind.Stock, "ITAU UNIBANCO HOLDING S.A."),
             Listed("BBSE3", AssetKind.Stock, "BB SEGURIDADE PARTICIPACOES S.A."),
             Listed("MXRF11", AssetKind.Fii, "MXRF11", "Maxi Renda"),
+            Listed("XINA11", AssetKind.Etf, "XINA11", "Trend ETF MSCI China"),
         ];
         await factory.Services.GetRequiredService<AssetListSync>().RunAsync(CancellationToken.None);
         var client = await factory.CreateAuthenticatedClientAsync();
