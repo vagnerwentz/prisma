@@ -28,6 +28,16 @@ public static class Login
         private static readonly Error InvalidCredentials =
             new(ErrorType.Unauthorized, "E-mail ou senha inválidos.");
 
+        public static readonly Error EmailNotConfirmed = new(ErrorType.Forbidden,
+            "Falta confirmar seu e-mail. Abra o link que enviamos ou peça outro.", "EmailNotConfirmed");
+
+        private Error LockedOut(AppUser user)
+        {
+            logger.LoginLockedOut(user.Id);
+            return new Error(ErrorType.TooManyAttempts,
+                "Conta bloqueada temporariamente por excesso de tentativas. Tente novamente em alguns minutos.");
+        }
+
         public async Task<Result<Response>> Execute(Request req, CancellationToken ct)
         {
             var user = await users.FindByEmailAsync(req.Email.Trim());
@@ -37,21 +47,28 @@ public static class Login
                 return InvalidCredentials;
             }
 
-            var signedIn = await signIn.PasswordSignInAsync(user, req.Password, isPersistent: true, lockoutOnFailure: true);
+            // A senha vem antes de tudo: o SignInManager responderia "e-mail não confirmado" sem conferir a senha, e o
+            // estado da conta apareceria para qualquer um. O bloqueio por tentativas vale igual para quem não confirmou.
+            if (await users.IsLockedOutAsync(user))
+                return LockedOut(user);
 
-            if (signedIn.IsLockedOut)
+            if (!await users.CheckPasswordAsync(user, req.Password))
             {
-                logger.LoginLockedOut(user.Id);
-                return new Error(ErrorType.TooManyAttempts,
-                    "Conta bloqueada temporariamente por excesso de tentativas. Tente novamente em alguns minutos.");
-            }
-
-            if (!signedIn.Succeeded)
-            {
+                await users.AccessFailedAsync(user);
+                if (await users.IsLockedOutAsync(user))
+                    return LockedOut(user);
                 logger.LoginFailed(user.Id, "WrongPassword");
                 return InvalidCredentials;
             }
 
+            await users.ResetAccessFailedCountAsync(user);
+            if (!user.EmailConfirmed)
+            {
+                logger.LoginFailed(user.Id, "EmailNotConfirmed");
+                return EmailNotConfirmed;
+            }
+
+            await signIn.SignInAsync(user, isPersistent: true);
             logger.LoginSucceeded(user.Id);
             return new Response(user.Id, user.Email!);
         }
@@ -69,5 +86,6 @@ public static class Login
             .Produces<Response>(200)
             .ProducesValidationProblem()
             .ProducesProblem(401)
+            .ProducesProblem(403)
             .ProducesProblem(429);
 }

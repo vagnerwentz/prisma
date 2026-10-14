@@ -17,6 +17,7 @@ public static class ErrorResults
             _ => throw new ArgumentOutOfRangeException(nameof(error), error.Type, null),
         };
 
-        return Results.Problem(detail: error.Message, statusCode: status, title: title);
+        return Results.Problem(detail: error.Message, statusCode: status, title: title,
+            extensions: error.Code is null ? null : new Dictionary<string, object?> { ["code"] = error.Code });
     }
 }

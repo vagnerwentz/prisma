@@ -4,8 +4,9 @@ namespace Prisma.Domain;
 
 public enum ErrorType { Validation, Unauthorized, Forbidden, NotFound, Conflict, TooManyAttempts }
 
-// Message é exibida ao usuário, portanto em pt-BR.
-public sealed record Error(ErrorType Type, string Message);
+// Message é exibida ao usuário, portanto em pt-BR. Code, quando há, deixa a tela reagir a um erro específico sem
+// depender do texto (ex.: "EmailNotConfirmed" mostra o "Reenviar"); vai como `code` no ProblemDetails.
+public sealed record Error(ErrorType Type, string Message, string? Code = null);
 
 // Erro de negócio esperado. Exceção fica para o que é de fato excepcional.
 public sealed class Result<T>

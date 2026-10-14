@@ -19,7 +19,7 @@ public sealed class FolderEmailTransport(IOptions<EmailOptions> options, IHostEn
         var id = Guid.CreateVersion7().ToString("N");
         var path = Path.Combine(folder, $"{clock.UtcNow:yyyyMMdd-HHmmss}-{id[^8..]}.html");
         var header = $"""
-            <pre style="font:13px monospace;background:#eee;padding:12px;margin:0 0 16px">De: {Encode(message.From)}
+            <pre style="font:13px monospace;background:#eee;padding:12px;margin:0 0 16px;white-space:pre-wrap;overflow-wrap:anywhere">De: {Encode(message.From)}
             Responder para: {Encode(message.ReplyTo)}
             Para: {Encode(message.To)}
             Assunto: {Encode(message.Subject)}</pre>

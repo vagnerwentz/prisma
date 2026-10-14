@@ -27,6 +27,10 @@ public static class AuthSetup
             .PersistKeysToDbContext<AppDbContext>();
 
         services.Configure<RegistrationOptions>(configuration.GetSection(RegistrationOptions.Section));
+        services.AddOptions<AppOptions>()
+            .Bind(configuration.GetSection(AppOptions.Section))
+            .Validate(o => o.IsValid(), "Configuração App inválida: App:PublicUrl precisa ser a raiz do site (https://dominio/).")
+            .ValidateOnStart();
 
         services.AddAuthentication(IdentityConstants.ApplicationScheme)
             .AddIdentityCookies();
@@ -34,7 +38,10 @@ public static class AuthSetup
         services.AddIdentityCore<AppUser>(options =>
             {
                 options.User.RequireUniqueEmail = true;
-                options.SignIn.RequireConfirmedEmail = false;
+                // Sem confirmar o e-mail, não entra (docs/email.md, 5.1). O Login confere a senha antes, para que o
+                // estado da conta só apareça para quem a sabe.
+                options.SignIn.RequireConfirmedEmail = true;
+                options.Tokens.EmailConfirmationTokenProvider = ConfirmEmailTokenProvider.ProviderName;
 
                 options.Password.RequiredLength = 8;
                 options.Password.RequireDigit = false;
@@ -48,6 +55,7 @@ public static class AuthSetup
             })
             .AddEntityFrameworkStores<AppDbContext>()
             .AddSignInManager()
+            .AddTokenProvider<ConfirmEmailTokenProvider>(ConfirmEmailTokenProvider.ProviderName)
             .AddErrorDescriber<PortugueseIdentityErrorDescriber>();
 
         services.ConfigureApplicationCookie(options =>
