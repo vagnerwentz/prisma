@@ -51,6 +51,30 @@ public static partial class AppLog
     [LoggerMessage(2005, LogLevel.Warning, "Sign-in failed: no account with that email")]
     public static partial void LoginUnknownEmail(this ILogger logger);
 
+    // Confirmação de e-mail (docs/email.md, 5.1).
+    [LoggerMessage(2006, LogLevel.Information, "User {UserId} confirmed their email")]
+    public static partial void EmailConfirmed(this ILogger logger, Guid userId);
+
+    [LoggerMessage(2007, LogLevel.Warning, "Email confirmation rejected: {Reason}")]
+    public static partial void EmailConfirmationRejected(this ILogger logger, string reason);
+
+    // Cadastro com e-mail que já tem conta: a resposta é a de sempre, e o dono do e-mail recebe um aviso.
+    [LoggerMessage(2008, LogLevel.Information, "Registration with the address of user {UserId} (confirmed: {Confirmed})")]
+    public static partial void RegistrationOfExistingAccount(this ILogger logger, Guid userId, bool confirmed);
+
+    // Senha nova pelo e-mail (docs/email.md, 5.2).
+    [LoggerMessage(2009, LogLevel.Information, "User {UserId} asked for a password reset link")]
+    public static partial void PasswordResetRequested(this ILogger logger, Guid userId);
+
+    [LoggerMessage(2010, LogLevel.Warning, "Password reset asked for an address with no account")]
+    public static partial void PasswordResetRequestedForUnknownEmail(this ILogger logger);
+
+    [LoggerMessage(2011, LogLevel.Information, "User {UserId} reset their password")]
+    public static partial void PasswordReset(this ILogger logger, Guid userId);
+
+    [LoggerMessage(2012, LogLevel.Warning, "Password reset rejected: {Reason}")]
+    public static partial void PasswordResetRejected(this ILogger logger, string reason);
+
     [LoggerMessage(3000, LogLevel.Information, "Account {AccountId} created ({AccountType})")]
     public static partial void AccountCreated(this ILogger logger, Guid accountId, AccountType accountType);
 

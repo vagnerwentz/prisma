@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Auth;
@@ -48,7 +49,12 @@ public sealed class EmailOutboxTests(PostgresFixture postgres)
     {
         ["RateLimiting:Auth:PermitLimit"] = "1000",
         ["Email:Outbox:BatchSize"] = "500",
-    }, _clock, _logs, services => services.AddSingleton<IEmailComposer>(_composer));
+    }, _clock, _logs, services =>
+    {
+        // Só o composer de teste: os de verdade (H.4b em diante) dependem de usuário e de token.
+        services.RemoveAll<IEmailComposer>();
+        services.AddSingleton<IEmailComposer>(_composer);
+    });
 
     private static async Task<(Guid Id, string Address)> NewUser(PrismaApiFactory factory)
     {

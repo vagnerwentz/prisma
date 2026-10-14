@@ -118,8 +118,8 @@ public sealed class LoggingTests(PostgresFixture postgres)
         await using var factory = new PrismaApiFactory(postgres.ConnectionString, logs: logs);
         var email = $"{Guid.NewGuid():N}@teste.com.br";
         using var registered = factory.CreateHttpsClient();
-        var me = (await (await registered.PostAsJsonAsync("/auth/register", new { email, password = PrismaApiFactory.Password }))
-            .Content.ReadFromJsonAsync<Me>())!;
+        (await registered.PostAsJsonAsync("/auth/register", new { email, password = PrismaApiFactory.Password })).EnsureSuccessStatusCode();
+        var userId = await factory.ConfirmEmailAsync(email);
         using var anonymous = factory.CreateHttpsClient();
 
         await anonymous.PostAsJsonAsync("/auth/login", new { email, password = WrongPassword });
@@ -127,7 +127,7 @@ public sealed class LoggingTests(PostgresFixture postgres)
 
         var wrongPassword = await logs.WaitFor(l => l.EventId.Name == "LoginFailed" && Equals(l["Reason"], "WrongPassword"));
         wrongPassword.Level.ShouldBe(LogLevel.Warning);
-        wrongPassword["UserId"].ShouldBe(me.Id);
+        wrongPassword["UserId"].ShouldBe(userId);
         var unknown = await logs.WaitFor(l => l.EventId.Name == "LoginUnknownEmail");
         unknown.Level.ShouldBe(LogLevel.Warning);
         unknown.Properties.ShouldNotContainKey("UserId");

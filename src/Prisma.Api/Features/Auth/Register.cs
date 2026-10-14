@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Auth;
+using Prisma.Api.Infrastructure.Email;
 using Prisma.Api.Infrastructure.Http;
 using Prisma.Api.Infrastructure.Logging;
 using Prisma.Domain;
@@ -10,11 +11,14 @@ using Prisma.Domain.Categories;
 
 namespace Prisma.Api.Features.Auth;
 
+// Cadastro com confirmação de e-mail (docs/email.md, 5.1). Não entra: a conta nasce sem o e-mail confirmado, e o link
+// da confirmação é que dá a primeira sessão. A resposta é a mesma para e-mail novo e e-mail que já tem conta, para não
+// contar a ninguém quem é cliente; quem já tem conta recebe um aviso (ou, sem ter confirmado, a confirmação de novo).
 public static class Register
 {
     public sealed record Request(string Email, string Password);
 
-    public sealed record Response(Guid Id, string Email);
+    public sealed record Response(string Email);
 
     public sealed class Validator : AbstractValidator<Request>
     {
@@ -33,6 +37,7 @@ public static class Register
         AppDbContext db,
         UserManager<AppUser> users,
         SignInManager<AppUser> signIn,
+        EmailQueue emails,
         IHttpContextAccessor httpContextAccessor,
         IOptions<RegistrationOptions> registration,
         ILogger<Handler> logger)
@@ -46,20 +51,28 @@ public static class Register
                 return new Error(ErrorType.Forbidden, "O cadastro está fechado por enquanto.");
             }
 
+            if (await users.FindByEmailAsync(email) is { } existing)
+                return await NotifyExisting(existing, email, ct);
+
             var user = new AppUser { UserName = email, Email = email, CategoryCatalogVersion = DefaultCategories.Version };
 
-            // Usuário e categorias padrão nascem juntos ou não nascem.
+            // Usuário, categorias padrão e o e-mail de confirmação nascem juntos ou não nascem.
             await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
             var created = await users.CreateAsync(user, req.Password);
             if (!created.Succeeded)
             {
-                var isDuplicate = created.Errors.Any(e =>
-                    e.Code is nameof(IdentityErrorDescriber.DuplicateEmail)
-                        or nameof(IdentityErrorDescriber.DuplicateUserName));
-                var message = string.Join(" ", created.Errors.Select(e => e.Description).Distinct());
+                // Dois cadastros ao mesmo tempo com o mesmo e-mail: o segundo vira o caso de quem já tem conta.
+                if (created.Errors.Any(e => e.Code is nameof(IdentityErrorDescriber.DuplicateEmail)
+                        or nameof(IdentityErrorDescriber.DuplicateUserName)))
+                {
+                    await transaction.RollbackAsync(ct);
+                    db.ChangeTracker.Clear();
+                    return await NotifyExisting((await users.FindByEmailAsync(email))!, email, ct);
+                }
+
                 logger.RegistrationRejected(string.Join(",", created.Errors.Select(e => e.Code).Distinct()));
-                return new Error(isDuplicate ? ErrorType.Conflict : ErrorType.Validation, message);
+                return new Error(ErrorType.Validation, string.Join(" ", created.Errors.Select(e => e.Description).Distinct()));
             }
 
             // A partir daqui a requisição age como o novo usuário: o AppDbContext só aceita gravar
@@ -67,13 +80,21 @@ public static class Register
             httpContextAccessor.HttpContext!.User = await signIn.CreateUserPrincipalAsync(user);
 
             db.Categories.AddRange(DefaultCategories.CreateFor(user.Id));
+            await emails.EnqueueAsync(EmailKind.ConfirmEmail, user.Id, email, ct);
             await db.SaveChangesAsync(ct);
             await transaction.CommitAsync(ct);
 
-            // Cadastro já entra logado: sem confirmação de e-mail por enquanto (ver PLAN.md).
-            await signIn.SignInAsync(user, isPersistent: true);
             logger.UserRegistered(user.Id);
-            return new Response(user.Id, email);
+            return new Response(email);
+        }
+
+        private async Task<Result<Response>> NotifyExisting(AppUser existing, string typed, CancellationToken ct)
+        {
+            var kind = existing.EmailConfirmed ? EmailKind.AlreadyRegistered : EmailKind.ConfirmEmail;
+            await emails.EnqueueAsync(kind, existing.Id, existing.Email!, ct);
+            await db.SaveChangesAsync(ct);
+            logger.RegistrationOfExistingAccount(existing.Id, existing.EmailConfirmed);
+            return new Response(typed);
         }
     }
 
@@ -81,16 +102,13 @@ public static class Register
         app.MapPost("/register", async (Request request, Handler handler, CancellationToken ct) =>
             {
                 var result = await handler.Execute(request, ct);
-                return result.IsSuccess
-                    ? Results.Created("/auth/me", result.Value)
-                    : result.Error.ToProblem();
+                return result.IsSuccess ? Results.Accepted(value: result.Value) : result.Error.ToProblem();
             })
             .AllowAnonymous()
             .RequireRateLimiting(AuthSetup.RateLimitPolicy)
             .AddEndpointFilter<ValidationFilter<Request>>()
-            .Produces<Response>(201)
+            .Produces<Response>(202)
             .ProducesValidationProblem()
             .ProducesProblem(403)
-            .ProducesProblem(409)
             .ProducesProblem(429);
 }

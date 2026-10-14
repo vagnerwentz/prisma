@@ -29,7 +29,8 @@ Estas estão fechadas. Não reabrir sem conversa explícita.
 | Backend | .NET 10 + ASP.NET Core Minimal APIs + EF Core + PostgreSQL |
 | Frontend | React + TypeScript + Vite (escolhido pelo uso no celular e pelo PWA) |
 | Arquitetura | Vertical Slice + domínio rico isolado + CQRS leve |
-| Auth | ASP.NET Core Identity, cookie `httpOnly`; Google OAuth adiado |
+| Auth | ASP.NET Core Identity, cookie `httpOnly`; e-mail confirmado para entrar (confirmar pede a senha), senha nova pelo e-mail (H.4); Google OAuth adiado |
+| E-mail | Resend atrás de `IEmailTransport`, fila no Postgres e tarefa em segundo plano, sem broker (`docs/email.md`) |
 | Idioma do código | Inglês |
 | Visão do dashboard | **Caixa**: gasto do cartão conta no mês do vencimento da fatura |
 | Dinheiro | `long` em centavos, sempre |
@@ -713,7 +714,8 @@ conversa e o TCP Proxy do Postgres ficou ligado. A H.2 foi dividida em três (de
   (`docker volume rm prisma_postgres-data`).
 
 - [ ] **H.2c Operação**
-  Roteiro para senha esquecida (sem e-mail ainda), monitor de disponibilidade em `/api/health`,
+  Senha esquecida: resolvida pela própria pessoa com o "Esqueci a senha" (H.4c); falta só o roteiro para quem perdeu
+  o acesso ao e-mail. Monitor de disponibilidade em `/api/health`,
   backup manual antes de migration arriscada e instruções no `CLAUDE.md`, seção 7.
 
 - [x] **H.3a Logs estruturados no backend** (pedida pelo usuário, 2026-09-26)
@@ -800,19 +802,37 @@ Pedida pelo dono (2026-10-13). Especificação, decisões e o porquê de outbox 
   derrubam cada um o seu teste. A primeira versão não pegava a falta do `SKIP LOCKED`; entrou o teste da linha
   travada por outra conexão.
 
-- [ ] **H.4b Confirmação de e-mail no cadastro**
+- [x] **H.4b Confirmação de e-mail no cadastro**
   Repetir a senha no cadastro; cadastro sem entrar e tela "Confira seu e-mail" com reenviar; `/confirmar-email`
   entra direto; login recusado sem confirmar (só com a senha certa); e-mail já cadastrado com a mesma resposta e o
   aviso ao dono do e-mail; contas existentes marcadas como confirmadas na migration.
   *Pronto quando:* integração de cada caso do `docs/email.md`, 5.1 (inclusive: a resposta do cadastro não revela se o
   e-mail existe; token vencido, usado e de outra conta recusados; login com senha errada não revela o estado da
   conta); telas conferidas em 320/390/1280, claro e escuro; o e-mail aberto pela pasta local em desenvolvimento.
+  *Feito (2026-10-14):* `EmailLayout` (cabeçalho em tinta, faixa do espectro, quadro de dados; `docs/email.md`, seção 4,
+  "Visual"), `ConfirmEmailComposer` e `AlreadyRegisteredComposer`, `/auth/confirm-email` e `/auth/resend-confirmation`,
+  cadastro sem entrar (202), login que confere a senha antes do estado, `Error.Code` no ProblemDetails, `App:PublicUrl`,
+  provedor de token próprio (3 dias) e migration `ConfirmExistingEmails`. Telas: repetir a senha, "Confira seu e-mail",
+  aviso no login com "Reenviar", `/confirmar-email` (pede a senha, entra e avisa; link que não vale mais pede outro).
+  Revisão de segurança pedida pelo dono: o link não se adivinha, mas entrar só pelo link permitia o pré-sequestro de
+  conta (`docs/email.md`, 5.1 e 5.5); por decisão dele, confirmar pede a senha do cadastro. O token foi para depois
+  do `#` (fora dos logs de acesso) e sai da barra de endereço. Até a H.4c, a senha errada não tem saída na tela
+  ("criar uma senha nova" entra com ela); o cadastro segue fechado na produção. O aviso de
+  e-mail já cadastrado leva só ao `/entrar`; o `/esqueci-senha` entra na H.4c. Testes provados com mutação (10
+  defeitos); o do reenvio a quem já confirmou não era pego pelo envio (o composer também pula) e passou a conferir a
+  fila. Na tela, o roteiro achou o que os testes não acham: "Enviamos outro e-mail" mentia dentro do minuto do limite.
 
-- [ ] **H.4c Esqueci a senha**
+- [x] **H.4c Esqueci a senha**
   `/esqueci-senha` e `/nova-senha` (link de 1 hora); ao trocar, cai o resto das sessões, zera o bloqueio, confirma o
   e-mail, avisa por e-mail e entra.
   *Pronto quando:* integração do `docs/email.md`, 5.2 (resposta igual para e-mail com e sem conta; link vencido,
   usado, e depois de outra troca de senha recusado; sessão antiga cai; conta bloqueada destrava); telas conferidas.
+  *Feito (2026-10-14):* `ForgotPassword` e `ResetPassword`, `ResetPasswordTokenProvider` (1 hora), e-mails
+  `ResetPassword` e `PasswordChanged` (com link "Crie uma senha nova agora"), conferência da sessão a cada 5 min
+  (`AuthSetup.SessionCheckInterval`). Telas `/esqueci-senha` e `/nova-senha`, "Esqueci a senha" no login e a saída
+  "Criar uma senha nova" na confirmação de e-mail; o aviso de e-mail já cadastrado ganhou o link. Fecha o
+  pré-sequestro: criar a senha pelo e-mail confirma a conta e mata a senha do intruso (teste de ponta a ponta).
+  Testes provados com mutação (8 defeitos, todos pegos); fluxo inteiro conferido na tela.
 
 - [ ] **H.4d Trocar a senha**
   "Trocar senha" no menu da conta: senha atual, nova e repetir. Esta sessão fica, as outras caem, aviso por e-mail.
@@ -921,7 +941,8 @@ Decidir quando a fase correspondente chegar:
   `docs/operacao.md`, seção 7). Recebimento do `contato@` e envio pelo Resend (aprovado em 2026-10-13):
   `docs/operacao.md`, seção 8, e etapas H.4.
 - Confirmação de e-mail no cadastro, esqueci a senha, trocar a senha e o contador de senhas erradas sem prazo:
-  viraram as etapas H.4a a H.4e (2026-10-13, `docs/email.md`).
+  viraram as etapas H.4a a H.4e (2026-10-13, `docs/email.md`). Feitas a H.4a (envio), a H.4b (confirmação) e a H.4c
+  (esqueci a senha); faltam a H.4d (trocar a senha logado) e a H.4e (contador com prazo).
 - Login com Google (antiga etapa 1.4), adiado. Critério original: entrar por e-mail e depois
   por Google cai na mesma conta. Atenção: sem confirmação de e-mail, juntar contas pelo
   e-mail permite pré-sequestro de conta. Regra proposta: só juntar se o Google marcar o

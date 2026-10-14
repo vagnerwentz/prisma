@@ -24,8 +24,11 @@ public sealed class AuthTests(PostgresFixture postgres)
     private static Task<HttpResponseMessage> Login(HttpClient client, string email, string password = Password) =>
         client.PostAsJsonAsync("/auth/login", new { email, password });
 
+    private sealed record Registered(string Email);
+
+    // docs/email.md, 5.1: o cadastro não entra. A conta nasce sem o e-mail confirmado, com a confirmação na fila.
     [Fact]
-    public async Task Register_creates_the_account_and_signs_in()
+    public async Task Register_creates_the_account_without_signing_in()
     {
         await using var factory = CreateFactory();
         using var client = factory.CreateHttpsClient();
@@ -33,28 +36,62 @@ public sealed class AuthTests(PostgresFixture postgres)
 
         var response = await Register(client, email);
 
-        response.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var created = await response.Content.ReadFromJsonAsync<UserResponse>();
-        created!.Email.ShouldBe(email);
-
-        var me = await client.GetFromJsonAsync<UserResponse>("/auth/me");
-        me.ShouldBe(created);
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+        (await response.Content.ReadFromJsonAsync<Registered>())!.Email.ShouldBe(email);
+        response.Headers.Contains("Set-Cookie").ShouldBeFalse();
+        (await client.GetAsync("/auth/me")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
+    // Login com a senha certa e o e-mail sem confirmar: recusado, com um código para a tela oferecer o "Reenviar".
     [Fact]
-    public async Task Register_with_an_existing_email_returns_409_in_portuguese()
+    public async Task Login_before_confirming_is_refused_with_its_code()
     {
         await using var factory = CreateFactory();
-        using var client = factory.CreateHttpsClient();
         var email = NewEmail();
-        await Register(client, email);
+        await Register(factory.CreateHttpsClient(), email);
+        using var client = factory.CreateHttpsClient();
 
-        // Caixa diferente: o Identity normaliza, então é o mesmo e-mail.
-        var response = await Register(factory.CreateHttpsClient(), email.ToUpperInvariant());
+        var response = await Login(client, email);
 
-        response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
-        problem!.Detail.ShouldBe("Já existe uma conta com este e-mail.");
+        problem!.Detail.ShouldBe("Falta confirmar seu e-mail. Abra o link que enviamos ou peça outro.");
+        problem.Extensions["code"]!.ToString().ShouldBe("EmailNotConfirmed");
+        response.Headers.Contains("Set-Cookie").ShouldBeFalse();
+        (await client.GetAsync("/auth/me")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+    }
+
+    // Com a senha errada, a resposta é a de sempre: o estado da conta só aparece para quem sabe a senha.
+    [Fact]
+    public async Task Wrong_password_before_confirming_does_not_reveal_the_account()
+    {
+        await using var factory = CreateFactory();
+        var email = NewEmail();
+        await Register(factory.CreateHttpsClient(), email);
+        using var client = factory.CreateHttpsClient();
+
+        var response = await Login(client, email, "senha-errada-999");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        problem!.Detail.ShouldBe("E-mail ou senha inválidos.");
+        problem.Extensions.ShouldNotContainKey("code");
+    }
+
+    // O bloqueio por tentativas vale também para quem não confirmou: a confirmação não abre um atalho para adivinhar.
+    [Fact]
+    public async Task Five_wrong_passwords_lock_an_unconfirmed_account_too()
+    {
+        await using var factory = CreateFactory();
+        var email = NewEmail();
+        await Register(factory.CreateHttpsClient(), email);
+        using var client = factory.CreateHttpsClient();
+
+        for (var i = 0; i < 4; i++)
+            (await Login(client, email, "senha-errada-999")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        (await Login(client, email, "senha-errada-999")).StatusCode.ShouldBe(HttpStatusCode.TooManyRequests);
+
+        (await Login(client, email)).StatusCode.ShouldBe(HttpStatusCode.TooManyRequests);
     }
 
     [Theory]
@@ -80,6 +117,7 @@ public sealed class AuthTests(PostgresFixture postgres)
         await using var factory = CreateFactory();
         var email = NewEmail();
         await Register(factory.CreateHttpsClient(), email);
+        await factory.ConfirmEmailAsync(email);
         using var client = factory.CreateHttpsClient();
 
         var response = await Login(client, email);
@@ -101,6 +139,7 @@ public sealed class AuthTests(PostgresFixture postgres)
         await using var factory = CreateFactory();
         var email = NewEmail();
         await Register(factory.CreateHttpsClient(), email);
+        await factory.ConfirmEmailAsync(email);
         using var client = factory.CreateHttpsClient();
 
         var response = await Login(client, email, "senha-errada-999");
@@ -140,8 +179,7 @@ public sealed class AuthTests(PostgresFixture postgres)
     public async Task Logout_ends_the_session()
     {
         await using var factory = CreateFactory();
-        using var client = factory.CreateHttpsClient();
-        await Register(client, NewEmail());
+        using var client = await factory.CreateAuthenticatedClientAsync();
 
         var response = await client.PostAsync("/auth/logout", null);
 
@@ -155,6 +193,7 @@ public sealed class AuthTests(PostgresFixture postgres)
         await using var factory = CreateFactory();
         var email = NewEmail();
         await Register(factory.CreateHttpsClient(), email);
+        await factory.ConfirmEmailAsync(email);
         using var client = factory.CreateHttpsClient();
 
         const string lockedMessage =

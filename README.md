@@ -62,6 +62,9 @@ reality, so the monthly numbers match your bank account instead of your receipts
 - **Categories:** a default set per user that evolves: new default categories reach existing users
   once, without undoing their renames or deletions.
 - **Undo everywhere:** deleting is a soft delete, restorable from the toast.
+- **Account by email:** sign-up is confirmed by an emailed link, a forgotten password is replaced through a one-hour
+  link, and every security change is announced by email. The emails share the app's look: an ink header, the spectrum
+  stripe and a document-like layout that holds up in Gmail, Outlook and dark mode.
 
 ## Engineering highlights
 
@@ -97,6 +100,14 @@ reality, so the monthly numbers match your bank account instead of your receipts
 - **Tests that prove themselves.** Rules about money and dates are tested before they are written,
   integration tests run against a real PostgreSQL (Testcontainers, never an in-memory provider), and
   new rules are checked by breaking them on purpose and watching a test fail.
+- **Email that never blocks a request.** Emails go through an outbox table written in the same transaction as their
+  reason, and a background worker sends them with growing retry delays for up to 24 hours: the provider being down
+  never fails a sign-up. The provider (Resend, over plain HTTP) sits behind an interface, and no link or token is ever
+  stored: content is built at send time.
+- **Account flows that reveal nothing.** Sign-up, "forgot password" and "resend" answer the same whether or not an
+  account exists. Links are signed, single-use, short-lived and carried after the `#`, so they never reach a server
+  log. Confirming asks for the sign-up password, which closes account pre-hijacking (someone registering a victim's
+  address first); resetting the password through the email confirms the account and locks the intruder out.
 - **Structured logs** with source-generated `LoggerMessage` events, one JSON line per event, and a
   test that refuses events carrying amounts, descriptions, names, emails or tokens.
 - **Backups that have been restored, not just taken.** A daily job dumps the database as a read-only
@@ -139,9 +150,10 @@ flowchart LR
     end
     Slices --> Domain["Prisma.Domain<br/>entities, value objects, rules<br/>(no dependencies)"]
     Slices --> Db[("PostgreSQL 18<br/>EF Core, snake_case")]
-    Job["Background jobs<br/>recurring entries, automatic debits<br/>and the asset catalog"] --> Domain
+    Job["Background jobs<br/>recurring entries, automatic debits,<br/>the asset catalog and the email outbox"] --> Domain
     Job --> Db
     Job -->|"daily asset list and logos"| Brapi["brapi.dev<br/>(B3 market data)"]
+    Job -->|"account emails"| Resend["Resend<br/>(email delivery)"]
 ```
 
 - **`src/Prisma.Domain`:** entities, value objects and rules; no EF Core, ASP.NET Core or Npgsql.
@@ -173,7 +185,8 @@ The backup lives outside Railway on purpose: losing the hosting account must not
 | Layer | Technology |
 |---|---|
 | Backend | .NET 10, ASP.NET Core Minimal APIs, EF Core 10 + Npgsql, FluentValidation |
-| Auth | ASP.NET Core Identity, `httpOnly` secure cookie, rate limiting |
+| Auth | ASP.NET Core Identity, `httpOnly` secure cookie, rate limiting, email confirmation and password reset |
+| Email | Resend over a typed `HttpClient` (no SDK), Postgres outbox, table-based HTML templates |
 | Database | PostgreSQL 18 |
 | Frontend | React 19, TypeScript, Vite, TanStack Query, React Hook Form + Zod, Tailwind CSS, shadcn/ui |
 | API client | `openapi-typescript` + `openapi-fetch`, types generated from the OpenAPI document |

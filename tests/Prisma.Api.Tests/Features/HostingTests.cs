@@ -80,8 +80,12 @@ public sealed class HostingTests(PostgresFixture postgres) : IDisposable
     {
         await using var factory = FrontendFactory(withLanding: true);
         using var client = factory.CreateDefaultClient(new Uri("https://localhost"), new CookieContainerHandler());
-        (await client.PostAsJsonAsync("/api/auth/register", new { email = NewEmail(), password = PrismaApiFactory.Password }))
-            .StatusCode.ShouldBe(HttpStatusCode.Created);
+        var email = NewEmail();
+        (await client.PostAsJsonAsync("/api/auth/register", new { email, password = PrismaApiFactory.Password }))
+            .StatusCode.ShouldBe(HttpStatusCode.Accepted);
+        await factory.ConfirmEmailAsync(email);
+        (await client.PostAsJsonAsync("/api/auth/login", new { email, password = PrismaApiFactory.Password }))
+            .StatusCode.ShouldBe(HttpStatusCode.OK);
 
         (await client.GetStringAsync("/")).ShouldBe(IndexHtml);
     }
@@ -233,7 +237,7 @@ public sealed class HostingTests(PostgresFixture postgres) : IDisposable
 
         var allowed = await client.PostAsJsonAsync("/auth/register",
             new { email = owner.ToUpperInvariant(), password = PrismaApiFactory.Password });
-        allowed.StatusCode.ShouldBe(HttpStatusCode.Created);
+        allowed.StatusCode.ShouldBe(HttpStatusCode.Accepted);
     }
 
     [Fact]
@@ -243,10 +247,13 @@ public sealed class HostingTests(PostgresFixture postgres) : IDisposable
         await using (var first = new PrismaApiFactory(postgres.ConnectionString))
         {
             using var client = first.CreateRawClient();
-            var registered = await client.PostAsJsonAsync("/api/auth/register",
-                new { email = NewEmail(), password = PrismaApiFactory.Password });
-            registered.StatusCode.ShouldBe(HttpStatusCode.Created);
-            var setCookie = registered.Headers.GetValues("Set-Cookie").Single();
+            var email = NewEmail();
+            (await client.PostAsJsonAsync("/api/auth/register", new { email, password = PrismaApiFactory.Password }))
+                .StatusCode.ShouldBe(HttpStatusCode.Accepted);
+            await first.ConfirmEmailAsync(email);
+            var signedIn = await client.PostAsJsonAsync("/api/auth/login", new { email, password = PrismaApiFactory.Password });
+            signedIn.StatusCode.ShouldBe(HttpStatusCode.OK);
+            var setCookie = signedIn.Headers.GetValues("Set-Cookie").Single();
             // No caminho raiz, não no /api: substitui o cookie de antes do prefixo, em vez de conviver com ele.
             setCookie.ShouldContain("path=/;");
             cookie = setCookie.Split(';')[0];

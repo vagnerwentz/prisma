@@ -4,7 +4,10 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Mvc.Testing.Handlers;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
+using Prisma.Api.Infrastructure.Auth;
+using Shouldly;
 using Prisma.Api.Infrastructure.Email;
 using Prisma.Api.Tests.Email;
 using Prisma.Domain;
@@ -83,13 +86,25 @@ public sealed class PrismaApiFactory(
         }
     }
 
-    // Cliente já logado como um usuário novo.
+    // Cliente já logado como um usuário novo, com o e-mail confirmado.
     public async Task<HttpClient> CreateAuthenticatedClientAsync()
     {
+        var email = $"{Guid.NewGuid():N}@teste.com.br";
         var client = CreateHttpsClient();
-        var response = await client.PostAsJsonAsync("/auth/register",
-            new { email = $"{Guid.NewGuid():N}@teste.com.br", password = Password });
-        response.EnsureSuccessStatusCode();
+        (await client.PostAsJsonAsync("/auth/register", new { email, password = Password })).EnsureSuccessStatusCode();
+        await ConfirmEmailAsync(email);
+        (await client.PostAsJsonAsync("/auth/login", new { email, password = Password })).EnsureSuccessStatusCode();
         return client;
+    }
+
+    // Confirma o e-mail direto no banco, sem o link: para os testes que não tratam da confirmação (docs/email.md, 5.1).
+    public async Task<Guid> ConfirmEmailAsync(string email)
+    {
+        using var scope = Services.CreateScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+        var user = (await users.FindByEmailAsync(email))!;
+        user.EmailConfirmed = true;
+        (await users.UpdateAsync(user)).Succeeded.ShouldBeTrue();
+        return user.Id;
     }
 }
