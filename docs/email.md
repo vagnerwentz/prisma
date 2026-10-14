@@ -118,11 +118,13 @@ segurança do `CLAUDE.md`, seção 8; o teste de arquitetura já recusa parâmet
 | Tipo (`EmailKind`) | Quando | Assunto | Link |
 |---|---|---|---|
 | `ConfirmEmail` | cadastro; "reenviar" | Confirme seu e-mail no Prisma Money | `/confirmar-email#u=…&t=…`, vale **3 dias** |
-| `AlreadyRegistered` | cadastro com e-mail que já tem conta | Alguém tentou criar uma conta com seu e-mail | `/entrar` (o `/esqueci-senha` entra na H.4c) |
-| `ResetPassword` | "esqueci a senha" | Crie uma senha nova no Prisma Money | `/nova-senha?u=…&t=…`, vale **1 hora** |
+| `AlreadyRegistered` | cadastro com e-mail que já tem conta | Alguém tentou criar uma conta com seu e-mail | `/entrar` e, na nota, `/esqueci-senha` |
+| `ResetPassword` | "esqueci a senha" | Crie uma senha nova no Prisma Money | `/nova-senha#u=…&t=…`, vale **1 hora** |
 | `PasswordChanged` | senha trocada ou redefinida | Sua senha do Prisma Money foi trocada | `/esqueci-senha`, para quem não reconhece a troca |
 
-- Prazos diferentes pedem dois provedores de token no Identity (o padrão usa um só, de 1 dia, para tudo).
+- Prazos diferentes pedem dois provedores de token no Identity (o padrão usa um só, de 1 dia, para tudo):
+  `ConfirmEmailTokenProvider` e `ResetPasswordTokenProvider`. Cada token vale só para a sua finalidade.
+- Nota e parágrafos aceitam `[texto](https://…)` como link (o "Crie uma senha nova" dos avisos).
 - O link abre uma **tela do app**, que chama a API por `POST`. Os antivírus de e-mail (o "links seguros" do Outlook,
   por exemplo) abrem os links antes da pessoa, sem rodar JavaScript: um `GET` na API gastaria o token.
 - Texto curto, com o motivo do e-mail e o que fazer se não foi a pessoa. Os textos finais vão para revisão do dono
@@ -184,13 +186,19 @@ Pedido do dono: e-mail bonito, estruturado como um documento, com a identidade d
 
 ### 5.2 Esqueci a senha (H.4c)
 
-1. "Esqueci a senha" no `/entrar` leva a `/esqueci-senha`: campo de e-mail e a resposta sempre igual ("Se houver uma
-   conta com esse e-mail, enviamos um link para criar uma senha nova. Ele vale por 1 hora.").
-2. `/nova-senha` tem a senha nova e repetir a senha; `POST /auth/reset-password` troca a senha.
+1. "Esqueci a senha" no `/entrar` (ao lado do rótulo da senha, levando o e-mail já digitado) abre `/esqueci-senha`:
+   campo de e-mail, `POST /auth/forgot-password` e a resposta sempre igual ("Se houver uma conta com esse e-mail,
+   enviamos um link para criar uma senha nova. Ele vale por 1 hora."). Conta sem o e-mail confirmado também recebe.
+   Limites da fila (1 por minuto, 5 por dia) e do `auth` por IP.
+2. `/nova-senha#u=…&t=…` tem a senha nova e repetir a senha; `POST /auth/reset-password` troca a senha. As telas
+   `/esqueci-senha` e `/nova-senha` abrem com ou sem sessão. A senha errada na confirmação de e-mail (5.1) leva a
+   "Criar uma senha nova".
 3. Ao trocar: o `SecurityStamp` muda (as outras sessões caem, seção 5.4), o contador de senhas erradas zera, o
    bloqueio por tentativas acaba, o e-mail fica **confirmado** (o link provou a posse) e vai `PasswordChanged`.
 4. Depois de trocar, **entra direto**.
-5. Link vencido, usado ou de uma conta que trocou a senha depois: "Este link não vale mais", com "Pedir outro".
+5. Link vencido, usado ou de uma conta que trocou a senha depois: "Este link não vale mais", com "Pedir outro link".
+   A tela só sabe disso ao salvar (não há consulta prévia do link): quem abre um link usado preenche a senha e então
+   vê o aviso.
 
 ### 5.3 Trocar a senha (H.4d)
 

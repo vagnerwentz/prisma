@@ -79,6 +79,8 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 | Aviso de ativo faltando | `AssetRequest` | "Não encontrou? Avise a gente": só o código, um por pessoa; "chegou" é calculado pelo catálogo, nunca gravado |
 | Conferir um evento | `EventReview` | o que o evento fez com a quantidade da pessoa: "Confere" ou "Não confere" (para a curadoria); guarda a versão do evento, e o evento corrigido volta a pedir |
 | Dia útil bancário | `BankCalendar` | fins de semana e feriados nacionais; só débito automático e vencimento da fatura |
+| Fila de e-mails | `OutboxEmail` (`EmailKind`, `EmailStatus`) | pedido gravado junto com o motivo; o conteúdo e o token saem na hora do envio (`IEmailComposer`); `docs/email.md` |
+| Link de confirmação / de senha nova | `ConfirmEmail` / `ResetPassword` | token do Identity depois do `#` (`/confirmar-email#u=…&t=…`, `/nova-senha#…`); 3 dias e 1 hora, uma vez só |
 
 ---
 
@@ -88,7 +90,7 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 |---|---|
 | Runtime | .NET 10 (LTS) |
 | API | ASP.NET Core Minimal APIs + `Microsoft.AspNetCore.OpenApi` (documento em `/openapi/v1.json`, só em desenvolvimento) |
-| Auth | ASP.NET Core Identity + cookie `httpOnly` + rate limiter nativo do ASP.NET Core + chaves do Data Protection no Postgres (`Microsoft.AspNetCore.DataProtection.EntityFrameworkCore`); Google OAuth adiado |
+| Auth | ASP.NET Core Identity + cookie `httpOnly` + rate limiter nativo do ASP.NET Core + chaves do Data Protection no Postgres (`Microsoft.AspNetCore.DataProtection.EntityFrameworkCore`); Google OAuth adiado; e-mail confirmado para entrar, senha nova pelo e-mail (`docs/email.md`) |
 | ORM | EF Core 10 + Npgsql + EFCore.NamingConventions (snake_case) + EF Core Design (migrations; `dotnet-ef` fixado em `dotnet-tools.json`) |
 | Banco | PostgreSQL 18 em todo lugar: Docker no desenvolvimento, Testcontainers nos testes, Railway na produção. Mudou a versão da produção, mudam juntos o `docker-compose.yml`, o `PostgresFixture` e a imagem do backup |
 | Validação | FluentValidation |
@@ -351,6 +353,8 @@ não precisa.** `Category` com nome e cor não merece teste unitário;
   fato excepcional.
   Exceção que escapa vira ProblemDetails em pt-BR no `ProblemExceptionHandler` (500 sem
   detalhe interno; corpo ilegível é 400; `DbUpdateConcurrencyException` é 409).
+  Erro que a tela precisa reconhecer sem depender do texto leva um código (`Error.Code`, que vai como `code` no
+  ProblemDetails e em `ApiError.code` no front): `EmailNotConfirmed`, `InvalidLink`, `WrongPassword`.
 - **Concorrência:** entidade que dois pedidos simultâneos podem corromper (hoje, `Statement`:
   pagar duas vezes a mesma fatura) usa a coluna `xmin` do Postgres como token
   (`Property<uint>("Version").IsRowVersion()`), com teste de corrida. Quem põe ou tira compra de uma
@@ -407,6 +411,8 @@ docker compose up -d                                  # Postgres
 dotnet build
 dotnet test
 PRISMA_LIVE_TESTS=1 dotnet test tests/Prisma.Api.Tests --filter Category=Live   # contrato com a brapi real
+PRISMA_LIVE_TESTS=1 PRISMA_RESEND_API_KEY=<chave> dotnet test tests/Prisma.Api.Tests --filter Category=Live   # e o Resend real (gasta 1 da cota)
+PRISMA_EMAIL_PREVIEW=<pasta> dotnet test tests/Prisma.Api.Tests --filter FullyQualifiedName~EmailPreview      # prévia dos e-mails em .html
 dotnet run --project src/Prisma.Api
 
 dotnet ef migrations add <Name> -p src/Prisma.Api -s src/Prisma.Api
@@ -453,6 +459,11 @@ O front sai comprimido (Brotli/gzip); a API não, por causa do ataque BREACH (`d
 telas do app levam `noindex`.
 Cadastro fechado fora de desenvolvimento (`Registration:Open`); libere e-mails em
 `Registration__AllowedEmails__0`. A connection string vem de `ConnectionStrings__Default`.
+**E-mail** (`docs/email.md`; configuração em `docs/operacao.md`, seção 8): a chave do Resend vem de
+`Email__Resend__ApiKey`, e sem ela a API não sobe fora de desenvolvimento (variável nova se aplica no Railway **antes**
+do merge). Remetente `nao-responda@`, responder-para `contato@` e `App:PublicUrl` (raiz dos links) ficam no
+`appsettings.json`. Em desenvolvimento os e-mails viram `.html` em `src/Prisma.Api/.dev-emails/` (fora do git), com os
+links apontando para o Vite.
 Em produção a API entra no banco como `prisma_app` (dono das tabelas, sem superusuário; criado por
 `ops/postgres/app-user.sql`), e o `postgres` fica só para administração. O TCP Proxy do Postgres fica
 desligado. O backup diário é um serviço à parte no mesmo projeto (`ops/backup/`, cron): `pg_dump` como
@@ -561,7 +572,13 @@ por conversa, arquivo versionado ou histórico do shell.
 
 - Senha pelo hasher do Identity. Não implemente hash à mão.
 - Sessão em cookie `httpOnly` + `Secure` + `SameSite=Lax`. **Nunca JWT em localStorage.**
-- Rate limit em login e recuperação de senha.
+- Rate limit em login, cadastro, confirmação de e-mail e senha nova.
+- **Conta (`docs/email.md`, 5.1 a 5.5):** sem o e-mail confirmado, não entra. Nenhuma resposta conta quem tem conta
+  (cadastro, "esqueci a senha" e reenvio respondem igual; o login só revela "falta confirmar" a quem acertou a senha).
+  Confirmar pede a senha do cadastro (contra o pré-sequestro de conta); a senha nova pelo e-mail confirma a conta e
+  tira o intruso. Os links valem uma vez (o `SecurityStamp` muda), vencem (3 dias e 1 hora), levam o token depois do
+  `#` e nunca são gravados nem logados. A sessão confere o `SecurityStamp` a cada 5 min: senha trocada derruba os
+  outros aparelhos.
 - Nunca logar valor, descrição de transação, nome, e-mail, senha ou token: só ids, tipos e motivos. Um
   teste de arquitetura recusa evento de `AppLog` com parâmetro de nome sensível.
 - **LGPD:** as skills `lgpd-*` (`.claude/skills`, locais, fora do git; goul4rt/lgpd-skills) são consultivas e

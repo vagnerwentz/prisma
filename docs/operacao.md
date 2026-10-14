@@ -543,8 +543,9 @@ só repassa.
    de desenvolvimento.
    **A chave precisa estar no Railway antes do deploy da H.4a:** sem ela, a API não sobe (de propósito, para não
    aceitar cadastro cujo e-mail nunca sai). O deploy falha no health check e o Railway mantém a versão anterior no ar.
-7. **Conferir** (depois da H.4b no ar): cadastro com um e-mail liberado, e-mail recebido no Gmail com "enviado por
-   prismamoney.com.br" e, em *Mostrar original*, `SPF: PASS`, `DKIM: PASS` e `DMARC: PASS`.
+7. **Conferir** (com a H.4b e a H.4c no ar): "Esqueci a senha" no login com o próprio e-mail (o cadastro está fechado),
+   e-mail recebido no Gmail com "enviado por prismamoney.com.br" e, em *Mostrar original*, `SPF: PASS`, `DKIM: PASS` e
+   `DMARC: PASS`. Não precisa trocar a senha: o link vence em 1 hora.
 
 ### 8.3 Responder como `contato@` (Gmail)
 
@@ -574,9 +575,18 @@ As respostas pelo Gmail contam na cota do Resend junto com os e-mails do app (gr
   | Falha passageira, com o motivo e a próxima tentativa | `@eventName:EmailRetryScheduled` |
   | Desistiu (recusado, ou 24 h sem conseguir) | `@eventName:EmailFailed` |
   | Pedido barrado pelo limite por pessoa | `@eventName:EmailThrottled` |
+  | Cadastro com e-mail que já tem conta (vai o aviso ao dono) | `@eventName:RegistrationOfExistingAccount` |
+  | E-mails confirmados / links recusados (motivo: vencido, mexido, senha errada) | `@eventName:EmailConfirmed` / `@eventName:EmailConfirmationRejected` |
+  | Login com a senha certa e o e-mail sem confirmar | `@eventName:LoginFailed` com `@reason:EmailNotConfirmed` |
+  | Pedidos de senha nova / senhas trocadas / links recusados | `@eventName:PasswordResetRequested` / `@eventName:PasswordReset` / `@eventName:PasswordResetRejected` |
 
 - **E-mail que não chegou:** o id da linha vem nos logs acima; no banco, `outbox_emails` pelo id (status, tentativas,
   último erro). No Resend, *Emails* mostra o que saiu e o que voltou.
+- **Alguém não consegue entrar:** a própria pessoa resolve. Sem confirmar o e-mail, o login mostra "Reenviar e-mail";
+  sem lembrar a senha, "Esqueci a senha" no login (link de 1 hora, que também confirma o e-mail e destrava a conta
+  bloqueada). Ninguém troca senha à mão no banco.
+- **Prévia dos e-mails** depois de mudar texto ou layout:
+  `PRISMA_EMAIL_PREVIEW=<pasta> dotnet test tests/Prisma.Api.Tests --filter FullyQualifiedName~EmailPreview`.
 - **Resend fora do ar, ou chave errada (401/403):** a fila tenta de novo por 24 h (30 s, 2 min, 10 min, 1 h, depois
   a cada 6 h). Conserte a chave nesse prazo e nada se perde. Depois disso, a pessoa usa "Reenviar".
 - **Em desenvolvimento** os e-mails viram `.html` em `src/Prisma.Api/.dev-emails/` (`Email:Transport=Folder`). Para
