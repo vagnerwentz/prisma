@@ -62,6 +62,19 @@ public static partial class AppLog
     [LoggerMessage(2008, LogLevel.Information, "Registration with the address of user {UserId} (confirmed: {Confirmed})")]
     public static partial void RegistrationOfExistingAccount(this ILogger logger, Guid userId, bool confirmed);
 
+    // Senha nova pelo e-mail (docs/email.md, 5.2).
+    [LoggerMessage(2009, LogLevel.Information, "User {UserId} asked for a password reset link")]
+    public static partial void PasswordResetRequested(this ILogger logger, Guid userId);
+
+    [LoggerMessage(2010, LogLevel.Warning, "Password reset asked for an address with no account")]
+    public static partial void PasswordResetRequestedForUnknownEmail(this ILogger logger);
+
+    [LoggerMessage(2011, LogLevel.Information, "User {UserId} reset their password")]
+    public static partial void PasswordReset(this ILogger logger, Guid userId);
+
+    [LoggerMessage(2012, LogLevel.Warning, "Password reset rejected: {Reason}")]
+    public static partial void PasswordResetRejected(this ILogger logger, string reason);
+
     [LoggerMessage(3000, LogLevel.Information, "Account {AccountId} created ({AccountType})")]
     public static partial void AccountCreated(this ILogger logger, Guid accountId, AccountType accountType);
 

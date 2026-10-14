@@ -18,6 +18,8 @@ public static class AuthSetup
     // "Avise a gente" (I.7c3): exige login, então limitado por pessoa, não por IP.
     public const string AssetRequestsRateLimitPolicy = "asset-requests";
 
+    public static readonly TimeSpan SessionCheckInterval = TimeSpan.FromMinutes(5);
+
     public static IServiceCollection AddAuth(this IServiceCollection services, IConfiguration configuration)
     {
         // Chaves do cookie no Postgres. O nome fixo impede que o isolamento padrão, pela pasta do
@@ -42,6 +44,7 @@ public static class AuthSetup
                 // estado da conta só apareça para quem a sabe.
                 options.SignIn.RequireConfirmedEmail = true;
                 options.Tokens.EmailConfirmationTokenProvider = ConfirmEmailTokenProvider.ProviderName;
+                options.Tokens.PasswordResetTokenProvider = ResetPasswordTokenProvider.ProviderName;
 
                 options.Password.RequiredLength = 8;
                 options.Password.RequireDigit = false;
@@ -56,7 +59,13 @@ public static class AuthSetup
             .AddEntityFrameworkStores<AppDbContext>()
             .AddSignInManager()
             .AddTokenProvider<ConfirmEmailTokenProvider>(ConfirmEmailTokenProvider.ProviderName)
+            .AddTokenProvider<ResetPasswordTokenProvider>(ResetPasswordTokenProvider.ProviderName)
             .AddErrorDescriber<PortugueseIdentityErrorDescriber>();
+
+        // De quanto em quanto tempo o cookie confere o SecurityStamp (docs/email.md, 5.4). Trocar a senha muda o selo, e a
+        // sessão aberta em outro aparelho cai na conferência seguinte: em até 5 minutos, não nos 30 do padrão. Custa uma
+        // consulta ao usuário por sessão a cada 5 minutos.
+        services.Configure<SecurityStampValidatorOptions>(options => options.ValidationInterval = SessionCheckInterval);
 
         services.ConfigureApplicationCookie(options =>
         {

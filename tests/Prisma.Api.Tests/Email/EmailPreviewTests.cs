@@ -11,7 +11,7 @@ public sealed class EmailPreviewTests
 {
     private static readonly Uri PublicUrl = new("https://prismamoney.com.br/");
 
-    public static TheoryData<string> Emails => new() { "confirm-email", "already-registered" };
+    public static TheoryData<string> Emails => new() { "confirm-email", "already-registered", "reset-password", "password-changed" };
 
     [PreviewTheory]
     [MemberData(nameof(Emails))]
@@ -22,7 +22,12 @@ public sealed class EmailPreviewTests
             "confirm-email" => AuthEmails.ConfirmEmail("pessoa@exemplo.com.br",
                 AuthEmails.ConfirmEmailLink(PublicUrl, Guid.Parse("0199e3a2-6f1c-7d3e-9a41-5b8c2d7e4f10"), "CfDJ8Exemplo+de/token=="),
                 new DateTime(2026, 10, 17, 0, 31, 0, DateTimeKind.Utc)),
-            "already-registered" => AuthEmails.AlreadyRegistered("pessoa@exemplo.com.br", AuthEmails.SignInLink(PublicUrl)),
+            "already-registered" => AuthEmails.AlreadyRegistered("pessoa@exemplo.com.br", AuthEmails.SignInLink(PublicUrl), AuthEmails.ForgotPasswordLink(PublicUrl)),
+            "reset-password" => AuthEmails.ResetPassword("pessoa@exemplo.com.br",
+                AuthEmails.ResetPasswordLink(PublicUrl, Guid.Parse("0199e3a2-6f1c-7d3e-9a41-5b8c2d7e4f10"), "CfDJ8Exemplo+de/token=="),
+                new DateTime(2026, 10, 14, 1, 31, 0, DateTimeKind.Utc)),
+            "password-changed" => AuthEmails.PasswordChanged("pessoa@exemplo.com.br",
+                new DateTime(2026, 10, 14, 0, 31, 0, DateTimeKind.Utc), AuthEmails.ForgotPasswordLink(PublicUrl)),
             _ => throw new ArgumentOutOfRangeException(nameof(name)),
         };
         var content = EmailLayout.Render(template, PublicUrl);

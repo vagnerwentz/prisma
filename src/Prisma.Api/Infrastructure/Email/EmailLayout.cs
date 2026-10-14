@@ -5,8 +5,8 @@ using System.Text.RegularExpressions;
 
 namespace Prisma.Api.Infrastructure.Email;
 
-// O que muda de um e-mail para outro; o resto é o layout (docs/email.md, seção 4). Os parágrafos são texto puro:
-// **assim** vira negrito, e todo o resto é escapado.
+// O que muda de um e-mail para outro; o resto é o layout (docs/email.md, seção 4). Parágrafos e nota são texto puro:
+// **assim** vira negrito, [texto](https://…) vira link, e todo o resto é escapado.
 public sealed record EmailTemplate(
     string Subject,
     string Preheader,
@@ -190,11 +190,16 @@ public static partial class EmailLayout
 
     private static string E(string value) => Encoder.Encode(value);
 
-    // Escapa tudo e só então troca **x** por negrito: nada do texto vira marcação.
-    private static string Rich(string value) => Bold().Replace(E(value), "<strong>$1</strong>");
+    // Escapa tudo e só então troca **x** por negrito e [x](url) por link: nada do texto vira outra marcação.
+    private static string Rich(string value) =>
+        LinkMarkup().Replace(Bold().Replace(E(value), "<strong>$1</strong>"),
+            """<a class="p-link" href="$2" target="_blank" style="color:#5f3ed8;text-decoration:underline;">$1</a>""");
 
-    private static string Plain(string value) => value.Replace("**", "");
+    private static string Plain(string value) => LinkMarkup().Replace(value.Replace("**", ""), "$1 ($2)");
 
     [GeneratedRegex(@"\*\*(.+?)\*\*")]
     private static partial Regex Bold();
+
+    [GeneratedRegex(@"\[([^\]]+)\]\((https?://[^)\s]+)\)")]
+    private static partial Regex LinkMarkup();
 }

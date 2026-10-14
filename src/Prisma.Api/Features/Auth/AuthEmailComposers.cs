@@ -38,6 +38,43 @@ public sealed class AlreadyRegisteredComposer(UserManager<AppUser> users, IOptio
             return null;
 
         var publicUrl = app.Value.PublicUrl;
-        return EmailLayout.Render(AuthEmails.AlreadyRegistered(email.ToAddress, AuthEmails.SignInLink(publicUrl)), publicUrl);
+        return EmailLayout.Render(
+            AuthEmails.AlreadyRegistered(email.ToAddress, AuthEmails.SignInLink(publicUrl), AuthEmails.ForgotPasswordLink(publicUrl)),
+            publicUrl);
+    }
+}
+
+// "Esqueci a senha" (docs/email.md, 5.2): o link de senha nova, com um token gerado na hora do envio.
+public sealed class ResetPasswordComposer(UserManager<AppUser> users, IOptions<AppOptions> app, IClock clock) : IEmailComposer
+{
+    public EmailKind Kind => EmailKind.ResetPassword;
+
+    public async Task<EmailContent?> ComposeAsync(OutboxEmail email, CancellationToken ct)
+    {
+        var user = await users.FindByIdAsync(email.UserId.ToString());
+        if (user is null)
+            return null;
+
+        var token = await users.GeneratePasswordResetTokenAsync(user);
+        var publicUrl = app.Value.PublicUrl;
+        var link = AuthEmails.ResetPasswordLink(publicUrl, user.Id, token);
+        return EmailLayout.Render(
+            AuthEmails.ResetPassword(email.ToAddress, link, clock.UtcNow + ResetPasswordTokenProvider.Lifespan), publicUrl);
+    }
+}
+
+// Aviso de que a senha foi trocada, com a hora do pedido (a da troca), e o caminho para quem não reconhece a troca.
+public sealed class PasswordChangedComposer(UserManager<AppUser> users, IOptions<AppOptions> app) : IEmailComposer
+{
+    public EmailKind Kind => EmailKind.PasswordChanged;
+
+    public async Task<EmailContent?> ComposeAsync(OutboxEmail email, CancellationToken ct)
+    {
+        if (await users.FindByIdAsync(email.UserId.ToString()) is null)
+            return null;
+
+        var publicUrl = app.Value.PublicUrl;
+        return EmailLayout.Render(
+            AuthEmails.PasswordChanged(email.ToAddress, email.CreatedAt, AuthEmails.ForgotPasswordLink(publicUrl)), publicUrl);
     }
 }
