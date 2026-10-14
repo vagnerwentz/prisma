@@ -279,6 +279,25 @@ namespace Prisma.Api.Infrastructure.Migrations
                     b.ToTable("outbox_emails", (string)null);
                 });
 
+            modelBuilder.Entity("Prisma.Api.Infrastructure.Privacy.DeletedAccount", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<DateTime>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.HasKey("UserId")
+                        .HasName("pk_deleted_accounts");
+
+                    b.HasIndex("DeletedAt")
+                        .HasDatabaseName("ix_deleted_accounts_deleted_at");
+
+                    b.ToTable("deleted_accounts", (string)null);
+                });
+
             modelBuilder.Entity("Prisma.Domain.Accounts.Account", b =>
                 {
                     b.Property<Guid>("Id")

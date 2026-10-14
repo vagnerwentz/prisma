@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Npgsql;
 using Prisma.Api.Tests.Infrastructure;
 using Shouldly;
 
@@ -212,6 +213,40 @@ public sealed class AuthTests(PostgresFixture postgres)
         rightPassword.StatusCode.ShouldBe(HttpStatusCode.TooManyRequests);
         (await rightPassword.Content.ReadFromJsonAsync<ProblemDetails>())!.Detail.ShouldBe(lockedMessage);
         rightPassword.Headers.Contains("Set-Cookie").ShouldBeFalse();
+    }
+
+    // O bloqueio dura 15 minutos e depois acaba sozinho, com a contagem zerada: a senha certa entra, e uma senha errada
+    // a mais não bloqueia de novo na hora. O Identity confere o fim do bloqueio pelo relógio do sistema; o teste não
+    // espera 15 minutos: confere o prazo gravado e depois o leva para o passado, como se o tempo tivesse passado.
+    [Fact]
+    public async Task Lockout_lasts_15_minutes_and_then_the_account_signs_in_again()
+    {
+        await using var factory = CreateFactory();
+        var email = NewEmail();
+        await Register(factory.CreateHttpsClient(), email);
+        await factory.ConfirmEmailAsync(email);
+        using var client = factory.CreateHttpsClient();
+        for (var i = 0; i < 5; i++)
+            await Login(client, email, "senha-errada-999");
+
+        var remaining = await Sql<TimeSpan>("SELECT lockout_end - now() FROM users WHERE email = @email", email);
+        remaining.ShouldBeInRange(TimeSpan.FromMinutes(14), TimeSpan.FromMinutes(15));
+        (await Sql<int>("SELECT access_failed_count FROM users WHERE email = @email", email)).ShouldBe(0);
+        (await Login(client, email)).StatusCode.ShouldBe(HttpStatusCode.TooManyRequests);
+
+        await Sql<int>("UPDATE users SET lockout_end = now() - interval '1 second' WHERE email = @email RETURNING 0", email);
+
+        (await Login(client, email, "senha-errada-999")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        (await Login(client, email)).StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    private async Task<T> Sql<T>(string sql, string email)
+    {
+        await using var connection = new NpgsqlConnection(postgres.ConnectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(sql, connection);
+        command.Parameters.AddWithValue("email", email);
+        return (T)(await command.ExecuteScalarAsync())!;
     }
 
     [Fact]
