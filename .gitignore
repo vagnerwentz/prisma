@@ -482,3 +482,6 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# E-mails gravados pela API em desenvolvimento (Email:Transport = Folder; docs/email.md)
+.dev-emails/

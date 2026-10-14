@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Diagnostics;
+using Prisma.Api.Infrastructure.Email;
 using Prisma.Domain.Accounts;
 using Prisma.Domain.Statements;
 
@@ -8,7 +9,7 @@ namespace Prisma.Api.Infrastructure.Logging;
 // propriedades viram campos filtráveis no JSON de produção (@userId:…, @eventName:LoginFailed).
 // Regra 8: nunca valor, descrição, nome, e-mail, senha ou token. Só ids, tipos e motivos; um teste de
 // arquitetura recusa parâmetro com nome sensível.
-// Ids: 1xxx requisição e infraestrutura, 2xxx acesso, 3xxx dinheiro, 4xxx investimentos e dados de mercado.
+// Ids: 1xxx requisição e infraestrutura, 2xxx acesso, 3xxx dinheiro, 4xxx investimentos e dados de mercado, 5xxx e-mail.
 public static partial class AppLog
 {
     // O userId vem do escopo da requisição, fora da frase: anônima não vira "(user (null))".
@@ -190,6 +191,35 @@ public static partial class AppLog
 
     [LoggerMessage(4113, LogLevel.Information, "Review of corporate event {EventId} undone")]
     public static partial void EventReviewUndone(this ILogger logger, Guid eventId);
+
+    // Fila de e-mails (docs/email.md, seção 3): o id da linha, o tipo e o motivo, nunca o endereço, o assunto, o link ou o
+    // token. Para achar um e-mail que não chegou: o id leva à linha da fila (docs/operacao.md, 8.4).
+    [LoggerMessage(5000, LogLevel.Information, "Email {OutboxId} ({Kind}) to user {UserId} sent after {Attempts} attempts")]
+    public static partial void EmailSent(this ILogger logger, Guid outboxId, EmailKind kind, Guid userId, int attempts);
+
+    [LoggerMessage(5001, LogLevel.Warning, "Email {OutboxId} ({Kind}) not sent ({Reason}); next attempt at {NextAttemptAt}")]
+    public static partial void EmailRetryScheduled(this ILogger logger, Guid outboxId, EmailKind kind, string? reason, DateTime nextAttemptAt);
+
+    [LoggerMessage(5002, LogLevel.Error, "Email {OutboxId} ({Kind}) gave up after {Attempts} attempts ({Reason})")]
+    public static partial void EmailFailed(this ILogger logger, Guid outboxId, EmailKind kind, int attempts, string? reason);
+
+    [LoggerMessage(5003, LogLevel.Information, "Email {OutboxId} ({Kind}) skipped: no longer needed")]
+    public static partial void EmailSkipped(this ILogger logger, Guid outboxId, EmailKind kind);
+
+    [LoggerMessage(5004, LogLevel.Warning, "Email {Kind} for user {UserId} not queued: limit reached")]
+    public static partial void EmailThrottled(this ILogger logger, Guid userId, EmailKind kind);
+
+    [LoggerMessage(5005, LogLevel.Information, "Email outbox worker started: checks every {Seconds} s")]
+    public static partial void EmailOutboxWorkerStarted(this ILogger logger, int seconds);
+
+    [LoggerMessage(5006, LogLevel.Error, "Email outbox run failed; the next run tries again")]
+    public static partial void EmailOutboxRunFailed(this ILogger logger, Exception exception);
+
+    [LoggerMessage(5007, LogLevel.Error, "Email {OutboxId} could not be prepared; it is tried again later")]
+    public static partial void EmailProcessingFailed(this ILogger logger, Guid outboxId, Exception exception);
+
+    [LoggerMessage(5008, LogLevel.Information, "Removed {Count} old emails from the outbox")]
+    public static partial void EmailOutboxCleaned(this ILogger logger, int count);
 
     // Rota modelo (/statements/{id}/pay), nunca o caminho cru: ele pode levar ids e consulta. Depois de
     // uma exceção, o ASP.NET tira o endpoint do contexto e o guarda no IExceptionHandlerFeature.
