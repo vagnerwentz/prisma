@@ -9,7 +9,8 @@ namespace Prisma.Api.Infrastructure.Logging;
 // propriedades viram campos filtráveis no JSON de produção (@userId:…, @eventName:LoginFailed).
 // Regra 8: nunca valor, descrição, nome, e-mail, senha ou token. Só ids, tipos e motivos; um teste de
 // arquitetura recusa parâmetro com nome sensível.
-// Ids: 1xxx requisição e infraestrutura, 2xxx acesso, 3xxx dinheiro, 4xxx investimentos e dados de mercado, 5xxx e-mail.
+// Ids: 1xxx requisição e infraestrutura, 2xxx acesso, 3xxx dinheiro, 4xxx investimentos e dados de mercado, 5xxx e-mail,
+// 6xxx privacidade (apagar conta e excluídos).
 public static partial class AppLog
 {
     // O userId vem do escopo da requisição, fora da frase: anônima não vira "(user (null))".
@@ -244,6 +245,29 @@ public static partial class AppLog
 
     [LoggerMessage(5008, LogLevel.Information, "Removed {Count} old emails from the outbox")]
     public static partial void EmailOutboxCleaned(this ILogger logger, int count);
+
+    // Apagar a conta e o excluído (etapa A.3). O AccountDeleted guarda o id fora do banco: se o banco se perder, é por
+    // ele que se acham as contas a apagar de novo depois de restaurar um backup (docs/operacao.md, 5.6).
+    [LoggerMessage(6000, LogLevel.Information, "User {UserId} deleted their account")]
+    public static partial void AccountDeleted(this ILogger logger, Guid userId);
+
+    [LoggerMessage(6001, LogLevel.Warning, "Account deletion rejected for user {UserId}: {Reason}")]
+    public static partial void AccountDeletionRejected(this ILogger logger, Guid userId, string reason);
+
+    [LoggerMessage(6002, LogLevel.Information, "Purged {Count} deleted rows")]
+    public static partial void DeletedItemsPurged(this ILogger logger, int count);
+
+    [LoggerMessage(6003, LogLevel.Warning, "Deleted account {UserId} was back (restored backup?) and was erased again")]
+    public static partial void AccountDeletionReapplied(this ILogger logger, Guid userId);
+
+    [LoggerMessage(6004, LogLevel.Information, "Erasure worker started, running every {IntervalMinutes} minutes")]
+    public static partial void ErasureWorkerStarted(this ILogger logger, double intervalMinutes);
+
+    [LoggerMessage(6005, LogLevel.Error, "Erasure run failed")]
+    public static partial void ErasureRunFailed(this ILogger logger, Exception exception);
+
+    [LoggerMessage(6006, LogLevel.Information, "Forgot {Count} account deletions older than the backup retention")]
+    public static partial void DeletedAccountsForgotten(this ILogger logger, int count);
 
     // Rota modelo (/statements/{id}/pay), nunca o caminho cru: ele pode levar ids e consulta. Depois de
     // uma exceção, o ASP.NET tira o endpoint do contexto e o guarda no IExceptionHandlerFeature.

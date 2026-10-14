@@ -1,4 +1,4 @@
-import { LogOut, Monitor, Moon, Sun } from 'lucide-react'
+import { LogOut, Monitor, Moon, Sun, Trash2 } from 'lucide-react'
 import { Outlet, useMatch, useNavigate } from 'react-router'
 import { BottomNav } from '@/components/BottomNav'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -90,6 +90,11 @@ function UserMenu() {
         >
           <LogOut />
           Sair
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => navigate('/apagar-conta')} className="text-muted-foreground">
+          <Trash2 />
+          Apagar conta
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -404,6 +404,7 @@ Ainda não ensaiado. Se o banco de produção se perder:
    `postgres`) e defina as senhas.
 4. Aponte a API (seção 1, passo 3) e o serviço `backup` (seção 5.1, passo 6) para o Postgres novo. Desligue o
    TCP Proxy. As sessões continuam valendo: as chaves do cookie vêm na cópia.
+5. Antes de reabrir, reaplique as contas apagadas depois da cópia (5.6).
 
 ### 5.4 No dia a dia
 
@@ -423,6 +424,41 @@ são texto simples, com só nomes de tabela, contagens, nome e tamanho do arquiv
 | Perda da chave privada | As cópias antigas viram ilegíveis. Gerar um par novo (5.1, passo 2), trocar `AGE_RECIPIENT`, guardar a privada nos dois lugares e fazer uma restauração de prova com a cópia seguinte. |
 | Trocar de Mac ou de conta Apple | Conferir que a entrada da chave continua no app Senhas, ou levá-la para o novo cofre antes de apagar o antigo. |
 
+
+### 5.6 Contas apagadas, depois de restaurar (A.3)
+
+A cópia restaurada é de antes das exclusões mais recentes: quem apagou a conta depois dela volta a existir no banco. A
+política de privacidade promete apagar de novo. A API faz isso sozinha para todo id que estiver em `deleted_accounts`
+(ao subir e a cada 10 minutos, evento `AccountDeletionReapplied`), mas a tabela restaurada também é velha: falta pôr
+nela os ids apagados depois da cópia.
+
+1. **Se o banco antigo ainda abre** (restauração por dado errado, não por perda), copie a lista dele:
+   `SELECT user_id, deleted_at FROM deleted_accounts WHERE deleted_at >= '<data da cópia>';`
+2. **Se o banco se perdeu**, a lista sai dos logs da API no Railway: filtro `@eventName:AccountDeleted`, do dia da
+   cópia até hoje; cada linha traz o `userId`. Os logs do Railway guardam 7 dias (Hobby): restaure sempre a cópia mais
+   recente e faça este passo logo.
+3. Insira os ids no banco restaurado (como `postgres`, com o TCP Proxy ligado só durante isso):
+   `INSERT INTO deleted_accounts (user_id, deleted_at) VALUES ('<id>', '<instante do log>') ON CONFLICT DO NOTHING;`
+4. Suba a API. Confira no log um `AccountDeletionReapplied` por id que estava no banco, e nenhum `ErasureRunFailed`.
+
+| Pergunta | Filtro no Railway |
+|---|---|
+| Quem apagou a conta (a lista de reserva para depois de restaurar) | `@eventName:AccountDeleted` |
+| Tentativas de apagar com a senha errada ou bloqueada | `@eventName:AccountDeletionRejected` |
+| A limpeza está viva? (uma linha a cada deploy) | `@eventName:ErasureWorkerStarted` |
+| Quanto a limpeza apagou (só quando apagou algo) | `@eventName:DeletedItemsPurged` |
+| Conta que voltou com um backup e foi apagada de novo | `@eventName:AccountDeletionReapplied` |
+| A limpeza falhou | `@eventName:ErasureRunFailed` |
+
+Os logs do Railway duram 7 dias no Hobby (seção 3): o passo 2 só funciona com uma cópia de menos de uma semana.
+
+Os ids ficam 90 dias em `deleted_accounts` (o prazo das cópias) e depois são esquecidos (`DeletedAccountsForgotten`).
+O que a pessoa exclui pelo "Desfazer" não precisa de passo nenhum: a cópia restaurada traz a linha com o `deleted_at`,
+e a limpeza a apaga de novo na primeira passada.
+
+**Se a limpeza falhar** (`ErasureRunFailed` a cada 10 minutos): a passada inteira é desfeita, e nada é apagado até a
+causa sair. Quase sempre é tabela nova com chave estrangeira para uma tabela limpa, sem estar no `ErasureRunner`. O
+teste `DeletedItemsPurgeTests` deveria ter pego antes.
 
 ## 6. Postgres local: mudar de versão
 

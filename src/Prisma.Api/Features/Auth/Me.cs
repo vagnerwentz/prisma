@@ -20,8 +20,10 @@ public static class Me
                 .Select(u => new Response(u.Id, u.Email!))
                 .SingleOrDefaultAsync(ct);
 
+            // Conta apagada em outro aparelho (etapa A.3): o cookie daqui ainda vale até a próxima conferência
+            // (AuthSetup.SessionCheckInterval). 401, e não 404, para a tela levar ao login.
             return response is null
-                ? new Error(ErrorType.NotFound, "Usuário não encontrado.")
+                ? new Error(ErrorType.Unauthorized, "Sessão expirada. Entre de novo.")
                 : response;
         }
     }
@@ -33,5 +35,5 @@ public static class Me
             return result.IsSuccess ? Results.Ok(result.Value) : result.Error.ToProblem();
         })
             .Produces<Response>(200)
-            .ProducesProblem(404);
+            .ProducesProblem(401);
 }

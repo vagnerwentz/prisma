@@ -25,6 +25,7 @@ const AnalysisPage = lazy(() => import('@/features/dashboard/AnalysisPage').then
 const AccountsPage = lazy(() => import('@/features/accounts/AccountsPage').then((m) => ({ default: m.AccountsPage })))
 const RecurrencesPage = lazy(() => import('@/features/recurrences/RecurrencesPage').then((m) => ({ default: m.RecurrencesPage })))
 const InvestmentsPage = lazy(() => import('@/features/investments/InvestmentsPage').then((m) => ({ default: m.InvestmentsPage })))
+const DeleteAccountPage = lazy(() => import('@/features/auth/DeleteAccountPage').then((m) => ({ default: m.DeleteAccountPage })))
 const AccountDetailPage = lazy(() =>
   import('@/features/accounts/AccountDetailPage').then((m) => ({ default: m.AccountDetailPage })),
 )
@@ -66,6 +67,7 @@ export function App() {
                 <Route path="/contas/recorrencias" element={<RecurrencesPage />} />
                 <Route path="/contas/:id" element={<AccountDetailPage />} />
                 <Route path="/contas/investimentos" element={<InvestmentsPage />} />
+                <Route path="/apagar-conta" element={<DeleteAccountPage />} />
               </Route>
             </Route>
             {CrashOnPurpose && <Route path="/dev/erro" element={<CrashOnPurpose />} />}

@@ -844,6 +844,46 @@ Pedida pelo dono (2026-10-13). Especificação, decisões e o porquê de outbox 
   `last_failed_login_at`, `IClock`). Entra aqui por mexer no mesmo login.
   *Pronto quando:* integração: 4 erros, 16 min, mais 4 erros não bloqueiam; 5 erros seguidos bloqueiam como hoje.
 
+### Abertura do cadastro (pedida pelo dono, 2026-10-14)
+
+O dono quer abrir o cadastro e, com ele, a página de apresentação (que só aparece com o cadastro aberto, D5). Antes,
+o que a LGPD pede e a regra do `CLAUDE.md`, seção 8 (texto jurídico só com revisão de advogado). Rascunhos em
+`.lgpd/policies/`.
+
+*Decisões (com o dono, 2026-10-14):* controlador **pessoa física** (Vagner Wentz), contato `contato@prismamoney.com.br`;
+dados no **Railway US West** (transferência internacional a declarar); **18 anos ou mais**, por declaração no cadastro
+(provisório, a confirmar com o advogado); **sem cobrança hoje**, com aviso antes de qualquer cobrança e nada cobrado
+sem aceite. Depois da revisão assistida (GPT) dos rascunhos: o que a pessoa exclui é **apagado de vez em até 1 hora**
+(o tempo do "Desfazer"; de ocorrência de série fica só a marca da data, sem valor nem descrição); mensagens do
+`contato@` guardadas por **1 ano**; encerramento do serviço com **30 dias** de aviso e de exportação.
+
+- [ ] **A.1 Política de privacidade e termos de uso (rascunho)**
+  Escritos a partir do que o app faz (dados, operadores, retenção, direitos), com as perguntas abertas para o
+  advogado no fim de cada um. *Feito o rascunho (2026-10-14):* `.lgpd/policies/privacy-policy-v1-draft.md` e
+  `terms-of-use-v1-draft.md`, revisão 2 com os apontamentos da revisão assistida (cada documento traz o histórico).
+  Fica aberta até a revisão jurídica. Pendência crítica: a transferência internacional (art. 33).
+- [ ] **A.2 Revisão jurídica** (dono, com advogado). Respostas às perguntas abertas; versão final `v1`.
+- [x] **A.3 Apagar a própria conta e apagar de vez o excluído** (direito de eliminação): "Apagar conta" no menu da
+  conta, com a senha, apagando todos os dados da pessoa; tarefa que apaga de vez o que foi excluído; lista mínima das
+  contas apagadas nos últimos 90 dias, para reaplicar a exclusão depois de restaurar um backup. A política promete os três.
+  *Feito (2026-10-14), decisões do dono:* o excluído sai do banco depois de **30 minutos** (o "Desfazer" vale até lá),
+  numa passada a cada 10 minutos (no máximo 40 minutos, dentro do "até 1 hora"); a ocorrência de série excluída **não
+  deixa marca** (a série só gera depois de `GeneratedThrough`, que nunca volta); **sem e-mail** ao apagar a conta.
+  `AccountEraser` (SQL, numa transação: tudo com `user_id`, depois o usuário, que leva em cascata o login e a fila de
+  e-mails) e `ErasureRunner`/`ErasureWorker` (limpeza, reaplicação pela tabela `deleted_accounts` ao subir e a cada 10
+  minutos, esquecimento depois de 90 dias). Quem é apontado por algo vivo perde só o vínculo: estorno vira avulso, série
+  fica sem a categoria, série da conta apagada sai com a conta. `POST /auth/delete-account` (senha errada: 400
+  `WrongPassword`, conta para o bloqueio); `/auth/me` responde 401 para usuário que não existe mais (conta apagada em
+  outro aparelho). Tela `/apagar-conta`. Testes conferem pelo schema que toda tabela com `user_id` sai e toda tabela com
+  `deleted_at` é limpa. Restauração: `docs/operacao.md`, 5.6. Novo teste do bloqueio por senha errada: dura 15 minutos e depois
+  acaba, com a contagem zerada (`AuthTests`).
+- [ ] **A.3b Cópia dos dados** (acesso e portabilidade): "Baixar meus dados" em JSON (lançamentos, contas, cartões,
+  carteira, notas), no menu da conta; a política promete a cópia por pedido, e o botão evita o trabalho manual.
+- [ ] **A.4 Páginas `/privacidade` e `/termos`, aceite no cadastro** ("Li e aceito… e tenho 18 anos ou mais", com a
+  versão e a data guardadas) e links no rodapé da página de apresentação e no cadastro.
+- [ ] **A.5 Abrir:** `contato@` recebendo (`docs/operacao.md`, 8.1), `Registration__Open=true` no Railway; a página de
+  apresentação aparece sozinha em `/`.
+
 ---
 
 ## Fase I — Investimentos

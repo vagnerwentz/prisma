@@ -80,6 +80,7 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 | Conferir um evento | `EventReview` | o que o evento fez com a quantidade da pessoa: "Confere" ou "Não confere" (para a curadoria); guarda a versão do evento, e o evento corrigido volta a pedir |
 | Dia útil bancário | `BankCalendar` | fins de semana e feriados nacionais; só débito automático e vencimento da fatura |
 | Fila de e-mails | `OutboxEmail` (`EmailKind`, `EmailStatus`) | pedido gravado junto com o motivo; o conteúdo e o token saem na hora do envio (`IEmailComposer`); `docs/email.md` |
+| Conta apagada | `DeletedAccount` (`deleted_accounts`) | só o id e o instante, 90 dias, para apagar de novo depois de restaurar um backup (A.3) |
 | Link de confirmação / de senha nova | `ConfirmEmail` / `ResetPassword` | token do Identity depois do `#` (`/confirmar-email#u=…&t=…`, `/nova-senha#…`); 3 dias e 1 hora, uma vez só |
 
 ---
@@ -141,7 +142,7 @@ docs/
 ├── landing.md                  # Página de apresentação: o que promete, visual, LGPD, como é servida e o que falta para ir ao ar
 ├── email.md                    # Etapas H.4: envio (fila no Postgres + Resend), confirmação de e-mail, senha
 ├── investimentos.md            # Fase I: catálogo de ativos (brapi), carteira, proventos, logos, notas, eventos; decisões e achados
-├── operacao.md                 # Roteiros da produção: usuários do banco, backup, restauração, logs; versão do Postgres local; página e domínio
+├── operacao.md                 # Roteiros da produção: usuários do banco, backup, restauração (e contas apagadas), logs; versão do Postgres local; página e domínio
 └── validacao-premissas.md      # Premissas do produto e o resultado de cada validação
 ops/
 ├── backup/                     # Serviço de backup: Dockerfile, backup.sh, restore.sh, teste de ida e volta
@@ -204,6 +205,11 @@ validação de invariante pertencem ao `Prisma.Domain`.
   pedido nasce na mesma gravação que o motivo (`EmailQueue`, sem `SaveChanges` próprio); o conteúdo e o token saem na
   hora do envio (`IEmailComposer`), nunca gravados. Falha passageira espera e tenta de novo por 24 h; o Resend fora do
   ar não derruba nem atrasa quem pede (`docs/email.md`, seção 3).
+- **Quarta tarefa em segundo plano:** `ErasureWorker` (A.3), ao subir e a cada 10 min: apaga de vez o que foi excluído há
+  mais de 30 min (a política promete "em até 1 hora"), reaplica a exclusão das contas em `deleted_accounts` que voltaram
+  com um backup e esquece os ids depois de 90 dias (`ErasureRunner`). Em SQL, para todos de uma vez, e sem ler dado de
+  ninguém. "Apagar conta" é o `AccountEraser`, também em SQL. Tabela nova com `user_id` ou `deleted_at` entra neles: os
+  testes leem o schema e acusam (`AccountDeletionTests`, `DeletedItemsPurgeTests`).
 - **Única consulta que grava:** `GET /categories` entrega ao usuário as categorias das versões novas do
   catálogo (`CategoryCatalog`, uma vez por versão, só para ele; `docs/fase-2.md`, 2.11). Sincronizar no
   login não bastaria: a sessão é persistente.
@@ -255,6 +261,8 @@ Não são preferências. Quebrá-las gera erro de dinheiro que passa despercebid
    **Fora de uma requisição** (tarefa em segundo plano, 2.25), o código age como cada usuário: abre um
    escopo de DI e preenche `ScopedUser.UserId`, que o `HttpCurrentUser` lê antes do cookie. Filtro e
    trava de gravação valem igual; nunca desligue o filtro para "ver todos".
+   **Exceção: apagar de vez** (A.3). A limpeza do excluído e o "Apagar conta" apagam em SQL, sem filtro (como as
+   migrations): só `DELETE` por `deleted_at` vencido ou pelo `user_id` de quem pediu, nunca leitura de dado.
    **Exceção: dados de mercado** (decisão do dono, 2026-10-04). O catálogo de ativos da bolsa (`Asset`) e os
    eventos da empresa (`CorporateEvent`) são os mesmos para todo mundo: não têm `UserId`, não herdam `Entity`, só a
    sincronização diária e a curadoria dos eventos (`corporate-events.json`, que traz também os ativos que saíram da
@@ -262,7 +270,8 @@ Não são preferências. Quebrá-las gera erro de dinheiro que passa despercebid
    arquitetura `OwnershipTests` recusa tabela que não tenha dono nem esteja na lista. Dado do usuário que
    aponta para um ativo (rendimento, operação) continua com dono e filtro.
 
-7. **Exclusão é soft delete** (`DeletedAt` + filtro global), para permitir desfazer. O que vive dentro da entidade
+7. **Exclusão é soft delete** (`DeletedAt` + filtro global), para permitir desfazer. O "Desfazer" vale 30 minutos: depois
+   a linha sai do banco de vez (`ErasureRunner`, A.3), e quem a apontava perde só o vínculo. O que vive dentro da entidade
    (tipo owned, ex.: as linhas da nota) fica junto: o `AppDbContext` impede o EF de apagá-lo (`KeepOwnedParts`).
 
 8. **`RawDescription` é imutável.** O texto cru de importação ou NFC-e nunca é
@@ -572,13 +581,17 @@ por conversa, arquivo versionado ou histórico do shell.
 
 - Senha pelo hasher do Identity. Não implemente hash à mão.
 - Sessão em cookie `httpOnly` + `Secure` + `SameSite=Lax`. **Nunca JWT em localStorage.**
-- Rate limit em login, cadastro, confirmação de e-mail e senha nova.
+- Rate limit em login, cadastro, confirmação de e-mail, senha nova e apagar a conta. Cinco senhas erradas (no login ou
+  ao apagar a conta, na mesma contagem) bloqueiam a conta por 15 minutos; a senha nova pelo e-mail desbloqueia.
 - **Conta (`docs/email.md`, 5.1 a 5.5):** sem o e-mail confirmado, não entra. Nenhuma resposta conta quem tem conta
   (cadastro, "esqueci a senha" e reenvio respondem igual; o login só revela "falta confirmar" a quem acertou a senha).
   Confirmar pede a senha do cadastro (contra o pré-sequestro de conta); a senha nova pelo e-mail confirma a conta e
   tira o intruso. Os links valem uma vez (o `SecurityStamp` muda), vencem (3 dias e 1 hora), levam o token depois do
   `#` e nunca são gravados nem logados. A sessão confere o `SecurityStamp` a cada 5 min: senha trocada derruba os
   outros aparelhos.
+- **Apagar a conta** (A.3): pelo menu da conta, com a senha (errada conta para o bloqueio); tudo da pessoa sai na hora,
+  sem "Desfazer", e o id fica 90 dias em `deleted_accounts` para reaplicar depois de restaurar um backup
+  (`docs/operacao.md`, 5.6). O evento `AccountDeleted` leva o `userId`: é a lista de reserva se o banco se perder.
 - Nunca logar valor, descrição de transação, nome, e-mail, senha ou token: só ids, tipos e motivos. Um
   teste de arquitetura recusa evento de `AppLog` com parâmetro de nome sensível.
 - **LGPD:** as skills `lgpd-*` (`.claude/skills`, locais, fora do git; goul4rt/lgpd-skills) são consultivas e

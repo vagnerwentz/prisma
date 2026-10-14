@@ -22,6 +22,7 @@ using Prisma.Api.Infrastructure.Email;
 using Prisma.Api.Infrastructure.Http;
 using Prisma.Api.Infrastructure.Logging;
 using Prisma.Api.Infrastructure.Market;
+using Prisma.Api.Infrastructure.Privacy;
 using Prisma.Domain;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -70,6 +71,7 @@ builder.Services.AddExceptionHandler<ProblemExceptionHandler>();
 builder.Services.AddFrontendCompression();
 builder.Services.AddAuth(builder.Configuration);
 builder.Services.AddEmail(builder.Configuration, builder.Environment);
+builder.Services.AddPrivacy(builder.Configuration);
 builder.Services.AddAuthFeatures();
 builder.Services.AddAccountFeatures();
 builder.Services.AddCategoryFeatures();

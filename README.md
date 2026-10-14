@@ -61,7 +61,9 @@ reality, so the monthly numbers match your bank account instead of your receipts
   settlement date; category breakdown, month-over-month explanation and upcoming commitments.
 - **Categories:** a default set per user that evolves: new default categories reach existing users
   once, without undoing their renames or deletions.
-- **Undo everywhere:** deleting is a soft delete, restorable from the toast.
+- **Undo everywhere, then really gone:** deleting is a soft delete, restorable from the toast for 30 minutes; after that
+  a background job erases the row for good.
+- **Delete my account:** one screen, the password, and every row of the person leaves the database at once.
 - **Account by email:** sign-up is confirmed by an emailed link, a forgotten password is replaced through a one-hour
   link, and every security change is announced by email. The emails share the app's look: an ink header, the spectrum
   stripe and a document-like layout that holds up in Gmail, Outlook and dark mode.
@@ -108,6 +110,9 @@ reality, so the monthly numbers match your bank account instead of your receipts
   account exists. Links are signed, single-use, short-lived and carried after the `#`, so they never reach a server
   log. Confirming asks for the sign-up password, which closes account pre-hijacking (someone registering a victim's
   address first); resetting the password through the email confirms the account and locks the intruder out.
+- **Erasure that survives a restore.** Deleted account ids are kept for the 90 days that backups live; restoring an
+  older backup brings those accounts back, and the job erases them again. Schema-reading tests fail when a new table
+  with an owner or a soft delete is left out of the erasure.
 - **Structured logs** with source-generated `LoggerMessage` events, one JSON line per event, and a
   test that refuses events carrying amounts, descriptions, names, emails or tokens.
 - **Backups that have been restored, not just taken.** A daily job dumps the database as a read-only
@@ -150,7 +155,7 @@ flowchart LR
     end
     Slices --> Domain["Prisma.Domain<br/>entities, value objects, rules<br/>(no dependencies)"]
     Slices --> Db[("PostgreSQL 18<br/>EF Core, snake_case")]
-    Job["Background jobs<br/>recurring entries, automatic debits,<br/>the asset catalog and the email outbox"] --> Domain
+    Job["Background jobs<br/>recurring entries, automatic debits,<br/>the asset catalog, the email outbox<br/>and erasure of deleted data"] --> Domain
     Job --> Db
     Job -->|"daily asset list and logos"| Brapi["brapi.dev<br/>(B3 market data)"]
     Job -->|"account emails"| Resend["Resend<br/>(email delivery)"]
@@ -172,6 +177,7 @@ flowchart LR
     subgraph Railway["Railway project (private network)"]
         App["API + React<br/>one Docker image"] --> Pg[("PostgreSQL")]
         Cron["Backup service<br/>daily cron, 03:00 São Paulo"] -->|"pg_dump as a<br/>read-only user"| Pg
+        App -->|"after a restore: erase again<br/>accounts deleted in the last 90 days"| Pg
     end
     Cron -->|"encrypted with age<br/>(public key only)"| R2[("Cloudflare R2<br/>90-day retention<br/>30-day deletion lock")]
     Cron -->|"start, success, failure"| HC["Healthchecks.io<br/>alerts when a day is missed"]
@@ -179,6 +185,18 @@ flowchart LR
 ```
 
 The backup lives outside Railway on purpose: losing the hosting account must not take the backups with it.
+
+Deleting is undoable for a while, then final. The same job keeps the promise after a backup is restored:
+
+```mermaid
+flowchart LR
+    Delete["Delete an entry,<br/>account, note…"] -->|"soft delete"| Undo["Undo from the toast<br/>for 30 minutes"]
+    Undo -->|"job every 10 min"| Gone["Row erased<br/>(links to it cleared)"]
+    Close["Delete my account<br/>(password)"] -->|"one SQL transaction"| Erased["Every row of the person<br/>erased at once"]
+    Erased --> List[("deleted_accounts<br/>id + time, 90 days")]
+    Restore["Backup restored"] -.->|"account is back"| List
+    List -.->|"job erases it again"| Erased
+```
 
 ## Tech stack
 

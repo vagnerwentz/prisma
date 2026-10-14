@@ -96,3 +96,18 @@ export function useResetPassword() {
     },
   })
 }
+
+// "Apagar conta" (etapa A.3): com a senha, a conta e tudo o que é dela saem de vez. Nada do usuário fica em cache.
+export function useDeleteAccount() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (password: string) => {
+      const result = await api.POST('/auth/delete-account', { body: { password } })
+      if (!result.response.ok) unwrap(result)
+    },
+    onSuccess: () => {
+      queryClient.clear()
+      queryClient.setQueryData(meKey, null)
+    },
+  })
+}

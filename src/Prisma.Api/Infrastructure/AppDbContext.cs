@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Prisma.Api.Infrastructure.Auth;
 using Prisma.Api.Infrastructure.Email;
+using Prisma.Api.Infrastructure.Privacy;
 using Prisma.Domain;
 using Prisma.Domain.Accounts;
 using Prisma.Domain.Categories;
@@ -71,6 +72,9 @@ public sealed class AppDbContext(
     // Fila de e-mails a enviar (docs/email.md, seção 3). Sem filtro: a tarefa atende todo mundo.
     public DbSet<OutboxEmail> OutboxEmails => Set<OutboxEmail>();
 
+    // Contas apagadas nos últimos 90 dias, para apagar de novo depois de restaurar um backup (etapa A.3). Sem filtro.
+    public DbSet<DeletedAccount> DeletedAccounts => Set<DeletedAccount>();
+
     // Tabelas sem dono, de propósito (CLAUDE.md, regra 6). Toda outra tabela herda Entity e recebe o filtro
     // de dono; um teste de arquitetura recusa tabela que não seja nem uma coisa nem outra. Tabela global
     // nova entra aqui, com o motivo.
@@ -89,6 +93,8 @@ public sealed class AppDbContext(
         typeof(CorporateEvent),
         // Fila de e-mails: só a API escreve e só a tarefa lê, para todos; nenhum endpoint a lista. O UserId é referência.
         typeof(OutboxEmail),
+        // Contas apagadas: o dono não existe mais; só a limpeza lê (AccountEraser).
+        typeof(DeletedAccount),
     };
 
     // Lido pelo EF a cada consulta, não no momento em que o modelo é construído.
