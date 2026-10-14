@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { PasswordField } from '@/components/PasswordField'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -10,27 +10,17 @@ import { ApiError } from '@/lib/api'
 import { AuthCard, AuthShell } from './AuthShell'
 import { ResendConfirmationButton } from './ResendConfirmationButton'
 import { useConfirmEmail } from './queries'
+import { useEmailLink } from './useEmailLink'
 
-// O link do e-mail de confirmação (docs/email.md, 5.1): /confirmar-email#u=<usuário>&t=<token>. O token vem depois do
-// "#", que o navegador não manda a servidor nenhum, e sai da barra de endereço assim que a tela o lê (não fica no
-// histórico). Confirmar pede a senha do cadastro: o link prova o e-mail, a senha prova quem criou a conta.
-function readLink(hash: string) {
-  const params = new URLSearchParams(hash.replace(/^#/, ''))
-  return { userId: params.get('u') ?? '', token: params.get('t') ?? '' }
-}
-
+// O link do e-mail de confirmação (docs/email.md, 5.1): /confirmar-email#u=<usuário>&t=<token> (useEmailLink).
+// Confirmar pede a senha do cadastro: o link prova o e-mail, a senha prova quem criou a conta.
 export function ConfirmEmailPage() {
-  const location = useLocation()
   const navigate = useNavigate()
-  const [link] = useState(() => readLink(location.hash))
+  const { userId, token, complete } = useEmailLink()
   const confirm = useConfirmEmail()
   const [password, setPassword] = useState('')
 
-  useEffect(() => {
-    if (location.hash) navigate(location.pathname, { replace: true })
-  }, [location.hash, location.pathname, navigate])
-
-  const incomplete = !link.userId || !link.token
+  const incomplete = !complete
   const error = confirm.error instanceof ApiError ? confirm.error : null
   if (incomplete || error?.code === 'InvalidLink') return <InvalidLink />
 
@@ -41,7 +31,7 @@ export function ConfirmEmailPage() {
     event.preventDefault()
     if (!password) return
     confirm.mutate(
-      { ...link, password },
+      { userId, token, password },
       {
         onSuccess: () => {
           toast.success('E-mail confirmado', { description: 'Boas-vindas ao Prisma Money.' })
@@ -71,7 +61,14 @@ export function ConfirmEmailPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
-            {wrongPassword && <p className="text-sm text-destructive">{error.message}</p>}
+            {wrongPassword && (
+              <p className="text-sm text-destructive">
+                {error.message}{' '}
+                <Link to="/esqueci-senha" className="font-medium text-foreground underline underline-offset-4">
+                  Criar uma senha nova
+                </Link>
+              </p>
+            )}
           </div>
           <Button type="submit" className="mt-2 h-11 w-full rounded-xl text-base" disabled={confirm.isPending || !password}>
             {confirm.isPending ? 'Confirmando…' : 'Confirmar e entrar'}

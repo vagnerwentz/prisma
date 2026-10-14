@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { Link } from 'react-router'
 import { z } from 'zod'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -69,6 +69,7 @@ export function AuthForm({ mode, onSubmit }: Props) {
     defaultValues: { email: '', password: '', confirmPassword: '' },
   })
   const { errors, isSubmitting } = form.formState
+  const typedEmail = useWatch({ control: form.control, name: 'email' })
   // Login com a senha certa e o e-mail sem confirmar: o aviso traz o "Reenviar" para o e-mail digitado.
   const [unconfirmed, setUnconfirmed] = useState<string | null>(null)
 
@@ -123,7 +124,19 @@ export function AuthForm({ mode, onSubmit }: Props) {
             {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="password">Senha</Label>
+            <div className="flex items-baseline justify-between gap-3">
+              <Label htmlFor="password">Senha</Label>
+              {mode === 'login' && (
+                // Leva o e-mail já digitado, para não pedir de novo.
+                <Link
+                  to="/esqueci-senha"
+                  state={{ email: typedEmail.trim() }}
+                  className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                >
+                  Esqueci a senha
+                </Link>
+              )}
+            </div>
             <PasswordField
               id="password"
               autoComplete={text.passwordAutocomplete}

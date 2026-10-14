@@ -10,9 +10,11 @@ import { SummaryPage } from '@/features/dashboard/SummaryPage'
 // O resumo (tela inicial) vai no pacote principal; as demais telas são baixadas quando abertas.
 const LoginPage = lazy(() => import('@/features/auth/LoginPage').then((m) => ({ default: m.LoginPage })))
 const RegisterPage = lazy(() => import('@/features/auth/RegisterPage').then((m) => ({ default: m.RegisterPage })))
-const ConfirmEmailPage = lazy(() =>
-  import('@/features/auth/ConfirmEmailPage').then((m) => ({ default: m.ConfirmEmailPage })),
+const ForgotPasswordPage = lazy(() =>
+  import('@/features/auth/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage })),
 )
+const NewPasswordPage = lazy(() => import('@/features/auth/NewPasswordPage').then((m) => ({ default: m.NewPasswordPage })))
+const ConfirmEmailPage = lazy(() => import('@/features/auth/ConfirmEmailPage').then((m) => ({ default: m.ConfirmEmailPage })))
 const TransactionsPage = lazy(() =>
   import('@/features/transactions/TransactionsPage').then((m) => ({ default: m.TransactionsPage })),
 )
@@ -51,6 +53,9 @@ export function App() {
             </Route>
             {/* O link do e-mail: abre com ou sem sessão (quem confirma entra como a conta do link). */}
             <Route path="/confirmar-email" element={<ConfirmEmailPage />} />
+            {/* Senha nova pelo e-mail: com ou sem sessão (o aviso de senha trocada leva aqui de qualquer aparelho). */}
+            <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
+            <Route path="/nova-senha" element={<NewPasswordPage />} />
             <Route element={<RequireAuth />}>
               <Route path="/lancar" element={<NewTransactionPage />} />
               <Route element={<AppLayout />}>

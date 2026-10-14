@@ -72,3 +72,27 @@ export function useResendConfirmation() {
     },
   })
 }
+
+// "Esqueci a senha": pede o link de senha nova. A API responde igual exista a conta ou não.
+export function useForgotPassword() {
+  return useMutation({
+    mutationFn: async (email: string) => {
+      const result = await api.POST('/auth/forgot-password', { body: { email } })
+      if (!result.response.ok) unwrap(result)
+    },
+  })
+}
+
+export type ResetPasswordRequest = { userId: string; token: string; password: string }
+
+// O link de senha nova: troca a senha e já entra. Nada do usuário anterior fica em cache.
+export function useResetPassword() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: ResetPasswordRequest) => unwrap(await api.POST('/auth/reset-password', { body })),
+    onSuccess: (user) => {
+      queryClient.clear()
+      queryClient.setQueryData(meKey, user)
+    },
+  })
+}
