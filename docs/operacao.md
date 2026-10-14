@@ -486,10 +486,91 @@ A página de apresentação (`docs/landing.md`) já vai na imagem, mas só apare
     para a raiz. Redirecionar seria na API (a regra de redirecionamento da Cloudflare só age com a nuvem laranja).
   - **Conferir:** `https://prismamoney.com.br/`, `/og.jpg`, `/robots.txt`, `/sitemap.xml` e `/api/health`
     respondem 200, e `http://` redireciona para `https://`.
-  - **Falta:** Email Routing do `contato@` e os registros do Resend (`docs/landing.md`, seção 10).
+  - **E-mail** (Email Routing do `contato@`, registros do Resend, DMARC): seção 8.
 - **Imagem do link no WhatsApp:** os apps guardam a prévia por um tempo. Para conferir depois de mudar a `og.jpg`,
   colar o link numa conversa nova. O depurador de compartilhamento do Facebook mostra a prévia que os sites leem e
   renova o cache do Facebook; o WhatsApp renova o dele com o tempo.
 - **Compressão:** o front sai comprimido pela própria API (Brotli ou gzip, conforme o navegador pede). Para conferir:
   `curl -sI -H "Accept-Encoding: br" https://prismamoney.com.br/` deve trazer `content-encoding: br`; um endereço
   sob `/api` não traz.
+
+## 8. E-mail: receber, enviar e responder (H.4)
+
+Por que cada peça: `docs/email.md`. Três serviços, todos no plano gratuito, nesta ordem. Nenhuma senha ou chave passa
+pela conversa, por arquivo versionado ou pelo histórico do shell.
+
+| Endereço | Recebe | Envia |
+|---|---|---|
+| `contato@prismamoney.com.br` | sim: Email Routing repassa ao Gmail do dono | o dono, pelo Gmail ("Enviar e-mail como", 8.3) |
+| `nao-responda@prismamoney.com.br` | não (sem regra: volta para quem mandou) | o app, pelo Resend, com "responder para" o `contato@` |
+
+Nenhum dos dois é uma caixa de e-mail: o Resend envia por qualquer endereço do domínio verificado, e o Email Routing
+só repassa.
+
+### 8.1 Receber o `contato@` (Cloudflare Email Routing)
+
+1. Cloudflare → `prismamoney.com.br` → *Email* → *Email Routing* → *Get started*.
+2. *Custom address* `contato` → *Action* "Send to an email" → o Gmail do dono. A Cloudflare manda um e-mail de
+   verificação para o Gmail: clicar no link.
+3. Aceitar os registros que ela propõe (*Add records and enable*): três MX na raiz (`route1/2/3.mx.cloudflare.net`) e um
+   TXT de SPF na raiz. Só pode haver **um** TXT `v=spf1` na raiz: se já houver um (vindo da GoDaddy), juntar os dois.
+4. *Catch-all* desligado: o `nao-responda@` e endereços inventados voltam para quem mandou.
+5. **Conferir:** de outro e-mail (não o próprio Gmail de destino, que o Gmail esconde), mandar para o `contato@` e ver
+   chegar.
+
+### 8.2 Enviar pelo app (Resend)
+
+1. Conta no Resend com 2FA. *Domains* → *Add domain* → `prismamoney.com.br`, região **São Paulo** (`sa-east-1`).
+2. Colar na Cloudflare (*DNS* → *Records* → *Add record*) os registros que o Resend mostrar. Em 2026-10-13 foram três,
+   todos com TTL *Auto* e a **nuvem cinza** (*DNS only*):
+
+   | Tipo | Nome | Conteúdo | Para quê |
+   |---|---|---|---|
+   | TXT | `resend._domainkey` | `p=MIGfMA0…` (a chave pública inteira, como o Resend mostra) | DKIM: assina os e-mails pelo domínio |
+   | CNAME | `send` | `send.forge.rmta.net` | SPF e retorno dos e-mails devolvidos |
+   | CNAME | `rsend` | `rsend-sae1.forge.rmta.net` | idem, na região de São Paulo (`sae1`) |
+
+   No campo *Name* vai só o começo (`send`, não `send.prismamoney.com.br`): a Cloudflare completa. Os nomes não colidem
+   com os do 8.1, que ficam na raiz. A chave do DKIM é pública (qualquer um a lê no DNS); não é segredo.
+3. *Verify* e esperar o domínio ficar *Verified*.
+4. **DMARC:** o `_dmarc` atual veio da GoDaddy (`p=quarantine`, relatórios para um endereço dela). Trocar o destino
+   dos relatórios pelo da Cloudflare (*Email* → *DMARC Management*, que dá um endereço e o painel de leitura), mantendo
+   `p=quarantine`. Os e-mails do Resend saem assinados pelo domínio e passam.
+5. *API Keys* → criar `prisma-api`, permissão *Sending access*, só o domínio `prismamoney.com.br`. Colar direto no
+   Railway, no serviço da API, como `Email__Resend__ApiKey`. A chave só aparece uma vez: se perder, apague e crie
+   outra.
+6. Remetente e responder-para já vão no `appsettings.json` (não são segredo); `Email:Transport` já é `Resend` fora
+   de desenvolvimento.
+   **A chave precisa estar no Railway antes do deploy da H.4a:** sem ela, a API não sobe (de propósito, para não
+   aceitar cadastro cujo e-mail nunca sai). O deploy falha no health check e o Railway mantém a versão anterior no ar.
+7. **Conferir** (depois da H.4b no ar): cadastro com um e-mail liberado, e-mail recebido no Gmail com "enviado por
+   prismamoney.com.br" e, em *Mostrar original*, `SPF: PASS`, `DKIM: PASS` e `DMARC: PASS`.
+
+### 8.3 Responder como `contato@` (Gmail)
+
+1. No Resend, outra chave: `gmail-contato`, *Sending access*, só o domínio. Separada da do app: se vazar ou for
+   apagada, uma não derruba a outra.
+2. Gmail → *Configurações* → *Ver todas as configurações* → *Contas e importação* → *Enviar e-mail como* → *Adicionar
+   outro endereço de e-mail*.
+3. Nome `Prisma Money`, endereço `contato@prismamoney.com.br`, *Tratar como alias* marcado.
+4. Servidor SMTP `smtp.resend.com`, porta `587`, usuário `resend`, senha: a chave do passo 1, colada direto no Gmail.
+   Conexão TLS.
+5. O Gmail manda um código para o `contato@`, que chega pelo 8.1: confirmar.
+6. Em *Ao responder uma mensagem*, escolher "Responder do mesmo endereço para o qual a mensagem foi enviada".
+7. **Conferir:** responder a um e-mail que chegou no `contato@` e ver, do outro lado, o remetente `contato@` sem o
+   endereço pessoal.
+
+As respostas pelo Gmail contam na cota do Resend junto com os e-mails do app (gratuito: 100 por dia, 3.000 por mês).
+
+### 8.4 No dia a dia
+
+- **E-mail que não chegou:** no Railway, `@message:EmailFailed` ou `@message:EmailRetryScheduled` com o id da linha;
+  no banco, `outbox_emails` pelo id (status, tentativas, último erro). No Resend, *Emails* mostra o que saiu e o que
+  voltou.
+- **Resend fora do ar, ou chave errada (401/403):** a fila tenta de novo por 24 h (30 s, 2 min, 10 min, 1 h, depois
+  a cada 6 h). Conserte a chave nesse prazo e nada se perde. Depois disso, a pessoa usa "Reenviar".
+- **Em desenvolvimento** os e-mails viram `.html` em `src/Prisma.Api/.dev-emails/` (`Email:Transport=Folder`). Para
+  testar o envio real, User Secrets `Email:Transport=Resend` e `Email:Resend:ApiKey`.
+- **Contrato com o Resend** (envia para `delivered@resend.dev`, gasta um da cota):
+  `PRISMA_LIVE_TESTS=1 PRISMA_RESEND_API_KEY=<chave> dotnet test tests/Prisma.Api.Tests --filter Category=Live`. Antes
+  do domínio verificado, `PRISMA_RESEND_FROM="onboarding@resend.dev"`.
