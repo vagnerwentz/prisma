@@ -18,6 +18,7 @@ using Prisma.Api.Features.Transactions;
 using Prisma.Api.Features.Transfers;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Auth;
+using Prisma.Api.Infrastructure.Email;
 using Prisma.Api.Infrastructure.Http;
 using Prisma.Api.Infrastructure.Logging;
 using Prisma.Api.Infrastructure.Market;
@@ -68,6 +69,7 @@ builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = 
 builder.Services.AddExceptionHandler<ProblemExceptionHandler>();
 builder.Services.AddFrontendCompression();
 builder.Services.AddAuth(builder.Configuration);
+builder.Services.AddEmail(builder.Configuration, builder.Environment);
 builder.Services.AddAuthFeatures();
 builder.Services.AddAccountFeatures();
 builder.Services.AddCategoryFeatures();

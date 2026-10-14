@@ -775,6 +775,55 @@ conversa e o TCP Proxy do Postgres ficou ligado. A H.2 foi dividida em três (de
   resumo funcionam; um deploy novo não derruba a sessão; um backup foi restaurado num banco
   local e conferido.
 
+### E-mail e conta (antes do cadastro público)
+
+Pedida pelo dono (2026-10-13). Especificação, decisões e o porquê de outbox em vez de RabbitMQ/Kafka em
+`docs/email.md`; configuração da Cloudflare, do Resend e do Gmail em `docs/operacao.md`, seção 8.
+
+- [x] **H.4a Envio de e-mail**
+  `IEmailTransport` (Resend por HTTP, pasta local em desenvolvimento, falso nos testes), fila `outbox_emails`
+  gravada na mesma transação do motivo, `EmailOutboxWorker` com tentativas e espera crescente, limites por usuário,
+  retenção de 30 dias, logs sem endereço. Nenhum e-mail ainda é pedido por um fluxo: a etapa entrega a peça.
+  *Pronto quando:* integração da fila (pedido junto com a gravação e nada sem ela; envio com o transporte falso;
+  falha passageira reagenda e a definitiva marca `Failed`; 24 h sem sucesso marcam `Failed`; duas execuções ao mesmo
+  tempo enviam uma vez; limite por minuto e por dia; limpeza dos 30 dias); teste do `ResendEmailTransport` com
+  `HttpMessageHandler` falso (corpo, cabeçalhos, 2xx/429/5xx/4xx/tempo esgotado) e um `[LiveFact]`
+  contra o Resend real; a API não sobe fora de desenvolvimento sem a chave; teste de arquitetura com os eventos novos
+  do `AppLog`.
+  *Feito (2026-10-13):* `Infrastructure/Email`: `IEmailTransport` (`ResendEmailTransport`, `FolderEmailTransport`),
+  `IEmailComposer` (nenhum ainda), `EmailQueue`, `EmailOutboxProcessor` e `EmailOutboxWorker`; tabela `outbox_emails`
+  (migration `AddOutboxEmails`, global, com cascata do usuário). Duas mudanças na especificação, registradas no
+  `docs/email.md`: a tarefa consulta a cada 5 s em vez de ser avisada (o aviso chegaria antes do commit de quem
+  pede), e sem `Idempotency-Key` (o token muda a cada tentativa; o raro e-mail em dobro é inofensivo). 401/403 do
+  Resend esperam na fila (chave ou domínio a consertar), em vez de perder o e-mail. Testes provados com mutação:
+  sem o `SKIP LOCKED`, sem a reserva, limites, limpeza, 401, pasta em produção, espera, cascata e o `Skipped`
+  derrubam cada um o seu teste. A primeira versão não pegava a falta do `SKIP LOCKED`; entrou o teste da linha
+  travada por outra conexão.
+
+- [ ] **H.4b Confirmação de e-mail no cadastro**
+  Repetir a senha no cadastro; cadastro sem entrar e tela "Confira seu e-mail" com reenviar; `/confirmar-email`
+  entra direto; login recusado sem confirmar (só com a senha certa); e-mail já cadastrado com a mesma resposta e o
+  aviso ao dono do e-mail; contas existentes marcadas como confirmadas na migration.
+  *Pronto quando:* integração de cada caso do `docs/email.md`, 5.1 (inclusive: a resposta do cadastro não revela se o
+  e-mail existe; token vencido, usado e de outra conta recusados; login com senha errada não revela o estado da
+  conta); telas conferidas em 320/390/1280, claro e escuro; o e-mail aberto pela pasta local em desenvolvimento.
+
+- [ ] **H.4c Esqueci a senha**
+  `/esqueci-senha` e `/nova-senha` (link de 1 hora); ao trocar, cai o resto das sessões, zera o bloqueio, confirma o
+  e-mail, avisa por e-mail e entra.
+  *Pronto quando:* integração do `docs/email.md`, 5.2 (resposta igual para e-mail com e sem conta; link vencido,
+  usado, e depois de outra troca de senha recusado; sessão antiga cai; conta bloqueada destrava); telas conferidas.
+
+- [ ] **H.4d Trocar a senha**
+  "Trocar senha" no menu da conta: senha atual, nova e repetir. Esta sessão fica, as outras caem, aviso por e-mail.
+  *Pronto quando:* integração do `docs/email.md`, 5.3 (senha atual errada recusada e contada para o bloqueio; sessão
+  atual continua e outra cai depois da validação); painel conferido.
+
+- [ ] **H.4e Contador de senhas erradas com prazo**
+  A pendência de produto: erros espalhados no tempo não acumulam mais (janela de 15 min, coluna
+  `last_failed_login_at`, `IClock`). Entra aqui por mexer no mesmo login.
+  *Pronto quando:* integração: 4 erros, 16 min, mais 4 erros não bloqueiam; 5 erros seguidos bloqueiam como hoje.
+
 ---
 
 ## Fase I — Investimentos
@@ -869,14 +918,10 @@ Decidir quando a fase correspondente chegar:
   privacidade, termos e contato. Em aberto lá (seção 7): o nome visível do app ("Prisma" → "Prisma Money", com os
   vídeos regravados), "não vendemos seus dados" e como medir quem chega.
 - Domínio `prismamoney.com.br`: no ar desde 2026-10-13 (comprado na GoDaddy, DNS na Cloudflare, site no Railway;
-  `docs/operacao.md`, seção 7). Faltam o recebimento do `contato@` (Email Routing da Cloudflare) e o envio pelo
-  Resend, que entra com aval, na etapa da confirmação de e-mail (`docs/landing.md`, seção 10). (antes de abrir
-  cadastro público)
-- Confirmação de e-mail no cadastro. Hoje o cadastro loga direto, sem confirmar; entra junto
-  com o envio de e-mail (recuperação de senha). (antes de abrir cadastro público)
-- Contador de senhas erradas não expira: o Identity só zera no login certo ou ao bloquear, então
-  erros espalhados no tempo acumulam. Proposta: janela de 15 min com coluna
-  `last_failed_login_at` e `IClock`, que não reduz a proteção contra força bruta. (antes de abrir cadastro público)
+  `docs/operacao.md`, seção 7). Recebimento do `contato@` e envio pelo Resend (aprovado em 2026-10-13):
+  `docs/operacao.md`, seção 8, e etapas H.4.
+- Confirmação de e-mail no cadastro, esqueci a senha, trocar a senha e o contador de senhas erradas sem prazo:
+  viraram as etapas H.4a a H.4e (2026-10-13, `docs/email.md`).
 - Login com Google (antiga etapa 1.4), adiado. Critério original: entrar por e-mail e depois
   por Google cai na mesma conta. Atenção: sem confirmação de e-mail, juntar contas pelo
   e-mail permite pré-sequestro de conta. Regra proposta: só juntar se o Google marcar o

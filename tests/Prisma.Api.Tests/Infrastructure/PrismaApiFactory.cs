@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Mvc.Testing.Handlers;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Prisma.Api.Infrastructure.Email;
+using Prisma.Api.Tests.Email;
 using Prisma.Domain;
 
 namespace Prisma.Api.Tests.Infrastructure;
@@ -38,6 +40,14 @@ public sealed class PrismaApiFactory(
         builder.UseSetting("Assets:Sync:Enabled", "false");
         // Os eventos da empresa também: cada teste os sincroniza quando quer, com a fonte dele.
         builder.UseSetting("Assets:Events:Enabled", "false");
+        // A fila de e-mails também: cada teste chama o processador quando quer. Nenhum e-mail sai de verdade: o
+        // transporte falso guarda o que seria enviado (FakeEmailTransport, pegue pelo Services).
+        builder.UseSetting(OutboxOptions.EnabledKey, "false");
+        builder.ConfigureTestServices(services =>
+        {
+            services.AddSingleton<FakeEmailTransport>();
+            services.AddSingleton<IEmailTransport>(provider => provider.GetRequiredService<FakeEmailTransport>());
+        });
 
         foreach (var (key, value) in settings ?? DefaultSettings)
             builder.UseSetting(key, value);

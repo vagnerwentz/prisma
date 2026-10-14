@@ -103,6 +103,7 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 | Gráficos | Recharts |
 | Hospedagem | Railway: serviço da API (`Dockerfile` da raiz), Postgres e serviço `backup` (cron), no mesmo projeto |
 | Backup | Imagem Alpine (`ops/backup/Dockerfile`) com `pg_dump` 18, `age` (criptografia), `rclone` (envio) e `curl`; Cloudflare R2 (destino, fora do Railway); Healthchecks.io (alerta quando o backup falha ou não roda) |
+| E-mail | Resend por HTTP (`HttpClient` tipado, sem pacote), atrás de `IEmailTransport`; fila no Postgres (`outbox_emails`); em desenvolvimento, `.html` numa pasta local (`docs/email.md`) |
 | Dados de mercado | brapi.dev (lista de ativos da B3; `HttpClient` tipado do `IHttpClientFactory`, sem pacote). Fica atrás de `IAssetListSource`, em `Infrastructure/Market/Brapi` (`docs/investimentos.md`) |
 
 ### Proibido
@@ -136,6 +137,7 @@ tests/
 docs/
 ├── fase-N.md                   # Detalhamento da fase em execução
 ├── landing.md                  # Página de apresentação: o que promete, visual, LGPD, como é servida e o que falta para ir ao ar
+├── email.md                    # Etapas H.4: envio (fila no Postgres + Resend), confirmação de e-mail, senha
 ├── investimentos.md            # Fase I: catálogo de ativos (brapi), carteira, proventos, logos, notas, eventos; decisões e achados
 ├── operacao.md                 # Roteiros da produção: usuários do banco, backup, restauração, logs; versão do Postgres local; página e domínio
 └── validacao-premissas.md      # Premissas do produto e o resultado de cada validação
@@ -196,6 +198,10 @@ validação de invariante pertencem ao `Prisma.Domain`.
   apagado; lista com menos da metade dos ativos é recusada e nada é gravado (`docs/investimentos.md`, seção 4). Depois da lista, a
   mesma tarefa aplica a curadoria dos eventos da empresa (`CorporateEventSync`, também ao subir a API;
   `docs/operacao.md`, seção 4.2).
+- **Terceira tarefa em segundo plano:** `EmailOutboxWorker` envia a fila de e-mails (`outbox_emails`) a cada 5 s. O
+  pedido nasce na mesma gravação que o motivo (`EmailQueue`, sem `SaveChanges` próprio); o conteúdo e o token saem na
+  hora do envio (`IEmailComposer`), nunca gravados. Falha passageira espera e tenta de novo por 24 h; o Resend fora do
+  ar não derruba nem atrasa quem pede (`docs/email.md`, seção 3).
 - **Única consulta que grava:** `GET /categories` entrega ao usuário as categorias das versões novas do
   catálogo (`CategoryCatalog`, uma vez por versão, só para ele; `docs/fase-2.md`, 2.11). Sincronizar no
   login não bastaria: a sessão é persistente.

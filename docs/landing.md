@@ -273,8 +273,9 @@ envio de e-mail ao mesmo tempo: cada uso fica em registros DNS diferentes.
 - **Site:** domínio personalizado no serviço da API no Railway (raiz e `www`), certificado HTTPS do Railway, registros
   com a **nuvem cinza** (motivo em `docs/operacao.md`, seção 7). Nada mudou no código: o cookie de sessão não depende
   do domínio, e `og:image`, `canonical` e o sitemap já usam o endereço.
-- **Envio (Resend):** os registros que o Resend der (SPF, DKIM e o de retorno), num subdomínio de envio como
-  `send.prismamoney.com.br`, e um registro DMARC. O Resend é dependência nova: entra com o aval do dono na etapa da
-  confirmação de e-mail, chamado por HTTP, sem pacote.
+- **Envio (Resend, aprovado em 2026-10-13):** os registros que o Resend der (DKIM em TXT, e SPF e retorno em CNAME
+  nos subdomínios `send` e `rsend`) e o DMARC. O app envia como `nao-responda@`, com "responder para" o `contato@` (`docs/email.md`; passo a
+  passo em `docs/operacao.md`, seção 8).
 - **Recebimento:** o Resend só envia. Para o `contato@prismamoney.com.br` que a política de privacidade pede, o Email
-  Routing da Cloudflare (gratuito) repassa para o e-mail pessoal do dono.
+  Routing da Cloudflare (gratuito) repassa para o e-mail pessoal do dono, que responde como `contato@` pelo Gmail
+  ("Enviar e-mail como", pelo SMTP do Resend).
