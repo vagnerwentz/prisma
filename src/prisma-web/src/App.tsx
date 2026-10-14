@@ -10,6 +10,9 @@ import { SummaryPage } from '@/features/dashboard/SummaryPage'
 // O resumo (tela inicial) vai no pacote principal; as demais telas são baixadas quando abertas.
 const LoginPage = lazy(() => import('@/features/auth/LoginPage').then((m) => ({ default: m.LoginPage })))
 const RegisterPage = lazy(() => import('@/features/auth/RegisterPage').then((m) => ({ default: m.RegisterPage })))
+const ConfirmEmailPage = lazy(() =>
+  import('@/features/auth/ConfirmEmailPage').then((m) => ({ default: m.ConfirmEmailPage })),
+)
 const TransactionsPage = lazy(() =>
   import('@/features/transactions/TransactionsPage').then((m) => ({ default: m.TransactionsPage })),
 )
@@ -46,6 +49,8 @@ export function App() {
               <Route path="/entrar" element={<LoginPage />} />
               <Route path="/cadastro" element={<RegisterPage />} />
             </Route>
+            {/* O link do e-mail: abre com ou sem sessão (quem confirma entra como a conta do link). */}
+            <Route path="/confirmar-email" element={<ConfirmEmailPage />} />
             <Route element={<RequireAuth />}>
               <Route path="/lancar" element={<NewTransactionPage />} />
               <Route element={<AppLayout />}>

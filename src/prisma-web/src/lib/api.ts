@@ -7,7 +7,8 @@ export const api = createClient<paths>({ baseUrl: '/api' })
 
 export type Schemas = components['schemas']
 
-type Problem = Schemas['ProblemDetails'] & { errors?: Record<string, string[]> }
+// `code`, quando a API manda, identifica um erro específico sem depender do texto (ex.: "EmailNotConfirmed").
+type Problem = Schemas['ProblemDetails'] & { errors?: Record<string, string[]>; code?: string }
 
 // Erro de uma chamada à API, com o ProblemDetails que ela devolveu (detail em pt-BR).
 export class ApiError extends Error {
@@ -19,6 +20,10 @@ export class ApiError extends Error {
     super(parsed?.detail ?? fallbackMessage(status))
     this.status = status
     this.problem = parsed
+  }
+
+  get code(): string | undefined {
+    return this.problem?.code
   }
 
   // Erros de validação por campo, com o nome do campo como no formulário ("Email" → "email").

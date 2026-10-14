@@ -27,11 +27,10 @@ export function useLogin() {
   })
 }
 
+// O cadastro não entra: a conta espera a confirmação do e-mail (docs/email.md, 5.1).
 export function useRegister() {
-  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (body: Credentials) => unwrap(await api.POST('/auth/register', { body })),
-    onSuccess: (user) => queryClient.setQueryData(meKey, user),
   })
 }
 
@@ -46,6 +45,30 @@ export function useLogout() {
     onSuccess: () => {
       queryClient.clear()
       queryClient.setQueryData(meKey, null)
+    },
+  })
+}
+
+export type ConfirmEmailRequest = { userId: string; token: string; password: string }
+
+// O link do e-mail de confirmação, com a senha do cadastro: confirma e já entra (docs/email.md, 5.1). Nada do usuário anterior fica em cache.
+export function useConfirmEmail() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: ConfirmEmailRequest) => unwrap(await api.POST('/auth/confirm-email', { body })),
+    onSuccess: (user) => {
+      queryClient.clear()
+      queryClient.setQueryData(meKey, user)
+    },
+  })
+}
+
+// Pede outro e-mail de confirmação. A API responde igual exista a conta ou não.
+export function useResendConfirmation() {
+  return useMutation({
+    mutationFn: async (email: string) => {
+      const result = await api.POST('/auth/resend-confirmation', { body: { email } })
+      if (!result.response.ok) unwrap(result)
     },
   })
 }
