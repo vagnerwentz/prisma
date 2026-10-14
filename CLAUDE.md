@@ -542,6 +542,10 @@ por conversa, arquivo versionado ou histórico do shell.
   aparece por vídeos e números gravados de um usuário de exemplo (nunca dado real); mudou muito uma tela mostrada,
   grava-se de novo. Toda conta que a página mostra (fatura, parcelas, rateio, preço médio) sai de `demoMath.ts`, com
   teste contra as regras do domínio.
+- **E-mails** (`EmailLayout`, `docs/email.md`, seção 4): cabeçalho em tinta com o logo (PNG servido pelo domínio) e a
+  faixa do espectro em células, título serifado, botão em tinta, quadro de dados e nota. Tabelas e estilos em linha,
+  cores em hexadecimal: leitor de e-mail não é navegador. Texto novo ou mudança de layout se confere pela prévia
+  (`EmailPreviewTests`) em tela estreita e larga, claro e escuro.
 - **Telas de erro:** `ErrorScreen` com a cena `BrokenPrism` (espectro desalinhado que se
   recompõe ao passar o ponteiro na ação), para erro inesperado (`ErrorBoundary`), versão nova
   publicada com o app aberto e endereço inexistente. Ficam no pacote principal, porque precisam

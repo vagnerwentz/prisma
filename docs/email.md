@@ -117,8 +117,8 @@ segurança do `CLAUDE.md`, seção 8; o teste de arquitetura já recusa parâmet
 
 | Tipo (`EmailKind`) | Quando | Assunto | Link |
 |---|---|---|---|
-| `ConfirmEmail` | cadastro; "reenviar" | Confirme seu e-mail no Prisma Money | `/confirmar-email?u=…&t=…`, vale **3 dias** |
-| `AlreadyRegistered` | cadastro com e-mail que já tem conta | Alguém tentou criar uma conta com seu e-mail | `/entrar` e `/esqueci-senha` |
+| `ConfirmEmail` | cadastro; "reenviar" | Confirme seu e-mail no Prisma Money | `/confirmar-email#u=…&t=…`, vale **3 dias** |
+| `AlreadyRegistered` | cadastro com e-mail que já tem conta | Alguém tentou criar uma conta com seu e-mail | `/entrar` (o `/esqueci-senha` entra na H.4c) |
 | `ResetPassword` | "esqueci a senha" | Crie uma senha nova no Prisma Money | `/nova-senha?u=…&t=…`, vale **1 hora** |
 | `PasswordChanged` | senha trocada ou redefinida | Sua senha do Prisma Money foi trocada | `/esqueci-senha`, para quem não reconhece a troca |
 
@@ -126,7 +126,27 @@ segurança do `CLAUDE.md`, seção 8; o teste de arquitetura já recusa parâmet
 - O link abre uma **tela do app**, que chama a API por `POST`. Os antivírus de e-mail (o "links seguros" do Outlook,
   por exemplo) abrem os links antes da pessoa, sem rodar JavaScript: um `GET` na API gastaria o token.
 - Texto curto, com o motivo do e-mail e o que fazer se não foi a pessoa. Os textos finais vão para revisão do dono
-  na etapa em que cada e-mail entra.
+  na etapa em que cada e-mail entra. Textos em `Features/Auth/AuthEmails.cs`.
+
+### Visual (`EmailLayout`, H.4b)
+
+Pedido do dono: e-mail bonito, estruturado como um documento, com a identidade do app (`CLAUDE.md`, 7.1).
+
+- **Cabeçalho em tinta** (`#171723`) com o logo e "Prisma Money" em serifada; logo abaixo, a **faixa do espectro**
+  (as seis cores do `PrismLogo`) em células de tabela, que aparece mesmo com as imagens bloqueadas.
+- **Corpo:** rótulo pequeno (o tipo do e-mail), título serifado, parágrafos, **botão em tinta**, o link por extenso
+  para quem não consegue tocar no botão, um **quadro de dados** (conta, validade do link) e uma **nota** em caixa
+  ("Não foi você?"). Rodapé discreto: "E-mail automático do Prisma Money.", sem convidar a responder (decisão do
+  dono, 2026-10-14). O "responder para" `contato@` continua: quem responde mesmo assim chega ao dono, em vez de
+  receber um erro de entrega do `nao-responda@`.
+- **Feito para leitor de e-mail:** tabelas, estilos em linha, cores em hexadecimal (os tokens do app convertidos de
+  oklch), largura máxima de 560 px. Serifada do sistema (Georgia): fonte da web não carrega no Gmail e seria terceiro.
+- **Logo:** PNG 144×144 (3x) em `public/email/prisma-logo.png`, servido pelo próprio domínio, igual para todos (não
+  identifica quem abriu). Sem ele, o nome e a faixa seguram a identidade.
+- **Modo escuro** (Apple Mail, Outlook do celular): o `<style>` troca papel, cartão e texto, e o cabeçalho ganha um
+  violeta escuro para continuar se destacando do cartão. Tela estreita: o quadro de dados empilha rótulo e valor.
+- **Prévia:** `PRISMA_EMAIL_PREVIEW=<pasta> dotnet test tests/Prisma.Api.Tests --filter FullyQualifiedName~EmailPreview`
+  grava cada e-mail como `.html` e `.txt`. Conferido em 320, 390 e 760 px, claro e escuro.
 
 ---
 
@@ -140,13 +160,24 @@ segurança do `CLAUDE.md`, seção 8; o teste de arquitetura já recusa parâmet
 3. **E-mail que já tem conta:** a mesma resposta 202 e a mesma tela, e o dono do e-mail recebe `AlreadyRegistered`.
    Hoje o cadastro responde "e-mail já em uso" (409), o que conta a qualquer um quem tem conta. Se a conta existente
    ainda não confirmou, vai `ConfirmEmail` de novo em vez de `AlreadyRegistered`.
-4. `/confirmar-email` chama `POST /auth/confirm-email`. Deu certo: **entra direto** (o link prova a posse do e-mail)
-   e vai para o Resumo, com o aviso "E-mail confirmado". Link vencido ou usado: "Este link não vale mais", com campo
-   de e-mail e "Enviar outro".
-5. `POST /auth/login` com a senha **certa** e o e-mail não confirmado: 403 com o código `EmailNotConfirmed`, e a tela
-   oferece "Reenviar o e-mail de confirmação". Com a senha errada, a mesma resposta de sempre: o estado da conta só
-   aparece para quem sabe a senha.
-6. `POST /auth/resend-confirmation` (e-mail) responde sempre 202, exista a conta ou não.
+4. `/confirmar-email` pede **a senha do cadastro** e chama `POST /auth/confirm-email`. Deu certo: entra e vai para o
+   Resumo, com o aviso "E-mail confirmado". Link vencido ou usado: "Este link não vale mais", com campo de e-mail e
+   "Enviar outro link". Senha errada: "A senha não confere com a do cadastro" (código `WrongPassword`); o link não é
+   gasto, e a senha errada conta para o bloqueio, como no login.
+   **Por que a senha** (decisão do dono, 2026-10-14; antes o link entrava direto): o link prova que a pessoa tem o
+   e-mail, não que foi ela quem escolheu a senha. Sem a senha, alguém se cadastraria antes com o e-mail de outra
+   pessoa e uma senha sua, a dona do e-mail confirmaria pelo link e o intruso entraria na conta dela depois
+   (pré-sequestro). Com a senha, a dona do e-mail que não a sabe cria uma nova pelo e-mail (H.4c), e a do intruso
+   deixa de valer. A ordem no servidor: o link primeiro (link inválido não testa senha nem conta tentativa), depois
+   a senha, e só então confirma.
+5. `POST /auth/login` com a senha **certa** e o e-mail não confirmado: 403 com o código `EmailNotConfirmed` (campo
+   `code` do ProblemDetails, `Error.Code`), e a tela oferece "Reenviar e-mail". Com a senha errada, a mesma resposta
+   de sempre: o estado da conta só aparece para quem sabe a senha. Por isso o login confere a senha à mão
+   (`CheckPasswordAsync`, com o bloqueio por tentativas) antes do estado: o `PasswordSignInAsync` do Identity diria
+   "não confirmado" sem olhar a senha.
+6. `POST /auth/resend-confirmation` (e-mail) responde sempre 202, exista a conta ou não. O botão "Reenviar" espera
+   60 s entre toques (o limite da fila) e responde "Pronto. Confira sua caixa de entrada.", e não "Enviamos outro
+   e-mail": dentro do minuto a fila barra o pedido sem a tela saber, e o e-mail mais recente é que vale.
 7. **Contas que já existem** (o dono, o pai, contas de teste): a migration as marca como confirmadas. Ninguém fica
    trancado do lado de fora no deploy.
 8. `RequireConfirmedEmail = true` no Identity.
@@ -175,6 +206,21 @@ O cookie confere o `SecurityStamp` de tempos em tempos (`SecurityStampValidator`
 em meia hora.
 
 ---
+
+## 5.5 Segurança do link de confirmação
+
+- **Não se adivinha:** o token do Identity é um pacote cifrado e assinado com as chaves do Data Protection (as mesmas
+  do cookie de sessão, no Postgres), com o id da pessoa, a finalidade, a hora e o `SecurityStamp`. Um caractere
+  trocado invalida a assinatura; sem a chave do servidor, não se fabrica um.
+- **Vale para uma pessoa e uma finalidade,** por 3 dias e uma vez (confirmar troca o `SecurityStamp`, o que mata este e
+  os outros links já enviados).
+- **Uma resposta só** para link errado, vencido, usado ou de conta que não existe: chutar ids não revela quem tem conta.
+  Rate limit do `auth` (5 por minuto por IP).
+- **O token não passa por servidor ao abrir o link:** vai depois do `#` (o navegador não manda o fragmento), a tela o
+  lê e o manda no corpo do POST, e o tira da barra de endereço (não fica no histórico). A tela não carrega nada de
+  terceiros.
+- **Quem tem as chaves do Data Protection** (acesso ao banco ou a um backup aberto) fabrica tanto o link quanto o
+  cookie de sessão: o mesmo risco que já existia, coberto pelo acesso restrito ao banco e pelo backup criptografado.
 
 ## 6. Fora destas etapas
 

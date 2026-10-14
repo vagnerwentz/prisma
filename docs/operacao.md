@@ -564,9 +564,19 @@ As respostas pelo Gmail contam na cota do Resend junto com os e-mails do app (gr
 
 ### 8.4 No dia a dia
 
-- **E-mail que não chegou:** no Railway, `@message:EmailFailed` ou `@message:EmailRetryScheduled` com o id da linha;
-  no banco, `outbox_emails` pelo id (status, tentativas, último erro). No Resend, *Emails* mostra o que saiu e o que
-  voltou.
+- **Filtros no Railway** (o nome do evento, não o texto da mensagem):
+
+  | Pergunta | Filtro |
+  |---|---|
+  | A tarefa subiu com a API? (uma linha a cada deploy ou reinício) | `@eventName:EmailOutboxWorkerStarted` |
+  | Uma volta inteira falhou? (ex.: banco fora do ar) | `@eventName:EmailOutboxRunFailed` |
+  | E-mails enviados (id da linha, tipo, usuário, tentativas) | `@eventName:EmailSent` |
+  | Falha passageira, com o motivo e a próxima tentativa | `@eventName:EmailRetryScheduled` |
+  | Desistiu (recusado, ou 24 h sem conseguir) | `@eventName:EmailFailed` |
+  | Pedido barrado pelo limite por pessoa | `@eventName:EmailThrottled` |
+
+- **E-mail que não chegou:** o id da linha vem nos logs acima; no banco, `outbox_emails` pelo id (status, tentativas,
+  último erro). No Resend, *Emails* mostra o que saiu e o que voltou.
 - **Resend fora do ar, ou chave errada (401/403):** a fila tenta de novo por 24 h (30 s, 2 min, 10 min, 1 h, depois
   a cada 6 h). Conserte a chave nesse prazo e nada se perde. Depois disso, a pessoa usa "Reenviar".
 - **Em desenvolvimento** os e-mails viram `.html` em `src/Prisma.Api/.dev-emails/` (`Email:Transport=Folder`). Para

@@ -800,13 +800,25 @@ Pedida pelo dono (2026-10-13). Especificação, decisões e o porquê de outbox 
   derrubam cada um o seu teste. A primeira versão não pegava a falta do `SKIP LOCKED`; entrou o teste da linha
   travada por outra conexão.
 
-- [ ] **H.4b Confirmação de e-mail no cadastro**
+- [x] **H.4b Confirmação de e-mail no cadastro**
   Repetir a senha no cadastro; cadastro sem entrar e tela "Confira seu e-mail" com reenviar; `/confirmar-email`
   entra direto; login recusado sem confirmar (só com a senha certa); e-mail já cadastrado com a mesma resposta e o
   aviso ao dono do e-mail; contas existentes marcadas como confirmadas na migration.
   *Pronto quando:* integração de cada caso do `docs/email.md`, 5.1 (inclusive: a resposta do cadastro não revela se o
   e-mail existe; token vencido, usado e de outra conta recusados; login com senha errada não revela o estado da
   conta); telas conferidas em 320/390/1280, claro e escuro; o e-mail aberto pela pasta local em desenvolvimento.
+  *Feito (2026-10-14):* `EmailLayout` (cabeçalho em tinta, faixa do espectro, quadro de dados; `docs/email.md`, seção 4,
+  "Visual"), `ConfirmEmailComposer` e `AlreadyRegisteredComposer`, `/auth/confirm-email` e `/auth/resend-confirmation`,
+  cadastro sem entrar (202), login que confere a senha antes do estado, `Error.Code` no ProblemDetails, `App:PublicUrl`,
+  provedor de token próprio (3 dias) e migration `ConfirmExistingEmails`. Telas: repetir a senha, "Confira seu e-mail",
+  aviso no login com "Reenviar", `/confirmar-email` (pede a senha, entra e avisa; link que não vale mais pede outro).
+  Revisão de segurança pedida pelo dono: o link não se adivinha, mas entrar só pelo link permitia o pré-sequestro de
+  conta (`docs/email.md`, 5.1 e 5.5); por decisão dele, confirmar pede a senha do cadastro. O token foi para depois
+  do `#` (fora dos logs de acesso) e sai da barra de endereço. Até a H.4c, a senha errada não tem saída na tela
+  ("criar uma senha nova" entra com ela); o cadastro segue fechado na produção. O aviso de
+  e-mail já cadastrado leva só ao `/entrar`; o `/esqueci-senha` entra na H.4c. Testes provados com mutação (10
+  defeitos); o do reenvio a quem já confirmou não era pego pelo envio (o composer também pula) e passou a conferir a
+  fila. Na tela, o roteiro achou o que os testes não acham: "Enviamos outro e-mail" mentia dentro do minuto do limite.
 
 - [ ] **H.4c Esqueci a senha**
   `/esqueci-senha` e `/nova-senha` (link de 1 hora); ao trocar, cai o resto das sessões, zera o bloqueio, confirma o
