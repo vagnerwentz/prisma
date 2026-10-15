@@ -202,10 +202,23 @@ Pedido do dono: e-mail bonito, estruturado como um documento, com a identidade d
 
 ### 5.3 Trocar a senha (H.4d)
 
-1. No menu da conta, "Trocar senha" abre um painel: senha atual, senha nova, repetir a senha nova.
-2. `POST /auth/change-password`: senha atual errada é recusada e conta para o bloqueio, como no login (senão a tela
-   viraria um jeito de adivinhar a senha sem limite com uma sessão roubada).
-3. Esta sessão continua (o cookie é renovado); as outras caem; vai `PasswordChanged`.
+1. No menu da conta, "Trocar senha" abre a tela `/trocar-senha` (como o "Apagar conta", e não um painel: os dois
+   itens de conta do menu ficam iguais): senha atual, senha nova, repetir a senha nova.
+2. `POST /auth/change-password`: senha atual errada é recusada (400 com o código `WrongPassword`, não 401, que
+   levaria ao login) e conta para o bloqueio, como no login (senão a tela viraria um jeito de adivinhar a senha sem
+   limite com uma sessão roubada). Conta bloqueada não troca, nem com a senha certa.
+3. Esta sessão continua (o cookie é renovado com o selo novo, `RefreshSignInAsync`); as outras caem; vai
+   `PasswordChanged`.
+
+### 5.3b Contador de senhas erradas com prazo (H.4e)
+
+O contador do Identity só zerava com a senha certa ou com o bloqueio: quem errasse uma vez por semana acabaria
+bloqueado por uma soma de semanas. Agora a senha errada só soma com as anteriores se vier **até 15 minutos depois da
+última** (`AppUserManager.AccessFailedAsync`, coluna `last_access_failed_at`, hora pelo `IClock`); mais tarde, a
+contagem recomeça. Fica no `UserManager` para valer em todo lugar que pede a senha (entrar, confirmar o e-mail,
+trocar a senha, apagar a conta). A janela conta da última senha errada, não da primeira: 5 erros com 14 minutos entre
+cada um ainda bloqueiam. A migration zerou as contagens antigas, que não tinham data. O fim do bloqueio (15 minutos)
+continua com o Identity, que lê o relógio do sistema.
 
 ### 5.4 Sessões abertas em outros aparelhos
 

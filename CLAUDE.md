@@ -585,8 +585,10 @@ por conversa, arquivo versionado ou histórico do shell.
 
 - Senha pelo hasher do Identity. Não implemente hash à mão.
 - Sessão em cookie `httpOnly` + `Secure` + `SameSite=Lax`. **Nunca JWT em localStorage.**
-- Rate limit em login, cadastro, confirmação de e-mail, senha nova e apagar a conta. Cinco senhas erradas (no login ou
-  ao apagar a conta, na mesma contagem) bloqueiam a conta por 15 minutos; a senha nova pelo e-mail desbloqueia.
+- Rate limit em login, cadastro, confirmação de e-mail, senha nova e apagar a conta. Cinco senhas erradas (no login, ao
+  confirmar o e-mail, ao trocar a senha ou ao apagar a conta, na mesma contagem) bloqueiam a conta por 15 minutos; só
+  somam as que vêm até 15 minutos depois da anterior (`AppUserManager`, H.4e). A senha nova pelo e-mail desbloqueia.
+  "Trocar senha" pelo menu da conta pede a atual; esta sessão fica e as outras caem (H.4d).
 - **Conta (`docs/email.md`, 5.1 a 5.5):** sem o e-mail confirmado, não entra. Nenhuma resposta conta quem tem conta
   (cadastro, "esqueci a senha" e reenvio respondem igual; o login só revela "falta confirmar" a quem acertou a senha).
   Confirmar pede a senha do cadastro (contra o pré-sequestro de conta); a senha nova pelo e-mail confirma a conta e

@@ -834,15 +834,25 @@ Pedida pelo dono (2026-10-13). Especificação, decisões e o porquê de outbox 
   pré-sequestro: criar a senha pelo e-mail confirma a conta e mata a senha do intruso (teste de ponta a ponta).
   Testes provados com mutação (8 defeitos, todos pegos); fluxo inteiro conferido na tela.
 
-- [ ] **H.4d Trocar a senha**
+- [x] **H.4d Trocar a senha**
   "Trocar senha" no menu da conta: senha atual, nova e repetir. Esta sessão fica, as outras caem, aviso por e-mail.
   *Pronto quando:* integração do `docs/email.md`, 5.3 (senha atual errada recusada e contada para o bloqueio; sessão
   atual continua e outra cai depois da validação); painel conferido.
+  *Feito (2026-10-15):* `POST /auth/change-password` (`ChangePassword`): senha atual errada é 400 `WrongPassword` e conta
+  para o bloqueio junto com o login; conta bloqueada não troca; o cookie desta sessão é renovado (`RefreshSignInAsync`),
+  as outras caem na conferência seguinte; vai o `PasswordChanged`. Tela `/trocar-senha` pelo menu da conta, em vez de
+  painel, igual ao "Apagar conta" (`docs/email.md`, 5.3). Conferida em 320/390/1280, claro e escuro, com toque real
+  (validação, senha atual errada, senhas diferentes, troca com o aviso). 8 testes de integração.
 
-- [ ] **H.4e Contador de senhas erradas com prazo**
+- [x] **H.4e Contador de senhas erradas com prazo**
   A pendência de produto: erros espalhados no tempo não acumulam mais (janela de 15 min, coluna
   `last_failed_login_at`, `IClock`). Entra aqui por mexer no mesmo login.
   *Pronto quando:* integração: 4 erros, 16 min, mais 4 erros não bloqueiam; 5 erros seguidos bloqueiam como hoje.
+  *Feito (2026-10-15):* `AppUserManager` sobrescreve o `AccessFailedAsync`: vale para entrar, confirmar o e-mail, trocar
+  a senha e apagar a conta sem cada um lembrar da regra. A janela conta da última senha errada (5 erros a cada 14 min
+  ainda bloqueiam; teste). Coluna `last_access_failed_at` (o nome cobre todos os lugares que pedem a senha, não só o
+  login), migration `AddLastAccessFailedAt`, que zera as contagens antigas sem data. `docs/email.md`, 5.3b. Testes das
+  duas etapas provados com 7 mutações, todas pegas.
 
 ### Abertura do cadastro (pedida pelo dono, 2026-10-14)
 
@@ -1010,8 +1020,8 @@ Decidir quando a fase correspondente chegar:
   `docs/operacao.md`, seção 7). Recebimento do `contato@` e envio pelo Resend (aprovado em 2026-10-13):
   `docs/operacao.md`, seção 8, e etapas H.4.
 - Confirmação de e-mail no cadastro, esqueci a senha, trocar a senha e o contador de senhas erradas sem prazo:
-  viraram as etapas H.4a a H.4e (2026-10-13, `docs/email.md`). Feitas a H.4a (envio), a H.4b (confirmação) e a H.4c
-  (esqueci a senha); faltam a H.4d (trocar a senha logado) e a H.4e (contador com prazo).
+  viraram as etapas H.4a a H.4e (2026-10-13, `docs/email.md`). Todas feitas: a H.4d (trocar a senha logado) e a H.4e
+  (contador com prazo) em 2026-10-15.
 - Login com Google (antiga etapa 1.4), adiado. Critério original: entrar por e-mail e depois
   por Google cai na mesma conta. Atenção: sem confirmação de e-mail, juntar contas pelo
   e-mail permite pré-sequestro de conta. Regra proposta: só juntar se o Google marcar o
