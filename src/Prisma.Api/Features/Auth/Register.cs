@@ -6,6 +6,7 @@ using Prisma.Api.Infrastructure.Auth;
 using Prisma.Api.Infrastructure.Email;
 using Prisma.Api.Infrastructure.Http;
 using Prisma.Api.Infrastructure.Logging;
+using Prisma.Api.Infrastructure.Privacy;
 using Prisma.Domain;
 using Prisma.Domain.Categories;
 
@@ -16,7 +17,13 @@ namespace Prisma.Api.Features.Auth;
 // contar a ninguém quem é cliente; quem já tem conta recebe um aviso (ou, sem ter confirmado, a confirmação de novo).
 public static class Register
 {
-    public sealed record Request(string Email, string Password);
+    // AcceptedTerms: a caixa "Li e aceito os termos, li a política e tenho 18 anos ou mais" (etapa A.4), sem ela não há
+    // conta. Quem tem a tela de cadastro aberta de antes da A.4 não manda o campo e recebe o pedido para marcar.
+    public sealed record Request(string Email, string Password, bool AcceptedTerms = false);
+
+    public const string AcceptTermsMessage =
+        "Para criar a conta, aceite os termos de uso e confirme que leu a política de privacidade e tem 18 anos ou mais. " +
+        "Se a caixa não aparece, recarregue a página.";
 
     public sealed record Response(string Email);
 
@@ -30,6 +37,7 @@ public static class Register
             RuleFor(x => x.Password)
                 .NotEmpty().WithMessage("Informe a senha.")
                 .MinimumLength(8).WithMessage("A senha deve ter pelo menos 8 caracteres.");
+            RuleFor(x => x.AcceptedTerms).Equal(true).WithMessage(AcceptTermsMessage);
         }
     }
 
@@ -40,6 +48,7 @@ public static class Register
         EmailQueue emails,
         IHttpContextAccessor httpContextAccessor,
         IOptions<RegistrationOptions> registration,
+        IClock clock,
         ILogger<Handler> logger)
     {
         public async Task<Result<Response>> Execute(Request req, CancellationToken ct)
@@ -55,6 +64,7 @@ public static class Register
                 return await NotifyExisting(existing, email, ct);
 
             var user = new AppUser { UserName = email, Email = email, CategoryCatalogVersion = DefaultCategories.Version };
+            LegalTerms.Accept(user, clock.UtcNow);
 
             // Usuário, categorias padrão e o e-mail de confirmação nascem juntos ou não nascem.
             await using var transaction = await db.Database.BeginTransactionAsync(ct);

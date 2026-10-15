@@ -64,6 +64,9 @@ reality, so the monthly numbers match your bank account instead of your receipts
 - **Undo everywhere, then really gone:** deleting is a soft delete, restorable from the toast for 30 minutes; after that
   a background job erases the row for good.
 - **Delete my account:** one screen, the password, and every row of the person leaves the database at once.
+- **Privacy policy and terms of use** as static pages (`/privacidade`, `/termos`): Markdown in the repository turned
+  into HTML at build time, no JavaScript, no cookies. Sign-up requires accepting them (and being 18 or older); the
+  accepted versions are stored, and a new version asks existing users to accept again when they sign in.
 - **Account by email:** sign-up is confirmed by an emailed link, a forgotten password is replaced through a one-hour
   link, and every security change is announced by email. The emails share the app's look: an ink header, the spectrum
   stripe and a document-like layout that holds up in Gmail, Outlook and dark mode.
@@ -166,6 +169,7 @@ flowchart LR
   EF Core configuration, migrations, authentication.
 - **`src/prisma-web`:** React app, served by the API in production (same origin, no CORS), plus a static
   landing page (`landing.html`, React prerendered at build time) shown at `/` to visitors without a session while sign-up is open.
+  The privacy policy and terms of use are Markdown files rendered to static HTML at build time (`/privacidade`, `/termos`).
 - **`tests/`:** domain, integration and architecture tests.
 
 In production the API and the React build ship as one Docker image on Railway, with migrations applied

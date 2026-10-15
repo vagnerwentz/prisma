@@ -269,6 +269,10 @@ public static partial class AppLog
     [LoggerMessage(6006, LogLevel.Information, "Forgot {Count} account deletions older than the backup retention")]
     public static partial void DeletedAccountsForgotten(this ILogger logger, int count);
 
+    // Aceite dos termos por quem já tinha conta (etapa A.4); o do cadastro vai junto com o UserRegistered.
+    [LoggerMessage(6007, LogLevel.Information, "User {UserId} accepted terms {TermsVersion} and privacy policy {PrivacyVersion}")]
+    public static partial void TermsAccepted(this ILogger logger, Guid userId, string termsVersion, string privacyVersion);
+
     // Rota modelo (/statements/{id}/pay), nunca o caminho cru: ele pode levar ids e consulta. Depois de
     // uma exceção, o ASP.NET tira o endpoint do contexto e o guarda no IExceptionHandlerFeature.
     // Sem a barra final que os grupos deixam (/accounts/ → /accounts).

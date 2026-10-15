@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { PrismLogo } from '@/components/brand/PrismLogo'
+import { LegalLinks } from './TermsConsent'
 
 // O palco das telas de entrada (entrar, criar conta, confirmar e-mail): o halo frio ao fundo, o prisma e o nome.
 export function AuthShell({ children }: { children: ReactNode }) {
@@ -18,6 +19,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
           <p className="text-muted-foreground">Seu dinheiro, decomposto em cores.</p>
         </div>
         {children}
+        <LegalLinks />
       </div>
     </main>
   )

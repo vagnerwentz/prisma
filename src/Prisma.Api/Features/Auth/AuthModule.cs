@@ -15,6 +15,7 @@ public static class AuthModule
         services.AddScoped<ForgotPassword.Handler>();
         services.AddScoped<ResetPassword.Handler>();
         services.AddScoped<DeleteMyAccount.Handler>();
+        services.AddScoped<AcceptTerms.Handler>();
         services.AddScoped<IEmailComposer, ConfirmEmailComposer>();
         services.AddScoped<IEmailComposer, AlreadyRegisteredComposer>();
         services.AddScoped<IEmailComposer, ResetPasswordComposer>();
@@ -43,5 +44,6 @@ public static class AuthModule
         ForgotPassword.Map(group);
         ResetPassword.Map(group);
         DeleteMyAccount.Map(group);
+        AcceptTerms.Map(group);
     }
 }

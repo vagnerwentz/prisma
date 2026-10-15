@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
-import { useForm, useWatch } from 'react-hook-form'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 import { Link } from 'react-router'
 import { z } from 'zod'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -11,11 +11,12 @@ import { Label } from '@/components/ui/label'
 import { ApiError } from '@/lib/api'
 import { AuthCard, AuthShell } from './AuthShell'
 import { ResendConfirmationButton } from './ResendConfirmationButton'
-import type { Credentials } from './queries'
+import type { RegisterRequest } from './queries'
+import { TermsConsent } from './TermsConsent'
 
 type Mode = 'login' | 'register'
 
-type Values = Credentials & { confirmPassword: string }
+type Values = RegisterRequest & { confirmPassword: string }
 
 // Mesmas regras da API (Register.Validator e Login.Validator), para avisar antes do envio. Repetir a senha é só da
 // tela: a API recebe uma senha.
@@ -24,12 +25,15 @@ const schemas = {
     email: z.string().trim().min(1, 'Informe o e-mail.'),
     password: z.string().min(1, 'Informe a senha.'),
     confirmPassword: z.string(),
+    acceptedTerms: z.boolean(),
   }),
   register: z
     .object({
       email: z.string().trim().min(1, 'Informe o e-mail.').email('E-mail inválido.'),
       password: z.string().min(1, 'Informe a senha.').min(8, 'A senha deve ter pelo menos 8 caracteres.'),
       confirmPassword: z.string().min(1, 'Repita a senha.'),
+      // Etapa A.4: sem o aceite não há conta (Register.Validator).
+      acceptedTerms: z.boolean().refine((v) => v, 'Para criar a conta, marque que leu e aceita os termos.'),
     })
     .refine((v) => v.password === v.confirmPassword, { path: ['confirmPassword'], message: 'As senhas não são iguais.' }),
 }
@@ -59,30 +63,31 @@ const texts = {
 
 type Props = {
   mode: Mode
-  onSubmit: (credentials: Credentials) => Promise<unknown>
+  // No login, acceptedTerms vai falso e é ignorado.
+  onSubmit: (values: RegisterRequest) => Promise<unknown>
 }
 
 export function AuthForm({ mode, onSubmit }: Props) {
   const text = texts[mode]
   const form = useForm<Values>({
     resolver: zodResolver(schemas[mode]),
-    defaultValues: { email: '', password: '', confirmPassword: '' },
+    defaultValues: { email: '', password: '', confirmPassword: '', acceptedTerms: false },
   })
   const { errors, isSubmitting } = form.formState
   const typedEmail = useWatch({ control: form.control, name: 'email' })
   // Login com a senha certa e o e-mail sem confirmar: o aviso traz o "Reenviar" para o e-mail digitado.
   const [unconfirmed, setUnconfirmed] = useState<string | null>(null)
 
-  const submit = form.handleSubmit(async ({ email, password }) => {
+  const submit = form.handleSubmit(async ({ email, password, acceptedTerms }) => {
     setUnconfirmed(null)
     try {
-      await onSubmit({ email, password })
+      await onSubmit({ email, password, acceptedTerms })
     } catch (error) {
       if (error instanceof ApiError && error.code === 'EmailNotConfirmed') {
         setUnconfirmed(email.trim())
       } else if (error instanceof ApiError) {
         for (const [field, message] of Object.entries(error.fieldErrors)) {
-          if (field === 'email' || field === 'password') form.setError(field, { message })
+          if (field === 'email' || field === 'password' || field === 'acceptedTerms') form.setError(field, { message })
         }
         if (Object.keys(error.fieldErrors).length === 0) form.setError('root', { message: error.message })
       } else {
@@ -157,6 +162,18 @@ export function AuthForm({ mode, onSubmit }: Props) {
                 {...form.register('confirmPassword')}
               />
               {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>}
+            </div>
+          )}
+          {mode === 'register' && (
+            <div className="flex flex-col gap-2">
+              <Controller
+                control={form.control}
+                name="acceptedTerms"
+                render={({ field }) => (
+                  <TermsConsent checked={field.value} onCheckedChange={field.onChange} invalid={!!errors.acceptedTerms} />
+                )}
+              />
+              {errors.acceptedTerms && <p className="text-sm text-destructive">{errors.acceptedTerms.message}</p>}
             </div>
           )}
           <Button type="submit" className="mt-2 h-11 w-full rounded-xl text-base" disabled={isSubmitting}>

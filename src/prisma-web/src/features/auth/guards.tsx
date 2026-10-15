@@ -11,6 +11,8 @@ function FullScreenMessage({ children }: { children: string }) {
   )
 }
 
+const acceptTermsPath = '/aceitar-termos'
+
 // Rotas que exigem sessão: sem ela, vai para /entrar e volta depois do login.
 export function RequireAuth() {
   const { data: user, isPending, isError } = useCurrentUser()
@@ -19,6 +21,13 @@ export function RequireAuth() {
   if (isPending) return <FullScreenMessage>Carregando…</FullScreenMessage>
   if (isError) return <FullScreenMessage>Não foi possível conectar. Tente novamente em instantes.</FullScreenMessage>
   if (!user) return <Navigate to="/entrar" replace state={{ from: location.pathname }} />
+  // Termos novos (ou nunca aceitos): o aceite vem antes do app. Apagar a conta continua aberto a quem não concorda.
+  const accepting = location.pathname === acceptTermsPath
+  if (user.mustAcceptTerms && !accepting && location.pathname !== '/apagar-conta')
+    return <Navigate to={acceptTermsPath} replace state={{ from: location.pathname }} />
+  // Aceito, volta para onde ia: a sessão atualizada chega aqui antes do navigate da própria tela.
+  if (!user.mustAcceptTerms && accepting)
+    return <Navigate to={(location.state as { from?: string } | null)?.from ?? '/'} replace />
   return <Outlet />
 }
 

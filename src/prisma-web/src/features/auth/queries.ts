@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, unwrap, type Schemas } from '@/lib/api'
 import { meKey } from '@/lib/queryKeys'
 
-export type CurrentUser = Schemas['MeResponse']
+export type CurrentUser = Schemas['SessionUser']
 
 // Usuário da sessão atual, ou null quando não há sessão (401).
 export function useCurrentUser() {
@@ -19,6 +19,9 @@ export function useCurrentUser() {
 
 export type Credentials = { email: string; password: string }
 
+// O cadastro leva o aceite dos termos (etapa A.4).
+export type RegisterRequest = Credentials & { acceptedTerms: boolean }
+
 export function useLogin() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -30,7 +33,7 @@ export function useLogin() {
 // O cadastro não entra: a conta espera a confirmação do e-mail (docs/email.md, 5.1).
 export function useRegister() {
   return useMutation({
-    mutationFn: async (body: Credentials) => unwrap(await api.POST('/auth/register', { body })),
+    mutationFn: async (body: RegisterRequest) => unwrap(await api.POST('/auth/register', { body })),
   })
 }
 
@@ -109,5 +112,14 @@ export function useDeleteAccount() {
       queryClient.clear()
       queryClient.setQueryData(meKey, null)
     },
+  })
+}
+
+// O aceite de quem já tem conta (etapa A.4): grava as versões vigentes e devolve a sessão sem a pendência.
+export function useAcceptTerms() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async () => unwrap(await api.POST('/auth/accept-terms')),
+    onSuccess: (user) => queryClient.setQueryData(meKey, user),
   })
 }

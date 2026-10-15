@@ -17,6 +17,8 @@ namespace Prisma.Api.Tests.Features;
 public sealed class HostingTests(PostgresFixture postgres) : IDisposable
 {
     private const string IndexHtml = "<!doctype html><title>Prisma</title><div id=\"root\"></div>";
+    private const string PrivacyHtml = "<!doctype html><title>Política de privacidade</title>";
+    private const string TermsHtml = "<!doctype html><title>Termos de uso</title>";
     private const string LandingHtml = "<!doctype html><title>Prisma: apresentação</title><a href=\"/cadastro\">Criar minha conta</a>";
 
     // Um build de frontend de mentira: o index.html e um arquivo com hash em /assets.
@@ -29,6 +31,8 @@ public sealed class HostingTests(PostgresFixture postgres) : IDisposable
         File.WriteAllText(Path.Combine(_webRoot, "index.html"), IndexHtml);
         if (withLanding)
             File.WriteAllText(Path.Combine(_webRoot, "landing.html"), LandingHtml);
+        File.WriteAllText(Path.Combine(_webRoot, "privacidade.html"), PrivacyHtml);
+        File.WriteAllText(Path.Combine(_webRoot, "termos.html"), TermsHtml);
         Directory.CreateDirectory(Path.Combine(_webRoot, "assets"));
         File.WriteAllText(Path.Combine(_webRoot, "assets", "index-B1a2c3.js"), "console.log('prisma')");
         return new PrismaApiFactory(postgres.ConnectionString, new Dictionary<string, string>
@@ -60,6 +64,38 @@ public sealed class HostingTests(PostgresFixture postgres) : IDisposable
         (await response.Content.ReadAsStringAsync()).ShouldBe(IndexHtml);
     }
 
+    // Política e termos (etapa A.4): sempre no ar, pelo endereço limpo, com o cadastro aberto ou fechado.
+    [Theory]
+    [InlineData("/privacidade", PrivacyHtml, true)]
+    [InlineData("/termos", TermsHtml, true)]
+    [InlineData("/Privacidade/", PrivacyHtml, false)]
+    [InlineData("/termos", TermsHtml, false)]
+    public async Task Legal_pages_are_served_at_their_clean_address(string path, string html, bool registrationOpen)
+    {
+        await using var factory = FrontendFactory(withLanding: true, registrationOpen: registrationOpen);
+        using var client = factory.CreateRawClient();
+
+        var response = await client.GetAsync(path);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Content.Headers.ContentType!.MediaType.ShouldBe("text/html");
+        response.Headers.CacheControl!.NoCache.ShouldBeTrue();
+        response.Headers.Contains("Set-Cookie").ShouldBeFalse();
+        (await response.Content.ReadAsStringAsync()).ShouldBe(html);
+    }
+
+    // Um endereço só para cada página (o canonical): o arquivo não abre pelo nome.
+    [Theory]
+    [InlineData("/privacidade.html")]
+    [InlineData("/termos.html")]
+    public async Task Legal_page_files_are_not_served_by_name(string path)
+    {
+        await using var factory = FrontendFactory();
+        using var client = factory.CreateRawClient();
+
+        (await client.GetAsync(path)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
     // Página de apresentação (docs/landing.md): em "/", quem chega sem sessão a vê; quem tem sessão vê o app.
     [Fact]
     public async Task Without_a_session_the_root_shows_the_landing_page()
@@ -81,7 +117,7 @@ public sealed class HostingTests(PostgresFixture postgres) : IDisposable
         await using var factory = FrontendFactory(withLanding: true);
         using var client = factory.CreateDefaultClient(new Uri("https://localhost"), new CookieContainerHandler());
         var email = NewEmail();
-        (await client.PostAsJsonAsync("/api/auth/register", new { email, password = PrismaApiFactory.Password }))
+        (await client.PostAsJsonAsync("/api/auth/register", new { email, password = PrismaApiFactory.Password, acceptedTerms = true }))
             .StatusCode.ShouldBe(HttpStatusCode.Accepted);
         await factory.ConfirmEmailAsync(email);
         (await client.PostAsJsonAsync("/api/auth/login", new { email, password = PrismaApiFactory.Password }))
@@ -231,12 +267,12 @@ public sealed class HostingTests(PostgresFixture postgres) : IDisposable
         using var client = factory.CreateHttpsClient();
 
         var stranger = await client.PostAsJsonAsync("/auth/register",
-            new { email = NewEmail(), password = PrismaApiFactory.Password });
+            new { email = NewEmail(), password = PrismaApiFactory.Password, acceptedTerms = true });
         stranger.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         (await stranger.Content.ReadFromJsonAsync<ProblemDetails>())!.Detail.ShouldBe("O cadastro está fechado por enquanto.");
 
         var allowed = await client.PostAsJsonAsync("/auth/register",
-            new { email = owner.ToUpperInvariant(), password = PrismaApiFactory.Password });
+            new { email = owner.ToUpperInvariant(), password = PrismaApiFactory.Password, acceptedTerms = true });
         allowed.StatusCode.ShouldBe(HttpStatusCode.Accepted);
     }
 
@@ -248,7 +284,7 @@ public sealed class HostingTests(PostgresFixture postgres) : IDisposable
         {
             using var client = first.CreateRawClient();
             var email = NewEmail();
-            (await client.PostAsJsonAsync("/api/auth/register", new { email, password = PrismaApiFactory.Password }))
+            (await client.PostAsJsonAsync("/api/auth/register", new { email, password = PrismaApiFactory.Password, acceptedTerms = true }))
                 .StatusCode.ShouldBe(HttpStatusCode.Accepted);
             await first.ConfirmEmailAsync(email);
             var signedIn = await client.PostAsJsonAsync("/api/auth/login", new { email, password = PrismaApiFactory.Password });

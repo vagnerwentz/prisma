@@ -4,13 +4,15 @@
 # Rate limit: cadastro e login aceitam 5 tentativas por minuto por IP (429 na 6ª).
 # Lockout: 5 senhas erradas seguidas bloqueiam a conta por 15 minutos.
 
-### Cadastro (201 e já entra logado; 409 se o e-mail já existir)
+### Cadastro (202; não entra: confirme o e-mail pelo link, ou marque email_confirmed no banco local). Sem
+### "acceptedTerms": true, 400 (o aceite dos termos e da política, etapa A.4).
 POST {{baseUrl}}/auth/register
 Content-Type: application/json
 
 {
   "email": "{{email}}",
-  "password": "{{password}}"
+  "password": "{{password}}",
+  "acceptedTerms": true
 }
 
 ### Login (200 e grava o cookie de sessão)
@@ -22,8 +24,19 @@ Content-Type: application/json
   "password": "{{password}}"
 }
 
-### Usuário logado (200 com sessão, 401 sem)
+### Usuário logado (200 com sessão, 401 sem). "mustAcceptTerms": true leva a tela ao aceite dos termos.
 GET {{baseUrl}}/auth/me
+
+### Aceitar os termos e a política vigentes (200, a sessão com "mustAcceptTerms": false; etapa A.4)
+POST {{baseUrl}}/auth/accept-terms
+
+### Apagar a conta e tudo dela, de vez (204; senha errada é 400 WrongPassword e conta para o bloqueio; etapa A.3)
+POST {{baseUrl}}/auth/delete-account
+Content-Type: application/json
+
+{
+  "password": "{{password}}"
+}
 
 ### Logout (204; depois disso /auth/me dá 401)
 POST {{baseUrl}}/auth/logout
@@ -34,7 +47,8 @@ Content-Type: application/json
 
 {
   "email": "{{$random.uuid}}@teste.com.br",
-  "password": "{{password}}"
+  "password": "{{password}}",
+  "acceptedTerms": true
 }
 
 ### Erro: senha errada (401, "E-mail ou senha inválidos.")

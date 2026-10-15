@@ -25,6 +25,7 @@ const AnalysisPage = lazy(() => import('@/features/dashboard/AnalysisPage').then
 const AccountsPage = lazy(() => import('@/features/accounts/AccountsPage').then((m) => ({ default: m.AccountsPage })))
 const RecurrencesPage = lazy(() => import('@/features/recurrences/RecurrencesPage').then((m) => ({ default: m.RecurrencesPage })))
 const InvestmentsPage = lazy(() => import('@/features/investments/InvestmentsPage').then((m) => ({ default: m.InvestmentsPage })))
+const AcceptTermsPage = lazy(() => import('@/features/auth/AcceptTermsPage').then((m) => ({ default: m.AcceptTermsPage })))
 const DeleteAccountPage = lazy(() => import('@/features/auth/DeleteAccountPage').then((m) => ({ default: m.DeleteAccountPage })))
 const AccountDetailPage = lazy(() =>
   import('@/features/accounts/AccountDetailPage').then((m) => ({ default: m.AccountDetailPage })),
@@ -58,6 +59,7 @@ export function App() {
             <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
             <Route path="/nova-senha" element={<NewPasswordPage />} />
             <Route element={<RequireAuth />}>
+              <Route path="/aceitar-termos" element={<AcceptTermsPage />} />
               <Route path="/lancar" element={<NewTransactionPage />} />
               <Route element={<AppLayout />}>
                 <Route path="/" element={<SummaryPage />} />

@@ -80,6 +80,7 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 | Conferir um evento | `EventReview` | o que o evento fez com a quantidade da pessoa: "Confere" ou "Não confere" (para a curadoria); guarda a versão do evento, e o evento corrigido volta a pedir |
 | Dia útil bancário | `BankCalendar` | fins de semana e feriados nacionais; só débito automático e vencimento da fatura |
 | Fila de e-mails | `OutboxEmail` (`EmailKind`, `EmailStatus`) | pedido gravado junto com o motivo; o conteúdo e o token saem na hora do envio (`IEmailComposer`); `docs/email.md` |
+| Aceite dos termos | `LegalTerms` (`TermsVersion`, `PrivacyVersion`, `TermsAcceptedAt` no usuário) | a caixa do cadastro; versão nova pede o aceite de novo ao entrar (`SessionUser.MustAcceptTerms`, A.4) |
 | Conta apagada | `DeletedAccount` (`deleted_accounts`) | só o id e o instante, 90 dias, para apagar de novo depois de restaurar um backup (A.3) |
 | Link de confirmação / de senha nova | `ConfirmEmail` / `ResetPassword` | token do Identity depois do `#` (`/confirmar-email#u=…&t=…`, `/nova-senha#…`); 3 dias e 1 hora, uma vez só |
 
@@ -96,7 +97,7 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 | Banco | PostgreSQL 18 em todo lugar: Docker no desenvolvimento, Testcontainers nos testes, Railway na produção. Mudou a versão da produção, mudam juntos o `docker-compose.yml`, o `PostgresFixture` e a imagem do backup |
 | Validação | FluentValidation |
 | Testes | xUnit + Shouldly + Testcontainers + NetArchTest + CsCheck + `Microsoft.AspNetCore.Mvc.Testing` (`WebApplicationFactory`) |
-| Frontend | React 19 + TypeScript + Vite + React Router; a página de apresentação é uma segunda entrada do Vite, pré-renderizada no build com `react-dom/server` (`scripts/prerender-landing.mjs`) |
+| Frontend | React 19 + TypeScript + Vite + React Router; a página de apresentação é uma segunda entrada do Vite, pré-renderizada no build com `react-dom/server` (`scripts/prerender-landing.mjs`); a política de privacidade e os termos são Markdown (`src/legal/*.md`) que o build transforma em HTML pronto, sem JavaScript (`scripts/prerender-legal.mjs`) |
 | Cliente da API | `openapi-typescript` (tipos gerados) + `openapi-fetch` (chamadas tipadas) |
 | Testes do frontend | Vitest (formatação e conversão de dinheiro e data) |
 | UI | Tailwind CSS + shadcn/ui + `sonner` (avisos) + Instrument Serif (`@fontsource`, fonte hospedada no app) |
@@ -132,7 +133,7 @@ src/
 ├── Prisma.Api/
 │   ├── Features/               # Vertical slices: um arquivo por caso de uso
 │   └── Infrastructure/         # DbContext, configurações EF, migrations, auth
-└── prisma-web/                 # React + Vite (o app em index.html; a apresentação em landing.html + src/landing/)
+└── prisma-web/                 # React + Vite (o app em index.html; a apresentação em landing.html + src/landing/; política e termos em legal.html + src/legal/)
 tests/
 ├── Prisma.Domain.Tests/        # Unitários puros, sem banco
 ├── Prisma.Api.Tests/           # Integração por slice, com Testcontainers
@@ -146,7 +147,8 @@ docs/
 └── validacao-premissas.md      # Premissas do produto e o resultado de cada validação
 ops/
 ├── backup/                     # Serviço de backup: Dockerfile, backup.sh, restore.sh, teste de ida e volta
-└── postgres/                   # Usuários do banco de produção: prisma_app (API) e prisma_backup (só lê)
+├── postgres/                   # Usuários do banco de produção: prisma_app (API) e prisma_backup (só lê)
+└── privacy/                    # Cópia dos dados de uma pessoa em JSON (pedido pelo contato@; docs/operacao.md, seção 9)
 ```
 
 ### Regra de dependência, verificada pelo build
@@ -464,7 +466,8 @@ convivem, e o ASP.NET lê o último (o velho), derrubando a sessão logo depois 
 chega sem sessão recebe a página de apresentação (`landing.html`, React pré-renderizado no `npm run build`, `docs/landing.md`),
 mas só com o cadastro aberto: o botão dela leva ao cadastro. Com o cadastro fechado, `/` segue para o login.
 O front sai comprimido (Brotli/gzip); a API não, por causa do ataque BREACH (`docs/landing.md`, D20).
-`/landing.html` direto dá 404 (a página só existe em `/`). `robots.txt`, `sitemap.xml` e `og.jpg` ficam em `public/`, e as
+`/landing.html` direto dá 404 (a página só existe em `/`). A política de privacidade e os termos ficam sempre no ar em `/privacidade` e `/termos`
+(HTML pronto, com ou sem sessão e com o cadastro fechado); o arquivo pelo nome também dá 404. `robots.txt`, `sitemap.xml` e `og.jpg` ficam em `public/`, e as
 telas do app levam `noindex`.
 Cadastro fechado fora de desenvolvimento (`Registration:Open`); libere e-mails em
 `Registration__AllowedEmails__0`. A connection string vem de `ConnectionStrings__Default`.
@@ -595,7 +598,13 @@ por conversa, arquivo versionado ou histórico do shell.
 - Nunca logar valor, descrição de transação, nome, e-mail, senha ou token: só ids, tipos e motivos. Um
   teste de arquitetura recusa evento de `AppLog` com parâmetro de nome sensível.
 - **LGPD:** as skills `lgpd-*` (`.claude/skills`, locais, fora do git; goul4rt/lgpd-skills) são consultivas e
-  não substituem advogado. Texto jurídico (política de privacidade, termos) nunca vai ao ar sem revisão jurídica.
+  não substituem advogado. A v1 da política e dos termos foi ao ar antes da revisão jurídica, por decisão do dono
+  (2026-10-14); a revisão segue pendente (`PLAN.md`, A.2). O texto vive em `src/prisma-web/src/legal/*.md` (sem as notas
+  internas, que ficam nos rascunhos em `.lgpd/`, fora do git) e a versão vigente em `LegalTerms`: mudança que pede novo
+  aceite sobe a versão nos dois lugares (um teste confere), e quem aceitou a anterior vê a tela de aceite ao entrar.
+  Pedido de titular e incidente de segurança têm roteiro (`docs/operacao.md`, seções 9 e 10); o registro das operações
+  (art. 37) e a avaliação do legítimo interesse ficam em `.lgpd/`. Tabela nova com `user_id` entra também na consulta
+  da cópia (`ops/privacy/export-user.sql`).
   Página para quem não entrou não carrega script, fonte nem imagem de terceiros e não grava cookie.
 - Segredos via User Secrets em desenvolvimento e variáveis de ambiente em produção.
   Nada de connection string ou client secret commitado.

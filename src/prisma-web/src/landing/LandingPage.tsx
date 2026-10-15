@@ -61,7 +61,21 @@ export function LandingPage() {
       </main>
 
       <footer className="mx-auto flex max-w-6xl flex-col gap-3 border-t border-border/60 px-5 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-8">
-        <p>Prisma Money. Controle financeiro pessoal, feito no Brasil.</p>
+        <div className="flex flex-col gap-2">
+          <p>Prisma Money. Controle financeiro pessoal, feito no Brasil.</p>
+          {/* Etapa A.4: a política e os termos (HTML pronto, /privacidade e /termos) e o canal de contato. */}
+          <nav aria-label="Documentos" className="flex flex-wrap gap-x-4 gap-y-1">
+            <a href="/privacidade" className="underline-offset-4 hover:text-foreground hover:underline">
+              Política de privacidade
+            </a>
+            <a href="/termos" className="underline-offset-4 hover:text-foreground hover:underline">
+              Termos de uso
+            </a>
+            <a href="mailto:contato@prismamoney.com.br" className="underline-offset-4 hover:text-foreground hover:underline">
+              contato@prismamoney.com.br
+            </a>
+          </nav>
+        </div>
         <div className="flex items-center gap-5">
           {/* Link comum: o navegador só vai ao Instagram se a pessoa tocar (nada é carregado dele aqui, seção 9). */}
           <a

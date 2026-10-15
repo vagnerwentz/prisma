@@ -19,8 +19,6 @@ public static class ResetPassword
 {
     public sealed record Request(Guid UserId, string Token, string Password);
 
-    public sealed record Response(Guid Id, string Email);
-
     public static readonly Error InvalidLink =
         new(ErrorType.Validation, "Este link não vale mais. Peça outro abaixo.", "InvalidLink");
 
@@ -43,7 +41,7 @@ public static class ResetPassword
         EmailQueue emails,
         ILogger<Handler> logger)
     {
-        public async Task<Result<Response>> Execute(Request req, CancellationToken ct)
+        public async Task<Result<SessionUser>> Execute(Request req, CancellationToken ct)
         {
             var user = await users.FindByIdAsync(req.UserId.ToString());
             var token = AuthEmails.DecodeToken(req.Token);
@@ -79,7 +77,7 @@ public static class ResetPassword
 
             await signIn.SignInAsync(user, isPersistent: true);
             logger.PasswordReset(user.Id);
-            return new Response(user.Id, user.Email!);
+            return SessionUser.Of(user);
         }
     }
 
@@ -92,7 +90,7 @@ public static class ResetPassword
             .AllowAnonymous()
             .RequireRateLimiting(AuthSetup.RateLimitPolicy)
             .AddEndpointFilter<ValidationFilter<Request>>()
-            .Produces<Response>(200)
+            .Produces<SessionUser>(200)
             .ProducesValidationProblem()
             .ProducesProblem(429);
 }

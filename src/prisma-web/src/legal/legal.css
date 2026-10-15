@@ -1,0 +1,262 @@
+/* Política de privacidade e termos de uso (etapa A.4): texto para ler, com os tokens e as fontes do app (index.css).
+   O HTML vem do Markdown (markdown.ts), sem classes do Tailwind: os estilos vão aqui, pelas tags. */
+@import "../index.css";
+
+@layer components {
+    .legal {
+        background: var(--background);
+        color: var(--foreground);
+        font-family: var(--font-sans);
+        -webkit-text-size-adjust: 100%;
+    }
+
+    .legal-header,
+    .legal-main,
+    .legal-footer {
+        max-width: 44rem;
+        margin-inline: auto;
+        padding-inline: 1.25rem;
+    }
+
+    .legal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-top: max(1.25rem, env(safe-area-inset-top));
+    }
+
+    .legal-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-family: var(--font-display);
+        font-size: 1.5rem;
+        line-height: 1;
+    }
+
+    .legal-signin {
+        border-radius: 9999px;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--muted-foreground);
+        transition: color 150ms var(--ease-out);
+    }
+    .legal-signin:hover {
+        color: var(--foreground);
+    }
+
+    .legal-main {
+        padding-top: 2.5rem;
+        padding-bottom: 3rem;
+        font-size: 1rem;
+        line-height: 1.7;
+        overflow-wrap: anywhere;
+    }
+
+    .legal-main h1 {
+        font-family: var(--font-display);
+        font-size: 2.75rem;
+        line-height: 1.05;
+        font-weight: 400;
+    }
+
+    .legal-rule {
+        height: 2px;
+        margin-top: 1rem;
+        border-radius: 9999px;
+        background: var(--spectrum);
+        opacity: 0.8;
+    }
+
+    .legal-meta {
+        margin-top: 1rem;
+        font-size: 0.875rem;
+        color: var(--muted-foreground);
+    }
+    .legal-meta strong {
+        font-weight: 500;
+    }
+
+    .legal-contents {
+        margin-top: 2.5rem;
+        border-radius: 1rem;
+        padding: 1.25rem 1.5rem;
+        background: var(--card);
+        box-shadow: 0 1px 2px oklch(0.21 0.025 285 / 5%), 0 6px 20px -10px oklch(0.21 0.025 285 / 14%);
+        font-size: 0.9375rem;
+    }
+    [data-theme="dark"] .legal-contents {
+        box-shadow: inset 0 1px 0 oklch(1 0 0 / 5%);
+    }
+    .legal-contents p {
+        margin: 0 0 0.5rem;
+        font-size: 0.75rem;
+        color: var(--muted-foreground);
+    }
+    .legal-main .legal-contents ol {
+        display: grid;
+        gap: 0.125rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        line-height: 1.5;
+    }
+    .legal-main .legal-contents li + li {
+        margin-top: 0;
+    }
+    .legal-main .legal-contents a {
+        display: block;
+        padding-block: 0.25rem;
+        text-decoration: none;
+    }
+    .legal-main .legal-contents a:hover {
+        text-decoration: underline;
+    }
+
+    .legal-main h2 {
+        margin-top: 2.75rem;
+        font-family: var(--font-display);
+        font-size: 1.875rem;
+        line-height: 1.15;
+        font-weight: 400;
+        scroll-margin-top: 1.5rem;
+    }
+    .legal-main h3 {
+        margin-top: 1.75rem;
+        font-size: 1.0625rem;
+        font-weight: 600;
+        scroll-margin-top: 1.5rem;
+    }
+
+    .legal-main p,
+    .legal-main ul,
+    .legal-table {
+        margin-top: 0.875rem;
+    }
+
+    .legal-main ul {
+        padding-left: 1.25rem;
+        list-style: disc;
+    }
+    .legal-main ul ul {
+        margin-top: 0.25rem;
+        list-style: circle;
+    }
+    .legal-main li + li {
+        margin-top: 0.375rem;
+    }
+    .legal-main li::marker {
+        color: var(--muted-foreground);
+    }
+
+    .legal-main strong {
+        font-weight: 600;
+    }
+
+    .legal-main a {
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        text-decoration-color: color-mix(in oklch, currentColor 35%, transparent);
+    }
+    .legal-main a:hover {
+        text-decoration-color: currentColor;
+    }
+
+    .legal-main hr {
+        margin-block: 2.5rem 0;
+        border: 0;
+        border-top: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+    }
+
+    /* Tabela: rola dentro da própria caixa no celular, nunca a página. */
+    .legal-table {
+        overflow-x: auto;
+        border-radius: 0.75rem;
+        border: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+    }
+    .legal-table table {
+        width: 100%;
+        min-width: 36rem;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+        line-height: 1.5;
+    }
+    .legal-table th,
+    .legal-table td {
+        padding: 0.625rem 0.875rem;
+        text-align: left;
+        vertical-align: top;
+        overflow-wrap: normal;
+    }
+    .legal-table th {
+        font-weight: 600;
+        background: var(--card);
+    }
+    .legal-table tr + tr td,
+    .legal-table tbody tr:first-child td {
+        border-top: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+    }
+
+    /* Celular: cada linha vira um bloco, e cada célula traz o nome da coluna (data-label, markdown.ts). */
+    @media (max-width: 40rem) {
+        .legal-table {
+            overflow: visible;
+        }
+        .legal-table table {
+            min-width: 0;
+        }
+        .legal-table thead {
+            display: none;
+        }
+        .legal-table tbody,
+        .legal-table tr,
+        .legal-table td {
+            display: block;
+        }
+        .legal-table tr + tr {
+            border-top: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+        }
+        .legal-table td,
+        .legal-table tr + tr td,
+        .legal-table tbody tr:first-child td {
+            border-top: 0;
+            padding-block: 0.375rem;
+            overflow-wrap: anywhere;
+        }
+        .legal-table tr {
+            padding-block: 0.5rem;
+        }
+        .legal-table td::before {
+            content: attr(data-label);
+            display: block;
+            font-size: 0.75rem;
+            color: var(--muted-foreground);
+        }
+        .legal-table td:first-child {
+            font-weight: 600;
+        }
+        .legal-table td:first-child::before {
+            display: none;
+        }
+    }
+
+    .legal-footer {
+        display: grid;
+        gap: 0.75rem;
+        padding-top: 1.5rem;
+        padding-bottom: max(2rem, env(safe-area-inset-bottom));
+        border-top: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+        font-size: 0.875rem;
+        color: var(--muted-foreground);
+    }
+    .legal-footer nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1.25rem;
+    }
+    .legal-footer a {
+        color: var(--foreground);
+        font-weight: 500;
+    }
+}

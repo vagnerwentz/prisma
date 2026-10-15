@@ -20,7 +20,7 @@ public sealed class AuthTests(PostgresFixture postgres)
     private static string NewEmail() => $"{Guid.NewGuid():N}@teste.com.br";
 
     private static Task<HttpResponseMessage> Register(HttpClient client, string email, string password = Password) =>
-        client.PostAsJsonAsync("/auth/register", new { email, password });
+        client.PostAsJsonAsync("/auth/register", new { email, password, acceptedTerms = true });
 
     private static Task<HttpResponseMessage> Login(HttpClient client, string email, string password = Password) =>
         client.PostAsJsonAsync("/auth/login", new { email, password });
