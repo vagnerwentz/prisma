@@ -82,6 +82,7 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 | Fila de e-mails | `OutboxEmail` (`EmailKind`, `EmailStatus`) | pedido gravado junto com o motivo; o conteúdo e o token saem na hora do envio (`IEmailComposer`); `docs/email.md` |
 | Aceite dos termos | `LegalTerms` (`TermsVersion`, `PrivacyVersion`, `TermsAcceptedAt` no usuário) | a caixa do cadastro; versão nova pede o aceite de novo ao entrar (`SessionUser.MustAcceptTerms`, A.4) |
 | Conta apagada | `DeletedAccount` (`deleted_accounts`) | só o id e o instante, 90 dias, para apagar de novo depois de restaurar um backup (A.3) |
+| Senhas erradas com prazo | `AppUserManager.AccessFailedAsync` / `LastAccessFailedAt` | só soma com as anteriores até 15 min depois da última; vale para login, confirmação, troca de senha e apagar a conta (H.4e) |
 | Link de confirmação / de senha nova | `ConfirmEmail` / `ResetPassword` | token do Identity depois do `#` (`/confirmar-email#u=…&t=…`, `/nova-senha#…`); 3 dias e 1 hora, uma vez só |
 
 ---
@@ -92,7 +93,7 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 |---|---|
 | Runtime | .NET 10 (LTS) |
 | API | ASP.NET Core Minimal APIs + `Microsoft.AspNetCore.OpenApi` (documento em `/openapi/v1.json`, só em desenvolvimento) |
-| Auth | ASP.NET Core Identity + cookie `httpOnly` + rate limiter nativo do ASP.NET Core + chaves do Data Protection no Postgres (`Microsoft.AspNetCore.DataProtection.EntityFrameworkCore`); Google OAuth adiado; e-mail confirmado para entrar, senha nova pelo e-mail (`docs/email.md`) |
+| Auth | ASP.NET Core Identity + cookie `httpOnly` + rate limiter nativo do ASP.NET Core + chaves do Data Protection no Postgres (`Microsoft.AspNetCore.DataProtection.EntityFrameworkCore`); Google OAuth adiado; e-mail confirmado para entrar, senha nova pelo e-mail, trocar a senha logado e bloqueio com prazo (`AppUserManager`) (`docs/email.md`) |
 | ORM | EF Core 10 + Npgsql + EFCore.NamingConventions (snake_case) + EF Core Design (migrations; `dotnet-ef` fixado em `dotnet-tools.json`) |
 | Banco | PostgreSQL 18 em todo lugar: Docker no desenvolvimento, Testcontainers nos testes, Railway na produção. Mudou a versão da produção, mudam juntos o `docker-compose.yml`, o `PostgresFixture` e a imagem do backup |
 | Validação | FluentValidation |
@@ -585,8 +586,10 @@ por conversa, arquivo versionado ou histórico do shell.
 
 - Senha pelo hasher do Identity. Não implemente hash à mão.
 - Sessão em cookie `httpOnly` + `Secure` + `SameSite=Lax`. **Nunca JWT em localStorage.**
-- Rate limit em login, cadastro, confirmação de e-mail, senha nova e apagar a conta. Cinco senhas erradas (no login ou
-  ao apagar a conta, na mesma contagem) bloqueiam a conta por 15 minutos; a senha nova pelo e-mail desbloqueia.
+- Rate limit em login, cadastro, confirmação de e-mail, senha nova e apagar a conta. Cinco senhas erradas (no login, ao
+  confirmar o e-mail, ao trocar a senha ou ao apagar a conta, na mesma contagem) bloqueiam a conta por 15 minutos; só
+  somam as que vêm até 15 minutos depois da anterior (`AppUserManager`, H.4e). A senha nova pelo e-mail desbloqueia.
+  "Trocar senha" pelo menu da conta pede a atual; esta sessão fica e as outras caem (H.4d).
 - **Conta (`docs/email.md`, 5.1 a 5.5):** sem o e-mail confirmado, não entra. Nenhuma resposta conta quem tem conta
   (cadastro, "esqueci a senha" e reenvio respondem igual; o login só revela "falta confirmar" a quem acertou a senha).
   Confirmar pede a senha do cadastro (contra o pré-sequestro de conta); a senha nova pelo e-mail confirma a conta e

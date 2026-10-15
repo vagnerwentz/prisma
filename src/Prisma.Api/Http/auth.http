@@ -2,7 +2,8 @@
 # inclusive em outros arquivos .http. Rode "Cadastro" uma vez; depois use "Login".
 #
 # Rate limit: cadastro e login aceitam 5 tentativas por minuto por IP (429 na 6ª).
-# Lockout: 5 senhas erradas seguidas bloqueiam a conta por 15 minutos.
+# Lockout: 5 senhas erradas bloqueiam a conta por 15 minutos. Só somam as que vêm até 15 minutos depois da
+# anterior (etapa H.4e): no login, ao confirmar o e-mail, ao trocar a senha e ao apagar a conta, na mesma contagem.
 
 ### Cadastro (202; não entra: confirme o e-mail pelo link, ou marque email_confirmed no banco local). Sem
 ### "acceptedTerms": true, 400 (o aceite dos termos e da política, etapa A.4).
@@ -29,6 +30,16 @@ GET {{baseUrl}}/auth/me
 
 ### Aceitar os termos e a política vigentes (200, a sessão com "mustAcceptTerms": false; etapa A.4)
 POST {{baseUrl}}/auth/accept-terms
+
+### Trocar a senha com a sessão aberta (204; esta sessão continua, as outras caem; senha atual errada é 400
+### WrongPassword e conta para o bloqueio; etapa H.4d). Depois de rodar, troque {{password}} ou rode de novo invertido.
+POST {{baseUrl}}/auth/change-password
+Content-Type: application/json
+
+{
+  "currentPassword": "{{password}}",
+  "newPassword": "senha-nova-456"
+}
 
 ### Apagar a conta e tudo dela, de vez (204; senha errada é 400 WrongPassword e conta para o bloqueio; etapa A.3)
 POST {{baseUrl}}/auth/delete-account

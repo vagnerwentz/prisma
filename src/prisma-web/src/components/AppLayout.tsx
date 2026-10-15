@@ -1,4 +1,4 @@
-import { LogOut, Monitor, Moon, Sun, Trash2 } from 'lucide-react'
+import { KeyRound, LogOut, Monitor, Moon, Sun, Trash2 } from 'lucide-react'
 import { Outlet, useMatch, useNavigate } from 'react-router'
 import { BottomNav } from '@/components/BottomNav'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -81,6 +81,10 @@ function UserMenu() {
           ))}
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => navigate('/trocar-senha')}>
+          <KeyRound />
+          Trocar senha
+        </DropdownMenuItem>
         <DropdownMenuItem
           disabled={logout.isPending}
           onSelect={async () => {

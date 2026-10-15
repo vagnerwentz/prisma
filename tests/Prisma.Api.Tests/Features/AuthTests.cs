@@ -240,6 +240,47 @@ public sealed class AuthTests(PostgresFixture postgres)
         (await Login(client, email)).StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
+    // Etapa H.4e: a senha errada só soma com as anteriores se vier até 15 minutos depois da última. Quem erra de vez em
+    // quando (hoje uma, amanhã outra) não acaba bloqueado por uma soma de dias. O prazo corre pelo IClock.
+    [Fact]
+    public async Task Wrong_passwords_spread_over_time_do_not_add_up()
+    {
+        var clock = new FakeClock(new DateTime(2026, 11, 3, 15, 0, 0, DateTimeKind.Utc));
+        await using var factory = new PrismaApiFactory(postgres.ConnectionString, clock: clock);
+        var email = NewEmail();
+        await Register(factory.CreateHttpsClient(), email);
+        await factory.ConfirmEmailAsync(email);
+        using var client = factory.CreateHttpsClient();
+        for (var i = 0; i < 4; i++)
+            (await Login(client, email, "senha-errada-999")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+
+        clock.UtcNow = clock.UtcNow.AddMinutes(16);
+        for (var i = 0; i < 4; i++)
+            (await Login(client, email, "senha-errada-999")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+
+        (await Login(client, email)).StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    // O outro lado da janela: errar de novo antes dos 15 minutos soma, e a 5ª bloqueia como antes.
+    [Fact]
+    public async Task Wrong_passwords_within_15_minutes_of_the_last_one_add_up()
+    {
+        var clock = new FakeClock(new DateTime(2026, 11, 3, 15, 0, 0, DateTimeKind.Utc));
+        await using var factory = new PrismaApiFactory(postgres.ConnectionString, clock: clock);
+        var email = NewEmail();
+        await Register(factory.CreateHttpsClient(), email);
+        await factory.ConfirmEmailAsync(email);
+        using var client = factory.CreateHttpsClient();
+        for (var i = 0; i < 4; i++)
+        {
+            (await Login(client, email, "senha-errada-999")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+            clock.UtcNow = clock.UtcNow.AddMinutes(14);
+        }
+
+        (await Login(client, email, "senha-errada-999")).StatusCode.ShouldBe(HttpStatusCode.TooManyRequests);
+        (await Login(client, email)).StatusCode.ShouldBe(HttpStatusCode.TooManyRequests);
+    }
+
     private async Task<T> Sql<T>(string sql, string email)
     {
         await using var connection = new NpgsqlConnection(postgres.ConnectionString);

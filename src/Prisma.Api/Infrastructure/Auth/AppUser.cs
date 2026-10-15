@@ -19,4 +19,8 @@ public sealed class AppUser : IdentityUser<Guid>
 
     [PersonalData]
     public DateTime? TermsAcceptedAt { get; set; }
+
+    // Quando a última senha errada chegou (etapa H.4e, AppUserManager): a próxima só soma com as anteriores se vier até
+    // 15 minutos depois. Segurança da conta, fora da cópia dos dados (ops/privacy/export-user.sql).
+    public DateTime? LastAccessFailedAt { get; set; }
 }

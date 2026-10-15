@@ -624,12 +624,15 @@ As respostas pelo Gmail contam na cota do Resend junto com os e-mails do app (gr
   | E-mails confirmados / links recusados (motivo: vencido, mexido, senha errada) | `@eventName:EmailConfirmed` / `@eventName:EmailConfirmationRejected` |
   | Login com a senha certa e o e-mail sem confirmar | `@eventName:LoginFailed` com `@reason:EmailNotConfirmed` |
   | Pedidos de senha nova / senhas trocadas / links recusados | `@eventName:PasswordResetRequested` / `@eventName:PasswordReset` / `@eventName:PasswordResetRejected` |
+  | Senha trocada pelo menu da conta / recusada (motivo: senha atual errada, bloqueada) | `@eventName:PasswordChanged` / `@eventName:PasswordChangeRejected` |
+  | Contas bloqueadas por senha errada no login | `@eventName:LoginLockedOut` |
 
 - **E-mail que não chegou:** o id da linha vem nos logs acima; no banco, `outbox_emails` pelo id (status, tentativas,
   último erro). No Resend, *Emails* mostra o que saiu e o que voltou.
 - **Alguém não consegue entrar:** a própria pessoa resolve. Sem confirmar o e-mail, o login mostra "Reenviar e-mail";
   sem lembrar a senha, "Esqueci a senha" no login (link de 1 hora, que também confirma o e-mail e destrava a conta
-  bloqueada). Ninguém troca senha à mão no banco.
+  bloqueada). O bloqueio por senha errada dura 15 minutos e acaba sozinho; erros com mais de 15 minutos entre um e outro
+  não somam (`docs/email.md`, 5.3b). Ninguém troca senha à mão no banco.
 - **Prévia dos e-mails** depois de mudar texto ou layout:
   `PRISMA_EMAIL_PREVIEW=<pasta> dotnet test tests/Prisma.Api.Tests --filter FullyQualifiedName~EmailPreview`.
 - **Resend fora do ar, ou chave errada (401/403):** a fila tenta de novo por 24 h (30 s, 2 min, 10 min, 1 h, depois

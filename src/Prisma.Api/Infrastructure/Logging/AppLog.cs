@@ -76,6 +76,13 @@ public static partial class AppLog
     [LoggerMessage(2012, LogLevel.Warning, "Password reset rejected: {Reason}")]
     public static partial void PasswordResetRejected(this ILogger logger, string reason);
 
+    // Trocar a senha com a sessão aberta (docs/email.md, 5.3).
+    [LoggerMessage(2013, LogLevel.Information, "User {UserId} changed their password")]
+    public static partial void PasswordChanged(this ILogger logger, Guid userId);
+
+    [LoggerMessage(2014, LogLevel.Warning, "Password change rejected for user {UserId}: {Reason}")]
+    public static partial void PasswordChangeRejected(this ILogger logger, Guid userId, string reason);
+
     [LoggerMessage(3000, LogLevel.Information, "Account {AccountId} created ({AccountType})")]
     public static partial void AccountCreated(this ILogger logger, Guid accountId, AccountType accountType);
 

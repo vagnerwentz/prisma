@@ -68,7 +68,8 @@ reality, so the monthly numbers match your bank account instead of your receipts
   into HTML at build time, no JavaScript, no cookies. Sign-up requires accepting them (and being 18 or older); the
   accepted versions are stored, and a new version asks existing users to accept again when they sign in.
 - **Account by email:** sign-up is confirmed by an emailed link, a forgotten password is replaced through a one-hour
-  link, and every security change is announced by email. The emails share the app's look: an ink header, the spectrum
+  link, the password can be changed from the account menu (this device stays signed in, the others leave), and every
+  security change is announced by email. The emails share the app's look: an ink header, the spectrum
   stripe and a document-like layout that holds up in Gmail, Outlook and dark mode.
 
 ## Engineering highlights
@@ -113,6 +114,9 @@ reality, so the monthly numbers match your bank account instead of your receipts
   account exists. Links are signed, single-use, short-lived and carried after the `#`, so they never reach a server
   log. Confirming asks for the sign-up password, which closes account pre-hijacking (someone registering a victim's
   address first); resetting the password through the email confirms the account and locks the intruder out.
+- **A lockout that forgets.** Five wrong passwords lock the account for 15 minutes, counted together across sign-in,
+  email confirmation, password change and account deletion. A wrong password only adds up if it comes within 15
+  minutes of the previous one, so a typo a week never locks anyone out.
 - **Erasure that survives a restore.** Deleted account ids are kept for the 90 days that backups live; restoring an
   older backup brings those accounts back, and the job erases them again. Schema-reading tests fail when a new table
   with an owner or a soft delete is left out of the erasure.
@@ -131,10 +135,10 @@ the statement's due date. That due date is the date the dashboard counts.
 
 ```mermaid
 flowchart LR
-    Buy["Purchase<br/><i>PurchaseDate</i>"] -->|"closing day decides"| Statement["Statement<br/>(open until it closes)"]
-    Statement -->|"due date"| Cash["Money leaves the account<br/><i>SettlementDate</i>"]
-    Cash --> Dashboard["Monthly cash flow<br/>(counted here)"]
-    Pix["Pix, debit, cash"] -->|"same day"| Cash
+    Buy["Purchase<br/>(PurchaseDate)"] -->|"closing day<br/>decides"| Statement["Statement<br/>open until<br/>it closes"]
+    Statement -->|"due date"| Cash["Money leaves<br/>the account<br/>(SettlementDate)"]
+    Cash --> Dashboard["Monthly<br/>cash flow<br/>(counted here)"]
+    Pix["Pix, debit,<br/>cash"] -->|"same day"| Cash
 ```
 
 An automatic debit repeats every month on its own. When the amount changes, the app records the average
@@ -142,26 +146,26 @@ and asks you to check it:
 
 ```mermaid
 flowchart LR
-    Due["Due date"] -->|"weekend or holiday?<br/>next business day"| Debit["Debit recorded<br/>with the average amount"]
-    Debit --> Bell["Bell in the header<br/>≈ estimate to check"]
-    Bell -->|"Confirm"| Exact["Month total is exact"]
-    Bell -->|"Changed: type the real amount"| Exact
+    Due["Due date"] -->|"weekend or holiday?<br/>next business day"| Debit["Debit recorded<br/>with the<br/>average amount"]
+    Debit --> Bell["Bell in<br/>the header:<br/>estimate to check"]
+    Bell -->|"Confirm"| Exact["Month total<br/>is exact"]
+    Bell -->|"Changed:<br/>type the<br/>real amount"| Exact
 ```
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    Web["React 19 + TypeScript<br/>TanStack Query"] -->|"/api (same origin, httpOnly cookie)"| Api
-    subgraph Api["ASP.NET Core Minimal APIs"]
-        Slices["Vertical slices<br/>one file per use case"]
+    Web["React 19<br/>TypeScript<br/>TanStack Query"] -->|"/api, same origin,<br/>httpOnly cookie"| Api
+    subgraph Api["ASP.NET Core API"]
+        Slices["Vertical slices<br/>one file<br/>per use case"]
     end
-    Slices --> Domain["Prisma.Domain<br/>entities, value objects, rules<br/>(no dependencies)"]
-    Slices --> Db[("PostgreSQL 18<br/>EF Core, snake_case")]
-    Job["Background jobs<br/>recurring entries, automatic debits,<br/>the asset catalog, the email outbox<br/>and erasure of deleted data"] --> Domain
+    Slices --> Domain["Prisma.Domain<br/>entities, rules<br/>no dependencies"]
+    Slices --> Db[("PostgreSQL 18<br/>EF Core")]
+    Job["Background jobs<br/>recurring entries<br/>automatic debits<br/>asset catalog<br/>email outbox<br/>erasure"] --> Domain
     Job --> Db
-    Job -->|"daily asset list and logos"| Brapi["brapi.dev<br/>(B3 market data)"]
-    Job -->|"account emails"| Resend["Resend<br/>(email delivery)"]
+    Job -->|"daily asset<br/>list, logos"| Brapi["brapi.dev<br/>B3 market data"]
+    Job -->|"account<br/>emails"| Resend["Resend<br/>email delivery"]
 ```
 
 - **`src/Prisma.Domain`:** entities, value objects and rules; no EF Core, ASP.NET Core or Npgsql.
@@ -178,14 +182,13 @@ night:
 
 ```mermaid
 flowchart LR
-    subgraph Railway["Railway project (private network)"]
+    subgraph Railway["Railway, private network"]
         App["API + React<br/>one Docker image"] --> Pg[("PostgreSQL")]
-        Cron["Backup service<br/>daily cron, 03:00 São Paulo"] -->|"pg_dump as a<br/>read-only user"| Pg
-        App -->|"after a restore: erase again<br/>accounts deleted in the last 90 days"| Pg
+        Pg -->|"pg_dump,<br/>read-only user"| Cron["Backup service<br/>daily, 03:00<br/>São Paulo"]
     end
-    Cron -->|"encrypted with age<br/>(public key only)"| R2[("Cloudflare R2<br/>90-day retention<br/>30-day deletion lock")]
-    Cron -->|"start, success, failure"| HC["Healthchecks.io<br/>alerts when a day is missed"]
-    Key["Private key<br/>held only by the owner"] -.->|"restore"| R2
+    Cron -->|"encrypted<br/>with age"| R2[("Cloudflare R2<br/>kept 90 days<br/>locked 30 days")]
+    Cron -.->|"start, success,<br/>failure"| HC["Healthchecks.io<br/>alerts when<br/>a day is missed"]
+    Key["Private key<br/>only with<br/>the owner"] -.->|"restore"| R2
 ```
 
 The backup lives outside Railway on purpose: losing the hosting account must not take the backups with it.
@@ -194,12 +197,12 @@ Deleting is undoable for a while, then final. The same job keeps the promise aft
 
 ```mermaid
 flowchart LR
-    Delete["Delete an entry,<br/>account, note…"] -->|"soft delete"| Undo["Undo from the toast<br/>for 30 minutes"]
-    Undo -->|"job every 10 min"| Gone["Row erased<br/>(links to it cleared)"]
-    Close["Delete my account<br/>(password)"] -->|"one SQL transaction"| Erased["Every row of the person<br/>erased at once"]
-    Erased --> List[("deleted_accounts<br/>id + time, 90 days")]
-    Restore["Backup restored"] -.->|"account is back"| List
-    List -.->|"job erases it again"| Erased
+    Delete["Delete an entry,<br/>account, note"] -->|"soft delete"| Undo["Undo from<br/>the toast for<br/>30 minutes"]
+    Undo -->|"job every<br/>10 min"| Gone["Row erased,<br/>links to it<br/>cleared"]
+    Close["Delete my<br/>account<br/>(password)"] -->|"one SQL<br/>transaction"| Erased["Every row<br/>of the person<br/>erased at once"]
+    Erased --> List[("deleted_accounts<br/>id + time<br/>90 days")]
+    Restore["Backup<br/>restored"] -.->|"account<br/>is back"| List
+    List -.->|"job erases<br/>it again"| Erased
 ```
 
 ## Tech stack
@@ -207,7 +210,7 @@ flowchart LR
 | Layer | Technology |
 |---|---|
 | Backend | .NET 10, ASP.NET Core Minimal APIs, EF Core 10 + Npgsql, FluentValidation |
-| Auth | ASP.NET Core Identity, `httpOnly` secure cookie, rate limiting, email confirmation and password reset |
+| Auth | ASP.NET Core Identity, `httpOnly` secure cookie, rate limiting, lockout with a time window, email confirmation, password reset and change |
 | Email | Resend over a typed `HttpClient` (no SDK), Postgres outbox, table-based HTML templates |
 | Database | PostgreSQL 18 |
 | Frontend | React 19, TypeScript, Vite, TanStack Query, React Hook Form + Zod, Tailwind CSS, shadcn/ui |
