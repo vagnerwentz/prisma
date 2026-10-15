@@ -100,6 +100,18 @@ export function useResetPassword() {
   })
 }
 
+export type ChangePasswordRequest = { currentPassword: string; newPassword: string }
+
+// "Trocar senha" (etapa H.4d): a API renova o cookie desta sessão, e a sessão segue como estava.
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: async (body: ChangePasswordRequest) => {
+      const result = await api.POST('/auth/change-password', { body })
+      if (!result.response.ok) unwrap(result)
+    },
+  })
+}
+
 // "Apagar conta" (etapa A.3): com a senha, a conta e tudo o que é dela saem de vez. Nada do usuário fica em cache.
 export function useDeleteAccount() {
   const queryClient = useQueryClient()

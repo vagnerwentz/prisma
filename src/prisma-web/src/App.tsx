@@ -26,6 +26,7 @@ const AccountsPage = lazy(() => import('@/features/accounts/AccountsPage').then(
 const RecurrencesPage = lazy(() => import('@/features/recurrences/RecurrencesPage').then((m) => ({ default: m.RecurrencesPage })))
 const InvestmentsPage = lazy(() => import('@/features/investments/InvestmentsPage').then((m) => ({ default: m.InvestmentsPage })))
 const AcceptTermsPage = lazy(() => import('@/features/auth/AcceptTermsPage').then((m) => ({ default: m.AcceptTermsPage })))
+const ChangePasswordPage = lazy(() => import('@/features/auth/ChangePasswordPage').then((m) => ({ default: m.ChangePasswordPage })))
 const DeleteAccountPage = lazy(() => import('@/features/auth/DeleteAccountPage').then((m) => ({ default: m.DeleteAccountPage })))
 const AccountDetailPage = lazy(() =>
   import('@/features/accounts/AccountDetailPage').then((m) => ({ default: m.AccountDetailPage })),
@@ -69,6 +70,7 @@ export function App() {
                 <Route path="/contas/recorrencias" element={<RecurrencesPage />} />
                 <Route path="/contas/:id" element={<AccountDetailPage />} />
                 <Route path="/contas/investimentos" element={<InvestmentsPage />} />
+                <Route path="/trocar-senha" element={<ChangePasswordPage />} />
                 <Route path="/apagar-conta" element={<DeleteAccountPage />} />
               </Route>
             </Route>
