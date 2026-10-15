@@ -8,23 +8,17 @@ namespace Prisma.Api.Features.Auth;
 
 public static class Me
 {
-    public sealed record Response(Guid Id, string Email);
-
     public sealed class Handler(AppDbContext db, ICurrentUser currentUser)
     {
-        public async Task<Result<Response>> Execute(CancellationToken ct)
+        public async Task<Result<SessionUser>> Execute(CancellationToken ct)
         {
-            var response = await db.Users
-                .AsNoTracking()
-                .Where(u => u.Id == currentUser.UserId)
-                .Select(u => new Response(u.Id, u.Email!))
-                .SingleOrDefaultAsync(ct);
+            var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == currentUser.UserId, ct);
 
             // Conta apagada em outro aparelho (etapa A.3): o cookie daqui ainda vale até a próxima conferência
             // (AuthSetup.SessionCheckInterval). 401, e não 404, para a tela levar ao login.
-            return response is null
+            return user is null
                 ? new Error(ErrorType.Unauthorized, "Sessão expirada. Entre de novo.")
-                : response;
+                : SessionUser.Of(user);
         }
     }
 
@@ -34,6 +28,6 @@ public static class Me
             var result = await handler.Execute(ct);
             return result.IsSuccess ? Results.Ok(result.Value) : result.Error.ToProblem();
         })
-            .Produces<Response>(200)
+            .Produces<SessionUser>(200)
             .ProducesProblem(401);
 }

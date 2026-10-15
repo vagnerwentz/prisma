@@ -186,9 +186,21 @@ namespace Prisma.Api.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("phone_number_confirmed");
 
+                    b.Property<string>("PrivacyVersion")
+                        .HasColumnType("text")
+                        .HasColumnName("privacy_version");
+
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("text")
                         .HasColumnName("security_stamp");
+
+                    b.Property<DateTime?>("TermsAcceptedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("terms_accepted_at");
+
+                    b.Property<string>("TermsVersion")
+                        .HasColumnType("text")
+                        .HasColumnName("terms_version");
 
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("boolean")

@@ -21,6 +21,14 @@ public static class FrontendHosting
     private const string Revalidate = "no-cache";
     private const string LandingFile = "/landing.html";
 
+    // Política de privacidade e termos de uso (etapa A.4): HTML pronto, gerado no build (scripts/prerender-legal.mjs),
+    // sempre no ar, com ou sem sessão e com o cadastro aberto ou fechado. Só pelo endereço limpo, como a apresentação.
+    private static readonly Dictionary<string, string> LegalPages = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["/privacidade"] = "/privacidade.html",
+        ["/termos"] = "/termos.html",
+    };
+
     // Compressão do front (docs/landing.md, D20): HTML, CSS, JS e SVG, que não levam dado de ninguém. Só o ramo do front a
     // usa (UseFrontendAndApiPrefix): as respostas da API ficam sem compressão, porque dado do usuário comprimido junto com
     // texto que outro site consegue injetar abre a porta para o ataque BREACH. "Fastest": comprime a cada pedido, e o
@@ -50,7 +58,8 @@ public static class FrontendHosting
             // A página de apresentação só existe em "/" (ShowsLanding): o arquivo dela não abre pelo nome.
             frontend.Use(async (context, next) =>
             {
-                if (context.Request.Path.Equals(LandingFile, StringComparison.OrdinalIgnoreCase))
+                if (context.Request.Path.Equals(LandingFile, StringComparison.OrdinalIgnoreCase)
+                    || LegalPages.Values.Contains(context.Request.Path.Value ?? "", StringComparer.OrdinalIgnoreCase))
                 {
                     context.Response.StatusCode = StatusCodes.Status404NotFound;
                     return;
@@ -74,7 +83,9 @@ public static class FrontendHosting
                     return;
                 }
 
-                var page = await ShowsLanding(context, files) ? files.GetFileInfo(LandingFile) : index;
+                var page = LegalPages.TryGetValue(context.Request.Path.Value!.TrimEnd('/'), out var legal) && files.GetFileInfo(legal).Exists
+                    ? files.GetFileInfo(legal)
+                    : await ShowsLanding(context, files) ? files.GetFileInfo(LandingFile) : index;
                 context.Response.ContentType = "text/html; charset=utf-8";
                 context.Response.Headers.CacheControl = Revalidate;
                 await context.Response.SendFileAsync(page);

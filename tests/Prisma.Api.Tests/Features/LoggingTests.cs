@@ -118,7 +118,7 @@ public sealed class LoggingTests(PostgresFixture postgres)
         await using var factory = new PrismaApiFactory(postgres.ConnectionString, logs: logs);
         var email = $"{Guid.NewGuid():N}@teste.com.br";
         using var registered = factory.CreateHttpsClient();
-        (await registered.PostAsJsonAsync("/auth/register", new { email, password = PrismaApiFactory.Password })).EnsureSuccessStatusCode();
+        (await registered.PostAsJsonAsync("/auth/register", new { email, password = PrismaApiFactory.Password, acceptedTerms = true })).EnsureSuccessStatusCode();
         var userId = await factory.ConfirmEmailAsync(email);
         using var anonymous = factory.CreateHttpsClient();
 

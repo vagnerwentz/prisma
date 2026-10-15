@@ -11,8 +11,6 @@ public static class Login
 {
     public sealed record Request(string Email, string Password);
 
-    public sealed record Response(Guid Id, string Email);
-
     public sealed class Validator : AbstractValidator<Request>
     {
         public Validator()
@@ -38,7 +36,7 @@ public static class Login
                 "Conta bloqueada temporariamente por excesso de tentativas. Tente novamente em alguns minutos.");
         }
 
-        public async Task<Result<Response>> Execute(Request req, CancellationToken ct)
+        public async Task<Result<SessionUser>> Execute(Request req, CancellationToken ct)
         {
             var user = await users.FindByEmailAsync(req.Email.Trim());
             if (user is null)
@@ -70,7 +68,7 @@ public static class Login
 
             await signIn.SignInAsync(user, isPersistent: true);
             logger.LoginSucceeded(user.Id);
-            return new Response(user.Id, user.Email!);
+            return SessionUser.Of(user);
         }
     }
 
@@ -83,7 +81,7 @@ public static class Login
             .AllowAnonymous()
             .RequireRateLimiting(AuthSetup.RateLimitPolicy)
             .AddEndpointFilter<ValidationFilter<Request>>()
-            .Produces<Response>(200)
+            .Produces<SessionUser>(200)
             .ProducesValidationProblem()
             .ProducesProblem(401)
             .ProducesProblem(403)

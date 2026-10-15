@@ -66,7 +66,7 @@ public sealed partial class PasswordResetTests(PostgresFixture postgres)
     private static async Task<string> ConfirmedUser(PrismaApiFactory factory)
     {
         var email = NewEmail();
-        (await factory.CreateHttpsClient().PostAsJsonAsync("/auth/register", new { email, password = Password })).EnsureSuccessStatusCode();
+        (await factory.CreateHttpsClient().PostAsJsonAsync("/auth/register", new { email, password = Password, acceptedTerms = true })).EnsureSuccessStatusCode();
         await factory.ConfirmEmailAsync(email);
         return email;
     }
@@ -208,7 +208,7 @@ public sealed partial class PasswordResetTests(PostgresFixture postgres)
     {
         await using var factory = Factory();
         var email = NewEmail();
-        (await factory.CreateHttpsClient().PostAsJsonAsync("/auth/register", new { email, password = Password })).EnsureSuccessStatusCode();
+        (await factory.CreateHttpsClient().PostAsJsonAsync("/auth/register", new { email, password = Password, acceptedTerms = true })).EnsureSuccessStatusCode();
         await SendQueued(factory);
         var confirmation = Regex.Match(Transport(factory).To(email).Single().Text,
             @"confirmar-email#u=([0-9a-f-]{36})&t=([A-Za-z0-9_-]+)");
@@ -311,7 +311,7 @@ public sealed partial class PasswordResetTests(PostgresFixture postgres)
     {
         await using var factory = Factory();
         var victim = NewEmail();
-        (await factory.CreateHttpsClient().PostAsJsonAsync("/auth/register", new { email = victim, password = "senha-do-intruso" }))
+        (await factory.CreateHttpsClient().PostAsJsonAsync("/auth/register", new { email = victim, password = "senha-do-intruso", acceptedTerms = true }))
             .EnsureSuccessStatusCode();
         var link = LinkIn(await AskForLink(factory, victim));
 

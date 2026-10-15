@@ -158,7 +158,7 @@ public sealed class AccountDeletionTests(PostgresFixture postgres)
         await using var factory = new PrismaApiFactory(postgres.ConnectionString);
         var email = $"{Guid.NewGuid():N}@teste.com.br";
         var client = factory.CreateHttpsClient();
-        (await client.PostAsJsonAsync("/auth/register", new { email, password = PrismaApiFactory.Password })).EnsureSuccessStatusCode();
+        (await client.PostAsJsonAsync("/auth/register", new { email, password = PrismaApiFactory.Password, acceptedTerms = true })).EnsureSuccessStatusCode();
         await factory.ConfirmEmailAsync(email);
         (await client.PostAsJsonAsync("/auth/login", new { email, password = PrismaApiFactory.Password })).EnsureSuccessStatusCode();
 
@@ -168,7 +168,7 @@ public sealed class AccountDeletionTests(PostgresFixture postgres)
         (await client.PostAsJsonAsync("/auth/login", new { email, password = PrismaApiFactory.Password }))
             .StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
         // O mesmo e-mail pode criar uma conta nova, que nasce vazia.
-        (await client.PostAsJsonAsync("/auth/register", new { email, password = PrismaApiFactory.Password }))
+        (await client.PostAsJsonAsync("/auth/register", new { email, password = PrismaApiFactory.Password, acceptedTerms = true }))
             .StatusCode.ShouldBe(HttpStatusCode.Accepted);
     }
 

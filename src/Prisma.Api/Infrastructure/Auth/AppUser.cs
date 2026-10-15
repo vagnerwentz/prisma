@@ -8,4 +8,15 @@ public sealed class AppUser : IdentityUser<Guid>
     // Versão do catálogo de categorias padrão que o usuário já recebeu (docs/fase-2.md, 2.11). Quem se
     // cadastrou antes da 2.23 está na 1; o cadastro grava a versão atual.
     public int CategoryCatalogVersion { get; set; }
+
+    // Aceite dos termos de uso e da política de privacidade (etapa A.4, LegalTerms): as versões aceitas e quando. Vazio
+    // em quem se cadastrou antes do aceite existir: essa pessoa aceita ao entrar.
+    [PersonalData]
+    public string? TermsVersion { get; set; }
+
+    [PersonalData]
+    public string? PrivacyVersion { get; set; }
+
+    [PersonalData]
+    public DateTime? TermsAcceptedAt { get; set; }
 }

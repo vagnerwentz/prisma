@@ -94,7 +94,7 @@ public sealed class PrismaApiFactory(
     {
         var email = $"{Guid.NewGuid():N}@teste.com.br";
         var client = CreateHttpsClient();
-        (await client.PostAsJsonAsync("/auth/register", new { email, password = Password })).EnsureSuccessStatusCode();
+        (await client.PostAsJsonAsync("/auth/register", new { email, password = Password, acceptedTerms = true })).EnsureSuccessStatusCode();
         await ConfirmEmailAsync(email);
         (await client.PostAsJsonAsync("/auth/login", new { email, password = Password })).EnsureSuccessStatusCode();
         return client;

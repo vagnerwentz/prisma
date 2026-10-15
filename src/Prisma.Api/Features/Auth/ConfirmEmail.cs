@@ -23,8 +23,6 @@ public static class ConfirmEmail
 {
     public sealed record Request(Guid UserId, string Token, string Password);
 
-    public sealed record Response(Guid Id, string Email);
-
     public static readonly Error InvalidLink =
         new(ErrorType.Validation, "Este link não vale mais. Peça outro abaixo ou entre, se já confirmou.", "InvalidLink");
 
@@ -44,7 +42,7 @@ public static class ConfirmEmail
     public sealed class Handler(
         UserManager<AppUser> users, SignInManager<AppUser> signIn, IOptions<IdentityOptions> identity, ILogger<Handler> logger)
     {
-        public async Task<Result<Response>> Execute(Request req, CancellationToken ct)
+        public async Task<Result<SessionUser>> Execute(Request req, CancellationToken ct)
         {
             var user = await users.FindByIdAsync(req.UserId.ToString());
             var token = AuthEmails.DecodeToken(req.Token);
@@ -85,7 +83,7 @@ public static class ConfirmEmail
             await users.UpdateSecurityStampAsync(user);
             await signIn.SignInAsync(user, isPersistent: true);
             logger.EmailConfirmed(user.Id);
-            return new Response(user.Id, user.Email!);
+            return SessionUser.Of(user);
         }
 
         private Error LockedOut(AppUser user)
@@ -105,7 +103,7 @@ public static class ConfirmEmail
             .AllowAnonymous()
             .RequireRateLimiting(AuthSetup.RateLimitPolicy)
             .AddEndpointFilter<ValidationFilter<Request>>()
-            .Produces<Response>(200)
+            .Produces<SessionUser>(200)
             .ProducesValidationProblem()
             .ProducesProblem(401)
             .ProducesProblem(429);
