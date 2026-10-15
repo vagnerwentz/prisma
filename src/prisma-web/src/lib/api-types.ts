@@ -756,7 +756,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["LoginResponse"];
+                        "application/json": components["schemas"]["SessionUser"];
                     };
                 };
                 /** @description Bad Request */
@@ -858,7 +858,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["MeResponse"];
+                        "application/json": components["schemas"]["SessionUser"];
                     };
                 };
                 /** @description Unauthorized */
@@ -908,7 +908,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ConfirmEmailResponse"];
+                        "application/json": components["schemas"]["SessionUser"];
                     };
                 };
                 /** @description Bad Request */
@@ -1084,7 +1084,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ResetPasswordResponse"];
+                        "application/json": components["schemas"]["SessionUser"];
                     };
                 };
                 /** @description Bad Request */
@@ -1162,6 +1162,50 @@ export interface paths {
                 };
                 /** @description Too Many Requests */
                 429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/accept-terms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SessionUser"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -3741,11 +3785,6 @@ export interface components {
             token: string;
             password: string;
         };
-        ConfirmEmailResponse: {
-            /** Format: uuid */
-            id: string;
-            email: string;
-        };
         ConfirmEventsRequest: {
             eventIds: string[];
         };
@@ -4151,16 +4190,6 @@ export interface components {
             email: string;
             password: string;
         };
-        LoginResponse: {
-            /** Format: uuid */
-            id: string;
-            email: string;
-        };
-        MeResponse: {
-            /** Format: uuid */
-            id: string;
-            email: string;
-        };
         MoveStatementRequest: {
             direction: components["schemas"]["StatementShift"];
         };
@@ -4286,6 +4315,8 @@ export interface components {
         RegisterRequest: {
             email: string;
             password: string;
+            /** @default false */
+            acceptedTerms: boolean;
         };
         RegisterResponse: {
             email: string;
@@ -4308,11 +4339,6 @@ export interface components {
             userId: string;
             token: string;
             password: string;
-        };
-        ResetPasswordResponse: {
-            /** Format: uuid */
-            id: string;
-            email: string;
         };
         SavePayoutRequest: {
             /** Format: uuid */
@@ -4357,6 +4383,12 @@ export interface components {
             convertedToSymbol?: null | string;
             /** Format: date */
             convertedOn?: null | string;
+        };
+        SessionUser: {
+            /** Format: uuid */
+            id: string;
+            email: string;
+            mustAcceptTerms: boolean;
         };
         /** @enum {unknown} */
         StatementShift: "Next" | "Previous";

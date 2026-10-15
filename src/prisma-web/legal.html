@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title><!--legal-title--> · Prisma Money</title>
+    <meta name="description" content="<!--legal-description-->" />
+    <link rel="canonical" href="https://prismamoney.com.br<!--legal-path-->" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#faf8f3" />
+    <!-- Política de privacidade e termos de uso (etapa A.4). Modelo das duas páginas: scripts/prerender-legal.mjs
+         grava o texto (src/legal/*.md) e gera privacidade.html e termos.html. Só HTML e CSS: sem JavaScript do app, sem
+         script de terceiros e sem cookie. Tema como no app (index.html): a escolha salva, ou o sistema. -->
+    <script>
+      ;(function () {
+        var choice = null
+        try {
+          choice = localStorage.getItem('prisma.theme')
+        } catch (e) {}
+        var dark = choice === 'dark' || (choice !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', dark ? '#15121f' : '#faf8f3')
+      })()
+    </script>
+    <link rel="stylesheet" href="/src/legal/legal.css" />
+  </head>
+  <body class="legal">
+    <header class="legal-header">
+      <a href="/" class="legal-brand" aria-label="Prisma Money, início">
+        <img src="/favicon.svg" alt="" width="28" height="28" />
+        <span>Prisma Money</span>
+      </a>
+      <a href="/entrar" class="legal-signin">Entrar</a>
+    </header>
+    <main class="legal-main">
+      <!--legal-html-->
+    </main>
+    <footer class="legal-footer">
+      <nav aria-label="Documentos">
+        <a href="/privacidade">Política de privacidade</a>
+        <a href="/termos">Termos de uso</a>
+        <a href="mailto:contato@prismamoney.com.br">contato@prismamoney.com.br</a>
+      </nav>
+      <p>Prisma Money. Controle financeiro pessoal, feito no Brasil.</p>
+    </footer>
+  </body>
+</html>

@@ -10,8 +10,8 @@ export function LoginPage() {
   return (
     <AuthForm
       mode="login"
-      onSubmit={async (credentials) => {
-        await login.mutateAsync(credentials)
+      onSubmit={async ({ email, password }) => {
+        await login.mutateAsync({ email, password })
         navigate(from, { replace: true })
       }}
     />
