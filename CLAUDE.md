@@ -469,8 +469,9 @@ O front sai comprimido (Brotli/gzip); a API não, por causa do ataque BREACH (`d
 `/landing.html` direto dá 404 (a página só existe em `/`). A política de privacidade e os termos ficam sempre no ar em `/privacidade` e `/termos`
 (HTML pronto, com ou sem sessão e com o cadastro fechado); o arquivo pelo nome também dá 404. `robots.txt`, `sitemap.xml` e `og.jpg` ficam em `public/`, e as
 telas do app levam `noindex`.
-Cadastro fechado fora de desenvolvimento (`Registration:Open`); libere e-mails em
-`Registration__AllowedEmails__0`. A connection string vem de `ConnectionStrings__Default`.
+Cadastro **aberto** na produção desde 2026-10-15 (`Registration__Open=true`, A.5): a página de apresentação aparece em
+`/` para quem chega sem sessão. Para fechar de novo, `Registration__Open=false`; para liberar só alguns e-mails com ele
+fechado, `Registration__AllowedEmails__0` (hoje vazia). A connection string vem de `ConnectionStrings__Default`.
 **E-mail** (`docs/email.md`; configuração em `docs/operacao.md`, seção 8): a chave do Resend vem de
 `Email__Resend__ApiKey`, e sem ela a API não sobe fora de desenvolvimento (variável nova se aplica no Railway **antes**
 do merge). Remetente `nao-responda@`, responder-para `contato@` e `App:PublicUrl` (raiz dos links) ficam no

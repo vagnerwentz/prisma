@@ -903,8 +903,15 @@ sem aceite. Depois da revisão assistida (GPT) dos rascunhos: o que a pessoa exc
   `POST /auth/accept-terms`. Versão nova num dos dois textos pede o aceite de novo (`LegalTerms`; teste liga a versão do
   texto à da API). Links no rodapé da apresentação (com o `contato@`) e no pé das telas de entrada. No `npm run dev`, o
   Vite monta as duas páginas a cada pedido com o mesmo código do build (`scripts/legal-pages.mjs`).
-- [ ] **A.5 Abrir:** `contato@` recebendo (`docs/operacao.md`, 8.1), `Registration__Open=true` no Railway; a página de
+- [x] **A.5 Abrir:** `contato@` recebendo (`docs/operacao.md`, 8.1), `Registration__Open=true` no Railway; a página de
   apresentação aparece sozinha em `/`.
+  *Feito (2026-10-15):* Email Routing da Cloudflare repassando o `contato@` ao Gmail do dono (MX, SPF e DKIM na raiz;
+  filtro no Gmail para não cair no spam); `Registration__Open=true` no Railway e as `Registration__AllowedEmails__*`
+  removidas (com o cadastro aberto, a lista não é lida, e guardava e-mails de pessoas sem necessidade). Produção
+  conferida: a página de apresentação em `/` sem sessão, `/privacidade` e `/termos` no ar. Antes da A.5, os
+  investimentos do dono (proventos, notas, carteira, conferências, avisos) foram levados do banco local para a produção,
+  com ensaio e conferência por md5 nas duas pontas. Próximos:
+  H.4e e H.4d juntas, monitor de disponibilidade (H.2c), o nome "Prisma Money" nas telas do app.
 
 ---
 

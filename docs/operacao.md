@@ -553,7 +553,15 @@ só repassa.
    TXT de SPF na raiz. Só pode haver **um** TXT `v=spf1` na raiz: se já houver um (vindo da GoDaddy), juntar os dois.
 4. *Catch-all* desligado: o `nao-responda@` e endereços inventados voltam para quem mandou.
 5. **Conferir:** de outro e-mail (não o próprio Gmail de destino, que o Gmail esconde), mandar para o `contato@` e ver
-   chegar.
+   chegar. Logo depois de criar os registros, o servidor de quem envia pode ainda lembrar que o domínio não recebia
+   e-mail: espere alguns minutos e mande de novo. O registro de atividade do Email Routing mostra cada mensagem.
+6. **Filtro no Gmail:** as primeiras mensagens repassadas caem no spam (domínio novo, mensagem repassada). Busca
+   `to:contato@prismamoney.com.br` → *Criar filtro* → **Nunca enviar para spam** + marcador **Prisma Money**. O marcador
+   reúne as conversas dos pedidos de titulares (seção 9).
+
+Feito em 2026-10-15. A tela nova da Cloudflare fica na conta (*Email Service* → *Email Routing*): primeiro
+*Destination addresses* (o Gmail, verificado pelo link), depois *Onboard Domain* (cria os MX, o SPF e o DKIM), depois a
+regra `contato`.
 
 ### 8.2 Enviar pelo app (Resend)
 

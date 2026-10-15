@@ -168,9 +168,8 @@ Respondidas: a ordem (D5), o nome (D14), o domínio (D14, seção 10) e o texto 
   e com o cadastro aberto, entrega `landing.html`; senão, o `index.html` do app. Quem tem sessão vê o Resumo no
   mesmo `/`, e o Google indexa a página no endereço principal. As outras telas (`/entrar`, `/cadastro`…)
   não mudam.
-- **"Botão desligado" (D5):** a página só aparece com o cadastro aberto, porque o botão leva ao cadastro. Na
-  produção o cadastro está fechado, então nada muda lá até ele abrir. Sem configuração nova: abrir o cadastro
-  liga a página junto.
+- **"Botão desligado" (D5):** a página só aparece com o cadastro aberto, porque o botão leva ao cadastro. Sem
+  configuração nova: abrir o cadastro liga a página junto. **No ar desde 2026-10-15** (A.5, `Registration__Open=true`).
 - **React pré-renderizado (D9):** segunda entrada do Vite (`landing.html`, `vite.config.ts`), escrita em React com
   peças do app (`PrismLogo`, `Amount`, `splitCents`, `formatCents`, tokens, o logo do Instagram do `simple-icons`). O `npm run build` faz, além do
   build normal, um build de servidor (`src/landing/server.tsx`) e roda `scripts/prerender-landing.mjs`, que grava o
