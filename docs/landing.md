@@ -137,7 +137,7 @@ O resto continua de pé, e a investigação de 2026-10-12 achou mais duas lacuna
 | Termos de uso e política de privacidade | LGPD: o app guarda dado financeiro de terceiros. O Google Ads também exige política de privacidade na página de destino | **feito (A.4):** `/privacidade` e `/termos`, aceite no cadastro; revisão jurídica pendente (`PLAN.md`, A.2) |
 | **Apagar a conta** | LGPD: direito de eliminação. A página promete "seus dados são seus" | **feito (A.3)** |
 | **Recuperar a senha** | sem ela, quem esquece a senha perde a conta e os dados | **feito (H.4c)** |
-| Contador de senhas erradas que expira | aberto ao público, erros espalhados no tempo bloqueiam a conta | pendência no `PLAN.md` |
+| Contador de senhas erradas que expira | aberto ao público, erros espalhados no tempo bloqueiam a conta | **feito (H.4e)** |
 | Região dos dados e custo no Railway | volume de usuários desconhecidos; LGPD | pendência no `PLAN.md` |
 | Confirmação de e-mail | e-mail digitado errado vira conta sem dono | **feito (H.4b)** |
 

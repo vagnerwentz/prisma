@@ -82,6 +82,7 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 | Fila de e-mails | `OutboxEmail` (`EmailKind`, `EmailStatus`) | pedido gravado junto com o motivo; o conteúdo e o token saem na hora do envio (`IEmailComposer`); `docs/email.md` |
 | Aceite dos termos | `LegalTerms` (`TermsVersion`, `PrivacyVersion`, `TermsAcceptedAt` no usuário) | a caixa do cadastro; versão nova pede o aceite de novo ao entrar (`SessionUser.MustAcceptTerms`, A.4) |
 | Conta apagada | `DeletedAccount` (`deleted_accounts`) | só o id e o instante, 90 dias, para apagar de novo depois de restaurar um backup (A.3) |
+| Senhas erradas com prazo | `AppUserManager.AccessFailedAsync` / `LastAccessFailedAt` | só soma com as anteriores até 15 min depois da última; vale para login, confirmação, troca de senha e apagar a conta (H.4e) |
 | Link de confirmação / de senha nova | `ConfirmEmail` / `ResetPassword` | token do Identity depois do `#` (`/confirmar-email#u=…&t=…`, `/nova-senha#…`); 3 dias e 1 hora, uma vez só |
 
 ---
@@ -92,7 +93,7 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 |---|---|
 | Runtime | .NET 10 (LTS) |
 | API | ASP.NET Core Minimal APIs + `Microsoft.AspNetCore.OpenApi` (documento em `/openapi/v1.json`, só em desenvolvimento) |
-| Auth | ASP.NET Core Identity + cookie `httpOnly` + rate limiter nativo do ASP.NET Core + chaves do Data Protection no Postgres (`Microsoft.AspNetCore.DataProtection.EntityFrameworkCore`); Google OAuth adiado; e-mail confirmado para entrar, senha nova pelo e-mail (`docs/email.md`) |
+| Auth | ASP.NET Core Identity + cookie `httpOnly` + rate limiter nativo do ASP.NET Core + chaves do Data Protection no Postgres (`Microsoft.AspNetCore.DataProtection.EntityFrameworkCore`); Google OAuth adiado; e-mail confirmado para entrar, senha nova pelo e-mail, trocar a senha logado e bloqueio com prazo (`AppUserManager`) (`docs/email.md`) |
 | ORM | EF Core 10 + Npgsql + EFCore.NamingConventions (snake_case) + EF Core Design (migrations; `dotnet-ef` fixado em `dotnet-tools.json`) |
 | Banco | PostgreSQL 18 em todo lugar: Docker no desenvolvimento, Testcontainers nos testes, Railway na produção. Mudou a versão da produção, mudam juntos o `docker-compose.yml`, o `PostgresFixture` e a imagem do backup |
 | Validação | FluentValidation |
