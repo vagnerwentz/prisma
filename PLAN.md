@@ -857,12 +857,21 @@ sem aceite. Depois da revisão assistida (GPT) dos rascunhos: o que a pessoa exc
 (o tempo do "Desfazer"; de ocorrência de série fica só a marca da data, sem valor nem descrição); mensagens do
 `contato@` guardadas por **1 ano**; encerramento do serviço com **30 dias** de aviso e de exportação.
 
-- [ ] **A.1 Política de privacidade e termos de uso (rascunho)**
+- [x] **A.1 Política de privacidade e termos de uso (rascunho)**
   Escritos a partir do que o app faz (dados, operadores, retenção, direitos), com as perguntas abertas para o
   advogado no fim de cada um. *Feito o rascunho (2026-10-14):* `.lgpd/policies/privacy-policy-v1-draft.md` e
   `terms-of-use-v1-draft.md`, revisão 2 com os apontamentos da revisão assistida (cada documento traz o histórico).
-  Fica aberta até a revisão jurídica. Pendência crítica: a transferência internacional (art. 33).
-- [ ] **A.2 Revisão jurídica** (dono, com advogado). Respostas às perguntas abertas; versão final `v1`.
+  Pendência crítica: a transferência internacional (art. 33). Revisão 3 com a A.3; a v1 pública sai dela na A.4.
+- [ ] **A.2 Revisão jurídica** (dono, com advogado). Respostas às perguntas abertas (no fim de cada rascunho, em
+  `.lgpd/`). *Decisão do dono (2026-10-14):* a v1 vai ao ar antes da revisão, sem as notas internas; o que o advogado
+  pedir entra como v1.0.x (redação) ou v1.1 (muda direitos ou o tratamento, e pede novo aceite).
+  *Revisão com a skill `lgpd` (Sushegaad, 2026-10-14), que não substitui advogado:* o dono não tem advogado por agora
+  e ajusta se alguém apontar uma falha. Aplicados: "Hoje," no que o app não faz com o banco (deixa espaço para o Open
+  Finance sem prometer); a caixa do cadastro passa a "Li e aceito os Termos de uso, li a Política de privacidade e tenho
+  18 anos ou mais" (a política informa, não pede consentimento); registro das operações (art. 37) e avaliação do
+  legítimo interesse (art. 10) em `.lgpd/`; roteiros de pedido de titular e de incidente (`docs/operacao.md`, 9 e 10)
+  e a cópia dos dados por SQL (`ops/privacy/export-user.sql`). **Em aberto, o maior risco:** a base da transferência
+  internacional (art. 33) não está na política; candidata o art. 33, IX (necessária ao contrato com a pessoa).
 - [x] **A.3 Apagar a própria conta e apagar de vez o excluído** (direito de eliminação): "Apagar conta" no menu da
   conta, com a senha, apagando todos os dados da pessoa; tarefa que apaga de vez o que foi excluído; lista mínima das
   contas apagadas nos últimos 90 dias, para reaplicar a exclusão depois de restaurar um backup. A política promete os três.
@@ -879,8 +888,21 @@ sem aceite. Depois da revisão assistida (GPT) dos rascunhos: o que a pessoa exc
   acaba, com a contagem zerada (`AuthTests`).
 - [ ] **A.3b Cópia dos dados** (acesso e portabilidade): "Baixar meus dados" em JSON (lançamentos, contas, cartões,
   carteira, notas), no menu da conta; a política promete a cópia por pedido, e o botão evita o trabalho manual.
-- [ ] **A.4 Páginas `/privacidade` e `/termos`, aceite no cadastro** ("Li e aceito… e tenho 18 anos ou mais", com a
+  *Adiada (decisão do dono, 2026-10-14):* a LGPD pede atender o pedido (art. 18, II; cópia completa em até 15 dias,
+  art. 19), não um botão. Com poucas pessoas, o pedido vem pelo `contato@` e é atendido à mão. Volta se os pedidos
+  ficarem frequentes, antes de encerrar o serviço (os termos prometem 30 dias de exportação) ou se o advogado pedir.
+- [x] **A.4 Páginas `/privacidade` e `/termos`, aceite no cadastro** ("Li e aceito… e tenho 18 anos ou mais", com a
   versão e a data guardadas) e links no rodapé da página de apresentação e no cadastro.
+  *Feito (2026-10-14), decisões do dono:* páginas em **HTML pronto**, como a apresentação: o texto é Markdown versionado
+  (`src/prisma-web/src/legal/*.md`, tirado dos rascunhos sem as notas [ADVOGADO]/[ANTES DE PUBLICAR]), convertido no
+  build por um conversor próprio e pequeno (`markdown.ts`, com teste), sem JavaScript, sem cookie, com sumário e tabela
+  que empilha no celular; servidas em `/privacidade` e `/termos` sempre (cadastro aberto ou fechado), no `sitemap.xml`.
+  Vigência da v1: 15/10/2026. Cadastro exige `acceptedTerms` (400 sem ele; nada é criado) e grava `TermsVersion`,
+  `PrivacyVersion` e `TermsAcceptedAt`. **Quem já tinha conta aceita ao entrar:** `SessionUser.MustAcceptTerms` (em
+  `/auth/me` e em tudo que entra) leva à tela `/aceitar-termos` antes do app, com "Sair" e "Prefiro apagar minha conta";
+  `POST /auth/accept-terms`. Versão nova num dos dois textos pede o aceite de novo (`LegalTerms`; teste liga a versão do
+  texto à da API). Links no rodapé da apresentação (com o `contato@`) e no pé das telas de entrada. No `npm run dev`, o
+  Vite monta as duas páginas a cada pedido com o mesmo código do build (`scripts/legal-pages.mjs`).
 - [ ] **A.5 Abrir:** `contato@` recebendo (`docs/operacao.md`, 8.1), `Registration__Open=true` no Railway; a página de
   apresentação aparece sozinha em `/`.
 

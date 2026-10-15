@@ -134,12 +134,12 @@ O resto continua de pé, e a investigação de 2026-10-12 achou mais duas lacuna
 
 | Item | Por que | Situação |
 |---|---|---|
-| Termos de uso e política de privacidade | LGPD: o app guarda dado financeiro de terceiros. O Google Ads também exige política de privacidade na página de destino | não existe |
-| **Apagar a conta** | LGPD: direito de eliminação. A página promete "seus dados são seus" | não existe |
-| **Recuperar a senha** | sem ela, quem esquece a senha perde a conta e os dados | não existe; precisa de envio de e-mail, como a confirmação |
+| Termos de uso e política de privacidade | LGPD: o app guarda dado financeiro de terceiros. O Google Ads também exige política de privacidade na página de destino | **feito (A.4):** `/privacidade` e `/termos`, aceite no cadastro; revisão jurídica pendente (`PLAN.md`, A.2) |
+| **Apagar a conta** | LGPD: direito de eliminação. A página promete "seus dados são seus" | **feito (A.3)** |
+| **Recuperar a senha** | sem ela, quem esquece a senha perde a conta e os dados | **feito (H.4c)** |
 | Contador de senhas erradas que expira | aberto ao público, erros espalhados no tempo bloqueiam a conta | pendência no `PLAN.md` |
 | Região dos dados e custo no Railway | volume de usuários desconhecidos; LGPD | pendência no `PLAN.md` |
-| Confirmação de e-mail | e-mail digitado errado vira conta sem dono | **adiada pela D1**; pesa junto com a recuperação de senha |
+| Confirmação de e-mail | e-mail digitado errado vira conta sem dono | **feito (H.4b)** |
 
 Recomendação: a recuperação de senha e a confirmação de e-mail usam o mesmo envio de e-mail. Fazer as duas
 juntas custa quase o mesmo que fazer uma. Com só a recuperação, quem digitou o e-mail errado no cadastro
@@ -208,7 +208,7 @@ Respondidas: a ordem (D5), o nome (D14), o domínio (D14, seção 10) e o texto 
   e o lançamento da gravação é apagado no fim. Os scripts não ficam no repositório (método na memória de capturas).
   Mudou o roteiro do vídeo, mudam os tempos dos capítulos.
 - **Ver em desenvolvimento:** `npm run dev` e abrir `http://localhost:5173/landing.html` (montada do zero, sem
-  pré-renderização). Na API, `/landing.html` dá 404: a página só existe em `/`.
+  pré-renderização). A política e os termos abrem em `/privacidade` e `/termos` também no `npm run dev` (A.4). Na API, `/landing.html` dá 404: a página só existe em `/`.
 - **Compartilhamento e busca (D19):** `public/og.jpg` (1200×630, 66 KB, desenhada em `scripts/og-image.html` com as
   fontes do app; para refazer, capturar esse HTML no Chrome sem cabeça), etiquetas `og:` e `twitter:` com endereços
   absolutos, `canonical`, `public/robots.txt` (só a API fora) e `public/sitemap.xml` com `https://prismamoney.com.br/`.
@@ -225,8 +225,7 @@ Respondidas: a ordem (D5), o nome (D14), o domínio (D14, seção 10) e o texto 
 ### Falta antes de ir ao ar
 
 - Os itens da seção 6.
-- Rodapé com os links de **Política de privacidade**, **Termos de uso** e um **e-mail de contato** (as páginas e o
-  e-mail ainda não existem).
+- O `contato@` recebendo (`docs/operacao.md`, 8.1): o rodapé já leva a ele, com a política e os termos (A.4).
 - O app ainda se chama "Prisma" nas telas (cabeçalho, login, título da aba), e os vídeos mostram esse nome.
 
 ---

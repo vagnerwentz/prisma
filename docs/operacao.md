@@ -55,7 +55,8 @@ Se o passo 3 der errado (a API não sobe), volte a `ConnectionStrings__Default` 
   cai no plano Free (US$ 1/mês), que não sustenta a API e o Postgres; volumes de contas de teste
   são apagados 30 dias depois.
 - **Limite de gasto** (*usage limit*) na conta, para não haver surpresa na fatura.
-- **2FA** no Railway, no GitHub e no e-mail dessas contas.
+- **2FA** no Railway, no GitHub, na Cloudflare (DNS, R2, Email Routing), no Resend e no e-mail dessas contas (a
+  política de privacidade afirma, seção 10). Conta nova de serviço do Prisma Money já nasce com 2FA.
 - **"Wait for CI"** no serviço da API (*Settings* → *Deploy*): push com CI vermelho não vai para a
   produção.
 
@@ -630,3 +631,66 @@ As respostas pelo Gmail contam na cota do Resend junto com os e-mails do app (gr
 - **Contrato com o Resend** (envia para `delivered@resend.dev`, gasta um da cota):
   `PRISMA_LIVE_TESTS=1 PRISMA_RESEND_API_KEY=<chave> dotnet test tests/Prisma.Api.Tests --filter Category=Live`. Antes
   do domínio verificado, `PRISMA_RESEND_FROM="onboarding@resend.dev"`.
+
+## 9. Pedidos dos titulares (LGPD, art. 18 e 19)
+
+A política de privacidade (seção 7) promete atender pelo `contato@prismamoney.com.br` e registrar cada pedido. Sem
+encarregado formal (agente de pequeno porte, Res. CD/ANPD 2/2022, art. 11): quem atende é o dono.
+
+**Prazos (art. 19):** confirmar que há dados e o acesso simplificado, de imediato; a declaração completa (a cópia), em
+até **15 dias** do pedido. Corrigir e apagar: sem demora.
+
+1. **Registrar** o pedido no mesmo dia: data, tipo (confirmação, acesso/cópia, correção, eliminação, informação sobre
+   compartilhamento, outro), o id da conta e a data da resposta. O registro fica fora do git (`.lgpd/pedidos.md`, local)
+   e sem o e-mail: o e-mail já está na conversa do Gmail (marcador "LGPD").
+2. **Conferir quem pede**, na medida do pedido: o pedido precisa vir do e-mail da conta. Se vier de outro endereço,
+   responda pedindo que escreva do e-mail cadastrado. Nunca mande dado para um endereço que não seja o da conta.
+3. **Atender:**
+   - **Confirmação ou informação** (o que guardamos, com quem compartilhamos): responda com o resumo e o link da
+     política (`https://prismamoney.com.br/privacidade`).
+   - **Cópia dos dados** (acesso e portabilidade, enquanto o "Baixar meus dados", A.3b, não existe):
+     `SELECT id FROM users WHERE normalized_email = upper('<e-mail>');` e depois, como `prisma_backup` (só lê), com o
+     TCP Proxy do Postgres ligado só durante isso:
+     `psql "<conexão do prisma_backup>" -v user_id=<id> -At -f ops/privacy/export-user.sql > copia.json`.
+     Mande o arquivo como anexo, do `contato@`, para o e-mail da conta. Apague o arquivo local depois de enviar.
+   - **Correção:** quase tudo a pessoa corrige no app; o e-mail da conta ainda não se troca pelo app (fica para uma etapa
+     de conta). Se pedir, troque à mão e registre.
+   - **Eliminação:** "Apagar conta", no menu da conta, apaga tudo na hora (A.3). Se a pessoa não conseguir entrar, a
+     senha nova pelo e-mail resolve; só apague por ela, à mão, em último caso, com o `AccountEraser` (não há comando
+     pronto: peça a quem mexe no código).
+4. **Responder** e anotar a data da resposta no registro. Mensagens do `contato@` ficam 1 ano depois da última da
+   conversa (política, seção 3.5): apague as mais antigas uma vez por ano.
+
+Tabela nova com `user_id` entra também em `ops/privacy/export-user.sql` (o apagar conta e a limpeza têm teste que acusa;
+a consulta da cópia não).
+
+## 10. Incidente de segurança (LGPD, art. 48; Res. CD/ANPD 15/2024)
+
+Incidente: acesso não autorizado, vazamento, perda ou alteração de dado pessoal (ex.: senha do banco vazada, chave do
+Resend exposta, backup aberto). A política promete comunicar a pessoa e a ANPD quando houver risco ou dano relevante.
+Dado financeiro pesa: a Res. 15/2024 o lista entre os que tornam a comunicação provável.
+
+**Prazos:** comunicar à ANPD e às pessoas afetadas em **3 dias úteis** a partir de quando se soube que o incidente
+atingiu dado pessoal; complementar em até 20 dias úteis. Agente de pequeno porte tem prazos em dobro (Res. 2/2022):
+confira no texto da resolução no dia, antes de contar com eles. **Todo incidente fica registrado por 5 anos**, mesmo o
+que não precisou ser comunicado.
+
+1. **Conter**, na hora:
+   - Senha do banco: `\password prisma_app` (e `prisma_backup`), atualize a variável no Railway (seção 1).
+   - Chave do Resend: apague no painel do Resend, crie outra e troque `Email__Resend__ApiKey` (seção 8.2).
+   - Sessões: apagar as chaves do cookie (`DELETE FROM data_protection_keys;`) e reiniciar a API derruba todas as
+     sessões; todo mundo entra de novo.
+   - Token do R2 ou chave do backup: seção 5.5.
+2. **Guardar a prova antes que suma:** os logs do Railway duram 7 dias. Exporte o período (filtros da seção 3, pelo
+   `traceId`, `userId` e `@level:error`) e guarde fora do git, com o horário de cada passo.
+3. **Avaliar:** que dados (conta, lançamentos, e-mails), de quantas pessoas (os `userId` dos logs), desde quando, se
+   foram só lidos ou também alterados, e o risco para elas (financeiro, de exposição).
+4. **Comunicar**, se houver risco ou dano relevante:
+   - **ANPD:** pelo formulário de comunicação de incidente de segurança no site da ANPD (gov.br/anpd).
+   - **Pessoas afetadas:** e-mail do `contato@`, em linguagem simples: o que aconteceu, que dados, quando, o que foi
+     feito, o que a pessoa pode fazer (ex.: trocar a senha) e o contato.
+   - O conteúdo (art. 48, §1º): natureza dos dados, pessoas afetadas, medidas de segurança, riscos, motivo do atraso
+     (se houver) e o que foi e será feito.
+5. **Registrar** (`.lgpd/incidentes.md`, fora do git): data em que se soube, o que aconteceu, a avaliação, se foi
+   comunicado (e por quê não, se não foi), as medidas e as datas. Guardar 5 anos.
+6. **Corrigir a causa** e anotar no `PLAN.md` o que muda para não acontecer de novo.
