@@ -14,6 +14,7 @@ public static class AuthModule
         services.AddScoped<ResendConfirmation.Handler>();
         services.AddScoped<ForgotPassword.Handler>();
         services.AddScoped<ResetPassword.Handler>();
+        services.AddScoped<ChangePassword.Handler>();
         services.AddScoped<DeleteMyAccount.Handler>();
         services.AddScoped<AcceptTerms.Handler>();
         services.AddScoped<IEmailComposer, ConfirmEmailComposer>();
@@ -27,6 +28,7 @@ public static class AuthModule
         services.AddSingleton<IValidator<ResendConfirmation.Request>, ResendConfirmation.Validator>();
         services.AddSingleton<IValidator<ForgotPassword.Request>, ForgotPassword.Validator>();
         services.AddSingleton<IValidator<ResetPassword.Request>, ResetPassword.Validator>();
+        services.AddSingleton<IValidator<ChangePassword.Request>, ChangePassword.Validator>();
         services.AddSingleton<IValidator<DeleteMyAccount.Request>, DeleteMyAccount.Validator>();
 
         return services;
@@ -43,6 +45,7 @@ public static class AuthModule
         ResendConfirmation.Map(group);
         ForgotPassword.Map(group);
         ResetPassword.Map(group);
+        ChangePassword.Map(group);
         DeleteMyAccount.Map(group);
         AcceptTerms.Map(group);
     }

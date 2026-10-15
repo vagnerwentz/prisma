@@ -57,6 +57,7 @@ public static class AuthSetup
                 options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
             })
             .AddEntityFrameworkStores<AppDbContext>()
+            .AddUserManager<AppUserManager>()
             .AddSignInManager()
             .AddTokenProvider<ConfirmEmailTokenProvider>(ConfirmEmailTokenProvider.ProviderName)
             .AddTokenProvider<ResetPasswordTokenProvider>(ResetPasswordTokenProvider.ProviderName)
