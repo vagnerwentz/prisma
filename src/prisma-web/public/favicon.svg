@@ -1,14 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
   <style>
     .ink { stroke: #2a2440; }
-    .glass { fill: #2a2440; fill-opacity: .08; }
+    .glass { fill: #2a2440; }
     @media (prefers-color-scheme: dark) { .ink { stroke: #f1eefb; } .glass { fill: #f1eefb; } }
   </style>
-  <path class="ink" d="M1 29.5 17 24" stroke-width="2.6" stroke-linecap="round"/>
-  <g stroke-width="2.6" stroke-linecap="round">
-    <path d="M31 23.5 47 16" stroke="#8b5cf6"/><path d="M31 23.5 47 19.4" stroke="#3b82f6"/>
-    <path d="M31 23.5 47 22.8" stroke="#22d3ee"/><path d="M31 23.5 47 26.2" stroke="#84cc16"/>
-    <path d="M31 23.5 47 29.6" stroke="#f59e0b"/><path d="M31 23.5 47 33" stroke="#f43f5e"/>
-  </g>
-  <path class="ink glass" d="M24 6.5 40.5 40H7.5L24 6.5Z" stroke-width="2.6" stroke-linejoin="round"/>
+  <line class="ink" x1="1" y1="31.68" x2="12.04" y2="25.48" stroke-width="3"/>
+  <polygon points="12.04 25.48 27.72 20.86 31.24 28.12" fill="#a78bfa" fill-opacity=".45"/>
+  <polygon points="27.72 20.86 28.34 22.14 47 16.56 47 12.5" fill="#8b5cf6"/>
+  <polygon points="28.31 22.07 28.93 23.35 47 20.4 47 16.33" fill="#3b82f6"/>
+  <polygon points="28.89 23.28 29.52 24.56 47 24.23 47 20.17" fill="#22d3ee"/>
+  <polygon points="29.48 24.49 30.1 25.77 47 28.06 47 24" fill="#84cc16"/>
+  <polygon points="30.07 25.7 30.69 26.98 47 31.9 47 27.83" fill="#f59e0b"/>
+  <polygon points="30.65 26.91 31.24 28.12 47 35.5 47 31.67" fill="#f43f5e"/>
+  <path class="ink glass" d="M22.4 9.88Q21 7 19.6 9.88L6.4 37.12Q5 40 8.2 40L33.8 40Q37 40 35.6 37.12Z" fill-opacity=".1" stroke-width="3"/>
 </svg>
