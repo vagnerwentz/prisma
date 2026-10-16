@@ -692,6 +692,10 @@ que não precisou ser comunicado.
    - Chave do Resend: apague no painel do Resend, crie outra e troque `Email__Resend__ApiKey` (seção 8.2).
    - Sessões: apagar as chaves do cookie (`DELETE FROM data_protection_keys;`) e reiniciar a API derruba todas as
      sessões; todo mundo entra de novo.
+   - Sessões de **uma** pessoa (cookie roubado, conta invadida): trocar o carimbo de segurança dela,
+     `UPDATE users SET security_stamp = gen_random_uuid()::text WHERE id = '<id>';`. Os aparelhos dela caem na
+     conferência seguinte do cookie (até 5 minutos) e os links de e-mail já enviados deixam de valer. Se a senha vazou,
+     peça que ela crie uma nova pelo "Esqueci a senha", que também troca o carimbo.
    - Token do R2 ou chave do backup: seção 5.5.
 2. **Guardar a prova antes que suma:** os logs do Railway duram 7 dias. Exporte o período (filtros da seção 3, pelo
    `traceId`, `userId` e `@level:error`) e guarde fora do git, com o horário de cada passo.
