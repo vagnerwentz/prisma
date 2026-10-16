@@ -458,7 +458,10 @@ escreva as rotas sem ele.
 **Produção** (`Dockerfile` na raiz): o ASP.NET serve os estáticos do React **no mesmo domínio**,
 eliminando CORS e problemas de SameSite com o cookie de sessão. Fora de `/api`, arquivo existente é
 servido (`/assets` com cache eterno, o resto revalidado) e rota de tela devolve o `index.html`. A
-imagem liga `ForwardedHeaders:Enabled` (IP real atrás do proxy) e `Database:MigrateOnStartup`. O
+imagem liga `ForwardedHeaders:Enabled` (IP real atrás do proxy) e `Database:MigrateOnStartup`. O IP do cliente é o
+`X-Real-IP` que o Railway escreve, **nunca o `X-Forwarded-For`**: o último valor dele é um IP da borda do Railway, o
+mesmo para todo mundo, e o rate limit juntava todos os usuários (S.1b; IPv4 inteiro, IPv6 pelo /64). Se o formato
+mudar, sai o aviso `ClientIpHeadersUnexpected` (`docs/operacao.md`, seção 11). O
 domínio `prismamoney.com.br` (GoDaddy, DNS na Cloudflare) aponta para o Railway com a **nuvem cinza**: a laranja
 poria a Cloudflare na frente, e o rate limit por IP passaria a ver o IP dela (`docs/operacao.md`, seção 7). As
 chaves do cookie ficam no Postgres (`data_protection_keys`): deploy não derruba a sessão. O cookie
@@ -586,9 +589,9 @@ por conversa, arquivo versionado ou histórico do shell.
 
 - Senha pelo hasher do Identity. Não implemente hash à mão.
 - Sessão em cookie `httpOnly` + `Secure` + `SameSite=Lax`. **Nunca JWT em localStorage.**
-- Rate limit em login, cadastro, confirmação de e-mail, senha nova e apagar a conta. Cinco senhas erradas (no login, ao
-  confirmar o e-mail, ao trocar a senha ou ao apagar a conta, na mesma contagem) bloqueiam a conta por 15 minutos; só
-  somam as que vêm até 15 minutos depois da anterior (`AppUserManager`, H.4e). A senha nova pelo e-mail desbloqueia.
+- Rate limit em login, cadastro, confirmação de e-mail, senha nova e apagar a conta, por cliente (o `X-Real-IP`,
+  seção 7). Cinco senhas erradas (no login, ao confirmar o e-mail, ao trocar a senha ou ao apagar a conta, na mesma
+  contagem) bloqueiam a conta por 15 minutos; só somam as que vêm até 15 minutos depois da anterior (`AppUserManager`, H.4e). A senha nova pelo e-mail desbloqueia.
   "Trocar senha" pelo menu da conta pede a atual; esta sessão fica e as outras caem (H.4d).
 - **Conta (`docs/email.md`, 5.1 a 5.5):** sem o e-mail confirmado, não entra. Nenhuma resposta conta quem tem conta
   (cadastro, "esqueci a senha" e reenvio respondem igual; o login só revela "falta confirmar" a quem acertou a senha).

@@ -932,8 +932,9 @@ todos os usuários. Prova do dono: o Mac no Wi-Fi mandando pedidos com um e-mail
 dele no celular, no 4G, com a senha certa. Qualquer um, com 5 pedidos por minuto, trava o login, o cadastro e a senha
 nova de todo mundo.
 
-*Causa:* a API lê o **último** valor do `X-Forwarded-For` (`Program.cs`, `ForwardLimit = 1`), e o Railway põe ali um
-salto interno dele. *Em aberto:* qual cabeçalho traz o IP real. A documentação do Railway cita só o `X-Real-IP` "para
+*Causa:* a API lia o **último** valor do `X-Forwarded-For` (`Program.cs`, `ForwardLimit = 1`), e o Railway põe ali um
+IP da borda dele, o mesmo para todo mundo (a S.1a mostrou que é público, não um salto interno como se supunha). *Em
+aberto até a S.1a:* qual cabeçalho traz o IP real. A documentação do Railway cita só o `X-Real-IP` "para
 identificar o IP remoto do cliente" e não fala do `X-Forwarded-For`; no fórum, um funcionário disse (2026-03) que o
 `X-Real-IP` traz o IP da CDN num dos caminhos e recomendou o primeiro valor do `X-Forwarded-For`, e um moderador disse
 (2026-09) que os dois são reescritos na borda. O teste com o `X-Forwarded-For` forjado não decidiu nada: a API lia o
@@ -950,12 +951,22 @@ identificar o IP remoto do cliente" e não fala do `X-Forwarded-For`; no fórum,
   *Feito (2026-10-15):* `ClientAddress.IsInternal` e `ClientIpHeaders` (`Infrastructure/Http`), evento 1006, ligado em
   `Program.cs` antes do `UseForwardedHeaders`. 26 testes, provados com 4 mutações, todas pegas. Roteiro do teste em
   produção: `docs/operacao.md`, seção 11.
-- [ ] **S.1b IP real nos limites por cliente**
+- [x] **S.1b IP real nos limites por cliente**
   Com o resultado do diagnóstico, a API passa a ler o cabeçalho certo (de preferência o `X-Real-IP`, o documentado), o
   IPv6 conta pelo bloco /64, e o diagnóstico vira alerta: só registra quando o IP lido falta ou é interno.
-  *Pronto quando:* integração no formato que o diagnóstico mostrar: cada cliente com a própria cota, dois clientes
-  atrás do mesmo salto interno separados, o cabeçalho forjado sem efeito (se o diagnóstico provar que o Railway o
-  descarta); em produção, o teste do terminal e do celular da seção 11 dá o resultado oposto ao de hoje.
+  *Resultado do diagnóstico (2026-10-15, em produção, três pedidos do dono):* o `X-Real-IP` vem, não é interno e é
+  igual ao **primeiro** valor do `X-Forwarded-For`; o último valor, o que a API lia, é um IP **público** da borda do
+  Railway (`edge: gru1`), não um salto interno como se supunha; forjados pelo cliente, o `X-Real-IP` e o
+  `X-Forwarded-For` são descartados pelo Railway. Decisão: o `X-Real-IP`. Como o IP errado era público, o alerta
+  "interno" não pegaria o M4: ele passa a disparar também quando o `X-Real-IP` difere do começo da lista.
+  *Pronto quando:* integração no formato medido: cada cliente com a própria cota pela mesma borda, o mesmo cliente por
+  outra borda sem cota nova, IPv6 pelo /64; alerta só fora do formato, sem IP, só para pedidos que vieram pela borda e
+  só da API; em produção, o teste do terminal e do celular da seção 11 dá o resultado oposto ao de antes.
+  *Feito (2026-10-15):* `ForwardedForHeaderName = "X-Real-IP"` (`Program.cs`), `ClientAddress.PartitionKey` nas
+  políticas do login e dos relatos do navegador (`AuthSetup`), o evento por pedido da S.1a virou o aviso
+  `ClientIpHeadersUnexpected` (1006, `ClientIpReport.LooksWrong`). Testes provados com 5 mutações, todas pegas; com o
+  código antigo de volta, o teste de integração reproduz o M4 (outra pessoa pela mesma borda recebe 429).
+  `docs/operacao.md`, seção 11, e a nota da nuvem cinza (seção 7). **Falta:** a conferência em produção pelo dono.
 - [ ] **S.2 Bloqueio por e-mail digitado + IP** (M2; depende da S.1b): a mesma resposta para e-mail com e sem conta,
   quem erra a senha bloqueia o próprio par (e-mail, IP) e não a dona da conta, freio por e-mail contra ataque
   distribuído, limites por rota. Desenho aprovado em princípio pelo dono; números e detalhes a decidir.

@@ -8,6 +8,22 @@ namespace Prisma.Api.Infrastructure.Http;
 // desses, ela está lendo o proxy, não a pessoa, e o rate limit por IP junta gente diferente.
 public static class ClientAddress
 {
+    // Chave dos limites por cliente (etapa S.1b). IPv4 inteiro (é a casa, ou o celular). IPv6 pelos primeiros 64 bits:
+    // o aparelho troca o fim do endereço sozinho, e sem isso cada troca daria uma cota nova.
+    public static string PartitionKey(IPAddress? address)
+    {
+        if (address is null)
+            return "unknown";
+        if (address.IsIPv4MappedToIPv6)
+            address = address.MapToIPv4();
+        if (address.AddressFamily != AddressFamily.InterNetworkV6)
+            return address.ToString();
+
+        var bytes = address.GetAddressBytes();
+        Array.Clear(bytes, 8, 8);
+        return $"{new IPAddress(bytes)}/64";
+    }
+
     public static bool IsInternal(IPAddress address)
     {
         if (address.IsIPv4MappedToIPv6)

@@ -88,14 +88,17 @@ builder.Services.AddInvestmentFeatures();
 builder.Services.AddHealthChecks()
     .AddCheck<DatabaseHealthCheck>("database");
 
-// Atrás do proxy da hospedagem, o IP e o esquema reais vêm nos cabeçalhos X-Forwarded-*: sem isso,
-// o rate limit do login veria todos os usuários com o IP do proxy. Só com o proxy na frente, senão
-// qualquer cliente forjaria o próprio IP. O proxy acrescenta o IP ao fim da lista, e só o último
-// valor é lido (ForwardLimit = 1): o que o cliente escreve antes dele não conta.
+// Atrás do proxy da hospedagem, o IP e o esquema reais vêm em cabeçalhos: sem isso, o rate limit do login
+// veria todos os usuários com o IP do proxy. Só com o proxy na frente, senão qualquer cliente forjaria o
+// próprio IP. O IP do cliente é o X-Real-IP (etapa S.1b), o cabeçalho que a documentação do Railway cita
+// para isso; medido na produção, ele é o cliente e o Railway descarta o que o cliente manda. O último valor
+// do X-Forwarded-For, lido até a S.1b, é um IP da borda do Railway, o mesmo para todo mundo (M4).
 if (builder.Configuration.GetValue<bool>("ForwardedHeaders:Enabled"))
     builder.Services.Configure<ForwardedHeadersOptions>(options =>
     {
         options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        options.ForwardedForHeaderName = "X-Real-IP";
+        options.ForwardLimit = 1;
         options.KnownIPNetworks.Clear();
         options.KnownProxies.Clear();
     });
@@ -112,8 +115,8 @@ if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
     app.Logger.MigrationsApplied(pending);
 }
 
-// Diagnóstico da etapa S.1a: o formato dos cabeçalhos de IP do proxy, antes de o UseForwardedHeaders consumi-los.
-app.UseClientIpDiagnostics();
+// Alerta se o formato dos cabeçalhos de IP do proxy mudar (etapa S.1), antes de o UseForwardedHeaders consumi-los.
+app.UseClientIpCheck();
 app.UseForwardedHeaders();
 app.UseRequestLogging();
 

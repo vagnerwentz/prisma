@@ -34,18 +34,20 @@ public static partial class AppLog
     public static partial void ClientError(
         this ILogger logger, BrowserError error, string screen, string kind, string appVersion, string errorMessage);
 
-    // Etapa S.1a (diagnóstico): o formato dos cabeçalhos de IP do proxy, sem IP nenhum (Http/ClientIpHeaders).
-    [LoggerMessage(1006, LogLevel.Information,
-        "Client IP headers: X-Real-IP present {RealIpPresent} (internal {RealIpInternal}); X-Forwarded-For {ForwardedCount} " +
-        "values (first internal {ForwardedFirstInternal}, last internal {ForwardedLastInternal}); X-Real-IP equals first " +
-        "{RealIpEqualsForwardedFirst}, last {RealIpEqualsForwardedLast}; edge {Edge}, Railway request {RailwayRequestId}")]
-    public static partial void ClientIpHeaders(
+    // Etapa S.1b: o formato dos cabeçalhos de IP do proxy mudou, e os limites por cliente podem estar juntando gente
+    // diferente. Só o retrato, sem IP nenhum (Http/ClientIpHeaders; docs/operacao.md, seção 11).
+    [LoggerMessage(1006, LogLevel.Warning,
+        "Unexpected client IP headers, per-client rate limits may be shared: X-Real-IP present {RealIpPresent} (internal " +
+        "{RealIpInternal}); X-Forwarded-For {ForwardedCount} values (first internal {ForwardedFirstInternal}, last internal " +
+        "{ForwardedLastInternal}); X-Real-IP equals first {RealIpEqualsForwardedFirst}, last {RealIpEqualsForwardedLast}; " +
+        "edge {Edge}, Railway request {RailwayRequestId}")]
+    public static partial void ClientIpHeadersUnexpected(
         this ILogger logger, bool realIpPresent, bool? realIpInternal, int forwardedCount, bool? forwardedFirstInternal,
         bool? forwardedLastInternal, bool realIpEqualsForwardedFirst, bool realIpEqualsForwardedLast, string? edge,
         string? railwayRequestId);
 
-    public static void ClientIpHeaders(this ILogger logger, Http.ClientIpReport report) =>
-        logger.ClientIpHeaders(report.RealIpPresent, report.RealIpInternal, report.ForwardedCount,
+    public static void ClientIpHeadersUnexpected(this ILogger logger, Http.ClientIpReport report) =>
+        logger.ClientIpHeadersUnexpected(report.RealIpPresent, report.RealIpInternal, report.ForwardedCount,
             report.ForwardedFirstInternal, report.ForwardedLastInternal, report.RealIpEqualsForwardedFirst,
             report.RealIpEqualsForwardedLast, report.Edge, report.RailwayRequestId);
 
