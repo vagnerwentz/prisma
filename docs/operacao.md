@@ -72,6 +72,7 @@ importam: `level`, `message`, `eventName`, `traceId`, `userId`, `route`, `status
 | Só os erros | `@level:error` |
 | Tentativas de login erradas | `@eventName:LoginFailed` ou `@eventName:LoginUnknownEmail` |
 | Rate limit disparando | `@eventName:RateLimited` |
+| Formato dos cabeçalhos de IP do proxy (diagnóstico da S.1a) | `@eventName:ClientIpHeaders` (seção 11) |
 | Telas que quebraram no navegador de alguém | `@eventName:ClientError` (com `@userId:…` para uma pessoa) |
 | Requisições de uma rota | `@route:/statements/{id}/pay` |
 
@@ -705,3 +706,55 @@ que não precisou ser comunicado.
 5. **Registrar** (`.lgpd/incidentes.md`, fora do git): data em que se soube, o que aconteceu, a avaliação, se foi
    comunicado (e por quê não, se não foi), as medidas e as datas. Guardar 5 anos.
 6. **Corrigir a causa** e anotar no `PLAN.md` o que muda para não acontecer de novo.
+
+## 11. IP do cliente atrás do Railway (S.1)
+
+O rate limit conta por IP, e a API só enxerga o IP de quem pede pelos cabeçalhos que o proxy do Railway acrescenta.
+Ler o cabeçalho errado junta todos os usuários num balde só: até a S.1b, a API lia o último valor do
+`X-Forwarded-For`, que é um salto interno do Railway (achado M4, `PLAN.md`, seção "Segurança").
+
+**Diagnóstico (S.1a).** Cada pedido à API registra o evento `ClientIpHeaders` (filtro `@eventName:ClientIpHeaders`),
+com o formato dos cabeçalhos, sem IP: `realIpPresent`, `realIpInternal`, `forwardedCount`, `forwardedFirstInternal`,
+`forwardedLastInternal`, `realIpEqualsForwardedFirst`, `realIpEqualsForwardedLast`, `edge`, `railwayRequestId`.
+"Interno" é rede privada, `100.64.0.0/10` (saltos do Railway), loopback ou link-local: nunca um cliente da internet.
+
+Depois do deploy, no terminal do Mac (cada comando é um pedido; anote a hora):
+
+```bash
+# 1. Pedido normal
+curl -s -o /dev/null -w "%{http_code}\n" https://prismamoney.com.br/api/health
+# 2. X-Real-IP forjado com um endereço interno
+curl -s -o /dev/null -w "%{http_code}\n" -H "X-Real-IP: 10.0.0.5" https://prismamoney.com.br/api/health
+# 3. X-Forwarded-For forjado com um endereço interno
+curl -s -o /dev/null -w "%{http_code}\n" -H "X-Forwarded-For: 10.0.0.5" https://prismamoney.com.br/api/health
+```
+
+Como ler o evento de cada um:
+
+| Pedido | O que se espera de um cabeçalho confiável | O que mostra um problema |
+|---|---|---|
+| 1, normal | `realIpPresent: true`, `realIpInternal: false` | `realIpInternal: true` (o `X-Real-IP` traz o proxy ou a CDN) |
+| 2, `X-Real-IP` forjado | igual ao 1 (o Railway descartou o forjado) | `realIpInternal: true`: o cliente escolhe o próprio `X-Real-IP` |
+| 3, `X-Forwarded-For` forjado | `forwardedCount` igual ao do 1 e `forwardedFirstInternal: false` | `forwardedFirstInternal: true` ou um valor a mais: o forjado chegou ao app |
+
+Para conferir que o `X-Real-IP` é **o seu** IP sem que o Prisma grave IP: procure o `railwayRequestId` do pedido 1 no
+log de rede do serviço (*HTTP Logs*, no painel do Railway) e compare o IP de origem dele com o seu IP público
+(`curl -s https://api.ipify.org`). Repita os três pedidos pelo 4G do celular (roteador do celular ligado ao Mac): o
+`edge` pode mudar, e o resultado deve ser o mesmo.
+
+**Teste do problema, de ponta a ponta** (antes e depois da S.1b). Com um e-mail que não existe (não conta para o
+bloqueio de ninguém), o Mac no Wi-Fi manda um pedido a cada 3 segundos por 2 minutos; enquanto isso, entre com a sua
+conta pelo celular no 4G. Durante esses 2 minutos, outros usuários podem não conseguir entrar: escolha um horário
+calmo.
+
+```bash
+for i in $(seq 1 40); do
+  printf "%s " "$(curl -s -o /dev/null -w "%{http_code}" -X POST https://prismamoney.com.br/api/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{"email":"teste-ip@exemplo.invalid","password":"x"}')"
+  sleep 3
+done; echo
+```
+
+Hoje (2026-10-15): o celular recebe "Muitas tentativas". Depois da S.1b: o terminal mostra `429` a partir do 6º pedido
+e o celular entra.

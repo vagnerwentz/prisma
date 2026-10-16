@@ -923,6 +923,43 @@ sem aceite. Depois da revisão assistida (GPT) dos rascunhos: o que a pessoa exc
   com ensaio e conferência por md5 nas duas pontas. Próximos:
   H.4e e H.4d juntas, monitor de disponibilidade (H.2c), o nome "Prisma Money" nas telas do app.
 
+### Segurança (auditoria pedida pelo dono, 2026-10-15)
+
+Auditoria só de leitura do projeto inteiro: sem achado crítico ou alto. Médios: o logout não invalida o cookie no
+servidor (M1); a mensagem "Conta bloqueada" revela quem tem conta e deixa qualquer um trancar a conta de outra pessoa
+(M2); contra robôs, só o limite por IP (M3). Testando o M2 em produção, apareceu o **M4**: o rate limit por IP junta
+todos os usuários. Prova do dono: o Mac no Wi-Fi mandando pedidos com um e-mail que não existe bloqueou o login real
+dele no celular, no 4G, com a senha certa. Qualquer um, com 5 pedidos por minuto, trava o login, o cadastro e a senha
+nova de todo mundo.
+
+*Causa:* a API lê o **último** valor do `X-Forwarded-For` (`Program.cs`, `ForwardLimit = 1`), e o Railway põe ali um
+salto interno dele. *Em aberto:* qual cabeçalho traz o IP real. A documentação do Railway cita só o `X-Real-IP` "para
+identificar o IP remoto do cliente" e não fala do `X-Forwarded-For`; no fórum, um funcionário disse (2026-03) que o
+`X-Real-IP` traz o IP da CDN num dos caminhos e recomendou o primeiro valor do `X-Forwarded-For`, e um moderador disse
+(2026-09) que os dois são reescritos na borda. O teste com o `X-Forwarded-For` forjado não decidiu nada: a API lia o
+último valor, e ignoraria o forjado de qualquer jeito. Decisão do dono: medir antes de trocar.
+
+- [x] **S.1a Diagnóstico dos cabeçalhos de IP**
+  Cada pedido à API, atrás do proxy, registra o evento `ClientIpHeaders`: se veio o `X-Real-IP` e se é interno,
+  quantos valores tem o `X-Forwarded-For` e se o primeiro e o último são internos, se o `X-Real-IP` bate com um deles,
+  o `X-Railway-Edge` e o `X-Railway-Request-Id`. Nenhum IP vai para o log: um endereço interno forjado pelo cliente
+  aparece como "interno". Não muda o comportamento.
+  *Pronto quando:* unitários do que é endereço interno (rede privada, 100.64.0.0/10, loopback, link-local, IPv6 local)
+  e do retrato (formato documentado, forjado, linhas repetidas, porta, sem cabeçalho, texto que não é IP, ids cortados);
+  integração: o evento sai atrás do proxy sem IP em nenhum log, não sai sem proxy nem para o frontend.
+  *Feito (2026-10-15):* `ClientAddress.IsInternal` e `ClientIpHeaders` (`Infrastructure/Http`), evento 1006, ligado em
+  `Program.cs` antes do `UseForwardedHeaders`. 26 testes, provados com 4 mutações, todas pegas. Roteiro do teste em
+  produção: `docs/operacao.md`, seção 11.
+- [ ] **S.1b IP real nos limites por cliente**
+  Com o resultado do diagnóstico, a API passa a ler o cabeçalho certo (de preferência o `X-Real-IP`, o documentado), o
+  IPv6 conta pelo bloco /64, e o diagnóstico vira alerta: só registra quando o IP lido falta ou é interno.
+  *Pronto quando:* integração no formato que o diagnóstico mostrar: cada cliente com a própria cota, dois clientes
+  atrás do mesmo salto interno separados, o cabeçalho forjado sem efeito (se o diagnóstico provar que o Railway o
+  descarta); em produção, o teste do terminal e do celular da seção 11 dá o resultado oposto ao de hoje.
+- [ ] **S.2 Bloqueio por e-mail digitado + IP** (M2; depende da S.1b): a mesma resposta para e-mail com e sem conta,
+  quem erra a senha bloqueia o próprio par (e-mail, IP) e não a dona da conta, freio por e-mail contra ataque
+  distribuído, limites por rota. Desenho aprovado em princípio pelo dono; números e detalhes a decidir.
+
 ---
 
 ## Fase I — Investimentos
