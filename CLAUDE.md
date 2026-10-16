@@ -80,6 +80,7 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 | Conferir um evento | `EventReview` | o que o evento fez com a quantidade da pessoa: "Confere" ou "Não confere" (para a curadoria); guarda a versão do evento, e o evento corrigido volta a pedir |
 | Dia útil bancário | `BankCalendar` | fins de semana e feriados nacionais; só débito automático e vencimento da fatura |
 | Fila de e-mails | `OutboxEmail` (`EmailKind`, `EmailStatus`) | pedido gravado junto com o motivo; o conteúdo e o token saem na hora do envio (`IEmailComposer`); `docs/email.md` |
+| Data de entrada da conta | `AppUser.CreatedAt` (`users.created_at`) | carimbada com o `IClock` na criação; nas contas de antes da coluna é aproximada (o registro mais antigo que a pessoa ainda tinha) |
 | Aceite dos termos | `LegalTerms` (`TermsVersion`, `PrivacyVersion`, `TermsAcceptedAt` no usuário) | a caixa do cadastro; versão nova pede o aceite de novo ao entrar (`SessionUser.MustAcceptTerms`, A.4) |
 | Conta apagada | `DeletedAccount` (`deleted_accounts`) | só o id e o instante, 90 dias, para apagar de novo depois de restaurar um backup (A.3) |
 | Senhas erradas com prazo | `AppUserManager.AccessFailedAsync` / `LastAccessFailedAt` | só soma com as anteriores até 15 min depois da última; vale para login, confirmação, troca de senha e apagar a conta (H.4e) |
@@ -145,6 +146,7 @@ docs/
 ├── email.md                    # Etapas H.4: envio (fila no Postgres + Resend), confirmação de e-mail, senha
 ├── investimentos.md            # Fase I: catálogo de ativos (brapi), carteira, proventos, logos, notas, eventos; decisões e achados
 ├── operacao.md                 # Roteiros da produção: usuários do banco, backup, restauração (e contas apagadas), logs; versão do Postgres local; página e domínio; e-mail; titulares e incidente; IP do cliente atrás do Railway
+├── consultas-saude.md          # SQL só de leitura e agregado para ver como o sistema está (pessoas, uso, e-mail, limpeza); nunca devolve dado de ninguém
 └── validacao-premissas.md      # Premissas do produto e o resultado de cada validação
 ops/
 ├── backup/                     # Serviço de backup: Dockerfile, backup.sh, restore.sh, teste de ida e volta
