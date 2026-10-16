@@ -10,17 +10,39 @@ import { Cta, CtaNote } from './parts'
 // pronta (landing.css).
 const Width = 600
 const Height = 360
-const Apex = { x: 128, y: 48 }
-const BaseLeft = { x: 54, y: 308 }
-const BaseRight = { x: 202, y: 308 }
-const Entry = { x: (Apex.x + BaseLeft.x) / 2, y: (Apex.y + BaseLeft.y) / 2 }
-// Trecho da face direita por onde as cores saem, e onde o cartão começa (as faixas terminam nele).
+type Point = { x: number; y: number }
+const Apex = { x: 112, y: 70 }
+const BaseLeft = { x: 16, y: 282 }
+const BaseRight = { x: 208, y: 282 }
+const along = (a: Point, b: Point, t: number) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t })
+// A luz entra pela face esquerda e sai por um trecho da face direita (como no logo, PrismLogo.tsx).
+const Entry = along(Apex, BaseLeft, 0.56)
 const ExitTop = 150
-const ExitBottom = 210
+const ExitBottom = 196
+// Onde o cartão começa (as faixas terminam nele).
 const CardLeft = 268
 const CardTop = 24
 const CardBottom = 336
 const rightFaceX = (y: number) => Apex.x + ((y - Apex.y) * (BaseRight.x - Apex.x)) / (BaseRight.y - Apex.y)
+const BeamStart = { x: 0, y: Entry.y + 22 }
+
+// Prisma de cantos arredondados: cada canto vira uma curva que começa a `radius` do vértice.
+function roundedTriangle(points: Point[], radius: number) {
+  const toward = (from: Point, to: Point) => {
+    const length = Math.hypot(to.x - from.x, to.y - from.y)
+    return { x: from.x + ((to.x - from.x) / length) * radius, y: from.y + ((to.y - from.y) / length) * radius }
+  }
+  return (
+    points
+      .map((corner, i) => {
+        const before = toward(corner, points[(i + points.length - 1) % points.length])
+        const after = toward(corner, points[(i + 1) % points.length])
+        return `${i ? 'L' : 'M'}${before.x},${before.y} Q${corner.x},${corner.y} ${after.x},${after.y}`
+      })
+      .join(' ') + ' Z'
+  )
+}
+const prism = roundedTriangle([Apex, BaseRight, BaseLeft], 12)
 
 type Piece = { color: string; href: string; label: string; detail: string; value: ReactNode }
 
@@ -37,14 +59,27 @@ const pieces: Piece[] = [
   { color: '#84cc16', href: '#investimentos', label: 'MXRF11', detail: 'rendimento', value: <Amount type="Income" cents={5000} /> },
 ]
 
-// Cada linha do cartão ocupa um quarto da altura dele; a faixa chega no meio da linha.
+// Cada linha do cartão ocupa um quarto da altura dele; a faixa chega no meio da linha. As faixas saem coladas da face
+// direita e se abrem em curva até a linha de cada uma, chegando na horizontal.
 const rowHeight = (CardBottom - CardTop) / pieces.length
 const BandThickness = 22
+const exitStep = (ExitBottom - ExitTop) / pieces.length
+// Curva de um ponto da face até a borda do cartão: sai quase reta e chega deitada.
+const ribbon = (y0: number, y1: number) => {
+  const x0 = rightFaceX(y0)
+  const reach = (CardLeft - x0) * 0.5
+  return { x0, c1: `${x0 + reach},${y0 + (y1 - y0) * 0.2}`, c2: `${CardLeft - reach},${y1}` }
+}
 const bands = pieces.map((piece, i) => {
   const center = CardTop + rowHeight * (i + 0.5)
-  const exit = ExitTop + ((ExitBottom - ExitTop) * (i + 0.5)) / pieces.length
-  const halfExit = (ExitBottom - ExitTop) / pieces.length / 2 - 1
-  return { ...piece, center, e0: exit - halfExit, e1: exit + halfExit }
+  const e0 = ExitTop + exitStep * i
+  const e1 = Math.min(ExitBottom, e0 + exitStep + 0.6)
+  const top = ribbon(e0, center - BandThickness / 2)
+  const bottom = ribbon(e1, center + BandThickness / 2)
+  const d =
+    `M${top.x0},${e0} C${top.c1} ${top.c2} ${CardLeft},${center - BandThickness / 2}` +
+    ` L${CardLeft},${center + BandThickness / 2} C${bottom.c2} ${bottom.c1} ${bottom.x0},${e1} Z`
+  return { ...piece, d, x0: top.x0 }
 })
 
 export function Hero() {
@@ -72,54 +107,63 @@ export function Hero() {
         <div className="prism-beam relative w-full" style={{ aspectRatio: `${Width} / ${Height}` }}>
           <svg viewBox={`0 0 ${Width} ${Height}`} className="absolute inset-0 size-full text-foreground" aria-hidden="true">
             <defs>
-              <linearGradient id="hero-beam" x1="0" x2="1">
+              <linearGradient id="hero-beam" gradientUnits="userSpaceOnUse" x1={BeamStart.x} y1={BeamStart.y} x2={Entry.x} y2={Entry.y}>
                 <stop offset="0" stopColor="currentColor" stopOpacity="0" />
-                <stop offset="1" stopColor="currentColor" stopOpacity="0.9" />
+                <stop offset="0.75" stopColor="currentColor" />
               </linearGradient>
-              <linearGradient id="hero-glass" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stopColor="currentColor" stopOpacity="0.1" />
-                <stop offset="1" stopColor="currentColor" stopOpacity="0.02" />
+              <linearGradient id="hero-glass" x1="0" y1="0" x2="0.5" y2="1">
+                <stop offset="0" stopColor="currentColor" stopOpacity="0.14" />
+                <stop offset="1" stopColor="currentColor" stopOpacity="0.03" />
+              </linearGradient>
+              <linearGradient id="hero-light" gradientUnits="userSpaceOnUse" x1={Entry.x} x2={rightFaceX(ExitBottom)}>
+                <stop offset="0" stopColor="#ddd6fe" stopOpacity="0.7" />
+                <stop offset="1" stopColor="#a78bfa" stopOpacity="0.35" />
               </linearGradient>
               {bands.map((b, i) => (
-                <linearGradient key={b.color} id={`hero-band-${i}`} x1={rightFaceX(b.e0)} x2={CardLeft} gradientUnits="userSpaceOnUse">
-                  <stop offset="0" stopColor={b.color} stopOpacity="0.3" />
-                  <stop offset="1" stopColor={b.color} stopOpacity="0.95" />
+                <linearGradient key={b.color} id={`hero-band-${i}`} x1={b.x0} x2={CardLeft} gradientUnits="userSpaceOnUse">
+                  <stop offset="0" stopColor={b.color} />
+                  <stop offset="1" stopColor={b.color} stopOpacity="0.85" />
                 </linearGradient>
               ))}
+              <filter id="hero-glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="7" />
+              </filter>
             </defs>
 
             {/* A luz que entra e o caminho dela dentro do vidro. */}
-            <polygon
+            <line
               className="beam-in"
-              points={`0,${Entry.y - 3} ${Entry.x},${Entry.y - 2} ${Entry.x},${Entry.y + 2} 0,${Entry.y + 3}`}
-              fill="url(#hero-beam)"
+              x1={BeamStart.x}
+              y1={BeamStart.y}
+              x2={Entry.x}
+              y2={Entry.y}
+              stroke="url(#hero-beam)"
+              strokeWidth="4"
             />
             <polygon
               className="beam-glass"
-              points={`${Entry.x},${Entry.y - 2} ${rightFaceX(ExitTop)},${ExitTop} ${rightFaceX(ExitBottom)},${ExitBottom} ${Entry.x},${Entry.y + 2}`}
-              fill="currentColor"
-              fillOpacity="0.12"
+              points={`${Entry.x},${Entry.y} ${rightFaceX(ExitTop)},${ExitTop} ${rightFaceX(ExitBottom)},${ExitBottom}`}
+              fill="url(#hero-light)"
             />
 
+            {/* O brilho das faixas, desfocado por baixo delas. */}
+            <g filter="url(#hero-glow)" opacity="0.45">
+              {bands.map((b, i) => (
+                <path key={b.color} className="beam-band" data-dim={lit !== null && lit !== i} style={{ '--i': i } as CSSProperties} d={b.d} fill={b.color} />
+              ))}
+            </g>
             {bands.map((b, i) => (
-              <polygon
+              <path
                 key={b.color}
                 className="beam-band"
                 data-dim={lit !== null && lit !== i}
                 style={{ '--i': i } as CSSProperties}
-                points={`${rightFaceX(b.e0)},${b.e0} ${CardLeft},${b.center - BandThickness / 2} ${CardLeft},${b.center + BandThickness / 2} ${rightFaceX(b.e1)},${b.e1}`}
+                d={b.d}
                 fill={`url(#hero-band-${i})`}
               />
             ))}
 
-            <polygon
-              points={`${Apex.x},${Apex.y} ${BaseRight.x},${BaseRight.y} ${BaseLeft.x},${BaseLeft.y}`}
-              fill="url(#hero-glass)"
-              stroke="currentColor"
-              strokeOpacity="0.45"
-              strokeWidth="2"
-              strokeLinejoin="round"
-            />
+            <path d={prism} fill="url(#hero-glass)" stroke="currentColor" strokeOpacity="0.85" strokeWidth="2.5" />
           </svg>
 
           {/* O cartão onde as faixas terminam: linhas do app, em HTML para o texto ficar legível em qualquer largura. */}

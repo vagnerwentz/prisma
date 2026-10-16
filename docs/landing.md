@@ -208,7 +208,7 @@ Respondidas: a ordem (D5), o nome (D14), o domínio (D14, seção 10) e o texto 
   Mudou o roteiro do vídeo, mudam os tempos dos capítulos.
 - **Ver em desenvolvimento:** `npm run dev` e abrir `http://localhost:5173/landing.html` (montada do zero, sem
   pré-renderização). A política e os termos abrem em `/privacidade` e `/termos` também no `npm run dev` (A.4). Na API, `/landing.html` dá 404: a página só existe em `/`.
-- **Compartilhamento e busca (D19):** `public/og.jpg` (1200×630, 66 KB, desenhada em `scripts/og-image.html` com as
+- **Compartilhamento e busca (D19):** `public/og.jpg` (1200×630, 107 KB, desenhada em `scripts/og-image.html` com as
   fontes do app; para refazer, capturar esse HTML no Chrome sem cabeça), etiquetas `og:` e `twitter:` com endereços
   absolutos, `canonical`, `public/robots.txt` (só a API fora) e `public/sitemap.xml` com `https://prismamoney.com.br/`.
   As telas do app levam `noindex` (`index.html`): quem busca chega na página.
