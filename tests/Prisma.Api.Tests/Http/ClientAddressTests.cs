@@ -8,6 +8,37 @@ namespace Prisma.Api.Tests.Http;
 // API enxerga for um desses, ela está lendo o proxy, não a pessoa.
 public sealed class ClientAddressTests
 {
+    // Etapa S.1b: a chave do rate limit é o cliente, não o aparelho.
+    [Fact]
+    public void An_ipv4_client_is_its_whole_address()
+    {
+        ClientAddress.PartitionKey(IPAddress.Parse("203.0.113.10")).ShouldBe("203.0.113.10");
+        ClientAddress.PartitionKey(IPAddress.Parse("203.0.113.11")).ShouldNotBe("203.0.113.10");
+    }
+
+    [Fact]
+    public void An_ipv4_address_written_as_ipv6_is_the_same_client()
+    {
+        ClientAddress.PartitionKey(IPAddress.Parse("::ffff:203.0.113.10")).ShouldBe("203.0.113.10");
+    }
+
+    // O aparelho troca o fim do IPv6 sozinho; a casa (ou o celular) é o bloco dos primeiros 64 bits.
+    [Fact]
+    public void Ipv6_clients_of_the_same_network_are_one_client()
+    {
+        var home = ClientAddress.PartitionKey(IPAddress.Parse("2001:db8:1:2::10"));
+
+        home.ShouldBe("2001:db8:1:2::/64");
+        ClientAddress.PartitionKey(IPAddress.Parse("2001:db8:1:2:abcd:ef01:2345:6789")).ShouldBe(home);
+        ClientAddress.PartitionKey(IPAddress.Parse("2001:db8:1:3::10")).ShouldNotBe(home);
+    }
+
+    [Fact]
+    public void Without_an_address_every_request_shares_one_key()
+    {
+        ClientAddress.PartitionKey(null).ShouldBe("unknown");
+    }
+
     [Theory]
     [InlineData("10.1.2.3")]
     [InlineData("172.16.0.1")]

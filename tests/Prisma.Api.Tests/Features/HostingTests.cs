@@ -223,35 +223,57 @@ public sealed class HostingTests(PostgresFixture postgres) : IDisposable
         unknown.Content.Headers.ContentType!.MediaType.ShouldBe("application/problem+json");
     }
 
+    // Etapa S.1b (PLAN.md): o cliente é o X-Real-IP, no formato medido na produção (2026-10-15, docs/operacao.md,
+    // seção 11): o X-Real-IP igual ao começo do X-Forwarded-For, e no fim da lista um IP público da borda do Railway,
+    // o mesmo para quem passa por ela. Lendo esse último valor, a API juntava todo mundo num contador só (M4).
+    private const string Edge = "198.51.100.7";
+
+    private PrismaApiFactory BehindTheProxy() => new(postgres.ConnectionString, new Dictionary<string, string>
+    {
+        ["ForwardedHeaders:Enabled"] = "true",
+        ["RateLimiting:Auth:PermitLimit"] = "2",
+    });
+
+    private static Task<HttpResponseMessage> LoginFrom(HttpClient client, string clientIp, string edgeIp = Edge)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, "/auth/login")
+        {
+            Content = JsonContent.Create(new { email = "ninguem@teste.com.br", password = "senha-errada-1" }),
+        };
+        request.Headers.Add("X-Real-IP", clientIp);
+        request.Headers.Add("X-Forwarded-For", $"{clientIp}, {edgeIp}");
+        return client.SendAsync(request);
+    }
+
     [Fact]
     public async Task Behind_the_proxy_the_login_rate_limit_counts_each_client_ip()
     {
-        await using var factory = new PrismaApiFactory(postgres.ConnectionString, new Dictionary<string, string>
-        {
-            ["ForwardedHeaders:Enabled"] = "true",
-            ["RateLimiting:Auth:PermitLimit"] = "2",
-        });
+        await using var factory = BehindTheProxy();
         using var client = factory.CreateHttpsClient();
 
-        Task<HttpResponseMessage> LoginFrom(string forwardedFor)
-        {
-            var request = new HttpRequestMessage(HttpMethod.Post, "/auth/login")
-            {
-                Content = JsonContent.Create(new { email = "ninguem@teste.com.br", password = "senha-errada-1" }),
-            };
-            request.Headers.Add("X-Forwarded-For", forwardedFor);
-            return client.SendAsync(request);
-        }
+        (await LoginFrom(client, "203.0.113.10")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        (await LoginFrom(client, "203.0.113.10")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        (await LoginFrom(client, "203.0.113.10")).StatusCode.ShouldBe(HttpStatusCode.TooManyRequests);
 
-        (await LoginFrom("203.0.113.10")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
-        (await LoginFrom("203.0.113.10")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
-        (await LoginFrom("203.0.113.10")).StatusCode.ShouldBe(HttpStatusCode.TooManyRequests);
+        // Outra pessoa, pela mesma borda: a própria cota. Era o que faltava (o celular no 4G bloqueado pelo Mac no Wi-Fi).
+        (await LoginFrom(client, "203.0.113.20")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
 
-        // Outro cliente atrás do mesmo proxy tem a própria cota.
-        (await LoginFrom("203.0.113.20")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        // O mesmo cliente por outra borda continua sendo ele: trocar de borda não renova a cota.
+        (await LoginFrom(client, "203.0.113.10", "198.51.100.8")).StatusCode.ShouldBe(HttpStatusCode.TooManyRequests);
+    }
 
-        // O que o cliente escreve antes do IP acrescentado pelo proxy não conta: só o último vale.
-        (await LoginFrom("198.51.100.99, 203.0.113.10")).StatusCode.ShouldBe(HttpStatusCode.TooManyRequests);
+    [Fact]
+    public async Task Behind_the_proxy_ipv6_clients_count_by_their_network()
+    {
+        await using var factory = BehindTheProxy();
+        using var client = factory.CreateHttpsClient();
+
+        (await LoginFrom(client, "2001:db8:1:2::10")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        (await LoginFrom(client, "2001:db8:1:2::99")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        // Outro endereço da mesma rede (o aparelho troca o fim sozinho): a mesma cota, já gasta.
+        (await LoginFrom(client, "2001:db8:1:2:abcd::1")).StatusCode.ShouldBe(HttpStatusCode.TooManyRequests);
+
+        (await LoginFrom(client, "2001:db8:1:3::10")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
     [Fact]

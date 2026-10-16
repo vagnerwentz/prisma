@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
+using Prisma.Api.Infrastructure.Http;
 using Prisma.Api.Infrastructure.Logging;
 
 namespace Prisma.Api.Infrastructure.Auth;
@@ -106,7 +107,7 @@ public static class AuthSetup
         {
             options.AddPolicy(RateLimitPolicy, context =>
                 RateLimitPartition.GetFixedWindowLimiter(
-                    context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    ClientAddress.PartitionKey(context.Connection.RemoteIpAddress),
                     _ => new FixedWindowRateLimiterOptions
                     {
                         PermitLimit = permitLimit,
@@ -117,7 +118,7 @@ public static class AuthSetup
             var clientErrorsLimit = configuration.GetValue("RateLimiting:ClientErrors:PermitLimit", 10);
             options.AddPolicy(ClientErrorsRateLimitPolicy, context =>
                 RateLimitPartition.GetFixedWindowLimiter(
-                    context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    ClientAddress.PartitionKey(context.Connection.RemoteIpAddress),
                     _ => new FixedWindowRateLimiterOptions
                     {
                         PermitLimit = clientErrorsLimit,

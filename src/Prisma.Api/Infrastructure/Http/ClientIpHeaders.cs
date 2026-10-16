@@ -4,13 +4,14 @@ using Prisma.Api.Infrastructure.Logging;
 
 namespace Prisma.Api.Infrastructure.Http;
 
-// O retrato dos cabeçalhos de IP que o proxy do Railway manda (etapa S.1a, diagnóstico). A API lia o último valor do
-// X-Forwarded-For, que é um salto interno do Railway: o rate limit por IP juntava todo mundo. A documentação do Railway
-// cita só o X-Real-IP para o IP do cliente; o fórum diverge sobre os dois. Antes de trocar, cada pedido à API registra
-// o formato do que chegou, sem IP nenhum: se o X-Real-IP vem, se é interno, se bate com o começo ou o fim da lista do
-// X-Forwarded-For. Um endereço interno forjado pelo cliente aparece como "interno" no retrato.
+// O retrato dos cabeçalhos de IP que o proxy do Railway manda (etapa S.1). A API lia o último valor do X-Forwarded-For,
+// um IP da borda do Railway igual para todo mundo: o rate limit por IP juntava os usuários (M4). O diagnóstico da S.1a
+// mediu na produção (2026-10-15): o X-Real-IP vem, não é interno, é igual ao primeiro valor do X-Forwarded-For, e o
+// Railway descarta os dois quando o cliente os forja. Desde a S.1b a API lê o X-Real-IP (Program.cs), o cabeçalho que a
+// documentação do Railway cita para o IP do cliente.
 //
-// O X-Railway-Request-Id liga a linha ao log de rede do Railway, que mostra o IP que a borda viu.
+// Se o formato mudar, o alerta ClientIpHeadersUnexpected sai a cada pedido, com o retrato e sem IP nenhum: um endereço
+// interno aparece como "interno". O X-Railway-Request-Id liga a linha ao log de rede do Railway.
 public sealed record ClientIpReport(
     bool RealIpPresent,
     bool? RealIpInternal,
@@ -20,7 +21,16 @@ public sealed record ClientIpReport(
     bool RealIpEqualsForwardedFirst,
     bool RealIpEqualsForwardedLast,
     string? Edge,
-    string? RailwayRequestId);
+    string? RailwayRequestId)
+{
+    // Pedido sem nenhum cabeçalho da borda (uma conferência interna, por exemplo) não tem o que conferir.
+    public bool CameThroughTheEdge => ForwardedCount > 0 || RailwayRequestId is not null;
+
+    // O que a S.1a mediu é o esperado. Sem o X-Real-IP, a API cairia no IP do proxy; interno, ela leria um salto do
+    // Railway; diferente do começo da lista, o Railway mudou o formato (ou o X-Real-IP traz a CDN, defeito citado no fórum).
+    public bool LooksWrong =>
+        CameThroughTheEdge && (!RealIpPresent || RealIpInternal != false || !RealIpEqualsForwardedFirst);
+}
 
 public static class ClientIpHeaders
 {
@@ -49,8 +59,8 @@ public static class ClientIpHeaders
             RailwayRequestId: Short(First(headers["X-Railway-Request-Id"])));
     }
 
-    // Só atrás do proxy (produção) e só nos pedidos à API. Antes do UseForwardedHeaders, que tira os cabeçalhos que usa.
-    public static void UseClientIpDiagnostics(this WebApplication app)
+    // Só atrás do proxy (produção) e só nos pedidos à API. Antes do UseForwardedHeaders, que tira o cabeçalho que usa.
+    public static void UseClientIpCheck(this WebApplication app)
     {
         if (!app.Configuration.GetValue<bool>("ForwardedHeaders:Enabled"))
             return;
@@ -58,8 +68,9 @@ public static class ClientIpHeaders
         var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Prisma.Api.ClientIp");
         app.Use(async (context, next) =>
         {
-            if (context.Request.Path.StartsWithSegments(FrontendHosting.ApiPrefix))
-                logger.ClientIpHeaders(Read(context.Request.Headers));
+            if (context.Request.Path.StartsWithSegments(FrontendHosting.ApiPrefix)
+                && Read(context.Request.Headers) is { LooksWrong: true } report)
+                logger.ClientIpHeadersUnexpected(report);
             await next(context);
         });
     }

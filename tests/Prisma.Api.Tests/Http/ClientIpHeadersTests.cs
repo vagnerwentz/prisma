@@ -84,6 +84,44 @@ public sealed class ClientIpHeadersTests
         report.ForwardedFirstInternal.ShouldBeNull();
     }
 
+    // Etapa S.1b: o formato medido na produção (2026-10-15) é o esperado; qualquer desvio vira alerta.
+    [Fact]
+    public void The_format_measured_in_production_is_expected()
+    {
+        Read(("X-Real-IP", "203.0.113.10"), ("X-Forwarded-For", "203.0.113.10, 198.51.100.7"), ("X-Railway-Edge", "gru1"))
+            .LooksWrong.ShouldBeFalse();
+    }
+
+    [Theory]
+    // Sem o X-Real-IP, a API cairia no IP do proxy.
+    [InlineData(null, "203.0.113.10, 198.51.100.7")]
+    // Interno: a API estaria lendo um salto do Railway.
+    [InlineData("100.64.0.7", "100.64.0.7, 198.51.100.7")]
+    // Diferente do começo da lista: o Railway mudou o formato (ou o X-Real-IP traz a CDN, o defeito citado no fórum).
+    [InlineData("198.51.100.7", "203.0.113.10, 198.51.100.7")]
+    [InlineData("garbage", "203.0.113.10, 198.51.100.7")]
+    public void A_different_format_looks_wrong(string? realIp, string forwardedFor)
+    {
+        var headers = new List<(string, string)> { ("X-Forwarded-For", forwardedFor) };
+        if (realIp is not null)
+            headers.Add(("X-Real-IP", realIp));
+
+        Read([.. headers]).LooksWrong.ShouldBeTrue();
+    }
+
+    // Pedido que não passou pela borda do Railway (nenhum cabeçalho dela): nada a conferir.
+    [Fact]
+    public void A_request_that_did_not_come_through_the_edge_is_not_checked()
+    {
+        Read().LooksWrong.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void A_request_with_the_railway_id_but_no_ip_headers_looks_wrong()
+    {
+        Read(("X-Railway-Request-Id", "abc123")).LooksWrong.ShouldBeTrue();
+    }
+
     // O cliente pode mandar os cabeçalhos do Railway também: o log guarda no máximo 100 caracteres de cada.
     [Fact]
     public void Railway_ids_are_cut_to_a_short_length()
