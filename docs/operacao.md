@@ -72,7 +72,7 @@ importam: `level`, `message`, `eventName`, `traceId`, `userId`, `route`, `status
 | Só os erros | `@level:error` |
 | Tentativas de login erradas | `@eventName:LoginFailed` ou `@eventName:LoginUnknownEmail` |
 | Rate limit disparando | `@eventName:RateLimited` |
-| Formato dos cabeçalhos de IP do proxy (diagnóstico da S.1a) | `@eventName:ClientIpHeaders` (seção 11) |
+| O formato dos cabeçalhos de IP do proxy mudou (rate limit pode juntar usuários) | `@eventName:ClientIpHeadersUnexpected` (seção 11) |
 | Telas que quebraram no navegador de alguém | `@eventName:ClientError` (com `@userId:…` para uma pessoa) |
 | Requisições de uma rota | `@route:/statements/{id}/pay` |
 
@@ -516,8 +516,8 @@ A página de apresentação (`docs/landing.md`) já vai na imagem, mas só apare
   | Site | **Railway** → serviço da API → *Settings* → *Networking* | domínios `prismamoney.com.br` e `www.prismamoney.com.br`, porta 8080; certificado HTTPS do Railway |
 
   - **Nuvem cinza (*DNS only*) nos dois CNAME, sempre.** A laranja (*Proxied*) poria a Cloudflare na frente: a API
-    lê o IP do último salto (`ForwardedHeaders`, `Program.cs`), que passaria a ser o da Cloudflare, e o rate limit
-    do login juntaria pessoas diferentes num IP só. Ligar a laranja exige antes ajustar a API (cabeçalho
+    lê o IP do cliente no `X-Real-IP` que o Railway escreve (`Program.cs`, seção 11), que passaria a ser o da
+    Cloudflare, e o rate limit do login juntaria pessoas diferentes num IP só. Ligar a laranja exige antes ajustar a API (cabeçalho
     `CF-Connecting-IP` ou as redes da Cloudflare como proxies conhecidos). Por isso as opções da Cloudflare para robôs
     de IA, cache e SSL/TLS não agem no site.
   - **`www` não redireciona:** responde o mesmo site, com sessão separada (cookie por host). O `canonical` aponta
@@ -709,43 +709,46 @@ que não precisou ser comunicado.
 
 ## 11. IP do cliente atrás do Railway (S.1)
 
-O rate limit conta por IP, e a API só enxerga o IP de quem pede pelos cabeçalhos que o proxy do Railway acrescenta.
-Ler o cabeçalho errado junta todos os usuários num balde só: até a S.1b, a API lia o último valor do
-`X-Forwarded-For`, que é um salto interno do Railway (achado M4, `PLAN.md`, seção "Segurança").
+O rate limit conta por cliente, e a API só enxerga o IP de quem pede pelos cabeçalhos que o proxy do Railway
+acrescenta. Ler o cabeçalho errado junta todos os usuários num contador só. Foi o que aconteceu até a S.1b: a API lia o
+último valor do `X-Forwarded-For`, um IP da borda do Railway, o mesmo para quem passa por ela (achado M4, `PLAN.md`,
+seção "Segurança"). Um terminal mandando pedidos bloqueava o login de qualquer pessoa.
 
-**Diagnóstico (S.1a).** Cada pedido à API registra o evento `ClientIpHeaders` (filtro `@eventName:ClientIpHeaders`),
-com o formato dos cabeçalhos, sem IP: `realIpPresent`, `realIpInternal`, `forwardedCount`, `forwardedFirstInternal`,
-`forwardedLastInternal`, `realIpEqualsForwardedFirst`, `realIpEqualsForwardedLast`, `edge`, `railwayRequestId`.
-"Interno" é rede privada, `100.64.0.0/10` (saltos do Railway), loopback ou link-local: nunca um cliente da internet.
+**Como é hoje (S.1b).** O IP do cliente é o **`X-Real-IP`** (`Program.cs`), o cabeçalho que a documentação do Railway
+cita "para identificar o IP remoto do cliente". O IPv4 conta inteiro; o IPv6, pelos primeiros 64 bits (a casa ou o
+celular), porque o aparelho troca o fim do endereço sozinho (`ClientAddress.PartitionKey`).
 
-Depois do deploy, no terminal do Mac (cada comando é um pedido; anote a hora):
+**O que foi medido (S.1a, 2026-10-15).** Com um evento que retratava os cabeçalhos de cada pedido, sem IP:
+
+| Pedido | Resultado |
+|---|---|
+| normal | `X-Real-IP` presente, não interno, igual ao **primeiro** valor do `X-Forwarded-For`; a lista tem 2 valores, e o último é um IP público (a borda, `edge: gru1`) |
+| com `X-Real-IP: 10.0.0.5` forjado | igual ao normal: o Railway descartou o forjado |
+| com `X-Forwarded-For: 10.0.0.5` forjado | igual ao normal: o Railway descartou o forjado |
+
+**O alerta.** Se o formato mudar, cada pedido à API que veio pela borda gera o aviso `ClientIpHeadersUnexpected`
+(filtro `@eventName:ClientIpHeadersUnexpected`), com o retrato e sem IP: `realIpPresent`, `realIpInternal`,
+`forwardedCount`, `forwardedFirstInternal`, `forwardedLastInternal`, `realIpEqualsForwardedFirst`,
+`realIpEqualsForwardedLast`, `edge`, `railwayRequestId`. Dispara quando o `X-Real-IP` falta, é interno (rede privada,
+`100.64.0.0/10`, loopback, link-local) ou é diferente do primeiro valor do `X-Forwarded-For` (o Railway mudou o formato,
+ou o `X-Real-IP` passou a trazer a CDN, defeito citado no fórum dele). Com o alerta aparecendo, o rate limit pode estar
+juntando usuários: refaça os pedidos abaixo e o teste de ponta a ponta, e ajuste o `Program.cs`.
+
+Para refazer a medição à mão, no terminal do Mac (o `/api/health` não pede login nem conta para o rate limit):
 
 ```bash
-# 1. Pedido normal
-curl -s -o /dev/null -w "%{http_code}\n" https://prismamoney.com.br/api/health
-# 2. X-Real-IP forjado com um endereço interno
-curl -s -o /dev/null -w "%{http_code}\n" -H "X-Real-IP: 10.0.0.5" https://prismamoney.com.br/api/health
-# 3. X-Forwarded-For forjado com um endereço interno
-curl -s -o /dev/null -w "%{http_code}\n" -H "X-Forwarded-For: 10.0.0.5" https://prismamoney.com.br/api/health
+echo "1 normal  $(date +%T)  $(curl -s -o /dev/null -w "%{http_code}" https://prismamoney.com.br/api/health)"; sleep 5
+echo "2 real-ip $(date +%T)  $(curl -s -o /dev/null -w "%{http_code}" -H "X-Real-IP: 10.0.0.5" https://prismamoney.com.br/api/health)"; sleep 5
+echo "3 xff     $(date +%T)  $(curl -s -o /dev/null -w "%{http_code}" -H "X-Forwarded-For: 10.0.0.5" https://prismamoney.com.br/api/health)"
 ```
 
-Como ler o evento de cada um:
+Com o formato esperado, nenhum dos três gera alerta. O 2 e o 3 só gerariam se o Railway deixasse passar o forjado.
+Para ver o retrato mesmo sem alerta, o evento da S.1a está no commit `db3508b`.
 
-| Pedido | O que se espera de um cabeçalho confiável | O que mostra um problema |
-|---|---|---|
-| 1, normal | `realIpPresent: true`, `realIpInternal: false` | `realIpInternal: true` (o `X-Real-IP` traz o proxy ou a CDN) |
-| 2, `X-Real-IP` forjado | igual ao 1 (o Railway descartou o forjado) | `realIpInternal: true`: o cliente escolhe o próprio `X-Real-IP` |
-| 3, `X-Forwarded-For` forjado | `forwardedCount` igual ao do 1 e `forwardedFirstInternal: false` | `forwardedFirstInternal: true` ou um valor a mais: o forjado chegou ao app |
-
-Para conferir que o `X-Real-IP` é **o seu** IP sem que o Prisma grave IP: procure o `railwayRequestId` do pedido 1 no
-log de rede do serviço (*HTTP Logs*, no painel do Railway) e compare o IP de origem dele com o seu IP público
-(`curl -s https://api.ipify.org`). Repita os três pedidos pelo 4G do celular (roteador do celular ligado ao Mac): o
-`edge` pode mudar, e o resultado deve ser o mesmo.
-
-**Teste do problema, de ponta a ponta** (antes e depois da S.1b). Com um e-mail que não existe (não conta para o
-bloqueio de ninguém), o Mac no Wi-Fi manda um pedido a cada 3 segundos por 2 minutos; enquanto isso, entre com a sua
-conta pelo celular no 4G. Durante esses 2 minutos, outros usuários podem não conseguir entrar: escolha um horário
-calmo.
+**Teste de ponta a ponta** (depois de mudar algo aqui). Com um e-mail que não existe (não conta para o bloqueio de
+ninguém), o Mac no Wi-Fi manda um pedido a cada 3 segundos por 2 minutos; enquanto isso, entre com a sua conta pelo
+celular no **4G** (no mesmo Wi-Fi, o celular é o mesmo cliente e é bloqueado mesmo, como deve). Escolha um horário
+calmo: um erro aqui pode bloquear outros usuários por esses 2 minutos.
 
 ```bash
 for i in $(seq 1 40); do
@@ -756,5 +759,6 @@ for i in $(seq 1 40); do
 done; echo
 ```
 
-Hoje (2026-10-15): o celular recebe "Muitas tentativas". Depois da S.1b: o terminal mostra `429` a partir do 6º pedido
-e o celular entra.
+O certo: o terminal mostra `401` cinco vezes e `429` a partir do 6º pedido (o limite é de 5 por minuto, e o contador
+renova a cada minuto, então alguns `401` voltam no meio), e o celular entra. Antes da S.1b (2026-10-15), o `429` vinha
+fora de hora e o celular recebia "Muitas tentativas".
