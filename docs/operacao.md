@@ -65,6 +65,9 @@ Se o passo 3 der errado (a API não sobe), volte a `ConnectionStrings__Default` 
 Em produção, cada evento é uma linha JSON que o Railway filtra (serviço da API → *Logs*). Os campos que
 importam: `level`, `message`, `eventName`, `traceId`, `userId`, `route`, `statusCode`, `elapsedMs`.
 
+Para saber **como o sistema está** (cadastros, uso, fila de e-mail, limpeza), e não investigar um erro, use as consultas SQL
+de `docs/consultas-saude.md`: só leitura, só agregadas.
+
 | Pergunta | Filtro no Railway |
 |---|---|
 | O que aconteceu na requisição do erro (o `traceId` vem na resposta de erro) | `@traceId:4bf92f…` |

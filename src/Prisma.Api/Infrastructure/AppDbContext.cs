@@ -154,6 +154,9 @@ public sealed class AppDbContext(
         var utcNow = clock.UtcNow;
         var now = utcNow.AddTicks(-(utcNow.Ticks % (TimeSpan.TicksPerMillisecond / 1000)));
 
+        foreach (var user in ChangeTracker.Entries<AppUser>().Where(e => e.State == EntityState.Added))
+            user.Entity.CreatedAt = now;
+
         // Lista fechada antes: o soft delete muda o estado de outras entradas (as partes da entidade).
         foreach (var entry in ChangeTracker.Entries<Entity>().ToList())
         {
