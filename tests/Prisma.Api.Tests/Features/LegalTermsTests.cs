@@ -90,6 +90,16 @@ public sealed class LegalTermsTests(PostgresFixture postgres)
         (await Login(client, email)).MustAcceptTerms.ShouldBeFalse();
     }
 
+    [Fact]
+    public async Task Sign_up_stamps_when_the_account_was_created()
+    {
+        await using var factory = Factory();
+        var email = NewEmail();
+        await SignedIn(factory, email);
+
+        (await Find(factory, email))!.CreatedAt.ShouldBe(_clock.UtcNow);
+    }
+
     // Quem já tinha conta antes do aceite existir: entra, a sessão avisa, e o aceite grava as versões.
     [Fact]
     public async Task An_existing_account_without_acceptance_accepts_when_signing_in()

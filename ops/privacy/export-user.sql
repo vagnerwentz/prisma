@@ -13,6 +13,7 @@ SELECT jsonb_pretty(jsonb_build_object(
   'conta', (
     SELECT jsonb_build_object(
       'email', u.email,
+      'criadaEm', u.created_at,
       'emailConfirmado', u.email_confirmed,
       'versaoDosTermosAceita', u.terms_version,
       'versaoDaPoliticaAceita', u.privacy_version,
