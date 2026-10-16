@@ -925,12 +925,15 @@ sem aceite. Depois da revisão assistida (GPT) dos rascunhos: o que a pessoa exc
 
 ### Segurança (auditoria pedida pelo dono, 2026-10-15)
 
-Auditoria só de leitura do projeto inteiro: sem achado crítico ou alto. Médios: o logout não invalida o cookie no
-servidor (M1); a mensagem "Conta bloqueada" revela quem tem conta e deixa qualquer um trancar a conta de outra pessoa
-(M2); contra robôs, só o limite por IP (M3). Testando o M2 em produção, apareceu o **M4**: o rate limit por IP junta
-todos os usuários. Prova do dono: o Mac no Wi-Fi mandando pedidos com um e-mail que não existe bloqueou o login real
-dele no celular, no 4G, com a senha certa. Qualquer um, com 5 pedidos por minuto, trava o login, o cadastro e a senha
-nova de todo mundo.
+Auditoria só de leitura do projeto inteiro: sem achado crítico ou alto; alguns médios e baixos, que viraram as etapas
+abaixo. **O repositório é público:** o relatório, os cenários e o desenho de cada correção ficam em `.security/` (fora
+do git; `.security/pendencias.md` é a lista viva), e aqui só entra o que cada etapa faz. Falha aberta não se descreve
+em arquivo versionado (`CLAUDE.md`, seção 8); depois de corrigida, entra aqui com o histórico, como a S.1.
+
+Testando um dos achados em produção, apareceu o **M4** (resolvido na S.1): o rate limit por IP juntava todos os
+usuários. Prova do dono: o Mac no Wi-Fi mandando pedidos com um e-mail que não existe bloqueou o login real dele no
+celular, no 4G, com a senha certa. Qualquer um, com 5 pedidos por minuto, travava o login, o cadastro e a senha nova de
+todo mundo.
 
 *Causa:* a API lia o **último** valor do `X-Forwarded-For` (`Program.cs`, `ForwardLimit = 1`), e o Railway põe ali um
 IP da borda dele, o mesmo para todo mundo (a S.1a mostrou que é público, não um salto interno como se supunha). *Em
@@ -966,10 +969,37 @@ identificar o IP remoto do cliente" e não fala do `X-Forwarded-For`; no fórum,
   políticas do login e dos relatos do navegador (`AuthSetup`), o evento por pedido da S.1a virou o aviso
   `ClientIpHeadersUnexpected` (1006, `ClientIpReport.LooksWrong`). Testes provados com 5 mutações, todas pegas; com o
   código antigo de volta, o teste de integração reproduz o M4 (outra pessoa pela mesma borda recebe 429).
-  `docs/operacao.md`, seção 11, e a nota da nuvem cinza (seção 7). **Falta:** a conferência em produção pelo dono.
-- [ ] **S.2 Bloqueio por e-mail digitado + IP** (M2; depende da S.1b): a mesma resposta para e-mail com e sem conta,
-  quem erra a senha bloqueia o próprio par (e-mail, IP) e não a dona da conta, freio por e-mail contra ataque
-  distribuído, limites por rota. Desenho aprovado em princípio pelo dono; números e detalhes a decidir.
+  `docs/operacao.md`, seção 11, e a nota da nuvem cinza (seção 7).
+  *Conferido em produção pelo dono (2026-10-15):* com o Mac no Wi-Fi mandando um pedido a cada 3 segundos, o terminal
+  mostrou `401` cinco vezes, `429` até o minuto virar e de novo cinco `401` (o limite de 5 por minuto, por cliente), e
+  o login real pelo celular no 5G entrou durante o laço; nenhum `ClientIpHeadersUnexpected` no log. Antes da S.1b, o
+  mesmo teste bloqueava o celular. M4 resolvido.
+- [ ] **S.2 Senhas erradas: bloqueio por e-mail digitado + lugar** (P1). A mesma resposta para qualquer e-mail, com
+  conta ou sem, inclusive no bloqueio e no tempo de resposta; quem erra a senha bloqueia só o próprio par (e-mail, IP),
+  e não quem está em outro lugar; um freio por e-mail contra tentativas vindas de muitos IPs; limites por rota no lugar
+  dos 5 pedidos por minuto divididos entre login, cadastro e senha nova; "Esqueci a senha" continua liberando.
+  Desenho aprovado em princípio pelo dono (2026-10-16); faltam 5 decisões (números, contador na memória ou no banco,
+  se confirmação, troca de senha e apagar conta entram na regra, apelido do IP no log, tempo igual junto), cada uma com
+  recomendação em `.security/s2-bloqueio-por-email-e-ip.md`.
+- [ ] **S.3 Proteção contra cadastro e tentativas automatizadas** (P1): limite global de cadastros, limpeza de contas
+  nunca confirmadas, recusa de senha já vazada (consulta por k-anonimato), e MFA opcional (TOTP) mais adiante.
+  Depende da S.2 (limites por rota). Decisões de produto em aberto.
+- [ ] **S.4 Sessão revogável** (P1): o "Sair" invalida a sessão no servidor, "Sair de todos os aparelhos" no menu da
+  conta, prazo máximo da sessão e cookie com o prefixo `__Host-`. Sessão guardada no servidor é tabela nova com
+  `user_id`: entra no `AccountEraser`, na cópia dos dados (`ops/privacy/export-user.sql`) e nos testes de schema.
+  Trocar o formato do cookie derruba as sessões uma vez.
+- [ ] **S.5 Cabeçalhos de segurança** (P2): CSP, HSTS, proibição de iframe, `nosniff`, `Referrer-Policy` nas páginas do
+  app, da apresentação e jurídicas. Conferir todas as telas nos dois temas (estilos em linha de bibliotecas).
+- [ ] **S.6 Chaves do cookie cifradas** (P2): as chaves do Data Protection protegidas em repouso, e a restauração de
+  prova (`docs/operacao.md`, 5.2) sem elas na cópia local.
+- [ ] **S.7 Verificações de segurança no CI** (P2): dependências com falha conhecida (NuGet e npm), segredos no
+  histórico, análise de código; Actions fixadas por SHA; Dependabot. Começa como aviso, para não travar o deploy por
+  falso positivo. Instalar ou rodar ferramenta que fala com serviço externo pede autorização do dono.
+- [ ] **S.8 Miúdos** (P3): lista de endereços permitidos para os logos, papel de banco separado para as migrations,
+  relatos do navegador truncados e mascarados, aceite de termos conferido no servidor, teto na lista de lançamentos,
+  limpeza do `<style>` nos logos, conferência do pacote npm `cn`. Lista com o porquê de cada um em `.security/pendencias.md`.
+- **Fora do código, com o dono** (lista em `.security/pendencias.md`): TLS entre a API e o banco, 2FA em todos os
+  painéis, DMARC em `p=reject`, DNSSEC e CAA, escopo do token do R2, HSTS na borda, ruleset da `main`.
 
 ---
 

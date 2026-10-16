@@ -485,3 +485,11 @@ $RECYCLE.BIN/
 
 # E-mails gravados pela API em desenvolvimento (Email:Transport = Folder; docs/email.md)
 .dev-emails/
+
+# Pastas locais, nunca versionadas (o repositório é público): auditoria de segurança com falhas abertas, rascunhos e
+# registros da LGPD, skills e configuração local do Claude Code e anotações de tarefas.
+/.security/
+/.lgpd/
+/.claude/
+/.agents/
+/tasks/

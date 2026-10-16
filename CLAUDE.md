@@ -144,7 +144,7 @@ docs/
 ├── landing.md                  # Página de apresentação: o que promete, visual, LGPD, como é servida e o que falta para ir ao ar
 ├── email.md                    # Etapas H.4: envio (fila no Postgres + Resend), confirmação de e-mail, senha
 ├── investimentos.md            # Fase I: catálogo de ativos (brapi), carteira, proventos, logos, notas, eventos; decisões e achados
-├── operacao.md                 # Roteiros da produção: usuários do banco, backup, restauração (e contas apagadas), logs; versão do Postgres local; página e domínio
+├── operacao.md                 # Roteiros da produção: usuários do banco, backup, restauração (e contas apagadas), logs; versão do Postgres local; página e domínio; e-mail; titulares e incidente; IP do cliente atrás do Railway
 └── validacao-premissas.md      # Premissas do produto e o resultado de cada validação
 ops/
 ├── backup/                     # Serviço de backup: Dockerfile, backup.sh, restore.sh, teste de ida e volta
@@ -615,6 +615,10 @@ por conversa, arquivo versionado ou histórico do shell.
   Página para quem não entrou não carrega script, fonte nem imagem de terceiros e não grava cookie.
 - Segredos via User Secrets em desenvolvimento e variáveis de ambiente em produção.
   Nada de connection string ou client secret commitado.
+- **O repositório é público.** Falha de segurança ainda aberta não se descreve em nada versionado (`PLAN.md`, `docs/`,
+  comentário, commit, PR): o relatório da auditoria (2026-10-15), os cenários e o desenho de cada correção ficam em
+  `.security/` (fora do git, como o `.lgpd/`), e a lista viva do que falta é o `.security/pendencias.md`. O `PLAN.md`
+  só diz o que cada etapa faz (seção "Segurança", S.2 a S.8); depois de corrigida, a falha pode entrar lá com o histórico.
 
 ---
 
