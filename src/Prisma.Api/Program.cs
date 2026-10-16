@@ -112,6 +112,8 @@ if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
     app.Logger.MigrationsApplied(pending);
 }
 
+// Diagnóstico da etapa S.1a: o formato dos cabeçalhos de IP do proxy, antes de o UseForwardedHeaders consumi-los.
+app.UseClientIpDiagnostics();
 app.UseForwardedHeaders();
 app.UseRequestLogging();
 
