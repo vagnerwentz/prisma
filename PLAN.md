@@ -1060,6 +1060,12 @@ cadastrados à mão, rendimento calculado pelo CDI do Banco Central. Plano compl
   R$ 0,01); tabela de IOF lida no decreto; tabela de IR pela B3 (texto legal pendente, dispensado por ora).
 - [x] **R.1 Motor de rendimento** — `FixedIncomeEngine` no domínio (`Prisma.Domain/FixedIncome`): fator da B3 em ponto fixo
   `Int128`, sem banco nem relógio. Testes com vetores independentes, os extratos do banco e propriedades (CsCheck).
+- [x] **R.2 Taxas do CDI** — tabela global `reference_rates` (migration `AddReferenceRates`) e `BcbSgsRateSource`, cliente da
+  SGS 12 do Banco Central: janelas de 9 anos, só aceita lista JSON (a API responde erro com 200, 406 ou HTML, e faixa sem dia
+  útil com 404), tudo ou nada. Teste de contrato `[LiveFact]` com a API real.
+- [x] **R.3 Sincronização** — `ReferenceRateSync` + `ReferenceRateWorker` (19h30 e 23h30 em São Paulo, e ao subir se o histórico
+  estiver vazio ou atrasado): idempotente (índice único + releitura), revisão de valor com `RevisedAt` e aviso no log, falha da
+  fonte sem efeito, lacuna e defasagem (`ReferenceRateCoverage`, único uso do calendário bancário no CDI, só para diagnóstico).
 
 ---
 

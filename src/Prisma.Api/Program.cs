@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging.Console;
 using Npgsql;
 using Prisma.Api.Features.Accounts;
 using Prisma.Api.Features.Assets;
+using Prisma.Api.Features.Rates;
 using Prisma.Api.Features.Recurrences;
 using Prisma.Api.Features.Auth;
 using Prisma.Api.Features.Categories;
@@ -83,6 +84,7 @@ builder.Services.AddRecurrenceFeatures(builder.Configuration);
 builder.Services.AddDiagnosticsFeatures();
 builder.Services.AddMarketData(builder.Configuration);
 builder.Services.AddAssetFeatures(builder.Configuration);
+builder.Services.AddReferenceRateFeatures(builder.Configuration);
 builder.Services.AddInvestmentFeatures();
 
 builder.Services.AddHealthChecks()

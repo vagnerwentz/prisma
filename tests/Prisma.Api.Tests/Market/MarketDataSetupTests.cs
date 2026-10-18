@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Prisma.Api.Infrastructure.Market;
+using Prisma.Api.Infrastructure.Market.Bcb;
 using Prisma.Api.Infrastructure.Market.Brapi;
 using Prisma.Api.Tests.Infrastructure;
 using Shouldly;
@@ -58,6 +59,52 @@ public sealed class MarketDataSetupTests
     [InlineData("Brapi:MaxPages", "0")]
     [InlineData("Brapi:TimeoutSeconds", "0")]
     public async Task Invalid_configuration_stops_the_api_at_startup(string key, string value)
+    {
+        await using var factory = new PrismaApiFactory(NoDatabase, new Dictionary<string, string> { [key] = value });
+
+        Should.Throw<OptionsValidationException>(() => factory.Services);
+    }
+
+    [Fact]
+    public async Task The_reference_rates_come_from_the_central_bank()
+    {
+        await using var factory = new PrismaApiFactory(NoDatabase);
+
+        factory.Services.GetRequiredService<IReferenceRateSource>().ShouldBeOfType<BcbSgsRateSource>();
+    }
+
+    [Fact]
+    public async Task The_central_bank_client_has_the_default_address_timeout_and_no_token()
+    {
+        await using var factory = new PrismaApiFactory(NoDatabase);
+
+        var client = factory.Services.GetRequiredService<IHttpClientFactory>().CreateClient(BcbSgsRateSource.HttpClientName);
+
+        client.BaseAddress.ShouldBe(new Uri("https://api.bcb.gov.br/"));
+        client.Timeout.ShouldBe(TimeSpan.FromSeconds(30));
+        client.DefaultRequestHeaders.Authorization.ShouldBeNull();
+        client.DefaultRequestHeaders.UserAgent.ToString().ShouldStartWith("Prisma");
+    }
+
+    [Fact]
+    public async Task The_central_bank_client_uses_the_configured_address_and_timeout()
+    {
+        await using var factory = new PrismaApiFactory(NoDatabase, new Dictionary<string, string>
+        {
+            ["Bcb:BaseUrl"] = "https://bcb.exemplo/",
+            ["Bcb:TimeoutSeconds"] = "9",
+        });
+
+        var client = factory.Services.GetRequiredService<IHttpClientFactory>().CreateClient(BcbSgsRateSource.HttpClientName);
+
+        client.BaseAddress.ShouldBe(new Uri("https://bcb.exemplo/"));
+        client.Timeout.ShouldBe(TimeSpan.FromSeconds(9));
+    }
+
+    [Theory]
+    [InlineData("Bcb:TimeoutSeconds", "0")]
+    [InlineData("Bcb:TimeoutSeconds", "301")]
+    public async Task Invalid_central_bank_configuration_stops_the_api_at_startup(string key, string value)
     {
         await using var factory = new PrismaApiFactory(NoDatabase, new Dictionary<string, string> { [key] = value });
 

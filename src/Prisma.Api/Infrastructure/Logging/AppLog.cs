@@ -196,6 +196,33 @@ public static partial class AppLog
     [LoggerMessage(4014, LogLevel.Error, "Corporate events sync failed; the next start or catalog sync tries again")]
     public static partial void CorporateEventSyncFailed(this ILogger logger, Exception exception);
 
+    [LoggerMessage(4200, LogLevel.Information, "Reference rates fetched from {Provider}: {Rates} rates in {Windows} windows, {From:yyyy-MM-dd} to {To:yyyy-MM-dd}, in {ElapsedMs} ms")]
+    public static partial void ReferenceRatesFetched(this ILogger logger, string provider, int rates, int windows, DateOnly from, DateOnly to, double elapsedMs);
+
+    [LoggerMessage(4201, LogLevel.Information, "Reference rates synced from {Provider}: {Fetched} fetched, {Added} added, {Revised} revised, {Unchanged} unchanged")]
+    public static partial void ReferenceRatesSynced(this ILogger logger, string provider, int fetched, int added, int revised, int unchanged);
+
+    // O valor de uma data já gravada mudou na fonte: o cálculo de quem usa essa data muda junto. Nunca em silêncio.
+    [LoggerMessage(4202, LogLevel.Warning, "Reference rate from {Provider} revised on {ReferenceDate:yyyy-MM-dd}")]
+    public static partial void ReferenceRateRevised(this ILogger logger, string provider, DateOnly referenceDate);
+
+    // Dia útil esperado sem taxa gravada, entre a primeira e a última data. Reprocessar o período corrige.
+    [LoggerMessage(4203, LogLevel.Warning, "Reference rates from {Provider} have a gap: {Missing} business days without a rate, from {FirstMissing:yyyy-MM-dd} to {LastMissing:yyyy-MM-dd}")]
+    public static partial void ReferenceRateGapDetected(this ILogger logger, string provider, int missing, DateOnly firstMissing, DateOnly lastMissing);
+
+    // A última taxa gravada é mais antiga que a do último dia útil: o cálculo avisa "rendimento até <data>".
+    [LoggerMessage(4204, LogLevel.Warning, "Reference rates from {Provider} are stale: last stored {LastStored:yyyy-MM-dd}, expected {ExpectedLast:yyyy-MM-dd}")]
+    public static partial void ReferenceRatesStale(this ILogger logger, string provider, DateOnly? lastStored, DateOnly expectedLast);
+
+    [LoggerMessage(4205, LogLevel.Warning, "Reference rates sync skipped: the market data provider is unavailable; the next run tries again")]
+    public static partial void ReferenceRateSyncUnavailable(this ILogger logger, Exception exception);
+
+    [LoggerMessage(4206, LogLevel.Error, "Reference rates sync failed; the next run tries again")]
+    public static partial void ReferenceRateSyncFailed(this ILogger logger, Exception exception);
+
+    [LoggerMessage(4207, LogLevel.Information, "Next reference rates sync at {NextRunUtc:o}")]
+    public static partial void ReferenceRateNextRun(this ILogger logger, DateTime nextRunUtc);
+
     [LoggerMessage(4100, LogLevel.Information, "Holding {HoldingId} of asset {AssetId} added to the portfolio")]
     public static partial void HoldingAdded(this ILogger logger, Guid holdingId, Guid assetId);
 

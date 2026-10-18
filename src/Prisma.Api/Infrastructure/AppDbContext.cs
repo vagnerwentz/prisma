@@ -10,6 +10,7 @@ using Prisma.Api.Infrastructure.Privacy;
 using Prisma.Domain;
 using Prisma.Domain.Accounts;
 using Prisma.Domain.Categories;
+using Prisma.Domain.FixedIncome;
 using Prisma.Domain.Investments;
 using Prisma.Domain.Investments.Trades;
 using Prisma.Domain.Market;
@@ -69,6 +70,9 @@ public sealed class AppDbContext(
     // Eventos da empresa (desdobramento, grupamento, conversão; I.7c1). Globais, como o catálogo.
     public DbSet<CorporateEvent> CorporateEvents => Set<CorporateEvent>();
 
+    // Taxas diárias do CDI, do Banco Central: dado de mercado, o mesmo para todos (docs/renda-fixa.md, 2.4). Sem filtro.
+    public DbSet<ReferenceRate> ReferenceRates => Set<ReferenceRate>();
+
     // Fila de e-mails a enviar (docs/email.md, seção 3). Sem filtro: a tarefa atende todo mundo.
     public DbSet<OutboxEmail> OutboxEmails => Set<OutboxEmail>();
 
@@ -91,6 +95,8 @@ public sealed class AppDbContext(
         typeof(Asset),
         typeof(AssetLogo),
         typeof(CorporateEvent),
+        // Taxas diárias do CDI (renda fixa): o mesmo histórico para todos; só a sincronização escreve.
+        typeof(ReferenceRate),
         // Fila de e-mails: só a API escreve e só a tarefa lê, para todos; nenhum endpoint a lista. O UserId é referência.
         typeof(OutboxEmail),
         // Contas apagadas: o dono não existe mais; só a limpeza lê (AccountEraser).

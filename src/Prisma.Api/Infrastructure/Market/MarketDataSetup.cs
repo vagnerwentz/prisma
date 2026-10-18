@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using Microsoft.Extensions.Options;
+using Prisma.Api.Infrastructure.Market.Bcb;
 using Prisma.Api.Infrastructure.Market.Brapi;
 
 namespace Prisma.Api.Infrastructure.Market;
@@ -25,6 +26,20 @@ public static class MarketDataSetup
             // No cabeçalho, nunca na URL: a URL aparece nos logs do HttpClient.
             if (!string.IsNullOrWhiteSpace(brapi.Token))
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", brapi.Token);
+        });
+
+        // CDI diário do Banco Central (docs/renda-fixa.md, seção 3): API pública, sem token.
+        services.AddOptions<BcbOptions>()
+            .Bind(configuration.GetSection(BcbOptions.Section))
+            .Validate(o => o.IsValid(), "Configuração Bcb inválida: confira BaseUrl e TimeoutSeconds.")
+            .ValidateOnStart();
+
+        services.AddHttpClient<IReferenceRateSource, BcbSgsRateSource>(BcbSgsRateSource.HttpClientName, (provider, client) =>
+        {
+            var bcb = provider.GetRequiredService<IOptions<BcbOptions>>().Value;
+            client.BaseAddress = bcb.BaseUrl;
+            client.Timeout = TimeSpan.FromSeconds(bcb.TimeoutSeconds);
+            client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("Prisma", "1.0"));
         });
 
         // Logos (etapa 4): só baixa arquivo pequeno; um logo lento não segura os outros.

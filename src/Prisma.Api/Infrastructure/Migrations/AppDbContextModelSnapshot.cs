@@ -464,6 +464,56 @@ namespace Prisma.Api.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Prisma.Domain.FixedIncome.ReferenceRate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<long>("DailyRateE8")
+                        .HasColumnType("bigint")
+                        .HasColumnName("daily_rate_e8");
+
+                    b.Property<DateTime>("FetchedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fetched_at");
+
+                    b.Property<DateOnly>("ReferenceDate")
+                        .HasColumnType("date")
+                        .HasColumnName("reference_date");
+
+                    b.Property<DateTime?>("RevisedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revised_at");
+
+                    b.Property<string>("Series")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("series");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("source");
+
+                    b.HasKey("Id")
+                        .HasName("pk_reference_rates");
+
+                    b.HasIndex("Series", "ReferenceDate")
+                        .IsUnique()
+                        .HasDatabaseName("ux_reference_rates_series_date");
+
+                    b.ToTable("reference_rates", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_reference_rates_rate", "daily_rate_e8 >= 1 AND daily_rate_e8 < 1000000");
+
+                            t.HasCheckConstraint("ck_reference_rates_series", "series IN ('Cdi')");
+                        });
+                });
+
             modelBuilder.Entity("Prisma.Domain.Investments.AssetRequest", b =>
                 {
                     b.Property<Guid>("Id")

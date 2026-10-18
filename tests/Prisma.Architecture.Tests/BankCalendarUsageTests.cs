@@ -4,9 +4,13 @@ using Shouldly;
 
 namespace Prisma.Architecture.Tests;
 
-// docs/fase-2.md, 2.15, D5: o calendário bancário tem dois usos só, o débito automático (a série) e o
+// docs/fase-2.md, 2.15, D5: o calendário bancário tem dois usos de negócio, o débito automático (a série) e o
 // vencimento da fatura (2.22). Pix, compra, parcela, estorno e transferência ficam na data em que
 // aconteceram; um terceiro uso é decisão de produto, não detalhe de código.
+//
+// Mais um uso, de diagnóstico e não de negócio (docs/renda-fixa.md, D8, aprovada pelo dono em 2026-10-17): dizer quais dias o
+// histórico do CDI deveria ter, para achar lacuna e defasagem. Mora no próprio namespace `Coverage`, liberado sozinho, e o
+// cálculo do rendimento (Prisma.Domain.FixedIncome) continua proibido de usar o calendário.
 public sealed class BankCalendarUsageTests
 {
     private const string CalendarNamespace = "Prisma.Domain.Calendar";
@@ -16,10 +20,11 @@ public sealed class BankCalendarUsageTests
         CalendarNamespace,
         "Prisma.Domain.Recurrences",
         "Prisma.Domain.Statements",
+        "Prisma.Domain.FixedIncome.Coverage",
     ];
 
     [Fact]
-    public void Only_recurrences_and_statements_use_the_bank_calendar()
+    public void Only_recurrences_statements_and_the_rate_coverage_use_the_bank_calendar()
     {
         var violations = Types.InAssemblies([Assembly.Load("Prisma.Domain"), Assembly.Load("Prisma.Api")])
             .That()
@@ -29,6 +34,6 @@ public sealed class BankCalendarUsageTests
             .Select(type => type.FullName)
             .ToList();
 
-        violations.ShouldBeEmpty("Só a série (débito automático) e a fatura usam o calendário bancário.");
+        violations.ShouldBeEmpty("Só a série (débito automático), a fatura e o diagnóstico do CDI (Coverage) usam o calendário bancário.");
     }
 }

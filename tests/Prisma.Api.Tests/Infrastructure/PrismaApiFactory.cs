@@ -25,6 +25,15 @@ public sealed class PrismaApiFactory(
 {
     public const string Password = "senha-forte-123";
 
+    // Cada API de teste monta o host do zero, e por padrão ele vigia o appsettings.json por mudança (reloadOnChange). No
+    // macOS isso trava: a subida do host fica presa em FileConfigurationProvider/ChangeToken, tendo ao lado o
+    // FileSystemWatcher do sistema, e o teste espera 5 minutos até estourar o limite de espera pelo host ("Timed out waiting
+    // for the entry point to build the IHost"). Aconteceu em dois testes a cada rodada completa, sempre os primeiros a
+    // subir a API, e nunca isolados; provado com um dump do processo parado e com a rodada limpa depois do ajuste.
+    // Nenhum teste altera o arquivo de configuração: não há o que recarregar. Fica só nos testes; a produção segue igual.
+    static PrismaApiFactory() =>
+        Environment.SetEnvironmentVariable("DOTNET_hostBuilder__reloadConfigOnChange", "false");
+
     // Padrão dos testes: rate limit alto, para não interferir nos testes que não tratam dele.
     // Quem quiser os valores de produção passa um dicionário vazio.
     private static readonly Dictionary<string, string> DefaultSettings = new()
@@ -44,6 +53,8 @@ public sealed class PrismaApiFactory(
         builder.UseSetting("Assets:Sync:Enabled", "false");
         // Os eventos da empresa também: cada teste os sincroniza quando quer, com a fonte dele.
         builder.UseSetting("Assets:Events:Enabled", "false");
+        // A sincronização do CDI chamaria o Banco Central de verdade: fica desligada, e os testes dela trocam a fonte por uma falsa.
+        builder.UseSetting("Rates:Sync:Enabled", "false");
         // A fila de e-mails também: cada teste chama o processador quando quer. Nenhum e-mail sai de verdade: o
         // transporte falso guarda o que seria enviado (FakeEmailTransport, pegue pelo Services).
         builder.UseSetting(OutboxOptions.EnabledKey, "false");
