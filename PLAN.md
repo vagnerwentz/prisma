@@ -1075,6 +1075,11 @@ cadastrados à mão, rendimento calculado pelo CDI do Banco Central. Plano compl
   o app cria a transferência junto, na mesma gravação, e o saldo da conta cai e o "Investido" do Resumo sobe, sem virar receita
   nem despesa. Valor e data do aporte financiado ficam travados (transferência não se edita); excluir pergunta se a transferência
   fica ou sai junto; desfazer traz as duas.
+- [x] **R.5 Saldo e evolução** — `GET /fixed-income/balances?asOf=` (por aporte, por caixa, soltos e total: principal, saldo bruto,
+  rendimento bruto, fator e data da última taxa usada) e `GET /fixed-income/evolution` (série para o gráfico, por caixa, soltos ou
+  tudo, `step=day|week|month`). Sempre com o estado do histórico do CDI (`rates`: até que dia, defasado, completo). Sem projeção:
+  data futura é recusada. Aporte sem taxa vem sem saldo e o total o conta pelo principal, avisando. Casos de referência (cálculo
+  independente e extratos do banco) em `fixed-income-reference.json`.
 
 ---
 

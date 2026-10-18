@@ -2,7 +2,7 @@ using FluentValidation;
 
 namespace Prisma.Api.Features.FixedIncome;
 
-// Objetivos (as caixas) e aportes em renda fixa da pessoa (docs/renda-fixa.md).
+// Objetivos (as caixas) e aportes em renda fixa da pessoa (docs/renda-fixa.md). O saldo e o rendimento chegam na R.5.
 public static class FixedIncomeModule
 {
     public static IServiceCollection AddFixedIncomeFeatures(this IServiceCollection services)
@@ -21,6 +21,8 @@ public static class FixedIncomeModule
         services.AddScoped<DeleteDeposit.Handler>();
         services.AddScoped<RestoreDeposit.Handler>();
 
+        services.AddScoped<GetBalances.Handler>();
+        services.AddScoped<GetEvolution.Handler>();
         return services;
     }
 
@@ -40,5 +42,9 @@ public static class FixedIncomeModule
         MoveDeposit.Map(deposits);
         DeleteDeposit.Map(deposits);
         RestoreDeposit.Map(deposits);
+
+        var fixedIncome = app.MapGroup("/fixed-income");
+        GetBalances.Map(fixedIncome);
+        GetEvolution.Map(fixedIncome);
     }
 }
