@@ -1082,6 +1082,14 @@ cadastrados à mão, rendimento calculado pelo CDI do Banco Central. Plano compl
   independente e extratos do banco) em `fixed-income-reference.json`.
 - [x] **R.6 Interface (bruto)** — aba "Objetivos" em Investimentos: lista com saldo e meta, detalhe com gráfico de evolução e aportes, painéis de objetivo e de aporte (com origem da conta), perguntas ao excluir, avisos de taxa defasada/incompleta. Conferida em 320/390/1280, claro e escuro, com toque real.
 - [x] **R.7 Tributação (líquido estimado)** — `FixedIncomeTax` (IOF até 29 dias pela tabela do Decreto 6.306 e IR regressivo 22,5/20/17,5/15% por aporte, sobre o rendimento líquido do IOF), regra versionada por data; o saldo (`/fixed-income/balances`) devolve imposto e líquido por aporte e por grupo; a tela alterna Bruto | Líquido estimado. A tabela do IR segue B3 + dono (o texto legal não foi conferido, por decisão do dono).
+- [x] **R.8 Fechamento** — documentação em dia (`CLAUDE.md`: glossário, tabela global, quinta tarefa em segundo plano, calendário bancário, comandos;
+  `docs/operacao.md`, seção 4.5; `docs/renda-fixa.md`; `README.md`; `PLAN.md`), aviso do que a renda fixa ainda não faz em toda tela
+  que mostra o saldo, conferência da política de privacidade e dos termos (**nenhum texto foi mudado**) e verificação manual do dono na tela, com os números conferidos contra o banco (2026-10-18: tudo certo). Ficou para o dono decidir (e
+  para o advogado, A.2): a seção 3.2 da política lista o que se registra em investimentos (notas, proventos, avisos, conferência de
+  eventos) e não cita objetivos e aportes em renda fixa (nome e meta do objetivo; data, valor, % do CDI, vencimento e conta de origem
+  do aporte); a seção 5 cita a brapi como fonte de dados de mercado e não o Banco Central (que também não recebe dado de ninguém);
+  e os termos (seção 4) falam de "preço médio, resultado de vendas, rendimentos" sem a estimativa de imposto da renda fixa. São
+  esclarecimentos, não nova finalidade nem novo operador, então não pedem novo aceite por si; a versão só sobe se o dono decidir.
 - [x] **R.9 Renda fixa na Carteira** — grupo único "Renda fixa" (todos os índices) na aba Carteira: peso pelo aportado, linhas por objetivo, rendimento ao lado, atalho para Objetivos; vale por ano. `PortfolioGroup.FixedIncome`, `FixedIncomeHolding` no `PortfolioSnapshot`, `fixedIncome` em `GET /portfolio`. Conferida em 320/390/1280, claro e escuro.
 
 ---

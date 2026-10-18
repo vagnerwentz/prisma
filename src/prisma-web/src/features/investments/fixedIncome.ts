@@ -141,9 +141,13 @@ export function depositYield(deposit: DepositBalance, mode: ValueMode): number |
 export const yieldLabels: Record<ValueMode, string> = { gross: 'Rendimento bruto', net: 'Rendimento líquido estimado' }
 export const balanceLabels: Record<ValueMode, string> = { gross: 'Saldo bruto estimado', net: 'Saldo líquido estimado' }
 
+// O que a renda fixa do Prisma ainda não faz (R.8): sempre visível, para ninguém ler o número como mais do que ele é.
+export const limitationsNote =
+  'Por enquanto só CDB que rende um percentual do CDI: sem IPCA nem prefixado, sem resgates e sem projeção do que vai render.'
+
 // A explicação do imposto, sempre a mesma: é estimativa de resgate hoje, e quem retém é o banco.
 export const taxFootnote =
-  'Imposto estimado como se você resgatasse hoje: IOF nos primeiros 29 dias e IR de 22,5% a 15% conforme o prazo de cada aporte. O banco retém no resgate; o valor real pode diferir em centavos.'
+  'Imposto estimado como se você resgatasse hoje: IOF nos primeiros 29 dias e IR de 22,5% a 15% conforme o prazo de cada aporte, pela tabela regressiva da B3. O banco retém no resgate; o valor real pode diferir em centavos.'
 
 // Quando o aporte rende e a regra de imposto diz quanto: "IR 22,5% · 87 dias".
 export function depositTaxNote(tax: DepositTax | null | undefined): string | null {

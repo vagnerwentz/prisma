@@ -8,6 +8,7 @@ import {
   formatPercent,
   formatPercentE4,
   goalProgress,
+  limitationsNote,
   parsePercent,
   percentFromE4,
   percentToE4,
@@ -210,5 +211,21 @@ describe('bruto e líquido estimado', () => {
     expect(depositTaxNote(deposit({}).tax)).toBe('IR 22,5% · 87 dias')
     expect(depositTaxNote({ ...deposit({}).tax!, iofCents: 49, holdingDays: 1 })).toBe('IOF + IR 22,5% · 1 dia')
     expect(depositTaxNote(null)).toBeNull()
+  })
+})
+
+describe('avisos de limitação', () => {
+  it('diz o que a renda fixa ainda não faz', () => {
+    expect(limitationsNote).toContain('CDB')
+    expect(limitationsNote).toContain('percentual do CDI')
+    expect(limitationsNote).toContain('IPCA')
+    expect(limitationsNote).toContain('resgates')
+    expect(limitationsNote).toContain('projeção')
+  })
+
+  it('o aviso do imposto cita a tabela usada e que o banco é quem retém', () => {
+    expect(taxFootnote).toContain('regressiva da B3')
+    expect(taxFootnote).toContain('banco retém')
+    expect(taxFootnote).toContain('IOF')
   })
 })

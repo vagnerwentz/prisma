@@ -19,6 +19,7 @@ import {
   depositYield,
   formatPercentE4,
   goalProgress,
+  limitationsNote,
   looseGoalParam,
   periodLabels,
   periodRange,
@@ -145,6 +146,7 @@ function Footnote({ balances, mode }: { balances: Balances; mode: ValueMode }) {
   return (
     <div className="flex flex-col gap-1 px-1 text-xs text-muted-foreground">
       <p>{ratesFootnote(balances.rates)}</p>
+      <p>{limitationsNote}</p>
       {mode === 'net' && <p>{taxFootnote}</p>}
     </div>
   )

@@ -84,6 +84,14 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 | Conta apagada | `DeletedAccount` (`deleted_accounts`) | só o id e o instante, 90 dias, para apagar de novo depois de restaurar um backup (A.3) |
 | Senhas erradas com prazo | `AppUserManager.AccessFailedAsync` / `LastAccessFailedAt` | só soma com as anteriores até 15 min depois da última; vale para login, confirmação, troca de senha e apagar a conta (H.4e) |
 | Link de confirmação / de senha nova | `ConfirmEmail` / `ResetPassword` | token do Identity depois do `#` (`/confirmar-email#u=…&t=…`, `/nova-senha#…`); 3 dias e 1 hora, uma vez só |
+| Objetivo (a "caixa") | `SavingsGoal` (`savings_goals`) | na tela, "objetivo": nunca "cofrinho". Tem nome, meta e % do CDI padrão; excluir um com aportes pergunta se os investimentos ficam ("Sem objetivo") ou vão junto; `docs/renda-fixa.md` |
+| Aporte em renda fixa | `FixedIncomeDeposit` (`fixed_income_deposits`) | data, valor, % do CDI, vencimento opcional; `GoalId` opcional; só CDB + CDI (IPCA e IPCA+ são recusados); `ClientRequestId` contra duplicar |
+| Aporte que saiu de uma conta | `FixedIncomeDeposit.TransferPairId` (`FixedIncomeFunding`) | cria a transferência junto, na mesma gravação; valor e data ficam travados; excluir pergunta se a transferência fica ou sai junto (R.4b) |
+| Taxa do CDI | `ReferenceRate` (`reference_rates`, global) / `DailyRate` | série SGS 12 do Banco Central, só dias úteis; fração diária em 10⁻⁸ (`DailyRateE8`); o percentual do CDI viaja em E4 (100% = `1_000_000`, `IndexPercent`) |
+| Rendimento de um aporte | `FixedIncomeEngine.Balance` | fator da B3 em `Int128`, 16 casas por passo e 8 no final; saldo = principal × fator, meio centavo para cima; a taxa do dia do aporte conta, a do dia da referência não; nunca gravado |
+| Imposto estimado | `FixedIncomeTax` (`TaxEstimate`) | IOF abaixo de 30 dias (tabela do Decreto 6.306) + IR regressivo 22,5/20/17,5/15% sobre o rendimento líquido do IOF, por aporte; regra versionada por data; é o imposto de resgatar hoje, não imposto devido |
+| Histórico do CDI defasado ou incompleto | `ReferenceRateCoverage` (`Prisma.Domain.FixedIncome.Coverage`) | único uso do `BankCalendar` no CDI, só para diagnóstico: dia útil sem taxa avisa; o cálculo usa só as datas gravadas |
+| Renda fixa na carteira | `PortfolioGroup.FixedIncome` / `FixedIncomeHolding` | um grupo só para qualquer índice, pesado pelo aportado (o custo da renda fixa), com uma linha por objetivo e o rendimento bruto ao lado (R.9) |
 
 ---
 
@@ -109,7 +117,7 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 | Hospedagem | Railway: serviço da API (`Dockerfile` da raiz), Postgres e serviço `backup` (cron), no mesmo projeto |
 | Backup | Imagem Alpine (`ops/backup/Dockerfile`) com `pg_dump` 18, `age` (criptografia), `rclone` (envio) e `curl`; Cloudflare R2 (destino, fora do Railway); Healthchecks.io (alerta quando o backup falha ou não roda) |
 | E-mail | Resend por HTTP (`HttpClient` tipado, sem pacote), atrás de `IEmailTransport`; fila no Postgres (`outbox_emails`); em desenvolvimento, `.html` numa pasta local (`docs/email.md`) |
-| Dados de mercado | brapi.dev (lista de ativos da B3; `HttpClient` tipado do `IHttpClientFactory`, sem pacote). Fica atrás de `IAssetListSource`, em `Infrastructure/Market/Brapi` (`docs/investimentos.md`) |
+| Dados de mercado | brapi.dev (lista de ativos da B3; `HttpClient` tipado do `IHttpClientFactory`, sem pacote). Fica atrás de `IAssetListSource`, em `Infrastructure/Market/Brapi` (`docs/investimentos.md`). CDI diário: API SGS 12 do Banco Central (`HttpClient` tipado, sem pacote), atrás de `IReferenceRateSource`, em `Infrastructure/Market/Bcb` (`docs/renda-fixa.md`, seção 3) |
 
 ### Proibido
 
@@ -144,6 +152,7 @@ docs/
 ├── landing.md                  # Página de apresentação: o que promete, visual, LGPD, como é servida e o que falta para ir ao ar
 ├── email.md                    # Etapas H.4: envio (fila no Postgres + Resend), confirmação de e-mail, senha
 ├── investimentos.md            # Fase I: catálogo de ativos (brapi), carteira, proventos, logos, notas, eventos; decisões e achados
+├── renda-fixa.md               # Renda fixa (R.0 a R.9): objetivos, aportes em CDB/CDI, taxas do Banco Central, rendimento, imposto estimado; fórmulas, fontes, decisões e retomada
 ├── operacao.md                 # Roteiros da produção: usuários do banco, backup, restauração (e contas apagadas), logs; versão do Postgres local; página e domínio; e-mail; titulares e incidente; IP do cliente atrás do Railway
 └── validacao-premissas.md      # Premissas do produto e o resultado de cada validação
 ops/
@@ -213,6 +222,12 @@ validação de invariante pertencem ao `Prisma.Domain`.
   com um backup e esquece os ids depois de 90 dias (`ErasureRunner`). Em SQL, para todos de uma vez, e sem ler dado de
   ninguém. "Apagar conta" é o `AccountEraser`, também em SQL. Tabela nova com `user_id` ou `deleted_at` entra neles: os
   testes leem o schema e acusam (`AccountDeletionTests`, `DeletedItemsPurgeTests`).
+- **Quinta tarefa em segundo plano:** `ReferenceRateWorker` (R.3) sincroniza o CDI diário do Banco Central (`reference_rates`, global) às 19h30 e
+  às 23h30 de São Paulo (o CDI de um dia sai à noite) e ao subir, se o histórico estiver vazio ou atrasado. É idempotente (índice
+  único + releitura; um `pg_advisory_xact_lock` serializa duas execuções), toda ou nada: a fonte que falha, ou responde diferente de uma lista
+  JSON (a API do BCB devolve erro com 200, 406 e até HTML), não grava nada. Valor revisado na fonte atualiza a linha (`RevisedAt`) e
+  avisa no log. O domínio diz o que está defasado ou incompleto (`ReferenceRateCoverage`), e a tela mostra o aviso; sem taxa, o saldo
+  mostra o aportado e diz isso (`docs/renda-fixa.md`, seção 3; `docs/operacao.md`, seção 4.5).
 - **Única consulta que grava:** `GET /categories` entrega ao usuário as categorias das versões novas do
   catálogo (`CategoryCatalog`, uma vez por versão, só para ele; `docs/fase-2.md`, 2.11). Sincronizar no
   login não bastaria: a sessão é persistente.
@@ -254,7 +269,8 @@ Não são preferências. Quebrá-las gera erro de dinheiro que passa despercebid
 5. **Transferência nunca é receita nem despesa.** Pagamento de fatura, aporte em
    investimento e movimentação entre contas geram **duas** transações ligadas por
    `TransferPairId` e são **excluídas** de todo cálculo de receita e despesa. Contar
-   transferência como gasto duplica o valor do mês.
+   transferência como gasto duplica o valor do mês. O aporte em renda fixa que saiu de uma conta também cria a
+   transferência (R.4b): o "Investido" sobe, receita e despesa não mudam.
 
 6. **Isolamento por usuário é automático.** Toda entidade tem `UserId` e o
    `AppDbContext` aplica Global Query Filter. Nunca escreva o filtro à mão e nunca use
@@ -267,11 +283,12 @@ Não são preferências. Quebrá-las gera erro de dinheiro que passa despercebid
    **Exceção: apagar de vez** (A.3). A limpeza do excluído e o "Apagar conta" apagam em SQL, sem filtro (como as
    migrations): só `DELETE` por `deleted_at` vencido ou pelo `user_id` de quem pediu, nunca leitura de dado.
    **Exceção: dados de mercado** (decisão do dono, 2026-10-04). O catálogo de ativos da bolsa (`Asset`) e os
-   eventos da empresa (`CorporateEvent`) são os mesmos para todo mundo: não têm `UserId`, não herdam `Entity`, só a
+   eventos da empresa (`CorporateEvent`) são os mesmos para todo mundo, e as taxas diárias do CDI do Banco Central
+   (`ReferenceRate`, `reference_rates`, R.2) também: não têm `UserId`, não herdam `Entity`, só a
    sincronização diária e a curadoria dos eventos (`corporate-events.json`, que traz também os ativos que saíram da
    bolsa antes do catálogo) escrevem, e o usuário só lê. Tabela sem dono só existe se estiver em `AppDbContext.GlobalTables`, com o motivo; o teste de
    arquitetura `OwnershipTests` recusa tabela que não tenha dono nem esteja na lista. Dado do usuário que
-   aponta para um ativo (rendimento, operação) continua com dono e filtro.
+   aponta para um ativo (rendimento, operação) continua com dono e filtro, e o aporte em renda fixa (`FixedIncomeDeposit`), que só *lê* as taxas, também.
 
 7. **Exclusão é soft delete** (`DeletedAt` + filtro global), para permitir desfazer. O "Desfazer" vale 30 minutos: depois
    a linha sai do banco de vez (`ErasureRunner`, A.3), e quem a apontava perde só o vínculo. O que vive dentro da entidade
@@ -320,16 +337,18 @@ vem junto com o NetArchTest), porque o NetArchTest só enxerga dependência de t
 de membro. Confere que toda tabela tem dono (herda `Entity`, com o filtro) ou está na lista fechada de
 tabelas globais (`AppDbContext.GlobalTables`; `OwnershipTests`, regra 6). Também confere que todo ícone do catálogo de categorias (`DefaultCategories`) está no mapa
 fechado do front (`categoryIcons.ts`); ícone novo no catálogo entra nos dois lugares. E que só a série
-(débito automático) e a fatura (vencimento em dia útil) usam o calendário bancário (`BankCalendar`,
-`docs/fase-2.md`, 2.15): o resto fica na data em que aconteceu.
+(débito automático), a fatura (vencimento em dia útil) e o diagnóstico do histórico do CDI (`ReferenceRateCoverage`,
+no namespace `Prisma.Domain.FixedIncome.Coverage`) usam o calendário bancário (`BankCalendar`,
+`docs/fase-2.md`, 2.15; `docs/renda-fixa.md`, 3.3): o resto fica na data em que aconteceu. O rendimento do CDI nunca o usa: conta só as datas
+que o Banco Central publicou.
 
 **Fixtures de parser** (Fase 4): arquivos reais de OFX e de fatura em PDF,
 anonimizados, com o resultado esperado versionado ao lado. Quando o banco mudar o
 layout, o teste acusa antes de importar dado errado.
 
-**Serviço externo** (hoje, a brapi): os testes nunca o chamam. Um `HttpMessageHandler` falso responde
+**Serviço externo** (hoje, a brapi e o Banco Central, SGS 12): os testes nunca o chamam. Um `HttpMessageHandler` falso responde
 com fixtures de respostas reais (`tests/Prisma.Api.Tests/Market/Fixtures`). O contrato com o serviço de
-verdade fica num teste `[LiveFact]` (`Category=Live`), ignorado no `dotnet test` e no CI; rode-o ao mexer
+verdade (`BcbLiveTests` para o Banco Central) fica num teste `[LiveFact]` (`Category=Live`), ignorado no `dotnet test` e no CI; rode-o ao mexer
 no cliente ou desconfiar de mudança no serviço.
 
 ### Cobertura
@@ -422,7 +441,7 @@ docker compose up -d                                  # Postgres
 
 dotnet build
 dotnet test
-PRISMA_LIVE_TESTS=1 dotnet test tests/Prisma.Api.Tests --filter Category=Live   # contrato com a brapi real
+PRISMA_LIVE_TESTS=1 dotnet test tests/Prisma.Api.Tests --filter Category=Live   # contrato com a brapi e o Banco Central reais
 PRISMA_LIVE_TESTS=1 PRISMA_RESEND_API_KEY=<chave> dotnet test tests/Prisma.Api.Tests --filter Category=Live   # e o Resend real (gasta 1 da cota)
 PRISMA_EMAIL_PREVIEW=<pasta> dotnet test tests/Prisma.Api.Tests --filter FullyQualifiedName~EmailPreview      # prévia dos e-mails em .html
 dotnet run --project src/Prisma.Api
@@ -487,7 +506,7 @@ desligado. O backup diário é um serviço à parte no mesmo projeto (`ops/backu
 `prisma_backup` (só lê), criptografado com `age` (a chave privada fica só com o dono) e guardado no R2, com
 alerta pelo Healthchecks.io; o job `Backup (round trip)` do CI faz backup e restauração a cada push. A imagem
 do backup segue a versão do Postgres da produção (hoje 18): se o Railway mudar, ela muda junto. Onde está cada
-peça (serviço, bucket, token, check, chave) e a próxima restauração de prova: `docs/operacao.md`, seção 5. Roteiros de operação (senhas, backup, restauração, logs, a tarefa das recorrências e a mudança de versão do Postgres local) em `docs/operacao.md`; senha nunca passa
+peça (serviço, bucket, token, check, chave) e a próxima restauração de prova: `docs/operacao.md`, seção 5. Roteiros de operação (senhas, backup, restauração, logs, a tarefa das recorrências, as taxas do CDI da renda fixa e a mudança de versão do Postgres local) em `docs/operacao.md`; senha nunca passa
 por conversa, arquivo versionado ou histórico do shell.
 
 ---
@@ -504,7 +523,7 @@ por conversa, arquivo versionado ou histórico do shell.
 - **Assinaturas:** logo `PrismLogo` (SVG próprio), filete `spectrum-line` sob títulos, anel
   `spectrum-ring` no item selecionado, halo `--halo` (só tons frios: complementares desfocados
   viram marrom), e o espectro da carteira (`PrismSpectrum`, I.7e: a luz sai do prisma em faixas, uma cor fixa por tipo
-  de ativo).
+  de ativo; a renda fixa é um grupo só, em cinza-ardósia `#64748b`, R.9).
 - **Ações com cor:** ação secundária leva a faixa do espectro que a representa (`.tinted-action`
   com `data-tint`): lançar de novo em violeta, estornar no azul do "saldo a favor". Editar fica em
   tinta e excluir, neutro. Ação dentro de aviso ("Desfazer", "Lançar de novo") usa o espectro frio
@@ -562,6 +581,12 @@ por conversa, arquivo versionado ou histórico do shell.
   fora do componente enquanto a página está aberta: o "Novo lançamento" não tem cabeçalho, e o sino que volta dele
   precisa saber que o número cresceu. É a única consulta que volta ao servidor ao ganhar o foco (o débito nasce
   sozinho, com o app aberto); sem consulta periódica, decisão do dono.
+- **Renda fixa na tela** (`docs/renda-fixa.md`, seção 7): a aba "Objetivos" de Investimentos (`?aba=objetivos&objetivo=<id>|sem`) e o
+  grupo "Renda fixa" da Carteira. Nunca "cofrinho": "objetivo" e "aporte". O rendimento é `text-spectrum` e o imposto, tinta;
+  a chave **Bruto | Líquido estimado** vale para a lista e o detalhe, o gráfico é sempre bruto (e diz isso). Toda tela que mostra
+  esses números leva a nota "Estimativa; o extrato do banco manda" com a data da última taxa, o aviso do que ainda não existe
+  (só CDB a % do CDI, sem resgates nem projeção) e, no líquido, a explicação do imposto; "taxas defasadas" e "incompletas" têm
+  texto próprio. Nunca "lucro" nem "você ganhou" para o líquido.
 - **Resumo × Análise:** o Resumo (`/`) é de relance (destaque, Entrou/Saiu/Investido, Hoje); o que
   explica o mês vai na Análise (`/analise`), e o que olha para a frente, na seção "Daqui para frente"
   dela. Bloco novo entra na tela da pergunta que responde, não no fim do Resumo. O `?mes=` passa
