@@ -256,6 +256,44 @@ conferia. Se estiver certo, nada a fazer por ora (a resposta à pessoa vem com a
 | Quem disse que um evento não confere (só o evento e o `userId`) | `@eventName:EventReviewDisputed` |
 | Conferências feitas e desfeitas | `@eventName:EventReviewsConfirmed`, `@eventName:EventReviewUndone` |
 
+## 4.5 Taxas do CDI da renda fixa (renda fixa, R.2 e R.3)
+
+A renda fixa (objetivos e aportes em CDB a % do CDI) calcula o rendimento com o CDI diário do Banco Central, guardado na
+tabela global `reference_rates` (uma linha por dia útil, série `Cdi`, fonte `bcb-sgs-12`). Uma tarefa dentro da própria API
+(`ReferenceRateWorker`) a sincroniza em dois horários, **19h30 e 23h30 de São Paulo** (o CDI de um dia sai à noite), e ao
+subir, se a tabela estiver vazia ou atrasada. A API do Banco Central não pede cadastro nem token. Pede a partir de 10 dias
+antes da última data guardada (a sobreposição pega correções), grava tudo ou nada e nunca preenche dia que falta com zero.
+Uma falha nunca derruba a API: vai para o log, e a próxima execução tenta de novo. Duas execuções ao mesmo tempo não duplicam
+(um `pg_advisory_xact_lock` as serializa e há índice único em série + data).
+
+| Pergunta | Filtro no Railway |
+|---|---|
+| A sincronização rodou? (buscadas, novas, revisadas, iguais) | `@eventName:ReferenceRatesSynced` |
+| O Banco Central respondeu? (taxas, janelas de 9 anos, tempo) | `@eventName:ReferenceRatesFetched` |
+| Quando roda a próxima? (uma linha ao subir e depois de cada execução) | `@eventName:ReferenceRateNextRun` |
+| O Banco Central estava fora do ar ou respondeu algo que não é uma lista (aviso, sem ação) | `@eventName:ReferenceRateSyncUnavailable` |
+| Falha inesperada (ex.: banco fora do ar) | `@eventName:ReferenceRateSyncFailed` |
+| Um valor já guardado mudou na fonte (`RevisedAt` preenchido) | `@eventName:ReferenceRateRevised` |
+| Falta taxa de um dia útil no meio do histórico (o saldo mostra "incompleto") | `@eventName:ReferenceRateGapDetected` |
+| A última taxa guardada está mais velha que o esperado (o saldo mostra "defasadas") | `@eventName:ReferenceRatesStale` |
+
+- **Aviso "taxas defasadas" na tela.** O CDI do dia sai à noite e a tela espera a taxa do último dia útil: num fim de semana ou
+  logo cedo, o aviso pode aparecer por algumas horas sem que nada esteja errado. Se durar mais que isso, olhe
+  `ReferenceRateSyncUnavailable` e `ReferenceRateSyncFailed`. Não há endpoint para forçar a sincronização: **reiniciar o serviço
+  da API** a roda ao subir quando o histórico está atrasado.
+- **Aviso "taxas incompletas".** Faltou um dia útil no meio da série. Reiniciar a API não conserta o passado (a janela de 10
+  dias só olha para trás até onde a última data permite); se o `ReferenceRateGapDetected` mostrar datas antigas, o reparo é
+  refazer o intervalo com `ReferenceRateSync.RefreshRangeAsync(from, to)`, que é idempotente e não é exposto por endpoint.
+- **A API do Banco Central é caprichosa:** a mesma consulta já respondeu 406, 200 com JSON de erro e 200 com HTML, e faixa
+  sem dia útil responde 404 ("Value(s) not found"). O cliente só aceita uma lista JSON; qualquer outra coisa é "fora do ar",
+  sem gravar nada. Para saber se o contrato mudou, rode o teste de contrato (`PRISMA_LIVE_TESTS=1 dotnet test
+  tests/Prisma.Api.Tests --filter Category=Live`, com o `BcbLiveTests`).
+- **Variáveis:** `Bcb__BaseUrl` (padrão `https://api.bcb.gov.br/`) e `Rates__Sync__Enabled` (liga por padrão; os testes
+  de integração o desligam).
+- **Privacidade:** nenhum dado de ninguém vai ao Banco Central: a API só baixa a série pública. Os objetivos e aportes de cada
+  pessoa são dados dela (`savings_goals`, `fixed_income_deposits`) e entram na exclusão da conta, na limpeza do excluído e na
+  cópia dos dados (`ops/privacy/export-user.sql`); `reference_rates` é dado de mercado, sem dono.
+
 ## 5. Backup fora do Railway (H.2b)
 
 Todo dia às 03:00 de São Paulo, o serviço `backup` copia o banco (`pg_dump`), tranca a cópia com a sua chave

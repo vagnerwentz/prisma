@@ -3778,6 +3778,671 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/savings-goals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GoalsResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SaveGoalRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GoalResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings-goals/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SaveGoalRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GoalResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: {
+                    deposits?: string;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DeletedGoalResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings-goals/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": null | components["schemas"]["RestoreGoalRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GoalResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fixed-income-deposits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    goal?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DepositResponse"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SaveDepositCreateRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DepositResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fixed-income-deposits/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SaveDepositUpdateRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DepositResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: {
+                    transfer?: string;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fixed-income-deposits/{id}/goal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["MoveDepositRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DepositResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/fixed-income-deposits/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DepositResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fixed-income/balances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    asOf?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BalancesResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fixed-income/evolution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    goal?: string;
+                    from?: string;
+                    to?: string;
+                    step?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EvolutionResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3828,6 +4493,14 @@ export interface components {
             amountVaries: boolean;
             /** Format: date */
             dueDate?: null | string;
+        };
+        BalancesResponse: {
+            /** Format: date */
+            asOf: string;
+            rates: components["schemas"]["RatesStatus"];
+            goals: components["schemas"]["GoalBalance"][];
+            unassigned: components["schemas"]["LooseBalance"];
+            total: components["schemas"]["GroupBalance"];
         };
         CategoryResponse: {
             /** Format: uuid */
@@ -3910,15 +4583,116 @@ export interface components {
         };
         /** @enum {unknown} */
         DateBasis: "Purchase" | "Settlement" | null;
+        DeletedGoalResponse: {
+            /** Format: uuid */
+            id: string;
+            detachedDepositIds: string[];
+            deletedDepositIds: string[];
+        };
         DeleteMyAccountRequest: {
             password: string;
+        };
+        DepositBalance: {
+            /** Format: uuid */
+            depositId: string;
+            /** Format: uuid */
+            goalId: null | string;
+            /** Format: date */
+            depositDate: string;
+            /** Format: int64 */
+            principalCents: number;
+            /** Format: int64 */
+            indexPercentE4: number;
+            /** Format: int64 */
+            grossBalanceCents: null | number;
+            /** Format: int64 */
+            grossYieldCents: null | number;
+            /** Format: int64 */
+            factorE8: null | number;
+            /** Format: int32 */
+            ratesUsed: null | number;
+            /** Format: date */
+            ratesThrough: null | string;
+            unavailable: null | string;
+            tax: null | components["schemas"]["DepositTax"];
+        };
+        /** @enum {unknown} */
+        DepositLiquidity: "Unknown" | "Daily" | "AtMaturity";
+        DepositResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            goalId: null | string;
+            /** Format: date */
+            depositDate: string;
+            /** Format: int64 */
+            amountCents: number;
+            productKind: components["schemas"]["FixedIncomeProductKind"];
+            indexKind: components["schemas"]["FixedIncomeIndexKind"];
+            /** Format: int64 */
+            indexPercentE4: number;
+            /** Format: date */
+            maturityDate: null | string;
+            liquidity: components["schemas"]["DepositLiquidity"];
+            note: null | string;
+            funding?: null | components["schemas"]["FundingResponse"];
+        };
+        DepositTax: {
+            /** Format: int64 */
+            iofCents: number;
+            /** Format: int64 */
+            irCents: number;
+            /** Format: int64 */
+            totalCents: number;
+            /** Format: int32 */
+            irRateBasisPoints: number;
+            /** Format: int32 */
+            holdingDays: number;
+            ruleVersion: string;
+            /** Format: int64 */
+            netYieldCents: number;
+            /** Format: int64 */
+            netBalanceCents: number;
         };
         DisputeEventRequest: {
             /** Format: int64 */
             reportedQuantity: null | number;
         };
+        EvolutionPoint: {
+            /** Format: date */
+            date: string;
+            /** Format: int64 */
+            principalCents: number;
+            /** Format: int64 */
+            grossBalanceCents: number;
+            /** Format: int64 */
+            grossYieldCents: number;
+        };
+        EvolutionResponse: {
+            scope: string;
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            rates: components["schemas"]["RatesStatus"];
+            /** Format: int32 */
+            unavailableDepositCount: number;
+            points: components["schemas"]["EvolutionPoint"][];
+        };
+        /** @enum {unknown} */
+        FixedIncomeIndexKind: "Cdi";
+        /** @enum {unknown} */
+        FixedIncomeProductKind: "Cdb";
         ForgotPasswordRequest: {
             email: string;
+        };
+        FundingResponse: {
+            /** Format: uuid */
+            transferPairId: string;
+            /** Format: uuid */
+            fromAccountId: string;
+            /** Format: uuid */
+            investmentAccountId: string;
         };
         GetCommittedMonthsItem: {
             month: string;
@@ -4004,6 +4778,19 @@ export interface components {
             /** Format: int64 */
             realizedCents: number;
         };
+        GetPortfolioPortfolioFixedIncomeResponse: {
+            /** Format: uuid */
+            goalId: null | string;
+            name: null | string;
+            /** Format: int32 */
+            depositCount: number;
+            /** Format: int64 */
+            principalCents: number;
+            /** Format: int64 */
+            grossYieldCents: number;
+            /** Format: int32 */
+            weightBasisPoints: number;
+        };
         GetPortfolioPortfolioGroupResponse: {
             group: components["schemas"]["PortfolioGroup"];
             /** Format: int64 */
@@ -4031,6 +4818,9 @@ export interface components {
             realizedCents: number;
             groups: components["schemas"]["GetPortfolioPortfolioGroupResponse"][];
             assets: components["schemas"]["GetPortfolioPortfolioAssetResponse"][];
+            fixedIncome: components["schemas"]["GetPortfolioPortfolioFixedIncomeResponse"][];
+            /** Format: date */
+            fixedIncomeRatesThrough: null | string;
         };
         GetSpendingVariationEntry: {
             /** Format: uuid */
@@ -4069,6 +4859,53 @@ export interface components {
             /** Format: int64 */
             changeCents: number;
             reasons: components["schemas"]["GetSpendingVariationReason"][];
+        };
+        GoalBalance: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: int64 */
+            targetCents: null | number;
+            balance: components["schemas"]["GroupBalance"];
+            deposits: components["schemas"]["DepositBalance"][];
+        };
+        GoalResponse: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            description: null | string;
+            /** Format: int64 */
+            targetCents: null | number;
+            /** Format: int64 */
+            defaultIndexPercentE4: null | number;
+            /** Format: int32 */
+            depositCount: number;
+            /** Format: int64 */
+            principalCents: number;
+        };
+        GoalsResponse: {
+            goals: components["schemas"]["GoalResponse"][];
+            unassigned: components["schemas"]["UnassignedResponse"];
+        };
+        GroupBalance: {
+            /** Format: int32 */
+            depositCount: number;
+            /** Format: int32 */
+            unavailableCount: number;
+            /** Format: int64 */
+            principalCents: number;
+            /** Format: int64 */
+            grossBalanceCents: number;
+            /** Format: int64 */
+            grossYieldCents: number;
+            /** Format: date */
+            ratesThrough: null | string;
+            /** Format: int64 */
+            estimatedTaxCents: number;
+            /** Format: int64 */
+            netYieldCents: number;
+            /** Format: int64 */
+            netBalanceCents: number;
         };
         HoldingResponse: {
             /** Format: uuid */
@@ -4258,6 +5095,14 @@ export interface components {
             email: string;
             password: string;
         };
+        LooseBalance: {
+            balance: components["schemas"]["GroupBalance"];
+            deposits: components["schemas"]["DepositBalance"][];
+        };
+        MoveDepositRequest: {
+            /** Format: uuid */
+            goalId: null | string;
+        };
         MoveStatementRequest: {
             direction: components["schemas"]["StatementShift"];
         };
@@ -4293,7 +5138,7 @@ export interface components {
         /** @enum {unknown} */
         PendingLaunch: "NextStatement" | "SameStatement";
         /** @enum {unknown} */
-        PortfolioGroup: "Stocks" | "Fiis" | "Etfs" | "Bdrs" | "OtherFunds" | "Other";
+        PortfolioGroup: "Stocks" | "Fiis" | "Etfs" | "Bdrs" | "OtherFunds" | "FixedIncome" | "Other";
         /** @enum {unknown} */
         PositionStepKind: "Trade" | "Split" | "ConversionOut" | "ConversionIn" | "LiquidationOut" | "LiquidationIn";
         PreviewStatementDatesMovedPurchase: {
@@ -4326,6 +5171,15 @@ export interface components {
             status?: null | number;
             detail?: null | string;
             instance?: null | string;
+        };
+        RatesStatus: {
+            available: boolean;
+            /** Format: date */
+            through: null | string;
+            stale: boolean;
+            complete: boolean;
+            /** Format: date */
+            expectedLast: string;
         };
         /** @enum {unknown} */
         RecurrenceFrequency: "Weekly" | "Monthly";
@@ -4407,6 +5261,57 @@ export interface components {
             userId: string;
             token: string;
             password: string;
+        };
+        RestoreGoalRequest: {
+            detachedDepositIds: null | string[];
+        };
+        SaveDepositCreateRequest: {
+            /** Format: uuid */
+            goalId: null | string;
+            /** Format: uuid */
+            clientRequestId: string;
+            /** Format: date */
+            depositDate: string;
+            /** Format: int64 */
+            amountCents: number;
+            productKind: components["schemas"]["FixedIncomeProductKind"];
+            indexKind: components["schemas"]["FixedIncomeIndexKind"];
+            /** Format: int64 */
+            indexPercentE4: number;
+            /** Format: date */
+            maturityDate: null | string;
+            liquidity: components["schemas"]["DepositLiquidity"];
+            note: null | string;
+            funding?: null | components["schemas"]["SaveDepositFundingRequest"];
+        };
+        SaveDepositFundingRequest: {
+            /** Format: uuid */
+            fromAccountId: string;
+            /** Format: uuid */
+            toAccountId: string;
+            method?: components["schemas"]["PaymentMethod"];
+        };
+        SaveDepositUpdateRequest: {
+            /** Format: date */
+            depositDate: string;
+            /** Format: int64 */
+            amountCents: number;
+            productKind: components["schemas"]["FixedIncomeProductKind"];
+            indexKind: components["schemas"]["FixedIncomeIndexKind"];
+            /** Format: int64 */
+            indexPercentE4: number;
+            /** Format: date */
+            maturityDate: null | string;
+            liquidity: components["schemas"]["DepositLiquidity"];
+            note: null | string;
+        };
+        SaveGoalRequest: {
+            name: string;
+            description: null | string;
+            /** Format: int64 */
+            targetCents: null | number;
+            /** Format: int64 */
+            defaultIndexPercentE4: null | number;
         };
         SavePayoutRequest: {
             /** Format: uuid */
@@ -4544,6 +5449,12 @@ export interface components {
         TransactionType: "Income" | "Expense" | "Transfer" | "Refund";
         /** @enum {unknown} */
         TransferDirection: "Out" | "In" | null;
+        UnassignedResponse: {
+            /** Format: int32 */
+            depositCount: number;
+            /** Format: int64 */
+            principalCents: number;
+        };
         UpdateAccountRequest: {
             name: string;
             /** Format: int64 */

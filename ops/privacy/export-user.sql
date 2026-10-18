@@ -55,5 +55,11 @@ SELECT jsonb_pretty(jsonb_build_object(
     FROM asset_requests r WHERE r.user_id = :'user_id' AND r.deleted_at IS NULL),
   'conferenciasDeEventos', (
     SELECT coalesce(jsonb_agg(to_jsonb(e) - 'user_id' - 'deleted_at' ORDER BY e.created_at), '[]')
-    FROM event_reviews e WHERE e.user_id = :'user_id' AND e.deleted_at IS NULL)
+    FROM event_reviews e WHERE e.user_id = :'user_id' AND e.deleted_at IS NULL),
+  'objetivos', (
+    SELECT coalesce(jsonb_agg(to_jsonb(g) - 'user_id' - 'deleted_at' - 'xmin' ORDER BY g.name), '[]')
+    FROM savings_goals g WHERE g.user_id = :'user_id' AND g.deleted_at IS NULL),
+  'aportesRendaFixa', (
+    SELECT coalesce(jsonb_agg(to_jsonb(d) - 'user_id' - 'deleted_at' - 'xmin' - 'client_request_id' ORDER BY d.deposit_date, d.created_at), '[]')
+    FROM fixed_income_deposits d WHERE d.user_id = :'user_id' AND d.deleted_at IS NULL)
 ));

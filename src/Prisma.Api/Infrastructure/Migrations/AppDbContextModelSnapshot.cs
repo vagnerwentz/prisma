@@ -468,6 +468,233 @@ namespace Prisma.Api.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Prisma.Domain.FixedIncome.FixedIncomeDeposit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<long>("AmountCents")
+                        .HasColumnType("bigint")
+                        .HasColumnName("amount_cents");
+
+                    b.Property<Guid>("ClientRequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("client_request_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<DateOnly>("DepositDate")
+                        .HasColumnType("date")
+                        .HasColumnName("deposit_date");
+
+                    b.Property<Guid?>("GoalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("goal_id");
+
+                    b.Property<string>("IndexKind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("index_kind");
+
+                    b.Property<long>("IndexPercentE4")
+                        .HasColumnType("bigint")
+                        .HasColumnName("index_percent_e4");
+
+                    b.Property<string>("Liquidity")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("liquidity");
+
+                    b.Property<DateOnly?>("MaturityDate")
+                        .HasColumnType("date")
+                        .HasColumnName("maturity_date");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("note");
+
+                    b.Property<string>("ProductKind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("product_kind");
+
+                    b.Property<Guid?>("TransferPairId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("transfer_pair_id");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_fixed_income_deposits");
+
+                    b.HasIndex("GoalId")
+                        .HasDatabaseName("ix_fixed_income_deposits_goal_id");
+
+                    b.HasIndex("UserId", "ClientRequestId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_fixed_income_deposits_user_request");
+
+                    b.HasIndex("UserId", "TransferPairId")
+                        .HasDatabaseName("ix_fixed_income_deposits_user_id_transfer_pair_id");
+
+                    b.HasIndex("UserId", "GoalId", "DepositDate")
+                        .HasDatabaseName("ix_fixed_income_deposits_user_id_goal_id_deposit_date");
+
+                    b.ToTable("fixed_income_deposits", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_fixed_income_deposits_amount", "amount_cents >= 1 AND amount_cents <= 100000000000");
+
+                            t.HasCheckConstraint("ck_fixed_income_deposits_index_kind", "index_kind IN ('Cdi')");
+
+                            t.HasCheckConstraint("ck_fixed_income_deposits_liquidity", "liquidity IN ('Unknown', 'Daily', 'AtMaturity')");
+
+                            t.HasCheckConstraint("ck_fixed_income_deposits_maturity", "maturity_date IS NULL OR maturity_date > deposit_date");
+
+                            t.HasCheckConstraint("ck_fixed_income_deposits_percent", "index_percent_e4 BETWEEN 100 AND 5000000");
+
+                            t.HasCheckConstraint("ck_fixed_income_deposits_product_kind", "product_kind IN ('Cdb')");
+                        });
+                });
+
+            modelBuilder.Entity("Prisma.Domain.FixedIncome.ReferenceRate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<long>("DailyRateE8")
+                        .HasColumnType("bigint")
+                        .HasColumnName("daily_rate_e8");
+
+                    b.Property<DateTime>("FetchedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fetched_at");
+
+                    b.Property<DateOnly>("ReferenceDate")
+                        .HasColumnType("date")
+                        .HasColumnName("reference_date");
+
+                    b.Property<DateTime?>("RevisedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revised_at");
+
+                    b.Property<string>("Series")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("series");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("source");
+
+                    b.HasKey("Id")
+                        .HasName("pk_reference_rates");
+
+                    b.HasIndex("Series", "ReferenceDate")
+                        .IsUnique()
+                        .HasDatabaseName("ux_reference_rates_series_date");
+
+                    b.ToTable("reference_rates", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_reference_rates_rate", "daily_rate_e8 >= 1 AND daily_rate_e8 < 1000000");
+
+                            t.HasCheckConstraint("ck_reference_rates_series", "series IN ('Cdi')");
+                        });
+                });
+
+            modelBuilder.Entity("Prisma.Domain.FixedIncome.SavingsGoal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<long?>("DefaultIndexPercentE4")
+                        .HasColumnType("bigint")
+                        .HasColumnName("default_index_percent_e4");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("citext")
+                        .HasColumnName("name");
+
+                    b.Property<long?>("TargetCents")
+                        .HasColumnType("bigint")
+                        .HasColumnName("target_cents");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_savings_goals");
+
+                    b.HasIndex("UserId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ux_savings_goals_user_name")
+                        .HasFilter("deleted_at IS NULL");
+
+                    b.ToTable("savings_goals", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_savings_goals_default_percent", "default_index_percent_e4 IS NULL OR default_index_percent_e4 BETWEEN 100 AND 5000000");
+
+                            t.HasCheckConstraint("ck_savings_goals_name", "length(btrim(name)) > 0");
+
+                            t.HasCheckConstraint("ck_savings_goals_target", "target_cents IS NULL OR target_cents > 0");
+                        });
+                });
+
             modelBuilder.Entity("Prisma.Domain.Investments.AssetRequest", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1415,6 +1642,32 @@ namespace Prisma.Api.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_categories_users_user_id");
+                });
+
+            modelBuilder.Entity("Prisma.Domain.FixedIncome.FixedIncomeDeposit", b =>
+                {
+                    b.HasOne("Prisma.Domain.FixedIncome.SavingsGoal", null)
+                        .WithMany()
+                        .HasForeignKey("GoalId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_fixed_income_deposits_savings_goals_goal_id");
+
+                    b.HasOne("Prisma.Api.Infrastructure.Auth.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_fixed_income_deposits_users_user_id");
+                });
+
+            modelBuilder.Entity("Prisma.Domain.FixedIncome.SavingsGoal", b =>
+                {
+                    b.HasOne("Prisma.Api.Infrastructure.Auth.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_savings_goals_users_user_id");
                 });
 
             modelBuilder.Entity("Prisma.Domain.Investments.AssetRequest", b =>

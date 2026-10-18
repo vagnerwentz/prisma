@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Prisma.Api.Features.FixedIncome;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Http;
 using Prisma.Domain;
@@ -9,7 +10,8 @@ using Prisma.Domain.Market;
 namespace Prisma.Api.Features.Investments;
 
 // A carteira em um ano (docs/investimentos.md, I.7e): o total investido, os grupos com o peso de cada um, os ativos, e o
-// que o ano rendeu em proventos e vendas. Sem ano: o corrente. Years: do primeiro ano com nota ou provento até o corrente.
+// que o ano rendeu em proventos e vendas. Sem ano: o corrente. Years: do primeiro ano com nota, provento ou aporte em renda fixa
+// até o corrente. A renda fixa (R.9) entra como um grupo só, pelo aportado até a data, com uma linha por objetivo.
 public static class GetPortfolio
 {
     public sealed record PortfolioGroupResponse(
@@ -20,11 +22,17 @@ public static class GetPortfolio
         long GrossCostCents, long CostBasisCents, long? AveragePriceCents, long? AverageCostCents, int WeightBasisPoints,
         long PayoutsCents, long RealizedCents);
 
+    // Uma linha da renda fixa: um objetivo (ou os aportes sem objetivo, GoalId e Name nulos) com o aportado, o rendimento bruto até a
+    // data da carteira e o peso no total.
+    public sealed record PortfolioFixedIncomeResponse(
+        Guid? GoalId, string? Name, int DepositCount, long PrincipalCents, long GrossYieldCents, int WeightBasisPoints);
+
     public sealed record PortfolioResponse(
         int Year, DateOnly AsOf, IReadOnlyList<int> Years, long InvestedCents, long PayoutsCents, long RealizedCents,
-        IReadOnlyList<PortfolioGroupResponse> Groups, IReadOnlyList<PortfolioAssetResponse> Assets);
+        IReadOnlyList<PortfolioGroupResponse> Groups, IReadOnlyList<PortfolioAssetResponse> Assets,
+        IReadOnlyList<PortfolioFixedIncomeResponse> FixedIncome, DateOnly? FixedIncomeRatesThrough);
 
-    public sealed class Handler(AppDbContext db, IClock clock)
+    public sealed class Handler(AppDbContext db, IClock clock, GetBalances.Handler balances)
     {
         public async Task<Result<PortfolioResponse>> Execute(int? year, CancellationToken ct)
         {
@@ -44,7 +52,30 @@ public static class GetPortfolio
                 .ToListAsync(ct);
 
             var assets = await TradeBook.Assets(db, positions.Value.Select(p => p.AssetId).Concat(payouts.Select(p => p.AssetId)), ct);
-            var snapshot = PortfolioSnapshot.Build(chosen, today, positions.Value, payouts, id => assets[id].Kind, id => assets[id].Symbol);
+            // A renda fixa da data da carteira: aportado e rendimento bruto de cada objetivo, do mesmo cálculo da aba Objetivos. Ano fora
+            // do intervalo aceito não chega ao domínio com a data inválida: o domínio recusa antes.
+            var fixedIncome = new List<FixedIncomeHolding>();
+            var names = new Dictionary<Guid, string>();
+            DateOnly? ratesThrough = null;
+            if (chosen >= PortfolioSnapshot.FirstYear && chosen <= today.Year)
+            {
+                var fixedBalances = await balances.Execute(PortfolioSnapshot.AsOfFor(chosen, today), ct);
+                if (!fixedBalances.IsSuccess)
+                    return fixedBalances.Error;
+
+                foreach (var goal in fixedBalances.Value.Goals)
+                {
+                    names[goal.Id] = goal.Name;
+                    fixedIncome.Add(new FixedIncomeHolding(goal.Id, goal.Balance.DepositCount, goal.Balance.PrincipalCents, goal.Balance.GrossYieldCents));
+                }
+
+                var loose = fixedBalances.Value.Unassigned.Balance;
+                fixedIncome.Add(new FixedIncomeHolding(null, loose.DepositCount, loose.PrincipalCents, loose.GrossYieldCents));
+                ratesThrough = fixedBalances.Value.Total.RatesThrough;
+            }
+
+            var snapshot = PortfolioSnapshot.Build(
+                chosen, today, positions.Value, payouts, id => assets[id].Kind, id => assets[id].Symbol, fixedIncome);
             if (!snapshot.IsSuccess)
                 return snapshot.Error;
 
@@ -58,7 +89,10 @@ public static class GetPortfolio
                     return new PortfolioAssetResponse(a.AssetId, asset.Symbol, asset.Name, asset.Kind, a.Group, asset.HasLogo, asset.IsActive,
                         t.Quantity, t.GrossCostCents, t.CostBasisCents, t.AveragePriceCents, t.AverageCostCents, a.WeightBasisPoints,
                         a.PayoutsCents, a.RealizedCents);
-                }).ToList());
+                }).ToList(),
+                s.FixedIncome.Select(f => new PortfolioFixedIncomeResponse(
+                    f.GoalId, f.GoalId is { } id ? names[id] : null, f.DepositCount, f.PrincipalCents, f.GrossYieldCents, f.WeightBasisPoints)).ToList(),
+                ratesThrough);
         }
 
         private async Task<IReadOnlyList<int>> Years(IReadOnlyList<TradeNote> notes, DateOnly today, CancellationToken ct)
@@ -66,7 +100,12 @@ public static class GetPortfolio
             var firstPayout = await db.Transactions.AsNoTracking().Where(t => t.AssetId != null)
                 .MinAsync(t => (DateOnly?)t.PurchaseDate, ct);
             // As notas vêm em ordem de data: a primeira é a mais antiga.
-            int[] starts = [today.Year, .. notes.Take(1).Select(n => n.Date.Year), .. firstPayout is { } d ? [d.Year] : Array.Empty<int>()];
+            var firstDeposit = await db.FixedIncomeDeposits.AsNoTracking().MinAsync(d => (DateOnly?)d.DepositDate, ct);
+            int[] starts =
+            [
+                today.Year, .. notes.Take(1).Select(n => n.Date.Year), .. firstPayout is { } d ? [d.Year] : Array.Empty<int>(),
+                .. firstDeposit is { } f ? [f.Year] : Array.Empty<int>(),
+            ];
             var first = starts.Min();
             return Enumerable.Range(first, today.Year - first + 1).ToList();
         }

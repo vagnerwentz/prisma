@@ -196,6 +196,61 @@ public static partial class AppLog
     [LoggerMessage(4014, LogLevel.Error, "Corporate events sync failed; the next start or catalog sync tries again")]
     public static partial void CorporateEventSyncFailed(this ILogger logger, Exception exception);
 
+    [LoggerMessage(4200, LogLevel.Information, "Reference rates fetched from {Provider}: {Rates} rates in {Windows} windows, {From:yyyy-MM-dd} to {To:yyyy-MM-dd}, in {ElapsedMs} ms")]
+    public static partial void ReferenceRatesFetched(this ILogger logger, string provider, int rates, int windows, DateOnly from, DateOnly to, double elapsedMs);
+
+    [LoggerMessage(4201, LogLevel.Information, "Reference rates synced from {Provider}: {Fetched} fetched, {Added} added, {Revised} revised, {Unchanged} unchanged")]
+    public static partial void ReferenceRatesSynced(this ILogger logger, string provider, int fetched, int added, int revised, int unchanged);
+
+    // O valor de uma data já gravada mudou na fonte: o cálculo de quem usa essa data muda junto. Nunca em silêncio.
+    [LoggerMessage(4202, LogLevel.Warning, "Reference rate from {Provider} revised on {ReferenceDate:yyyy-MM-dd}")]
+    public static partial void ReferenceRateRevised(this ILogger logger, string provider, DateOnly referenceDate);
+
+    // Dia útil esperado sem taxa gravada, entre a primeira e a última data. Reprocessar o período corrige.
+    [LoggerMessage(4203, LogLevel.Warning, "Reference rates from {Provider} have a gap: {Missing} business days without a rate, from {FirstMissing:yyyy-MM-dd} to {LastMissing:yyyy-MM-dd}")]
+    public static partial void ReferenceRateGapDetected(this ILogger logger, string provider, int missing, DateOnly firstMissing, DateOnly lastMissing);
+
+    // A última taxa gravada é mais antiga que a do último dia útil: o cálculo avisa "rendimento até <data>".
+    [LoggerMessage(4204, LogLevel.Warning, "Reference rates from {Provider} are stale: last stored {LastStored:yyyy-MM-dd}, expected {ExpectedLast:yyyy-MM-dd}")]
+    public static partial void ReferenceRatesStale(this ILogger logger, string provider, DateOnly? lastStored, DateOnly expectedLast);
+
+    [LoggerMessage(4205, LogLevel.Warning, "Reference rates sync skipped: the market data provider is unavailable; the next run tries again")]
+    public static partial void ReferenceRateSyncUnavailable(this ILogger logger, Exception exception);
+
+    [LoggerMessage(4206, LogLevel.Error, "Reference rates sync failed; the next run tries again")]
+    public static partial void ReferenceRateSyncFailed(this ILogger logger, Exception exception);
+
+    [LoggerMessage(4207, LogLevel.Information, "Next reference rates sync at {NextRunUtc:o}")]
+    public static partial void ReferenceRateNextRun(this ILogger logger, DateTime nextRunUtc);
+
+    [LoggerMessage(4300, LogLevel.Information, "Savings goal {GoalId} created")]
+    public static partial void GoalCreated(this ILogger logger, Guid goalId);
+
+    [LoggerMessage(4301, LogLevel.Information, "Savings goal {GoalId} edited")]
+    public static partial void GoalEdited(this ILogger logger, Guid goalId);
+
+    [LoggerMessage(4302, LogLevel.Information, "Savings goal {GoalId} deleted: {DetachedDeposits} deposits kept loose, {DeletedDeposits} deleted with it")]
+    public static partial void GoalDeleted(this ILogger logger, Guid goalId, int detachedDeposits, int deletedDeposits);
+
+    [LoggerMessage(4303, LogLevel.Information, "Savings goal {GoalId} restored: {RestoredDeposits} deposits back with it, {RelinkedDeposits} relinked")]
+    public static partial void GoalRestored(this ILogger logger, Guid goalId, int restoredDeposits, int relinkedDeposits);
+
+    [LoggerMessage(4310, LogLevel.Information, "Fixed income deposit {DepositId} added (goal {GoalId})")]
+    public static partial void DepositAdded(this ILogger logger, Guid depositId, Guid? goalId);
+
+    // Só os nomes dos campos que mudaram, nunca os valores.
+    [LoggerMessage(4311, LogLevel.Information, "Fixed income deposit {DepositId} edited: {Fields}")]
+    public static partial void DepositEdited(this ILogger logger, Guid depositId, string fields);
+
+    [LoggerMessage(4312, LogLevel.Information, "Fixed income deposit {DepositId} moved from goal {FromGoalId} to goal {ToGoalId}")]
+    public static partial void DepositMoved(this ILogger logger, Guid depositId, Guid? fromGoalId, Guid? toGoalId);
+
+    [LoggerMessage(4313, LogLevel.Information, "Fixed income deposit {DepositId} deleted")]
+    public static partial void DepositDeleted(this ILogger logger, Guid depositId);
+
+    [LoggerMessage(4314, LogLevel.Information, "Fixed income deposit {DepositId} restored")]
+    public static partial void DepositRestored(this ILogger logger, Guid depositId);
+
     [LoggerMessage(4100, LogLevel.Information, "Holding {HoldingId} of asset {AssetId} added to the portfolio")]
     public static partial void HoldingAdded(this ILogger logger, Guid holdingId, Guid assetId);
 

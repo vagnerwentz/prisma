@@ -1107,6 +1107,9 @@ antes do dia, feriado estadual e municipal, aviso fora do app (push, e-mail).
   dele: o débito automático (esta etapa) e o vencimento da fatura (2.22). Pix, débito, boleto, TED,
   dinheiro, compra no cartão, parcela, estorno, transferência e a recorrência comum ficam na data em que
   aconteceram. Um teste de arquitetura recusa outro tipo que dependa do calendário.
+  *(Atualização de 2026-10-17: a renda fixa acrescentou um terceiro uso, só de diagnóstico: `ReferenceRateCoverage`, no
+  namespace `Prisma.Domain.FixedIncome.Coverage`, que avisa dia útil sem taxa do CDI. O cálculo do rendimento nunca usa o
+  calendário. O teste `BankCalendarUsageTests` ficou com essa permissão e nenhuma outra; `docs/renda-fixa.md`, D8.)*
 
 **Regras do calendário**
 

@@ -1,4 +1,4 @@
-import { Plus, X } from 'lucide-react'
+import { Landmark, Plus, X } from 'lucide-react'
 import { useState } from 'react'
 import { AssetTile } from '@/components/brand/Tiles'
 import { StaleFade } from '@/components/StaleFade'
@@ -6,17 +6,22 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Amount } from '@/features/transactions/Amount'
+import { formatShortDate } from '@/lib/dates'
 import { formatCents } from '@/lib/money'
 import { holdingLogo, signedCents } from './holdings'
 import { assetKindLabel, logoSrc } from './assets'
 import {
   asOfLabel,
   assetCountLabel,
+  fixedIncomeGoalParam,
+  fixedIncomeName,
+  fixedIncomeYield,
   formatWeight,
   groupColors,
   groupLabels,
   holdingsWithoutNotes,
   splitAssets,
+  type FixedIncomeLine,
   type Portfolio,
   type PortfolioAsset,
   type PortfolioGroup,
@@ -36,6 +41,7 @@ export function PortfolioTab({
   trackedAssetIds,
   onOpenAsset,
   onOpenHolding,
+  onOpenGoal,
   onAdd,
   onNewNote,
 }: {
@@ -47,6 +53,7 @@ export function PortfolioTab({
   trackedAssetIds: Set<string> | null
   onOpenAsset: (asset: PortfolioAsset) => void
   onOpenHolding: (holding: Holding) => void
+  onOpenGoal: (param: string) => void
   onAdd: () => void
   onNewNote: () => void
 }) {
@@ -73,7 +80,11 @@ export function PortfolioTab({
   const addInLoose = current && held.length === 0 && chosen === null && gone.length === 0
   const heldCount = portfolio.assets.filter((a) => a.quantity > 0).length
 
-  if (portfolio.assets.length === 0 && loose.length === 0) {
+  const fixedIncome = portfolio.fixedIncome
+  // Escolher um grupo de ativos esconde a renda fixa, e escolher a renda fixa esconde os ativos.
+  const showFixedIncome = fixedIncome.length > 0 && (chosen === null || chosen === 'FixedIncome')
+
+  if (portfolio.assets.length === 0 && loose.length === 0 && fixedIncome.length === 0) {
     return (
       <StaleFade stale={stale}>
         <div className="flex flex-col items-center gap-4 rounded-3xl border border-dashed px-6 py-12 text-center">
@@ -109,7 +120,14 @@ export function PortfolioTab({
           <h2 className="text-sm font-medium text-foreground/75">Investido {asOfLabel(portfolio.asOf, today)}</h2>
           <p className="font-display text-5xl leading-none tabular-nums">{formatCents(portfolio.investedCents)}</p>
           <p className="flex flex-wrap gap-x-3 gap-y-0.5 pt-1 text-sm text-muted-foreground">
-            <span>{assetCountLabel(heldCount)}</span>
+            {(heldCount > 0 || fixedIncome.length === 0) && <span>{assetCountLabel(heldCount)}</span>}
+            {fixedIncome.length > 0 && (
+              <span>
+                <span className="text-spectrum font-medium tabular-nums">{formatCents(fixedIncomeYield(fixedIncome))}</span> de
+                rendimento na renda fixa
+                {portfolio.fixedIncomeRatesThrough && ` até ${formatShortDate(portfolio.fixedIncomeRatesThrough)}`}
+              </span>
+            )}
             {portfolio.payoutsCents > 0 && (
               <span>
                 <Amount type="Income" cents={portfolio.payoutsCents} className="font-medium" /> em proventos
@@ -125,6 +143,33 @@ export function PortfolioTab({
         </div>
         {portfolio.investedCents > 0 && <PrismSpectrum groups={portfolio.groups} selected={chosen} onSelect={setGroup} />}
       </section>
+
+      {showFixedIncome && (
+        <section className="flex flex-col gap-3">
+          <div className="flex min-h-9 items-end justify-between gap-2">
+            {chosen === 'FixedIncome' ? (
+              <button
+                type="button"
+                onClick={() => setGroup(null)}
+                className="flex items-center gap-1.5 rounded-full px-1 text-sm font-medium text-foreground/75 hover:text-foreground"
+              >
+                <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: groupColors.FixedIncome }} />
+                {groupLabels.FixedIncome}
+                <X className="size-3.5" aria-label="Ver todos" />
+              </button>
+            ) : (
+              <h2 className="px-1 text-sm font-medium text-foreground/75">Renda fixa</h2>
+            )}
+          </div>
+          <ul className="surface overflow-hidden rounded-2xl">
+            {fixedIncome.map((line) => (
+              <li key={line.goalId ?? 'loose'} className="[&+&]:border-t [&+&]:border-border/60">
+                <FixedIncomeRow line={line} onOpen={() => onOpenGoal(fixedIncomeGoalParam(line))} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {held.length > 0 && (
         <section className="flex flex-col gap-3">
@@ -241,6 +286,41 @@ function HeldRow({ asset, onOpen }: { asset: PortfolioAsset; onOpen: () => void 
         <span
           className="meter-fill block h-full"
           style={{ background: groupColors[asset.group], ['--fill' as string]: `${asset.weightBasisPoints / 100}%` }}
+        />
+      </span>
+    </button>
+  )
+}
+
+// Um objetivo da renda fixa: o aportado, o rendimento bruto até a data e o peso na carteira. Toca e abre o objetivo.
+function FixedIncomeRow({ line, onOpen }: { line: FixedIncomeLine; onOpen: () => void }) {
+  return (
+    <button type="button" onClick={onOpen} className={`${rowClass} flex-col items-stretch gap-2`}>
+      <span className="flex items-center gap-3">
+        <span
+          className="flex size-10 shrink-0 items-center justify-center rounded-xl"
+          style={{ background: `color-mix(in oklab, ${groupColors.FixedIncome} 16%, transparent)`, color: groupColors.FixedIncome }}
+        >
+          <Landmark className="size-5" aria-hidden />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="flex items-baseline justify-between gap-2">
+            <span className="min-w-0 font-medium break-words">{fixedIncomeName(line)}</span>
+            <span className="shrink-0 tabular-nums">{formatCents(line.principalCents)}</span>
+          </span>
+          <span className="flex items-baseline justify-between gap-2 text-sm text-muted-foreground">
+            <span className="min-w-0 tabular-nums">
+              {line.depositCount === 1 ? '1 aporte' : `${line.depositCount} aportes`} · rende{' '}
+              <span className="text-spectrum font-medium">{formatCents(line.grossYieldCents)}</span>
+            </span>
+            <span className="shrink-0 tabular-nums">{formatWeight(line.weightBasisPoints)}</span>
+          </span>
+        </span>
+      </span>
+      <span className="h-1 w-full overflow-hidden rounded-full bg-muted">
+        <span
+          className="meter-fill block h-full"
+          style={{ background: groupColors.FixedIncome, ['--fill' as string]: `${line.weightBasisPoints / 100}%` }}
         />
       </span>
     </button>

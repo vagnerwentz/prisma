@@ -18,6 +18,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="FixedIncome\fixed-income-reference.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Prisma.Domain\Prisma.Domain.csproj" />
   </ItemGroup>
 

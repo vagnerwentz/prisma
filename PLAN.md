@@ -36,6 +36,7 @@ Estas estão fechadas. Não reabrir sem conversa explícita.
 | Dinheiro | `long` em centavos, sempre |
 | Multiusuário | Dados por `UserId`, sem grupo familiar |
 | Investimentos | Aporte é transferência (Fase 1). Carteira e proventos na Fase I (`docs/investimentos.md`): provento é receita na conta onde caiu, ligada ao ativo; catálogo de ativos global, vindo da brapi. Operações e preço médio pelas notas digitadas, com os eventos da empresa (I.7); cotação fica para depois |
+| Renda fixa | Objetivos ("caixas") com aportes em CDB a % do CDI cadastrados à mão (`docs/renda-fixa.md`): rendimento pela convenção da B3 em inteiro (`Int128`) com o CDI do Banco Central (SGS 12, tabela global `reference_rates`); imposto estimado (IOF + IR regressivo) por aporte, só como "se resgatar hoje"; sem projeção, sem resgate, sem IPCA por ora. Aporte pode sair de uma conta (cria a transferência). Na Carteira é um grupo só, pesado pelo aportado |
 | Hospedagem | Uso próprio: Railway, com API, React e Postgres num só projeto e o React servido pela API (mesmo domínio). Cadastro público: reavaliar antes de abrir |
 | Nome público | **Prisma Money** (2026-10-13): domínio `prismamoney.com.br`, Instagram `@prismamoneybrasil`. O código continua `Prisma` |
 | Página de apresentação | React pré-renderizado em `/` para quem não tem sessão, só com o cadastro aberto (`docs/landing.md`) |
@@ -51,6 +52,7 @@ Estas estão fechadas. Não reabrir sem conversa explícita.
 | **2** | Dashboard: receitas, despesas, sobra, investido, por categoria, comparativo mensal | `docs/fase-2.md` |
 | **H** | Hospedagem para uso próprio: build de produção e deploy no Railway | etapas no próprio `PLAN.md` |
 | **I** | Investimentos: catálogo de ativos (brapi), carteira, proventos e logos | `docs/investimentos.md` |
+| **R** | Renda fixa: objetivos, aportes em CDB/CDI, taxas do Banco Central, rendimento, imposto estimado, grupo na Carteira | `docs/renda-fixa.md` |
 | **3** | Entrada inteligente: QR Code da NFC-e, CNPJ/CNAE, merchants, regras que aprendem | a escrever |
 | **4** | Importação: OFX, fatura do Itaú em PDF, deduplicação | a escrever |
 | **5** | PWA instalável, orçamentos por categoria, metas, E2E com Playwright | a escrever |
@@ -1045,6 +1047,50 @@ O dono lançou todas as notas que tem (2026-10-12).
   - [ ] **I.7d Cotação** — valor de hoje e ganho não realizado.
   - [x] **I.7e Visão da carteira** — três abas (Carteira, Proventos, Notas) com o ano escolhido: investido pelo custo, o
     espectro por tipo, peso de cada ativo, proventos com filtros, mês a mês e ano a ano (`docs/investimentos.md`, I.7e).
+
+---
+
+## Renda fixa (objetivos e aportes)
+
+Pedida pelo dono (2026-10-17), fora da ordem das fases: objetivos financeiros ("caixas") com investimentos em renda fixa
+cadastrados à mão, rendimento calculado pelo CDI do Banco Central. Plano completo, fórmulas, fontes e decisões
+(D1 a D13) em `docs/renda-fixa.md`. Sem integração bancária nem movimentação real.
+
+- [x] **R.0 Verificação** — fórmula da B3 conferida e reproduzida com dois extratos do banco do dono (diferença máxima de
+  R$ 0,01); tabela de IOF lida no decreto; tabela de IR pela B3 (texto legal pendente, dispensado por ora).
+- [x] **R.1 Motor de rendimento** — `FixedIncomeEngine` no domínio (`Prisma.Domain/FixedIncome`): fator da B3 em ponto fixo
+  `Int128`, sem banco nem relógio. Testes com vetores independentes, os extratos do banco e propriedades (CsCheck).
+- [x] **R.2 Taxas do CDI** — tabela global `reference_rates` (migration `AddReferenceRates`) e `BcbSgsRateSource`, cliente da
+  SGS 12 do Banco Central: janelas de 9 anos, só aceita lista JSON (a API responde erro com 200, 406 ou HTML, e faixa sem dia
+  útil com 404), tudo ou nada. Teste de contrato `[LiveFact]` com a API real.
+- [x] **R.3 Sincronização** — `ReferenceRateSync` + `ReferenceRateWorker` (19h30 e 23h30 em São Paulo, e ao subir se o histórico
+  estiver vazio ou atrasado): idempotente (índice único + releitura), revisão de valor com `RevisedAt` e aviso no log, falha da
+  fonte sem efeito, lacuna e defasagem (`ReferenceRateCoverage`, único uso do calendário bancário no CDI, só para diagnóstico).
+- [x] **R.4 Objetivos e aportes (API)** — `SavingsGoal` (a caixa) e `FixedIncomeDeposit` (o aporte, `GoalId` opcional) em
+  `/savings-goals` e `/fixed-income-deposits`: criar, editar, listar, mover entre caixas, excluir e desfazer; excluir o objetivo
+  exige escolher entre manter os investimentos (ficam soltos) ou levá-los junto; `clientRequestId` contra aporte duplicado; `xmin`;
+  data do aporte conferida contra o início do histórico do CDI. Exclusão de conta, limpeza dos excluídos e cópia dos dados cobrem
+  as tabelas novas. O `npm run gen:api` fica para a R.6, junto com a tela (exige a API rodando com o banco migrado).
+- [x] **R.4b Aporte que sai de uma conta** — `funding` opcional no aporte (de que conta saiu, em qual conta de investimento entrou):
+  o app cria a transferência junto, na mesma gravação, e o saldo da conta cai e o "Investido" do Resumo sobe, sem virar receita
+  nem despesa. Valor e data do aporte financiado ficam travados (transferência não se edita); excluir pergunta se a transferência
+  fica ou sai junto; desfazer traz as duas.
+- [x] **R.5 Saldo e evolução** — `GET /fixed-income/balances?asOf=` (por aporte, por caixa, soltos e total: principal, saldo bruto,
+  rendimento bruto, fator e data da última taxa usada) e `GET /fixed-income/evolution` (série para o gráfico, por caixa, soltos ou
+  tudo, `step=day|week|month`). Sempre com o estado do histórico do CDI (`rates`: até que dia, defasado, completo). Sem projeção:
+  data futura é recusada. Aporte sem taxa vem sem saldo e o total o conta pelo principal, avisando. Casos de referência (cálculo
+  independente e extratos do banco) em `fixed-income-reference.json`.
+- [x] **R.6 Interface (bruto)** — aba "Objetivos" em Investimentos: lista com saldo e meta, detalhe com gráfico de evolução e aportes, painéis de objetivo e de aporte (com origem da conta), perguntas ao excluir, avisos de taxa defasada/incompleta. Conferida em 320/390/1280, claro e escuro, com toque real.
+- [x] **R.7 Tributação (líquido estimado)** — `FixedIncomeTax` (IOF até 29 dias pela tabela do Decreto 6.306 e IR regressivo 22,5/20/17,5/15% por aporte, sobre o rendimento líquido do IOF), regra versionada por data; o saldo (`/fixed-income/balances`) devolve imposto e líquido por aporte e por grupo; a tela alterna Bruto | Líquido estimado. A tabela do IR segue B3 + dono (o texto legal não foi conferido, por decisão do dono).
+- [x] **R.8 Fechamento** — documentação em dia (`CLAUDE.md`: glossário, tabela global, quinta tarefa em segundo plano, calendário bancário, comandos;
+  `docs/operacao.md`, seção 4.5; `docs/renda-fixa.md`; `README.md`; `PLAN.md`), aviso do que a renda fixa ainda não faz em toda tela
+  que mostra o saldo, conferência da política de privacidade e dos termos (**nenhum texto foi mudado**) e verificação manual do dono na tela, com os números conferidos contra o banco (2026-10-18: tudo certo). Ficou para o dono decidir (e
+  para o advogado, A.2): a seção 3.2 da política lista o que se registra em investimentos (notas, proventos, avisos, conferência de
+  eventos) e não cita objetivos e aportes em renda fixa (nome e meta do objetivo; data, valor, % do CDI, vencimento e conta de origem
+  do aporte); a seção 5 cita a brapi como fonte de dados de mercado e não o Banco Central (que também não recebe dado de ninguém);
+  e os termos (seção 4) falam de "preço médio, resultado de vendas, rendimentos" sem a estimativa de imposto da renda fixa. São
+  esclarecimentos, não nova finalidade nem novo operador, então não pedem novo aceite por si; a versão só sobe se o dono decidir.
+- [x] **R.9 Renda fixa na Carteira** — grupo único "Renda fixa" (todos os índices) na aba Carteira: peso pelo aportado, linhas por objetivo, rendimento ao lado, atalho para Objetivos; vale por ano. `PortfolioGroup.FixedIncome`, `FixedIncomeHolding` no `PortfolioSnapshot`, `fixedIncome` em `GET /portfolio`. Conferida em 320/390/1280, claro e escuro.
 
 ---
 

@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   asOfLabel,
+  fixedIncomeGoalParam,
+  fixedIncomeName,
+  fixedIncomeYield,
   formatWeight,
   groupColors,
+  groupCountLabel,
   groupLabels,
   groupOf,
   groupOrder,
@@ -11,6 +15,7 @@ import {
   readView,
   splitAssets,
   viewSearch,
+  type FixedIncomeLine,
   type PortfolioAsset,
   type PortfolioSlice,
 } from './portfolio'
@@ -44,7 +49,7 @@ describe('grupos', () => {
   })
 
   it('todo grupo tem rótulo e uma cor própria', () => {
-    expect(groupOrder.map((g) => groupLabels[g])).toEqual(['Ações', 'FIIs', 'ETFs', 'BDRs', 'Outros fundos', 'Outros'])
+    expect(groupOrder.map((g) => groupLabels[g])).toEqual(['Ações', 'FIIs', 'ETFs', 'BDRs', 'Outros fundos', 'Renda fixa', 'Outros'])
     expect(new Set(groupOrder.map((g) => groupColors[g])).size).toBe(groupOrder.length)
   })
 })
@@ -94,7 +99,8 @@ describe('prismBands', () => {
       6,
     )
     expect(bands.at(-1)!.y1).toBeCloseTo(12)
-    expect(bands.every((b) => b.y1 - b.y0 >= 2 - 1e-9)).toBe(true)
+    // No pior caso todos ficam iguais: a altura dividida pelo número de grupos.
+    expect(bands.every((b) => b.y1 - b.y0 >= 12 / groupOrder.length - 1e-9)).toBe(true)
   })
 })
 
@@ -150,5 +156,47 @@ describe('holdingsWithoutNotes', () => {
     const tracked = new Set(['MXRF11', 'BCFF11', 'IRDM11', 'CARE11'])
 
     expect(holdingsWithoutNotes(holdings, listed, tracked).map((h) => h.assetId)).toEqual(['VISC11'])
+  })
+})
+
+describe('renda fixa na carteira', () => {
+  const line = (over: Partial<FixedIncomeLine>): FixedIncomeLine => ({
+    goalId: 'g1',
+    name: 'Reserva',
+    depositCount: 2,
+    principalCents: 500_000,
+    grossYieldCents: 9_000,
+    weightBasisPoints: 5_000,
+    ...over,
+  })
+
+  it('é um grupo só, com cor própria e depois dos fundos', () => {
+    expect(groupLabels.FixedIncome).toBe('Renda fixa')
+    expect(groupOrder.indexOf('FixedIncome')).toBeGreaterThan(groupOrder.indexOf('OtherFunds'))
+    expect(groupOrder.indexOf('FixedIncome')).toBeLessThan(groupOrder.indexOf('Other'))
+  })
+
+  it('no grupo conta objetivos; nos outros, ativos', () => {
+    expect(groupCountLabel('FixedIncome', 1)).toBe('1 objetivo')
+    expect(groupCountLabel('FixedIncome', 3)).toBe('3 objetivos')
+    expect(groupCountLabel('Stocks', 3)).toBe('3 ativos')
+  })
+
+  it('o aporte sem objetivo tem nome e endereço próprios', () => {
+    expect(fixedIncomeName(line({}))).toBe('Reserva')
+    expect(fixedIncomeName(line({ goalId: null, name: null }))).toBe('Sem objetivo')
+    expect(fixedIncomeGoalParam(line({}))).toBe('g1')
+    expect(fixedIncomeGoalParam(line({ goalId: null, name: null }))).toBe('sem')
+  })
+
+  it('soma o rendimento das linhas', () => {
+    expect(fixedIncomeYield([line({}), line({ goalId: null, name: null, grossYieldCents: 51 })])).toBe(9_051)
+    expect(fixedIncomeYield([])).toBe(0)
+  })
+
+  it('o espectro dá faixa à renda fixa como a qualquer grupo', () => {
+    const bands = prismBands([slice('FixedIncome', 700), slice('Stocks', 300)], 100, 0, 2)
+    expect(bands.map((b) => b.group)).toEqual(['FixedIncome', 'Stocks'])
+    expect(bands[0].y1 - bands[0].y0).toBeCloseTo(70)
   })
 })
