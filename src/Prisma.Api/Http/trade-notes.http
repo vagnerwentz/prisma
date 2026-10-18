@@ -58,6 +58,8 @@ GET {{baseUrl}}/positions/<id do ativo>
 
 ### A carteira em um ano (I.7e): investido no fim de 31/12 (ou hoje, no ano corrente), grupos com o peso, ativos, e os
 ### proventos e o resultado das vendas do ano. Sem year: o ano corrente. Ano futuro: 400.
+### A renda fixa (R.9) vem em `fixedIncome` (uma linha por objetivo, pelo aportado) e como o grupo `FixedIncome` em `groups`;
+### o total `investedCents` e os pesos já a incluem.
 GET {{baseUrl}}/portfolio?year=2024
 
 ### As notas de um ano

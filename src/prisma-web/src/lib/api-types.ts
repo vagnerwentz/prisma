@@ -4778,6 +4778,19 @@ export interface components {
             /** Format: int64 */
             realizedCents: number;
         };
+        GetPortfolioPortfolioFixedIncomeResponse: {
+            /** Format: uuid */
+            goalId: null | string;
+            name: null | string;
+            /** Format: int32 */
+            depositCount: number;
+            /** Format: int64 */
+            principalCents: number;
+            /** Format: int64 */
+            grossYieldCents: number;
+            /** Format: int32 */
+            weightBasisPoints: number;
+        };
         GetPortfolioPortfolioGroupResponse: {
             group: components["schemas"]["PortfolioGroup"];
             /** Format: int64 */
@@ -4805,6 +4818,9 @@ export interface components {
             realizedCents: number;
             groups: components["schemas"]["GetPortfolioPortfolioGroupResponse"][];
             assets: components["schemas"]["GetPortfolioPortfolioAssetResponse"][];
+            fixedIncome: components["schemas"]["GetPortfolioPortfolioFixedIncomeResponse"][];
+            /** Format: date */
+            fixedIncomeRatesThrough: null | string;
         };
         GetSpendingVariationEntry: {
             /** Format: uuid */
@@ -5122,7 +5138,7 @@ export interface components {
         /** @enum {unknown} */
         PendingLaunch: "NextStatement" | "SameStatement";
         /** @enum {unknown} */
-        PortfolioGroup: "Stocks" | "Fiis" | "Etfs" | "Bdrs" | "OtherFunds" | "Other";
+        PortfolioGroup: "Stocks" | "Fiis" | "Etfs" | "Bdrs" | "OtherFunds" | "FixedIncome" | "Other";
         /** @enum {unknown} */
         PositionStepKind: "Trade" | "Split" | "ConversionOut" | "ConversionIn" | "LiquidationOut" | "LiquidationIn";
         PreviewStatementDatesMovedPurchase: {

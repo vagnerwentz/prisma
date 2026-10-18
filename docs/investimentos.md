@@ -1402,6 +1402,12 @@ corretora mostra).
 
 ## 9. Em aberto
 
+- **Renda fixa na Carteira (2026-10-18, `docs/renda-fixa.md`, R.9 e D13):** a Carteira agora também mostra a renda fixa
+  dos objetivos (CDB a % do CDI), como um grupo só, "Renda fixa", pesado pelo **aportado**. O `PortfolioGroup` ganhou
+  `FixedIncome` (entre os fundos e "Outros"), o `PortfolioSnapshot.Build` recebe `FixedIncomeHolding` e devolve as linhas por
+  objetivo, e o total "Investido" e os pesos de todos os ativos passam a ser sobre o conjunto. A renda fixa não tem quantidade
+  nem nota: o que entra é o aportado até a data da carteira e o rendimento bruto ao lado. A aba **Objetivos** (renda fixa por
+  objetivo, com saldo, gráfico, imposto estimado) é a visão detalhada; a Carteira é a visão geral.
 - **Liquidação paga em cotas (I.7c4):** feita, com BCFF11 → BTHF11 e IRDM11 → IRIM11. PETZ3 → AUAU3 e CVBI11 → PCIP11
   a conferir se mantiveram o custo.
 - **Conferir a carteira com a B3** (sugerido ao dono, 2026-10-12): com todas as notas lançadas, comparar a quantidade de
@@ -1410,7 +1416,7 @@ corretora mostra).
 - **Pontos menores da revisão de 2026-10-12, sem correção por ora:** uma aba aberta antes do deploy mostra os passos
   novos da liquidação como "Compra" até recarregar (só lê passos que já conhecia); o painel aberto pelo "Por ativo" dos
   proventos não sabe se o ativo saiu da bolsa quando ele não está na carteira (o provento não traz isso).
-- **Visão da carteira:** feita (I.7e, 2026-10-09). Em aberto: o valor de hoje (cotação, I.7d) e o rendimento sobre o custo.
+- **Visão da carteira:** feita (I.7e, 2026-10-09). Em aberto: o valor de hoje (cotação, I.7d) e o rendimento sobre o custo. A renda fixa entrou na carteira em 2026-10-18 (`docs/renda-fixa.md`, R.9).
 - Operações (compra e venda, quantidade, preço médio): depois da 5b. Depende também de saber se o pai e a
   noiva investem em bolsa (`docs/validacao-premissas.md`).
 - **Importar o histórico de proventos (CSV do dono, I.6).** Decidido pelo dono (2026-10-05): todos os proventos do

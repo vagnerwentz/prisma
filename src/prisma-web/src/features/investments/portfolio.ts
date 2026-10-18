@@ -5,6 +5,8 @@ export type Portfolio = Schemas['GetPortfolioPortfolioResponse']
 export type PortfolioAsset = Portfolio['assets'][number]
 export type PortfolioSlice = Portfolio['groups'][number]
 export type PortfolioGroup = Schemas['PortfolioGroup']
+// A renda fixa da carteira (R.9): uma linha por objetivo; Name nulo é "Sem objetivo".
+export type FixedIncomeLine = Portfolio['fixedIncome'][number]
 type AssetKind = Schemas['AssetKind']
 
 // Os mesmos grupos do domínio (PortfolioGroups): unit com as ações, os fundos menores juntos.
@@ -30,7 +32,7 @@ export function groupOf(kind: AssetKind | null | undefined): PortfolioGroup {
   }
 }
 
-export const groupOrder: PortfolioGroup[] = ['Stocks', 'Fiis', 'Etfs', 'Bdrs', 'OtherFunds', 'Other']
+export const groupOrder: PortfolioGroup[] = ['Stocks', 'Fiis', 'Etfs', 'Bdrs', 'OtherFunds', 'FixedIncome', 'Other']
 
 export const groupLabels: Record<PortfolioGroup, string> = {
   Stocks: 'Ações',
@@ -38,6 +40,7 @@ export const groupLabels: Record<PortfolioGroup, string> = {
   Etfs: 'ETFs',
   Bdrs: 'BDRs',
   OtherFunds: 'Outros fundos',
+  FixedIncome: 'Renda fixa',
   Other: 'Outros',
 }
 
@@ -47,6 +50,7 @@ export const groupColors: Record<PortfolioGroup, string> = {
   Stocks: '#3b82f6',
   Etfs: '#22d3ee',
   OtherFunds: '#84cc16',
+  FixedIncome: '#64748b',
   Bdrs: '#f59e0b',
   Other: '#f43f5e',
 }
@@ -59,6 +63,26 @@ export function formatWeight(basisPoints: number): string {
 
 // "1 ativo", "3 ativos".
 export const assetCountLabel = (count: number) => `${count} ${count === 1 ? 'ativo' : 'ativos'}`
+
+// Na renda fixa o que se conta são os objetivos: "1 objetivo", "3 objetivos".
+export const groupCountLabel = (group: PortfolioGroup, count: number) =>
+  group === 'FixedIncome' ? `${count} ${count === 1 ? 'objetivo' : 'objetivos'}` : assetCountLabel(count)
+
+export const looseGoalName = 'Sem objetivo'
+
+export function fixedIncomeName(line: FixedIncomeLine): string {
+  return line.name ?? looseGoalName
+}
+
+// O endereço do objetivo na aba Objetivos: o id, ou "sem" para os aportes soltos (mesmo parâmetro de GoalsTab).
+export function fixedIncomeGoalParam(line: FixedIncomeLine): string {
+  return line.goalId ?? 'sem'
+}
+
+// O rendimento bruto da renda fixa toda, somado das linhas.
+export function fixedIncomeYield(lines: FixedIncomeLine[]): number {
+  return lines.reduce((sum, l) => sum + l.grossYieldCents, 0)
+}
 
 export type Band = { group: PortfolioGroup; y0: number; y1: number }
 

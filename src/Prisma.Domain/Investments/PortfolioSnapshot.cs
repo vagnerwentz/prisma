@@ -4,7 +4,8 @@ using Prisma.Domain.Market;
 namespace Prisma.Domain.Investments;
 
 // A carteira vista por grupo (docs/investimentos.md, I.7e). A ordem é a dos grupos no desempate.
-public enum PortfolioGroup { Stocks, Fiis, Etfs, Bdrs, OtherFunds, Other }
+// FixedIncome é a renda fixa (R.9), um grupo só para qualquer índice: CDI hoje, IPCA e outros quando vierem.
+public enum PortfolioGroup { Stocks, Fiis, Etfs, Bdrs, OtherFunds, FixedIncome, Other }
 
 public static class PortfolioGroups
 {
@@ -55,6 +56,12 @@ public sealed record PortfolioPayout(Guid AssetId, DateOnly Date, long AmountCen
 public sealed record PortfolioAsset(
     Guid AssetId, PortfolioGroup Group, PositionTotals Totals, int WeightBasisPoints, long PayoutsCents, long RealizedCents);
 
+// A renda fixa de um objetivo (ou dos aportes sem objetivo, GoalId nulo) na data da carteira: quantos aportes, o aportado
+// (o custo da renda fixa, que dá o peso) e o rendimento bruto até a data. Quem chama calcula o rendimento (FixedIncomeEngine).
+public sealed record FixedIncomeHolding(Guid? GoalId, int DepositCount, long PrincipalCents, long GrossYieldCents);
+
+public sealed record PortfolioFixedIncome(Guid? GoalId, int DepositCount, long PrincipalCents, long GrossYieldCents, int WeightBasisPoints);
+
 // Um grupo: quanto custou o que se tem, o peso, quantos ativos com quantidade, e o que rendeu no ano.
 public sealed record PortfolioSlice(
     PortfolioGroup Group, long InvestedCents, int WeightBasisPoints, int AssetCount, long PayoutsCents, long RealizedCents);
@@ -62,7 +69,8 @@ public sealed record PortfolioSlice(
 // A carteira em um ano (docs/investimentos.md, I.7e): no fim de 31/12, ou de hoje no ano corrente. Investido é o custo
 // de aquisição do que tem quantidade na data. Proventos e resultado das vendas: os do ano, até a data. Entra na lista
 // quem tem quantidade, ou teve provento ou venda no ano. Do maior custo para o menor (empate: pelo código; grupos: na
-// ordem dos grupos).
+// ordem dos grupos). A renda fixa (R.9) entra pelo aportado: uma linha por objetivo, um grupo só, e o total e os pesos
+// de todos passam a ser sobre o conjunto.
 public sealed record PortfolioSnapshot(
     int Year,
     DateOnly AsOf,
@@ -70,9 +78,13 @@ public sealed record PortfolioSnapshot(
     long PayoutsCents,
     long RealizedCents,
     IReadOnlyList<PortfolioSlice> Groups,
-    IReadOnlyList<PortfolioAsset> Assets)
+    IReadOnlyList<PortfolioAsset> Assets,
+    IReadOnlyList<PortfolioFixedIncome> FixedIncome)
 {
     public const int FirstYear = 1900;
+
+    // A data da carteira de um ano: o fim de 31/12, ou hoje no ano corrente.
+    public static DateOnly AsOfFor(int year, DateOnly today) => year == today.Year ? today : new DateOnly(year, 12, 31);
 
     public static Result<PortfolioSnapshot> Build(
         int year,
@@ -80,15 +92,19 @@ public sealed record PortfolioSnapshot(
         IReadOnlyList<AssetPosition> positions,
         IReadOnlyList<PortfolioPayout> payouts,
         Func<Guid, AssetKind> kindOf,
-        Func<Guid, string> symbolOf)
+        Func<Guid, string> symbolOf,
+        IReadOnlyList<FixedIncomeHolding>? fixedIncome = null)
     {
         if (year > today.Year)
             return new Error(ErrorType.Validation, $"Escolha um ano até {today.Year}.");
         if (year < FirstYear)
             return new Error(ErrorType.Validation, $"Escolha um ano a partir de {FirstYear}.");
 
+        if (fixedIncome?.Any(f => f.PrincipalCents < 0 || f.DepositCount < 0) == true)
+            return new Error(ErrorType.Validation, "A renda fixa da carteira tem valor negativo.");
+
         var start = new DateOnly(year, 1, 1);
-        var asOf = year == today.Year ? today : new DateOnly(year, 12, 31);
+        var asOf = AsOfFor(year, today);
 
         var paid = payouts.Where(p => p.Date >= start && p.Date <= asOf)
             .GroupBy(p => p.AssetId)
@@ -110,23 +126,31 @@ public sealed record PortfolioSnapshot(
 
         long Invested((Guid Id, PositionTotals Totals, long Payouts, long Realized) r) => r.Totals.Quantity > 0 ? r.Totals.CostBasisCents : 0;
 
-        var assetWeights = PortfolioWeights.BasisPoints(rows.Select(Invested).ToList());
+        // Só quem tem aportado; do maior para o menor (empate: a ordem em que vieram).
+        var lines = (fixedIncome ?? []).Where(f => f.PrincipalCents > 0).OrderByDescending(f => f.PrincipalCents).ToList();
+
+        // Os pesos são sobre o total: primeiro os ativos, depois as linhas da renda fixa.
+        var weights = PortfolioWeights.BasisPoints([.. rows.Select(Invested), .. lines.Select(l => l.PrincipalCents)]);
         var assets = rows
-            .Select((r, i) => new PortfolioAsset(r.Id, PortfolioGroups.Of(kindOf(r.Id)), r.Totals, assetWeights[i], r.Payouts, r.Realized))
+            .Select((r, i) => new PortfolioAsset(r.Id, PortfolioGroups.Of(kindOf(r.Id)), r.Totals, weights[i], r.Payouts, r.Realized))
+            .ToList();
+        var fixedLines = lines
+            .Select((l, i) => new PortfolioFixedIncome(l.GoalId, l.DepositCount, l.PrincipalCents, l.GrossYieldCents, weights[rows.Count + i]))
             .ToList();
 
         var grouped = assets.GroupBy(a => a.Group)
             .Select(g => (Group: g.Key, Invested: g.Where(a => a.Totals.Quantity > 0).Sum(a => a.Totals.CostBasisCents),
                 Count: g.Count(a => a.Totals.Quantity > 0), Payouts: g.Sum(a => a.PayoutsCents), Realized: g.Sum(a => a.RealizedCents)))
-            .OrderByDescending(g => g.Invested)
-            .ThenBy(g => g.Group)
             .ToList();
+        if (lines.Count > 0)
+            grouped.Add((PortfolioGroup.FixedIncome, lines.Sum(l => l.PrincipalCents), lines.Count, 0, 0));
+        grouped = grouped.OrderByDescending(g => g.Invested).ThenBy(g => g.Group).ToList();
         var groupWeights = PortfolioWeights.BasisPoints(grouped.Select(g => g.Invested).ToList());
         var groups = grouped
             .Select((g, i) => new PortfolioSlice(g.Group, g.Invested, groupWeights[i], g.Count, g.Payouts, g.Realized))
             .ToList();
 
         return new PortfolioSnapshot(year, asOf, groups.Sum(g => g.InvestedCents), groups.Sum(g => g.PayoutsCents),
-            groups.Sum(g => g.RealizedCents), groups, assets);
+            groups.Sum(g => g.RealizedCents), groups, assets, fixedLines);
     }
 }

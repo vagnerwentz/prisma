@@ -166,6 +166,7 @@ export function InvestmentsPage() {
             trackedAssetIds={trackedAssetIds}
             onOpenAsset={(asset: PortfolioAsset) => setOpen(listed(asset))}
             onOpenHolding={setOpen}
+            onOpenGoal={(goal) => go({ tab: 'objetivos', goal })}
             onAdd={() => setAdding(true)}
             onNewNote={() => setNoteView({ kind: 'new' })}
           />

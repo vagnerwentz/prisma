@@ -3,8 +3,8 @@ import { Amount } from '@/features/transactions/Amount'
 import { formatCents } from '@/lib/money'
 import { cn } from '@/lib/utils'
 import {
-  assetCountLabel,
   formatWeight,
+  groupCountLabel,
   groupColors,
   groupLabels,
   prismBands,
@@ -123,7 +123,7 @@ export function PrismSpectrum({
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="text-sm font-medium">{groupLabels[g.group]}</span>
                     <span className="truncate text-xs text-muted-foreground">
-                      {assetCountLabel(g.assetCount)}
+                      {groupCountLabel(g.group, g.assetCount)}
                       {g.payoutsCents > 0 && (
                         <>
                           {' · '}
