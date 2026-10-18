@@ -36,6 +36,7 @@ Estas estão fechadas. Não reabrir sem conversa explícita.
 | Dinheiro | `long` em centavos, sempre |
 | Multiusuário | Dados por `UserId`, sem grupo familiar |
 | Investimentos | Aporte é transferência (Fase 1). Carteira e proventos na Fase I (`docs/investimentos.md`): provento é receita na conta onde caiu, ligada ao ativo; catálogo de ativos global, vindo da brapi. Operações e preço médio pelas notas digitadas, com os eventos da empresa (I.7); cotação fica para depois |
+| Renda fixa | Objetivos ("caixas") com aportes em CDB a % do CDI cadastrados à mão (`docs/renda-fixa.md`): rendimento pela convenção da B3 em inteiro (`Int128`) com o CDI do Banco Central (SGS 12, tabela global `reference_rates`); imposto estimado (IOF + IR regressivo) por aporte, só como "se resgatar hoje"; sem projeção, sem resgate, sem IPCA por ora. Aporte pode sair de uma conta (cria a transferência). Na Carteira é um grupo só, pesado pelo aportado |
 | Hospedagem | Uso próprio: Railway, com API, React e Postgres num só projeto e o React servido pela API (mesmo domínio). Cadastro público: reavaliar antes de abrir |
 | Nome público | **Prisma Money** (2026-10-13): domínio `prismamoney.com.br`, Instagram `@prismamoneybrasil`. O código continua `Prisma` |
 | Página de apresentação | React pré-renderizado em `/` para quem não tem sessão, só com o cadastro aberto (`docs/landing.md`) |
@@ -51,6 +52,7 @@ Estas estão fechadas. Não reabrir sem conversa explícita.
 | **2** | Dashboard: receitas, despesas, sobra, investido, por categoria, comparativo mensal | `docs/fase-2.md` |
 | **H** | Hospedagem para uso próprio: build de produção e deploy no Railway | etapas no próprio `PLAN.md` |
 | **I** | Investimentos: catálogo de ativos (brapi), carteira, proventos e logos | `docs/investimentos.md` |
+| **R** | Renda fixa: objetivos, aportes em CDB/CDI, taxas do Banco Central, rendimento, imposto estimado, grupo na Carteira | `docs/renda-fixa.md` |
 | **3** | Entrada inteligente: QR Code da NFC-e, CNPJ/CNAE, merchants, regras que aprendem | a escrever |
 | **4** | Importação: OFX, fatura do Itaú em PDF, deduplicação | a escrever |
 | **5** | PWA instalável, orçamentos por categoria, metas, E2E com Playwright | a escrever |
@@ -1045,6 +1047,19 @@ O dono lançou todas as notas que tem (2026-10-12).
   - [ ] **I.7d Cotação** — valor de hoje e ganho não realizado.
   - [x] **I.7e Visão da carteira** — três abas (Carteira, Proventos, Notas) com o ano escolhido: investido pelo custo, o
     espectro por tipo, peso de cada ativo, proventos com filtros, mês a mês e ano a ano (`docs/investimentos.md`, I.7e).
+
+---
+
+## Renda fixa (objetivos e aportes)
+
+Pedida pelo dono (2026-10-17), fora da ordem das fases: objetivos financeiros ("caixas") com investimentos em renda fixa
+cadastrados à mão, rendimento calculado pelo CDI do Banco Central. Plano completo, fórmulas, fontes e decisões
+(D1 a D13) em `docs/renda-fixa.md`. Sem integração bancária nem movimentação real.
+
+- [x] **R.0 Verificação** — fórmula da B3 conferida e reproduzida com dois extratos do banco do dono (diferença máxima de
+  R$ 0,01); tabela de IOF lida no decreto; tabela de IR pela B3 (texto legal pendente, dispensado por ora).
+- [x] **R.1 Motor de rendimento** — `FixedIncomeEngine` no domínio (`Prisma.Domain/FixedIncome`): fator da B3 em ponto fixo
+  `Int128`, sem banco nem relógio. Testes com vetores independentes, os extratos do banco e propriedades (CsCheck).
 
 ---
 

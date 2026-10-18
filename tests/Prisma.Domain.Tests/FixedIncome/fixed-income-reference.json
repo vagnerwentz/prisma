@@ -1,0 +1,40 @@
+{
+  "description": "Casos de referência do motor de renda fixa (docs/renda-fixa.md, seção 9). Cada número tem a origem anotada: cálculo independente (Python, Decimal, regra da B3 com as taxas reais da SGS 12) ou extrato do banco do dono. As taxas são as de Cdi2026.cs (21/07 a 15/10/2026).",
+  "independent": [
+    { "name": "Simulação do dono, 31/07", "source": "Python/Decimal, regra da B3", "depositDate": "2026-07-21", "principalCents": 609731, "percentE4": 1000000, "asOf": "2026-07-31", "ratesUsed": 8, "factorE8": 100421021, "grossCents": 612298 },
+    { "name": "Simulação do dono, 31/08", "source": "Python/Decimal, regra da B3", "depositDate": "2026-07-21", "principalCents": 609731, "percentE4": 1000000, "asOf": "2026-08-31", "ratesUsed": 29, "factorE8": 101519630, "grossCents": 618997 },
+    { "name": "Simulação do dono, 30/09", "source": "Python/Decimal, regra da B3", "depositDate": "2026-07-21", "principalCents": 609731, "percentE4": 1000000, "asOf": "2026-09-30", "ratesUsed": 50, "factorE8": 102618635, "grossCents": 625698 },
+    { "name": "Simulação do dono, 16/10", "source": "Python/Decimal, regra da B3", "depositDate": "2026-07-21", "principalCents": 609731, "percentE4": 1000000, "asOf": "2026-10-16", "ratesUsed": 61, "factorE8": 103193390, "grossCents": 629202 },
+    { "name": "Caso A, aporte 1", "source": "Python/Decimal, regra da B3", "depositDate": "2026-07-21", "principalCents": 479731, "percentE4": 1000000, "asOf": "2026-10-16", "ratesUsed": 61, "factorE8": 103193390, "grossCents": 495051 },
+    { "name": "Caso A, aporte 2", "source": "Python/Decimal, regra da B3", "depositDate": "2026-07-21", "principalCents": 130000, "percentE4": 1000000, "asOf": "2026-10-16", "ratesUsed": 61, "factorE8": 103193390, "grossCents": 134151 },
+    { "name": "Caso B, aporte 1", "source": "Python/Decimal, regra da B3", "depositDate": "2026-07-22", "principalCents": 1047408, "percentE4": 1000000, "asOf": "2026-10-16", "ratesUsed": 60, "factorE8": 103139210, "grossCents": 1080288 },
+    { "name": "Caso B, aporte 2", "source": "Python/Decimal, regra da B3", "depositDate": "2026-08-10", "principalCents": 900000, "percentE4": 1000000, "asOf": "2026-10-16", "ratesUsed": 47, "factorE8": 102439236, "grossCents": 921953 },
+    { "name": "Aporte do caso A a 105% do CDI", "source": "Python/Decimal, regra da B3", "depositDate": "2026-07-21", "principalCents": 479731, "percentE4": 1050000, "asOf": "2026-10-16", "ratesUsed": 61, "factorE8": 103355666, "grossCents": 495829 }
+  ],
+  "bank": [
+    {
+      "name": "Extrato do banco, caso A (referência 16/10/2026, IOF 0)",
+      "source": "Extrato do dono, 2026-10-17: rendimento bruto R$ 194,70",
+      "asOf": "2026-10-16",
+      "bankGrossYieldCents": 19470,
+      "toleranceCents": 1,
+      "toleranceNote": "O banco arredonda por dentro de um jeito que o extrato não revela (docs/renda-fixa.md, Calibração com o banco).",
+      "lots": [
+        { "depositDate": "2026-07-21", "principalCents": 479731, "percentE4": 1000000 },
+        { "depositDate": "2026-07-21", "principalCents": 130000, "percentE4": 1000000 }
+      ]
+    },
+    {
+      "name": "Extrato do banco, caso B (referência 16/10/2026, IOF 0)",
+      "source": "Extrato do dono, 2026-10-17: rendimento bruto R$ 548,32",
+      "asOf": "2026-10-16",
+      "bankGrossYieldCents": 54832,
+      "toleranceCents": 1,
+      "toleranceNote": "O banco arredonda por dentro de um jeito que o extrato não revela (docs/renda-fixa.md, Calibração com o banco).",
+      "lots": [
+        { "depositDate": "2026-07-22", "principalCents": 1047408, "percentE4": 1000000 },
+        { "depositDate": "2026-08-10", "principalCents": 900000, "percentE4": 1000000 }
+      ]
+    }
+  ]
+}
