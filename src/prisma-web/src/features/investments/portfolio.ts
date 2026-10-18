@@ -93,8 +93,8 @@ export function prismBands(groups: PortfolioSlice[], height: number, gap: number
   })
 }
 
-export type Tab = 'carteira' | 'proventos' | 'notas'
-const tabs: Tab[] = ['carteira', 'proventos', 'notas']
+export type Tab = 'carteira' | 'proventos' | 'notas' | 'objetivos'
+const tabs: Tab[] = ['carteira', 'proventos', 'notas', 'objetivos']
 
 // O endereço guarda a aba e o ano (?aba=proventos&ano=2020). Sem aba: a carteira; sem ano, ou ano inválido: o corrente.
 export function readView(search: URLSearchParams, currentYear: number): { tab: Tab; year: number } {
@@ -105,10 +105,11 @@ export function readView(search: URLSearchParams, currentYear: number): { tab: T
 }
 
 // O inverso: só o que difere do padrão vai para o endereço.
-export function viewSearch(tab: Tab, year: number, currentYear: number): string {
+export function viewSearch(tab: Tab, year: number, currentYear: number, goal: string | null = null): string {
   const params = new URLSearchParams()
   if (tab !== 'carteira') params.set('aba', tab)
   if (year !== currentYear) params.set('ano', String(year))
+  if (tab === 'objetivos' && goal) params.set('objetivo', goal)
   const text = params.toString()
   return text ? `?${text}` : ''
 }

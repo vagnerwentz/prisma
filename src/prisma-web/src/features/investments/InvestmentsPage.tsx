@@ -14,6 +14,7 @@ import { EventReviewList } from './EventReviewList'
 import type { AssetItem } from './assets'
 import { HoldingDetails, type ListedHolding } from './HoldingSheet'
 import { assetOf } from './holdings'
+import { GoalsTab } from './GoalsTab'
 import { NotesTab } from './NotesTab'
 import { PayoutSheet, type PayoutView } from './PayoutSheet'
 import { PayoutsTab } from './PayoutsTab'
@@ -32,7 +33,7 @@ import {
 } from './queries'
 import { TradeNoteSheet, type TradeNoteView } from './TradeNoteSheet'
 
-const tabLabels: Record<Tab, string> = { carteira: 'Carteira', proventos: 'Proventos', notas: 'Notas' }
+const tabLabels: Record<Tab, string> = { carteira: 'Carteira', proventos: 'Proventos', notas: 'Notas', objetivos: 'Objetivos' }
 
 // Investimentos, dentro de Contas (docs/investimentos.md). Três abas (I.7e): a Carteira (quanto está investido, o
 // espectro por tipo e cada ativo com o peso), os Proventos (com filtros, mês a mês e ano a ano) e as Notas. O ano
@@ -43,8 +44,11 @@ export function InvestmentsPage() {
   const currentYear = Number(today.slice(0, 4))
   const [search, setSearch] = useSearchParams()
   const { tab, year } = readView(search, currentYear)
-  const go = (next: { tab?: Tab; year?: number }) =>
-    setSearch(viewSearch(next.tab ?? tab, next.year ?? year, currentYear), { replace: true })
+  const goalParam = search.get('objetivo')
+  const go = (next: { tab?: Tab; year?: number; goal?: string | null }) =>
+    setSearch(viewSearch(next.tab ?? tab, next.year ?? year, currentYear, next.goal === undefined ? goalParam : next.goal), {
+      replace: true,
+    })
 
   const portfolio = usePortfolio(year)
   const holdings = useHoldings()
@@ -135,13 +139,13 @@ export function InvestmentsPage() {
 
       <Tabs.Root value={tab} onValueChange={(value) => go({ tab: value as Tab })} className="flex flex-col gap-5">
         <div className="flex flex-col gap-4">
-          <Tabs.List aria-label="Investimentos" className="surface grid grid-cols-3 gap-1 rounded-full p-1">
+          <Tabs.List aria-label="Investimentos" className="surface grid grid-cols-4 gap-1 rounded-full p-1">
             {(Object.keys(tabLabels) as Tab[]).map((t) => (
               <Tabs.Trigger
                 key={t}
                 value={t}
                 className={cn(
-                  'h-9 rounded-full border-2 border-transparent text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+                  'h-9 rounded-full border-2 border-transparent text-[13px] transition-colors min-[360px]:text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
                   t === tab ? 'spectrum-ring font-medium text-foreground' : 'text-muted-foreground hover:text-foreground',
                 )}
               >
@@ -149,7 +153,7 @@ export function InvestmentsPage() {
               </Tabs.Trigger>
             ))}
           </Tabs.List>
-          <YearSwitcher year={year} first={years[0]} last={currentYear} onChange={(y) => go({ year: y })} />
+          {tab !== 'objetivos' && <YearSwitcher year={year} first={years[0]} last={currentYear} onChange={(y) => go({ year: y })} />}
         </div>
 
         <Tabs.Content value="carteira" className="outline-none">
@@ -197,6 +201,9 @@ export function InvestmentsPage() {
             onOpenNote={(id) => setNoteView({ kind: 'edit', id })}
             onNewNote={() => setNoteView({ kind: 'new' })}
           />
+        </Tabs.Content>
+        <Tabs.Content value="objetivos" className="outline-none">
+          <GoalsTab goalParam={goalParam} onOpen={(goal) => go({ goal })} />
         </Tabs.Content>
       </Tabs.Root>
 

@@ -22,3 +22,6 @@ export const assetRequestsKey = ['asset-requests'] as const
 export const eventReviewsKey = ['event-reviews'] as const
 // Usuário da sessão: null quando não há sessão.
 export const meKey = ['auth', 'me'] as const
+// Renda fixa (docs/renda-fixa.md, R.6): objetivos, aportes, saldos e evolução. Os aportes com origem mexem também em
+// dinheiro (invalidateMoney); a chave é separada porque excluir só um objetivo não mexe em conta nenhuma.
+export const fixedIncomeKey = ['fixed-income'] as const
