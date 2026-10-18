@@ -1066,6 +1066,15 @@ cadastrados à mão, rendimento calculado pelo CDI do Banco Central. Plano compl
 - [x] **R.3 Sincronização** — `ReferenceRateSync` + `ReferenceRateWorker` (19h30 e 23h30 em São Paulo, e ao subir se o histórico
   estiver vazio ou atrasado): idempotente (índice único + releitura), revisão de valor com `RevisedAt` e aviso no log, falha da
   fonte sem efeito, lacuna e defasagem (`ReferenceRateCoverage`, único uso do calendário bancário no CDI, só para diagnóstico).
+- [x] **R.4 Objetivos e aportes (API)** — `SavingsGoal` (a caixa) e `FixedIncomeDeposit` (o aporte, `GoalId` opcional) em
+  `/savings-goals` e `/fixed-income-deposits`: criar, editar, listar, mover entre caixas, excluir e desfazer; excluir o objetivo
+  exige escolher entre manter os investimentos (ficam soltos) ou levá-los junto; `clientRequestId` contra aporte duplicado; `xmin`;
+  data do aporte conferida contra o início do histórico do CDI. Exclusão de conta, limpeza dos excluídos e cópia dos dados cobrem
+  as tabelas novas. O `npm run gen:api` fica para a R.6, junto com a tela (exige a API rodando com o banco migrado).
+- [x] **R.4b Aporte que sai de uma conta** — `funding` opcional no aporte (de que conta saiu, em qual conta de investimento entrou):
+  o app cria a transferência junto, na mesma gravação, e o saldo da conta cai e o "Investido" do Resumo sobe, sem virar receita
+  nem despesa. Valor e data do aporte financiado ficam travados (transferência não se edita); excluir pergunta se a transferência
+  fica ou sai junto; desfazer traz as duas.
 
 ---
 

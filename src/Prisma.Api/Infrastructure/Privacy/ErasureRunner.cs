@@ -30,7 +30,7 @@ public sealed class ErasureRunner(IServiceScopeFactory scopes, IClock clock, ILo
     public static readonly IReadOnlySet<string> PurgedTables = new HashSet<string>
     {
         "transactions", "recurrence_pendings", "installment_purchases", "holdings", "asset_requests", "event_reviews",
-        "trade_notes", "categories", "accounts",
+        "trade_notes", "fixed_income_deposits", "savings_goals", "categories", "accounts",
     };
 
     public static readonly IReadOnlySet<string> PurgedWithAccount = new HashSet<string> { "statements", "recurrences" };
@@ -56,6 +56,14 @@ public sealed class ErasureRunner(IServiceScopeFactory scopes, IClock clock, ILo
         "DELETE FROM event_reviews WHERE deleted_at < @cutoff",
         "DELETE FROM trades WHERE trade_note_id IN (SELECT id FROM trade_notes WHERE deleted_at < @cutoff)",
         "DELETE FROM trade_notes WHERE deleted_at < @cutoff",
+
+        // Renda fixa: os aportes antes dos objetivos que os guardavam. Excluir o objetivo deixa os aportes soltos ou os leva junto,
+        // então um objetivo vencido nunca é apontado por aporte vivo; o NOT EXISTS é a segunda trava.
+        "DELETE FROM fixed_income_deposits WHERE deleted_at < @cutoff",
+        """
+        DELETE FROM savings_goals g WHERE g.deleted_at < @cutoff
+        AND NOT EXISTS (SELECT 1 FROM fixed_income_deposits d WHERE d.goal_id = g.id)
+        """,
 
         // Categorias: a série que usava a categoria fica sem ela; subcategorias antes das categorias de cima.
         "UPDATE recurrences SET category_id = NULL WHERE category_id IN (SELECT id FROM categories WHERE deleted_at < @cutoff)",

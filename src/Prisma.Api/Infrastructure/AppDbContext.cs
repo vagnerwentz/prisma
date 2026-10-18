@@ -70,6 +70,11 @@ public sealed class AppDbContext(
     // Eventos da empresa (desdobramento, grupamento, conversão; I.7c1). Globais, como o catálogo.
     public DbSet<CorporateEvent> CorporateEvents => Set<CorporateEvent>();
 
+    // Objetivos (as caixas) e aportes em renda fixa de cada pessoa (docs/renda-fixa.md, 2.2 e 2.3).
+    public DbSet<SavingsGoal> SavingsGoals => Set<SavingsGoal>();
+
+    public DbSet<FixedIncomeDeposit> FixedIncomeDeposits => Set<FixedIncomeDeposit>();
+
     // Taxas diárias do CDI, do Banco Central: dado de mercado, o mesmo para todos (docs/renda-fixa.md, 2.4). Sem filtro.
     public DbSet<ReferenceRate> ReferenceRates => Set<ReferenceRate>();
 

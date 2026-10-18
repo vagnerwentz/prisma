@@ -223,6 +223,34 @@ public static partial class AppLog
     [LoggerMessage(4207, LogLevel.Information, "Next reference rates sync at {NextRunUtc:o}")]
     public static partial void ReferenceRateNextRun(this ILogger logger, DateTime nextRunUtc);
 
+    [LoggerMessage(4300, LogLevel.Information, "Savings goal {GoalId} created")]
+    public static partial void GoalCreated(this ILogger logger, Guid goalId);
+
+    [LoggerMessage(4301, LogLevel.Information, "Savings goal {GoalId} edited")]
+    public static partial void GoalEdited(this ILogger logger, Guid goalId);
+
+    [LoggerMessage(4302, LogLevel.Information, "Savings goal {GoalId} deleted: {DetachedDeposits} deposits kept loose, {DeletedDeposits} deleted with it")]
+    public static partial void GoalDeleted(this ILogger logger, Guid goalId, int detachedDeposits, int deletedDeposits);
+
+    [LoggerMessage(4303, LogLevel.Information, "Savings goal {GoalId} restored: {RestoredDeposits} deposits back with it, {RelinkedDeposits} relinked")]
+    public static partial void GoalRestored(this ILogger logger, Guid goalId, int restoredDeposits, int relinkedDeposits);
+
+    [LoggerMessage(4310, LogLevel.Information, "Fixed income deposit {DepositId} added (goal {GoalId})")]
+    public static partial void DepositAdded(this ILogger logger, Guid depositId, Guid? goalId);
+
+    // Só os nomes dos campos que mudaram, nunca os valores.
+    [LoggerMessage(4311, LogLevel.Information, "Fixed income deposit {DepositId} edited: {Fields}")]
+    public static partial void DepositEdited(this ILogger logger, Guid depositId, string fields);
+
+    [LoggerMessage(4312, LogLevel.Information, "Fixed income deposit {DepositId} moved from goal {FromGoalId} to goal {ToGoalId}")]
+    public static partial void DepositMoved(this ILogger logger, Guid depositId, Guid? fromGoalId, Guid? toGoalId);
+
+    [LoggerMessage(4313, LogLevel.Information, "Fixed income deposit {DepositId} deleted")]
+    public static partial void DepositDeleted(this ILogger logger, Guid depositId);
+
+    [LoggerMessage(4314, LogLevel.Information, "Fixed income deposit {DepositId} restored")]
+    public static partial void DepositRestored(this ILogger logger, Guid depositId);
+
     [LoggerMessage(4100, LogLevel.Information, "Holding {HoldingId} of asset {AssetId} added to the portfolio")]
     public static partial void HoldingAdded(this ILogger logger, Guid holdingId, Guid assetId);
 

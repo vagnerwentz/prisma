@@ -1,0 +1,128 @@
+# Renda fixa: objetivos (as caixas) e aportes (docs/renda-fixa.md). Exige sessão: rode antes o Login de auth.http.
+# Percentual do CDI em E4: 100% = 1000000, 110% = 1100000. Dinheiro em centavos.
+
+### Os objetivos, com quantos aportes e quanto aportado, e o que está fora de qualquer caixa
+GET {{baseUrl}}/savings-goals
+
+### Criar um objetivo (409 GoalNameTaken se já existe um com o mesmo nome, sem diferenciar maiúsculas)
+POST {{baseUrl}}/savings-goals
+Content-Type: application/json
+
+{
+  "name": "Casamento",
+  "description": "Festa e lua de mel",
+  "targetCents": 5000000,
+  "defaultIndexPercentE4": 1000000
+}
+
+### Editar um objetivo
+PUT {{baseUrl}}/savings-goals/<id do objetivo>
+Content-Type: application/json
+
+{
+  "name": "Casamento",
+  "description": null,
+  "targetCents": 6000000,
+  "defaultIndexPercentE4": 1050000
+}
+
+### Excluir o objetivo mantendo os investimentos (ficam soltos). Sem ?deposits= e com aportes dentro: 400 DepositsChoiceRequired
+DELETE {{baseUrl}}/savings-goals/<id do objetivo>?deposits=keep
+
+### Excluir o objetivo e os investimentos dele
+DELETE {{baseUrl}}/savings-goals/<id do objetivo>?deposits=delete
+
+### Desfazer a exclusão. O corpo é opcional: os ids que ficaram soltos, devolvidos pela exclusão, voltam para a caixa
+POST {{baseUrl}}/savings-goals/<id do objetivo>/restore
+Content-Type: application/json
+
+{
+  "detachedDepositIds": ["<id de aporte>"]
+}
+
+### Os aportes: todos, de uma caixa (?goal=<id>) ou os soltos (?goal=none)
+GET {{baseUrl}}/fixed-income-deposits
+###
+GET {{baseUrl}}/fixed-income-deposits?goal=none
+
+### Lançar um aporte. O clientRequestId é novo a cada formulário; repetir o mesmo devolve o aporte que já existe.
+### Data antes do início do histórico do CDI: 400 BeforeFirstRate.
+POST {{baseUrl}}/fixed-income-deposits
+Content-Type: application/json
+
+{
+  "goalId": null,
+  "clientRequestId": "11111111-1111-4111-8111-111111111111",
+  "depositDate": "2026-07-21",
+  "amountCents": 609731,
+  "productKind": "Cdb",
+  "indexKind": "Cdi",
+  "indexPercentE4": 1000000,
+  "maturityDate": null,
+  "liquidity": "Unknown",
+  "note": "CDB do Itaú"
+}
+
+### Lançar um aporte que saiu de uma conta (cria a transferência junto: o saldo da conta cai e o "Investido" do Resumo sobe).
+### Origem: conta corrente ou carteira; destino: conta de investimento. Valor e data de um aporte assim não mudam (409 FundedDepositLocked).
+POST {{baseUrl}}/fixed-income-deposits
+Content-Type: application/json
+
+{
+  "goalId": null,
+  "clientRequestId": "22222222-2222-4222-8222-222222222222",
+  "depositDate": "2026-07-21",
+  "amountCents": 1000000,
+  "productKind": "Cdb",
+  "indexKind": "Cdi",
+  "indexPercentE4": 1000000,
+  "maturityDate": null,
+  "liquidity": "Unknown",
+  "note": null,
+  "funding": {
+    "fromAccountId": "<id da conta corrente>",
+    "toAccountId": "<id da conta de investimento>",
+    "method": "Pix"
+  }
+}
+
+### Excluir um aporte que saiu de uma conta: ?transfer=keep (o dinheiro continua movido) ou ?transfer=delete (leva a transferência junto)
+DELETE {{baseUrl}}/fixed-income-deposits/<id do aporte>?transfer=keep
+
+### Editar o contrato do aporte (a caixa muda abaixo)
+PUT {{baseUrl}}/fixed-income-deposits/<id do aporte>
+Content-Type: application/json
+
+{
+  "depositDate": "2026-07-21",
+  "amountCents": 609731,
+  "productKind": "Cdb",
+  "indexKind": "Cdi",
+  "indexPercentE4": 1100000,
+  "maturityDate": null,
+  "liquidity": "Daily",
+  "note": null
+}
+
+### Mudar de caixa (goalId nulo tira de todas). Data, valor e rendimento não mudam.
+PATCH {{baseUrl}}/fixed-income-deposits/<id do aporte>/goal
+Content-Type: application/json
+
+{
+  "goalId": "<id do objetivo>"
+}
+
+### Excluir e desfazer
+DELETE {{baseUrl}}/fixed-income-deposits/<id do aporte>
+###
+POST {{baseUrl}}/fixed-income-deposits/<id do aporte>/restore
+
+### Saldo de cada aporte, de cada caixa, dos soltos e total, até uma data (padrão: hoje; data futura é 400): bruto e, em `tax`
+### (por aporte) e `estimatedTaxCents`/`netYieldCents`/`netBalanceCents` (por grupo), o imposto e o líquido estimados de resgatar na data (R.7).
+### `rates` diz até que dia as taxas do CDI vão, se estão defasadas e se falta algum dia útil.
+GET {{baseUrl}}/fixed-income/balances?asOf=2026-10-16
+
+### A evolução do saldo para o gráfico: goal=all (padrão) | none | <id da caixa>; from/to opcionais; step=day (padrão) | week | month
+GET {{baseUrl}}/fixed-income/evolution?goal=all&step=week
+###
+GET {{baseUrl}}/fixed-income/evolution?goal=<id do objetivo>&from=2026-09-01&to=2026-09-30

@@ -1,0 +1,44 @@
+using FluentValidation;
+
+namespace Prisma.Api.Features.FixedIncome;
+
+// Objetivos (as caixas) e aportes em renda fixa da pessoa (docs/renda-fixa.md).
+public static class FixedIncomeModule
+{
+    public static IServiceCollection AddFixedIncomeFeatures(this IServiceCollection services)
+    {
+        services.AddScoped<ListGoals.Handler>();
+        services.AddScoped<SaveGoal.Handler>();
+        services.AddSingleton<IValidator<SaveGoal.Request>, SaveGoal.Validator>();
+        services.AddScoped<DeleteGoal.Handler>();
+        services.AddScoped<RestoreGoal.Handler>();
+
+        services.AddScoped<ListDeposits.Handler>();
+        services.AddScoped<SaveDeposit.Handler>();
+        services.AddSingleton<IValidator<SaveDeposit.CreateRequest>, SaveDeposit.CreateValidator>();
+        services.AddSingleton<IValidator<SaveDeposit.UpdateRequest>, SaveDeposit.UpdateValidator>();
+        services.AddScoped<MoveDeposit.Handler>();
+        services.AddScoped<DeleteDeposit.Handler>();
+        services.AddScoped<RestoreDeposit.Handler>();
+
+        return services;
+    }
+
+    public static void MapFixedIncomeEndpoints(this IEndpointRouteBuilder app)
+    {
+        var goals = app.MapGroup("/savings-goals");
+        ListGoals.Map(goals);
+        SaveGoal.MapCreate(goals);
+        SaveGoal.MapUpdate(goals);
+        DeleteGoal.Map(goals);
+        RestoreGoal.Map(goals);
+
+        var deposits = app.MapGroup("/fixed-income-deposits");
+        ListDeposits.Map(deposits);
+        SaveDeposit.MapCreate(deposits);
+        SaveDeposit.MapUpdate(deposits);
+        MoveDeposit.Map(deposits);
+        DeleteDeposit.Map(deposits);
+        RestoreDeposit.Map(deposits);
+    }
+}
