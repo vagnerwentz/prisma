@@ -4614,6 +4614,7 @@ export interface components {
             /** Format: date */
             ratesThrough: null | string;
             unavailable: null | string;
+            tax: null | components["schemas"]["DepositTax"];
         };
         /** @enum {unknown} */
         DepositLiquidity: "Unknown" | "Daily" | "AtMaturity";
@@ -4635,6 +4636,23 @@ export interface components {
             liquidity: components["schemas"]["DepositLiquidity"];
             note: null | string;
             funding?: null | components["schemas"]["FundingResponse"];
+        };
+        DepositTax: {
+            /** Format: int64 */
+            iofCents: number;
+            /** Format: int64 */
+            irCents: number;
+            /** Format: int64 */
+            totalCents: number;
+            /** Format: int32 */
+            irRateBasisPoints: number;
+            /** Format: int32 */
+            holdingDays: number;
+            ruleVersion: string;
+            /** Format: int64 */
+            netYieldCents: number;
+            /** Format: int64 */
+            netBalanceCents: number;
         };
         DisputeEventRequest: {
             /** Format: int64 */
@@ -4866,6 +4884,12 @@ export interface components {
             grossYieldCents: number;
             /** Format: date */
             ratesThrough: null | string;
+            /** Format: int64 */
+            estimatedTaxCents: number;
+            /** Format: int64 */
+            netYieldCents: number;
+            /** Format: int64 */
+            netBalanceCents: number;
         };
         HoldingResponse: {
             /** Format: uuid */

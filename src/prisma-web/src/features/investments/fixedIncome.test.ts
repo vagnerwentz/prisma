@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   defaultIndexPercentE4,
+  balanceLabels,
   depositCountLabel,
+  depositTaxNote,
+  depositYield,
   formatPercent,
   formatPercentE4,
   goalProgress,
@@ -12,6 +15,12 @@ import {
   progressLabel,
   ratesFootnote,
   ratesNotice,
+  shownBalance,
+  shownYield,
+  taxFootnote,
+  yieldLabels,
+  type DepositBalance,
+  type GroupBalance,
   type RatesStatus,
 } from './fixedIncome'
 
@@ -130,5 +139,76 @@ describe('textos', () => {
   it('singular e plural', () => {
     expect(depositCountLabel(1)).toBe('1 aporte')
     expect(depositCountLabel(3)).toBe('3 aportes')
+  })
+})
+
+const group: GroupBalance = {
+  depositCount: 2,
+  unavailableCount: 0,
+  principalCents: 1_000_000,
+  grossBalanceCents: 1_100_000,
+  grossYieldCents: 100_000,
+  ratesThrough: '2026-10-15',
+  estimatedTaxCents: 22_500,
+  netYieldCents: 77_500,
+  netBalanceCents: 1_077_500,
+}
+
+describe('bruto e líquido estimado', () => {
+  it('o modo escolhe qual saldo e qual rendimento aparecem', () => {
+    expect(shownBalance(group, 'gross')).toBe(1_100_000)
+    expect(shownBalance(group, 'net')).toBe(1_077_500)
+    expect(shownYield(group, 'gross')).toBe(100_000)
+    expect(shownYield(group, 'net')).toBe(77_500)
+  })
+
+  it('o líquido é o bruto menos o imposto estimado', () => {
+    expect(shownBalance(group, 'gross') - group.estimatedTaxCents).toBe(shownBalance(group, 'net'))
+    expect(shownYield(group, 'gross') - group.estimatedTaxCents).toBe(shownYield(group, 'net'))
+  })
+
+  it('os rótulos nunca falam em lucro nem em ganho', () => {
+    const texts = [...Object.values(yieldLabels), ...Object.values(balanceLabels), taxFootnote].join(' ').toLowerCase()
+    expect(texts).not.toContain('lucro')
+    expect(texts).not.toContain('ganh')
+    expect(balanceLabels.net).toBe('Saldo líquido estimado')
+  })
+
+  const deposit = (over: Partial<DepositBalance>): DepositBalance => ({
+    depositId: 'd',
+    goalId: null,
+    depositDate: '2026-07-21',
+    principalCents: 100_000,
+    indexPercentE4: 1_000_000,
+    grossBalanceCents: 101_000,
+    grossYieldCents: 1_000,
+    factorE8: 101_000_000,
+    ratesUsed: 10,
+    ratesThrough: '2026-10-15',
+    unavailable: null,
+    tax: {
+      iofCents: 0,
+      irCents: 225,
+      totalCents: 225,
+      irRateBasisPoints: 2_250,
+      holdingDays: 87,
+      ruleVersion: 'v',
+      netYieldCents: 775,
+      netBalanceCents: 100_775,
+    },
+    ...over,
+  })
+
+  it('o rendimento do aporte segue o modo; sem taxa não há o que mostrar', () => {
+    expect(depositYield(deposit({}), 'gross')).toBe(1_000)
+    expect(depositYield(deposit({}), 'net')).toBe(775)
+    expect(depositYield(deposit({ grossYieldCents: null, tax: null }), 'gross')).toBeNull()
+    expect(depositYield(deposit({ grossYieldCents: null, tax: null }), 'net')).toBeNull()
+  })
+
+  it('a nota do aporte diz a alíquota e o prazo, e o IOF quando há', () => {
+    expect(depositTaxNote(deposit({}).tax)).toBe('IR 22,5% · 87 dias')
+    expect(depositTaxNote({ ...deposit({}).tax!, iofCents: 49, holdingDays: 1 })).toBe('IOF + IR 22,5% · 1 dia')
+    expect(depositTaxNote(null)).toBeNull()
   })
 })

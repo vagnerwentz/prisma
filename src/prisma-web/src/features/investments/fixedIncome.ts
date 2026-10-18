@@ -117,3 +117,39 @@ export type GoalScope = 'all' | 'none' | string
 
 // Quem o endereço chama de objetivo: ?objetivo=<id> ou ?objetivo=sem (os aportes soltos).
 export const looseGoalParam = 'sem'
+
+// Bruto ou líquido estimado (R.7). O líquido é o bruto menos o imposto de resgatar hoje; nunca "lucro" nem "ganho" (7.3).
+export type ValueMode = 'gross' | 'net'
+export const valueModes: ValueMode[] = ['gross', 'net']
+export const valueModeLabels: Record<ValueMode, string> = { gross: 'Bruto', net: 'Líquido estimado' }
+export type DepositTax = NonNullable<DepositBalance['tax']>
+
+export function shownBalance(group: GroupBalance, mode: ValueMode): number {
+  return mode === 'net' ? group.netBalanceCents : group.grossBalanceCents
+}
+
+export function shownYield(group: GroupBalance, mode: ValueMode): number {
+  return mode === 'net' ? group.netYieldCents : group.grossYieldCents
+}
+
+// O rendimento de um aporte no modo escolhido; sem taxa (ou sem imposto calculado), nada a mostrar.
+export function depositYield(deposit: DepositBalance, mode: ValueMode): number | null {
+  if (deposit.grossYieldCents === null) return null
+  return mode === 'net' ? (deposit.tax?.netYieldCents ?? null) : deposit.grossYieldCents
+}
+
+export const yieldLabels: Record<ValueMode, string> = { gross: 'Rendimento bruto', net: 'Rendimento líquido estimado' }
+export const balanceLabels: Record<ValueMode, string> = { gross: 'Saldo bruto estimado', net: 'Saldo líquido estimado' }
+
+// A explicação do imposto, sempre a mesma: é estimativa de resgate hoje, e quem retém é o banco.
+export const taxFootnote =
+  'Imposto estimado como se você resgatasse hoje: IOF nos primeiros 29 dias e IR de 22,5% a 15% conforme o prazo de cada aporte. O banco retém no resgate; o valor real pode diferir em centavos.'
+
+// Quando o aporte rende e a regra de imposto diz quanto: "IR 22,5% · 87 dias".
+export function depositTaxNote(tax: DepositTax | null | undefined): string | null {
+  if (!tax) return null
+  const parts = []
+  if (tax.iofCents > 0) parts.push('IOF')
+  parts.push(`IR ${formatPercent(tax.irRateBasisPoints / 100)}`)
+  return `${parts.join(' + ')} · ${tax.holdingDays} ${tax.holdingDays === 1 ? 'dia' : 'dias'}`
+}

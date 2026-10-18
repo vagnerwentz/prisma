@@ -12,8 +12,11 @@ import { formatCents } from '@/lib/money'
 import { cn } from '@/lib/utils'
 import { DepositSheet, type DepositView } from './DepositSheet'
 import {
+  balanceLabels,
   depositCountLabel,
+  depositTaxNote,
   depositUnavailableNote,
+  depositYield,
   formatPercentE4,
   goalProgress,
   looseGoalParam,
@@ -23,11 +26,18 @@ import {
   progressLabel,
   ratesFootnote,
   ratesNotice,
+  shownBalance,
+  shownYield,
+  taxFootnote,
+  valueModeLabels,
+  valueModes,
+  yieldLabels,
   type Balances,
   type DepositBalance,
   type Goal,
   type GroupBalance,
   type Period,
+  type ValueMode,
 } from './fixedIncome'
 import {
   useDeleteGoal,
@@ -48,6 +58,7 @@ export function GoalsTab({ goalParam, onOpen }: { goalParam: string | null; onOp
   const balances = useFixedIncomeBalances()
   const [goalView, setGoalView] = useState<GoalView | null>(null)
   const [depositView, setDepositView] = useState<DepositView | null>(null)
+  const [mode, setMode] = useState<ValueMode>('gross')
 
   const goalList = goals.data?.goals ?? []
   const failed = goals.isError || balances.isError
@@ -66,10 +77,12 @@ export function GoalsTab({ goalParam, onOpen }: { goalParam: string | null; onOp
 
   return (
     <div className="flex flex-col gap-5">
+      {(goalList.length > 0 || goals.data.unassigned.depositCount > 0) && <ModeToggle mode={mode} onChange={setMode} />}
       {open ? (
         <GoalDetail
           goal={open === 'loose' ? null : open}
           balances={data}
+          mode={mode}
           onBack={() => onOpen(null)}
           onEdit={(goal) => setGoalView({ kind: 'edit', goal })}
           onDeposit={setDepositView}
@@ -80,6 +93,7 @@ export function GoalsTab({ goalParam, onOpen }: { goalParam: string | null; onOp
           goals={goalList}
           unassigned={goals.data.unassigned}
           balances={data}
+          mode={mode}
           onOpen={onOpen}
           onNewGoal={() => setGoalView({ kind: 'new' })}
           onNewDeposit={() => setDepositView({ kind: 'new', goalId: null })}
@@ -87,6 +101,28 @@ export function GoalsTab({ goalParam, onOpen }: { goalParam: string | null; onOp
       )}
       <GoalSheet view={goalView} onClose={() => setGoalView(null)} onSaved={(id) => goalView?.kind === 'new' && onOpen(id)} />
       <DepositSheet view={depositView} goals={goalList} onClose={() => setDepositView(null)} />
+    </div>
+  )
+}
+
+// Bruto ou líquido estimado: vale para a lista e para o detalhe. O líquido é o bruto menos o imposto de resgatar hoje.
+function ModeToggle({ mode, onChange }: { mode: ValueMode; onChange: (mode: ValueMode) => void }) {
+  return (
+    <div role="group" aria-label="Valores" className="surface grid grid-cols-2 gap-1 rounded-full p-1">
+      {valueModes.map((m) => (
+        <button
+          key={m}
+          type="button"
+          aria-pressed={m === mode}
+          onClick={() => onChange(m)}
+          className={cn(
+            'h-9 rounded-full border-2 border-transparent text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+            m === mode ? 'spectrum-ring font-medium text-foreground' : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          {valueModeLabels[m]}
+        </button>
+      ))}
     </div>
   )
 }
@@ -105,14 +141,20 @@ function Notices({ balances }: { balances: Balances }) {
   )
 }
 
-function Footnote({ balances }: { balances: Balances }) {
-  return <p className="px-1 text-xs text-muted-foreground">{ratesFootnote(balances.rates)}</p>
+function Footnote({ balances, mode }: { balances: Balances; mode: ValueMode }) {
+  return (
+    <div className="flex flex-col gap-1 px-1 text-xs text-muted-foreground">
+      <p>{ratesFootnote(balances.rates)}</p>
+      {mode === 'net' && <p>{taxFootnote}</p>}
+    </div>
+  )
 }
 
 function GoalList({
   goals,
   unassigned,
   balances,
+  mode,
   onOpen,
   onNewGoal,
   onNewDeposit,
@@ -120,6 +162,7 @@ function GoalList({
   goals: Goal[]
   unassigned: { depositCount: number; principalCents: number }
   balances: Balances
+  mode: ValueMode
   onOpen: (param: string) => void
   onNewGoal: () => void
   onNewDeposit: () => void
@@ -145,12 +188,17 @@ function GoalList({
     <>
       <Notices balances={balances} />
       <section className="surface flex flex-col gap-1 rounded-2xl p-5">
-        <p className="text-sm text-muted-foreground">Saldo bruto estimado</p>
-        <p className="font-display text-4xl leading-none tabular-nums">{formatCents(total.grossBalanceCents)}</p>
+        <p className="text-sm text-muted-foreground">{balanceLabels[mode]}</p>
+        <p className="font-display text-4xl leading-none tabular-nums">{formatCents(shownBalance(total, mode))}</p>
         <p className="text-sm text-muted-foreground">
-          Aportado {formatCents(total.principalCents)} · rendimento{' '}
-          <span className="text-spectrum font-medium tabular-nums">{formatCents(total.grossYieldCents)}</span>
+          Aportado {formatCents(total.principalCents)} · {yieldLabels[mode].toLowerCase()}{' '}
+          <span className="text-spectrum font-medium tabular-nums">{formatCents(shownYield(total, mode))}</span>
         </p>
+        {mode === 'net' && (
+          <p className="text-sm text-muted-foreground">
+            Imposto estimado (se resgatar hoje) <span className="font-medium tabular-nums">{formatCents(total.estimatedTaxCents)}</span>
+          </p>
+        )}
       </section>
 
       <ul className="flex flex-col gap-3">
@@ -161,6 +209,7 @@ function GoalList({
               <GoalCard
                 name={goal.name}
                 balance={balance}
+                mode={mode}
                 principalCents={goal.principalCents}
                 count={goal.depositCount}
                 targetCents={goal.targetCents}
@@ -174,6 +223,7 @@ function GoalList({
             <GoalCard
               name="Sem objetivo"
               balance={balances.unassigned.balance}
+              mode={mode}
               principalCents={unassigned.principalCents}
               count={unassigned.depositCount}
               targetCents={null}
@@ -191,7 +241,7 @@ function GoalList({
           <Plus /> Novo aporte
         </Button>
       </div>
-      <Footnote balances={balances} />
+      <Footnote balances={balances} mode={mode} />
     </>
   )
 }
@@ -199,6 +249,7 @@ function GoalList({
 function GoalCard({
   name,
   balance,
+  mode,
   principalCents,
   count,
   targetCents,
@@ -206,13 +257,14 @@ function GoalCard({
 }: {
   name: string
   balance: GroupBalance | undefined
+  mode: ValueMode
   principalCents: number
   count: number
   targetCents: number | null
   onClick: () => void
 }) {
-  const shown = balance?.grossBalanceCents ?? principalCents
-  const yieldCents = balance?.grossYieldCents ?? 0
+  const shown = balance ? shownBalance(balance, mode) : principalCents
+  const yieldCents = balance ? shownYield(balance, mode) : 0
   const progress = goalProgress(shown, targetCents)
   return (
     <button
@@ -247,6 +299,7 @@ function GoalCard({
 function GoalDetail({
   goal,
   balances,
+  mode,
   onBack,
   onEdit,
   onDeposit,
@@ -254,6 +307,7 @@ function GoalDetail({
 }: {
   goal: Goal | null
   balances: Balances
+  mode: ValueMode
   onBack: () => void
   onEdit: (goal: Goal) => void
   onDeposit: (view: DepositView) => void
@@ -274,7 +328,7 @@ function GoalDetail({
   const restore = useRestoreGoal()
 
   const principal = balance?.principalCents ?? goal?.principalCents ?? 0
-  const shown = balance?.grossBalanceCents ?? principal
+  const shown = balance ? shownBalance(balance, mode) : principal
   const hasDeposits = (deposits.data?.length ?? 0) > 0
 
   const deleteGoal = async (choice?: 'keep' | 'delete') => {
@@ -311,10 +365,15 @@ function GoalDetail({
         <h2 className="text-sm text-muted-foreground">{goal?.name ?? 'Sem objetivo'}</h2>
         <p className="font-display text-4xl leading-none tabular-nums">{formatCents(shown)}</p>
         <p className="text-sm text-muted-foreground">
-          Aportado {formatCents(principal)} · rendimento bruto{' '}
-          <span className="text-spectrum font-medium tabular-nums">{formatCents(balance?.grossYieldCents ?? 0)}</span>
+          Aportado {formatCents(principal)} · {yieldLabels[mode].toLowerCase()}{' '}
+          <span className="text-spectrum font-medium tabular-nums">{formatCents(balance ? shownYield(balance, mode) : 0)}</span>
           {balance?.ratesThrough && ` até ${formatShortDate(balance.ratesThrough)}`}
         </p>
+        {mode === 'net' && balance && (
+          <p className="text-sm text-muted-foreground">
+            Imposto estimado (se resgatar hoje) <span className="font-medium tabular-nums">{formatCents(balance.estimatedTaxCents)}</span>
+          </p>
+        )}
       </section>
 
       {hasDeposits && (
@@ -344,13 +403,14 @@ function GoalDetail({
               <p className="py-10 text-center text-sm text-muted-foreground">Ainda não há dias suficientes para o gráfico.</p>
             )}
           </StaleFade>
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <span className="size-2.5 rounded-full bg-foreground/80" /> Aportado
             </span>
             <span className="flex items-center gap-1.5">
               <span className="size-2.5 rounded-full bg-[linear-gradient(#8b5cf6,#22d3ee)]" /> Saldo bruto
             </span>
+            {mode === 'net' && <span>O gráfico mostra valores brutos.</span>}
           </div>
         </section>
       )}
@@ -371,6 +431,7 @@ function GoalDetail({
             {(deposits.data ?? []).map((d) => {
               const b = balanceOf.get(d.id)
               const note = b ? depositUnavailableNote(b) : null
+              const yieldCents = b ? depositYield(b, mode) : null
               return (
                 <li key={d.id}>
                   <button
@@ -385,10 +446,15 @@ function GoalDetail({
                         {d.maturityDate && ` · vence ${formatShortDate(d.maturityDate)}`}
                         {d.funding && ' · saiu de uma conta'}
                       </span>
+                      {mode === 'net' && b?.tax && (
+                        <span className="block text-xs text-muted-foreground">
+                          Imposto estimado {formatCents(b.tax.totalCents)} · {depositTaxNote(b.tax)}
+                        </span>
+                      )}
                       {note && <span className="block text-xs text-muted-foreground">{note}</span>}
                     </span>
                     <span className="text-spectrum shrink-0 text-sm font-medium tabular-nums">
-                      {b?.grossYieldCents != null ? `+${formatCents(b.grossYieldCents)}` : ''}
+                      {yieldCents !== null ? `+${formatCents(yieldCents)}` : ''}
                     </span>
                   </button>
                 </li>
@@ -398,7 +464,7 @@ function GoalDetail({
         )}
       </section>
 
-      <Footnote balances={balances} />
+      <Footnote balances={balances} mode={mode} />
 
       {goal && (
         <Button

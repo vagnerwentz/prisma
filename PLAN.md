@@ -1081,6 +1081,7 @@ cadastrados à mão, rendimento calculado pelo CDI do Banco Central. Plano compl
   data futura é recusada. Aporte sem taxa vem sem saldo e o total o conta pelo principal, avisando. Casos de referência (cálculo
   independente e extratos do banco) em `fixed-income-reference.json`.
 - [x] **R.6 Interface (bruto)** — aba "Objetivos" em Investimentos: lista com saldo e meta, detalhe com gráfico de evolução e aportes, painéis de objetivo e de aporte (com origem da conta), perguntas ao excluir, avisos de taxa defasada/incompleta. Conferida em 320/390/1280, claro e escuro, com toque real.
+- [x] **R.7 Tributação (líquido estimado)** — `FixedIncomeTax` (IOF até 29 dias pela tabela do Decreto 6.306 e IR regressivo 22,5/20/17,5/15% por aporte, sobre o rendimento líquido do IOF), regra versionada por data; o saldo (`/fixed-income/balances`) devolve imposto e líquido por aporte e por grupo; a tela alterna Bruto | Líquido estimado. A tabela do IR segue B3 + dono (o texto legal não foi conferido, por decisão do dono).
 
 ---
 

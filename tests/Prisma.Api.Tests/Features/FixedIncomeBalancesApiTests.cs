@@ -440,6 +440,78 @@ public sealed class FixedIncomeBalancesApiTests(PostgresFixture postgres)
         evolution.Points.ShouldAllBe(p => p.GrossBalanceCents == p.PrincipalCents && p.GrossYieldCents == 0);
     }
 
+    // ---- Imposto e líquido estimados (R.7) ----
+
+    // IR de 22,5 % (todos os aportes têm de 67 a 87 dias) sobre o rendimento de cada um, e o IOF de 96 % no aporte de 1 dia; valores
+    // feitos à mão a partir dos saldos acima: 15.320 × 22,5 % = 3.447; 4.151 × 22,5 % = 933,975 → 934; 32.880 × 22,5 % = 7.398;
+    // 21.953 × 22,5 % = 4.939,425 → 4.939; 51 × 96 % = 48,96 → 49 e o IR do que sobra (2) arredonda para 0.
+    [Fact]
+    public async Task Each_deposit_carries_its_own_estimated_tax_and_net_balance()
+    {
+        await using var s = await Start();
+
+        var tax = (await TaxByPrincipal(s.Client, "2026-10-16"));
+
+        tax[479_731].ShouldBe((0L, 3_447L, 2_250, 87, 495_051L - 3_447, 15_320L - 3_447));
+        tax[130_000].ShouldBe((0L, 934L, 2_250, 87, 134_151L - 934, 4_151L - 934));
+        tax[1_047_408].ShouldBe((0L, 7_398L, 2_250, 86, 1_080_288L - 7_398, 32_880L - 7_398));
+        tax[900_000].ShouldBe((0L, 4_939L, 2_250, 67, 921_953L - 4_939, 21_953L - 4_939));
+        tax[100_000].ShouldBe((49L, 0L, 2_250, 1, 100_051L - 49, 51L - 49));
+    }
+
+    [Fact]
+    public async Task Boxes_and_the_total_sum_the_tax_of_each_deposit_never_one_rate_over_the_group()
+    {
+        await using var s = await Start();
+
+        var groups = await TaxGroups(s.Client, "2026-10-16", s);
+
+        groups.Casamento.ShouldBe((4_381L, 19_471L - 4_381, 629_202L - 4_381));
+        groups.Viagem.ShouldBe((12_337L, 54_833L - 12_337, 2_002_241L - 12_337));
+        groups.Loose.ShouldBe((49L, 2L, 100_051L - 49));
+        groups.Total.ShouldBe((16_767L, 74_355L - 16_767, 2_731_494L - 16_767));
+    }
+
+    [Fact]
+    public async Task The_tax_reports_the_rule_version_that_was_used()
+    {
+        await using var s = await Start();
+
+        using var json = JsonDocument.Parse(await s.Client.GetStringAsync("/fixed-income/balances?asOf=2026-10-16"));
+
+        json.RootElement.GetProperty("total").GetProperty("estimatedTaxCents").GetInt64().ShouldBe(16_767);
+        var versions = json.RootElement.GetProperty("unassigned").GetProperty("deposits").EnumerateArray()
+            .Select(d => d.GetProperty("tax").GetProperty("ruleVersion").GetString());
+        versions.ShouldAllBe(v => v == FixedIncomeTax.CurrentRuleVersion);
+    }
+
+    // No dia do aporte não há rendimento, então não há imposto: o líquido é o principal.
+    [Fact]
+    public async Task On_the_deposit_day_there_is_no_yield_and_so_no_tax()
+    {
+        await using var s = await Start();
+
+        var groups = await TaxGroups(s.Client, "2026-07-21", s);
+
+        groups.Casamento.ShouldBe((0L, 0L, 609_731L));
+    }
+
+    // Sem taxa, o aporte entra pelo principal: não há rendimento para tributar, e o líquido é o principal. O imposto vem nulo.
+    [Fact]
+    public async Task A_deposit_without_a_rate_has_no_tax_and_its_net_is_the_principal()
+    {
+        await using var s = await Start();
+        await ClearRates(s);
+
+        using var json = JsonDocument.Parse(await s.Client.GetStringAsync("/fixed-income/balances?asOf=2026-10-16"));
+
+        var total = json.RootElement.GetProperty("total");
+        total.GetProperty("estimatedTaxCents").GetInt64().ShouldBe(0);
+        total.GetProperty("netBalanceCents").GetInt64().ShouldBe(609_731 + 1_947_408 + 100_000);
+        total.GetProperty("netYieldCents").GetInt64().ShouldBe(0);
+        json.RootElement.GetProperty("unassigned").GetProperty("deposits")[0].GetProperty("tax").ValueKind.ShouldBe(JsonValueKind.Null);
+    }
+
     // ---- Apoio ----
 
     private PrismaApiFactory Factory() => new(
@@ -507,4 +579,34 @@ public sealed class FixedIncomeBalancesApiTests(PostgresFixture postgres)
 
     private static async Task<EvolutionDto> Evolution(HttpClient client, string query) =>
         (await client.GetFromJsonAsync<EvolutionDto>("/fixed-income/evolution" + query))!;
+
+    private static async Task<Dictionary<long, (long Iof, long Ir, int RateBp, int Days, long NetBalance, long NetYield)>> TaxByPrincipal(
+        HttpClient client, string asOf)
+    {
+        using var json = JsonDocument.Parse(await client.GetStringAsync($"/fixed-income/balances?asOf={asOf}"));
+        var root = json.RootElement;
+        return root.GetProperty("goals").EnumerateArray().SelectMany(g => g.GetProperty("deposits").EnumerateArray())
+            .Concat(root.GetProperty("unassigned").GetProperty("deposits").EnumerateArray())
+            .ToDictionary(
+                d => d.GetProperty("principalCents").GetInt64(),
+                d =>
+                {
+                    var t = d.GetProperty("tax");
+                    return (t.GetProperty("iofCents").GetInt64(), t.GetProperty("irCents").GetInt64(), t.GetProperty("irRateBasisPoints").GetInt32(),
+                        t.GetProperty("holdingDays").GetInt32(), t.GetProperty("netBalanceCents").GetInt64(), t.GetProperty("netYieldCents").GetInt64());
+                });
+    }
+
+    private static async Task<(
+        (long Tax, long NetYield, long NetBalance) Casamento, (long Tax, long NetYield, long NetBalance) Viagem,
+        (long Tax, long NetYield, long NetBalance) Loose, (long Tax, long NetYield, long NetBalance) Total)> TaxGroups(
+        HttpClient client, string asOf, Scenario s)
+    {
+        using var json = JsonDocument.Parse(await client.GetStringAsync($"/fixed-income/balances?asOf={asOf}"));
+        var root = json.RootElement;
+        (long, long, long) Of(JsonElement group) =>
+            (group.GetProperty("estimatedTaxCents").GetInt64(), group.GetProperty("netYieldCents").GetInt64(), group.GetProperty("netBalanceCents").GetInt64());
+        JsonElement Goal(Guid id) => root.GetProperty("goals").EnumerateArray().Single(g => g.GetProperty("id").GetGuid() == id).GetProperty("balance");
+        return (Of(Goal(s.Casamento)), Of(Goal(s.Viagem)), Of(root.GetProperty("unassigned").GetProperty("balance")), Of(root.GetProperty("total")));
+    }
 }
