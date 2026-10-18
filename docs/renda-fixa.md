@@ -466,7 +466,9 @@ Cada etapa: teste junto com a implementação, `dotnet test` verde, checkbox no 
 
 ## 13. Retomada (estado em 2026-10-18: R.0 a R.9 feitas)
 
-**Protocolo.** Uma etapa por vez; teste junto com a implementação; `dotnet test` verde; marcar no `PLAN.md`; parar e reportar. Não commitar sem o dono pedir (tudo desde a R.1 está sem commit). Provar os testes quebrando o código de propósito e restaurar; nunca ajustar teste para passar. Código em inglês; documentação, interface e erros em pt-BR; dinheiro em centavos. **Nunca "cofrinho" na tela**: usar "objetivo" e "aporte/investimento".
+**Protocolo.** Uma etapa por vez; teste junto com a implementação; `dotnet test` verde; marcar no `PLAN.md`; parar e reportar. Não commitar sem o dono pedir (a renda fixa foi para a `main` em 2026-10-18, PR #20, em 8 commits por etapa). Provar os testes quebrando o código de propósito e restaurar; nunca ajustar teste para passar. Código em inglês; documentação, interface e erros em pt-BR; dinheiro em centavos. **Nunca "cofrinho" na tela**: usar "objetivo" e "aporte/investimento".
+
+**Entrega (2026-10-18):** mesclada na `main` pelo PR #20 (`feat/renda-fixa`, 8 commits: R.0–R.1, R.2–R.3, R.4–R.4b, R.5, R.6, R.7, R.9 e R.8). O que vem a seguir é conversar sobre CDI+ , IPCA e IPCA+ (seção 12, item 11; as fontes e a fórmula de cada um ainda precisam ser levantadas, ver 2.5).
 
 **Verificação do dono (2026-10-18):** testou a tela (objetivos, aportes, bruto e líquido, aporte financiado, gráfico, exclusão com desfazer, Carteira) e confirmou que está tudo certo.
 
