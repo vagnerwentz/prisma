@@ -1,7 +1,8 @@
 # Renda fixa indexada ao IPCA (IPCA e IPCA+): investigação e plano
 
-> **Estado (2026-10-19): investigação concluída, nada implementado.** Fase 1 (admin dos dados de mercado) **vem primeiro**:
-> `docs/admin-mercado.md`. Este arquivo guarda o que foi verificado, as decisões e as fases para o IPCA, para a retomada não
+> **Estado (2026-10-19): investigação concluída, nada implementado, e a implementação está EM ESPERA por decisão do dono** (ele vai buscar
+> dados melhores, extratos reais de CDB IPCA+ e do Tesouro IPCA+, antes de seguir; **não começar a R.17 em diante sem ele pedir**). A Fase 1
+> (admin dos dados de mercado, R.15 e R.16) **está feita**: `docs/admin-mercado.md`. Este arquivo guarda o que foi verificado, as decisões e as fases para o IPCA, para a retomada não
 > depender da conversa. O CDI, o CDI+, o pré-fixado e as letras (LCI/LCA) estão em `docs/renda-fixa.md`.
 
 Legenda: **[V]** verificado (código ou fonte, com data); **[H]** hipótese a confirmar; **[REC]** recomendação minha, aguardando o dono.

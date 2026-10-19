@@ -128,7 +128,7 @@ sobra não mudam (CLAUDE.md, regra 5).
 - Só bruto. Imposto e líquido são a R.7.
 
 ### 2.5 Fora da v1, mas já previsto no modelo (IPCA e IPCA+)
-> **Atualização (2026-10-19):** a investigação do IPCA está em `docs/renda-fixa-ipca.md` (SGS 433 verificada, número-índice do IBGE, convenção do Tesouro, decisões e fases R.17 a R.21). O texto abaixo é o da v1.
+> **Atualização (2026-10-19):** a investigação do IPCA está em `docs/renda-fixa-ipca.md` (SGS 433 verificada, número-índice do IBGE, convenção do Tesouro, decisões e fases R.17 a R.21). **A implementação está em espera** até o dono trazer dados melhores (extratos reais). O texto abaixo é o da v1.
 
 `IndexKind` ganha `Ipca` e `IpcaPlus` e o aporte ganha `FixedRateBps?` (a parte pré-fixada do IPCA+). Isso **não** entra na v1: IPCA é série **mensal**
 (provavelmente a SGS 433 [H, não verificada]) e o IPCA+ real depende de regra do título (valor nominal atualizado, pro rata, marcação a mercado no Tesouro), então exige a mesma investigação que fiz para o CDI, com fonte e fórmula próprias, antes de qualquer código.
@@ -466,7 +466,7 @@ Regressão contra referência: arquivo `fixed-income-reference.json` versionado 
 | **D12** | Teste ponta a ponta com Playwright | não agora (Fase 5); integração por slice + verificação manual | introduzir Playwright já |
 | **D13 (2026-10-17)** | A renda fixa na aba Carteira (R.9) | **um grupo só, "Renda fixa", para qualquer índice**; peso pelo **aportado** (o custo da renda fixa, a mesma régua da bolsa); **linhas por objetivo**; rendimento bruto ao lado; vale por ano (aportado até o fim dele) | pesar pelo saldo com rendimento (mistura custo com valor atual); linhas por aporte ou por índice (lista longa) |
 | **D17 (2026-10-19)** | IPCA e IPCA+ (R.17 a R.21) | **estender o modelo atual** com uma tabela mensal própria (a `reference_rates` não comporta valor negativo nem frequência mensal), número-índice e variação, cálculo pela razão dos índices; convenção de apropriação (F1 a F3) **decidida só com extrato real** (R.17); produto da primeira entrega: CDB, LCI e LCA (`docs/renda-fixa-ipca.md`) | substituir a tabela do CDI; estratégias genéricas por modalidade; repetir o valor mensal em todos os dias |
-| **D16 (2026-10-19)** | Admin dos dados de mercado (R.15, R.16) | rota e tela de admin para disparar a sincronização do BCB à mão (CDI, depois IPCA), **sem tirar o horário automático**; admin por lista de e-mails na configuração; histórico das execuções em tabela; execução síncrona com teto de 90 s; código do erro do firewall do BCB guardado (`docs/admin-mercado.md`, M1 a M6, **aguardando o "de acordo" do dono**) | papéis do Identity; token em cabeçalho; só log; fila com andamento |
+| **D16 (2026-10-19)** | Admin dos dados de mercado (R.15, R.16) | rota e tela de admin para disparar a sincronização do BCB à mão (CDI, depois IPCA), **sem tirar o horário automático**; admin por lista de e-mails na configuração; histórico das execuções em tabela; execução síncrona com teto de 90 s; código do erro do firewall do BCB guardado (`docs/admin-mercado.md`, M1 a M6; **M1 e M2 aprovadas pelo dono em 2026-10-19, R.15 e R.16 feitas**) | papéis do Identity; token em cabeçalho; só log; fila com andamento |
 | **D15 (2026-10-18)** | LCI e LCA (R.13, R.14) | produto no aporte (`Cdb`, `Lci`, `Lca`), mesma remuneração; **IR zero** nas duas, **IOF zero na LCA e tabela do CDB na LCI**; vencimento abaixo de 6 meses só **avisa** na tela (R.14); IPCA segue fora | tratar a LCI também como isenta de IOF; recusar vencimento abaixo de 6 meses |
 | **D14 (2026-10-18)** | CDI+ e pré-fixado (R.10 a R.12) | contrato `Remuneration` (X % do CDI, CDI + taxa a.a., pré) e **uma coluna só, `RateE4`** (o índice diz o que ela é; sugestão do dono), taxa em E4 de 0,01 % a 100 % a.a., **só base 252 dias úteis**; o pré usa o `BankCalendar` (quarto uso liberado, namespace `Prefixed`); validar com extrato real | base 365 dias corridos; contar dias úteis só pelas datas do CDI (quebra com o Banco Central fora do ar) |
 
@@ -494,20 +494,24 @@ Cada etapa: teste junto com a implementação, `dotnet test` verde, checkbox no 
 14. **R.13 LCI e LCA, domínio, banco e API (feita):** `Lci` e `Lca` em `FixedIncomeProductKind`, regra de imposto por produto em `FixedIncomeTax` (6.5), migration `AddLciAndLcaProducts` (constraint do produto). A API já aceita o produto no pedido que tinha o campo; nada de tela.
 15. **R.14 LCI e LCA, tela e documentos (feita; falta só o extrato real):** seletor de produto (CDB | LCI | LCA) no aporte, produto nas linhas, "isento de IR" no lugar do imposto das letras, aviso de vencimento abaixo de 6 meses, nota de limitações, `gen:api`, `.http`, todos os documentos.
 16. **R.15 Admin dos dados de mercado, API (feita, `docs/admin-mercado.md`):** política `Admin` (e-mails em `Admin:Emails`), rotas de estado, `sync`, `refresh` e execuções, `market_sync_runs` (migration `AddMarketSyncRuns`), código do erro do BCB, `isAdmin` em `/auth/me`. **R.16 Tela `/admin` (feita).** O horário automático da `ReferenceRateWorker` **não muda**: o disparo manual usa a mesma sincronização e o mesmo lock.
-17. **R.17 a R.21 IPCA e IPCA+ (planejadas, `docs/renda-fixa-ipca.md`):** verificação com extrato real (sem código), IPCA persistido, domínio do cálculo, API e tela.
+17. **R.17 a R.21 IPCA e IPCA+ (planejadas e EM ESPERA por decisão do dono, 2026-10-19; `docs/renda-fixa-ipca.md`):** verificação com extrato real (sem código), IPCA persistido, domínio do cálculo, API e tela.
 18. **(Depois)** resgates (D5), IPCA e IPCA+ (cada um com fonte e fórmula próprias, ver 2.5), outros produtos (LCI/LCA com regra própria), projeção rotulada.
 
 ---
 
-## 13. Retomada (estado em 2026-10-19: R.0 a R.16 feitas; R.17 a R.21 planejadas; falta o extrato real de um CDI+, de um pré e de uma LCI/LCA)
+## 13. Retomada (estado em 2026-10-19: R.0 a R.16 feitas; R.17 a R.21 (IPCA e IPCA+) em espera; falta o extrato real de um CDI+, de um pré e de uma LCI/LCA)
 
 **Protocolo.** Uma etapa por vez; teste junto com a implementação; `dotnet test` verde; marcar no `PLAN.md`; parar e reportar. Não commitar sem o dono pedir (a renda fixa foi para a `main` em 2026-10-18, PR #20, em 8 commits por etapa). Provar os testes quebrando o código de propósito e restaurar; nunca ajustar teste para passar. Código em inglês; documentação, interface e erros em pt-BR; dinheiro em centavos. **Nunca "cofrinho" na tela**: usar "objetivo" e "aporte/investimento".
 
-**Entrega (2026-10-18):** mesclada na `main` pelo PR #20 (`feat/renda-fixa`, 8 commits: R.0–R.1, R.2–R.3, R.4–R.4b, R.5, R.6, R.7, R.9 e R.8). O que vem a seguir é conversar sobre CDI+ , IPCA e IPCA+ (seção 12, item 14; as fontes e a fórmula de cada um ainda precisam ser levantadas, ver 2.5).
+**Entrega (2026-10-18):** mesclada na `main` pelo PR #20 (`feat/renda-fixa`, 8 commits: R.0–R.1, R.2–R.3, R.4–R.4b, R.5, R.6, R.7, R.9 e R.8). O CDI+ e o pré-fixado entraram na R.10 a R.12; IPCA e IPCA+ estão em espera (ver abaixo e `docs/renda-fixa-ipca.md`).
 
 **Verificação do dono (2026-10-18):** testou a tela (objetivos, aportes, bruto e líquido, aporte financiado, gráfico, exclusão com desfazer, Carteira) e confirmou que está tudo certo.
 
-**Feito:** R.0 a R.9 e R.4b (ver `PLAN.md`, seção "Renda fixa"). Última suíte completa verde: 1897 testes de .NET (domínio, arquitetura e integração; os `[Live]` ficam de fora) e 495 do Vitest. O líquido (imposto estimado) e a renda fixa na Carteira estão prontos.
+**Feito:** R.0 a R.9 e R.4b na `main` (PR #20); R.10 a R.16 (CDI+, pré-fixado, LCI e LCA, admin dos dados de mercado) na branch `feat/renda-fixa-produtos-e-admin`, em 2 commits (código e testes; documentos), **PR ainda por abrir** (o ambiente não tem `gh`). Última suíte completa verde: 2078 testes de .NET (1080 de domínio, 17 de arquitetura, 981 de integração; 7 ignorados; os `[Live]` ficam de fora) e 546 do Vitest. O líquido (imposto estimado) e a renda fixa na Carteira estão prontos.
+
+**Em espera (decisão do dono, 2026-10-19):** IPCA e IPCA+ (R.17 a R.21). O dono vai buscar dados melhores (extrato real de um CDB IPCA+ e do Tesouro IPCA+, com datas, valor aplicado e saldos em duas ou mais datas) para a R.17, que decide a convenção de apropriação (F1 a F3) e **não tem código**. Até lá a API e a tela recusam IPCA e IPCA+, e nada se implementa. Retomar por `docs/renda-fixa-ipca.md`, seção 5.
+
+**Variável a pôr no Railway antes do merge:** `Admin__Emails__0` (o e-mail de quem pode abrir a tela de admin; sem ela ninguém é admin). A migration `AddMarketSyncRuns` roda sozinha no deploy.
 
 **Decisões do dono que valem na tela**
 - O objetivo é uma **caixa**. Excluir um objetivo com aportes **pergunta**: manter os investimentos (ficam em "Sem objetivo") ou excluir junto. Desfazer vale 30 minutos.
