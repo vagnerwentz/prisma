@@ -25,3 +25,5 @@ export const meKey = ['auth', 'me'] as const
 // Renda fixa (docs/renda-fixa.md, R.6): objetivos, aportes, saldos e evolução. Os aportes com origem mexem também em
 // dinheiro (invalidateMoney); a chave é separada porque excluir só um objetivo não mexe em conta nenhuma.
 export const fixedIncomeKey = ['fixed-income'] as const
+// Admin dos dados de mercado (docs/admin-mercado.md, R.16): o estado das séries e as execuções. Só quem é admin consulta.
+export const adminMarketKey = ['admin', 'market-data'] as const

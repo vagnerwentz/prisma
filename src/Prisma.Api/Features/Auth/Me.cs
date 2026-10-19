@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
 using Prisma.Api.Infrastructure;
 using Prisma.Api.Infrastructure.Auth;
@@ -8,7 +9,7 @@ namespace Prisma.Api.Features.Auth;
 
 public static class Me
 {
-    public sealed class Handler(AppDbContext db, ICurrentUser currentUser)
+    public sealed class Handler(AppDbContext db, ICurrentUser currentUser, IOptions<AdminOptions> admins)
     {
         public async Task<Result<SessionUser>> Execute(CancellationToken ct)
         {
@@ -18,7 +19,7 @@ public static class Me
             // (AuthSetup.SessionCheckInterval). 401, e não 404, para a tela levar ao login.
             return user is null
                 ? new Error(ErrorType.Unauthorized, "Sessão expirada. Entre de novo.")
-                : SessionUser.Of(user);
+                : SessionUser.Of(user, admins.Value);
         }
     }
 

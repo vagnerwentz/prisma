@@ -220,6 +220,58 @@ public sealed class ReferenceRateWorkerTests
             response.IsSuccessStatusCode.ShouldBeTrue();
         }
 
+        // A tarefa grava cada execução para a tela de admin (docs/admin-mercado.md, 8): ao subir, com o tipo Startup.
+        [Fact]
+        public async Task The_startup_run_is_recorded_with_its_counts()
+        {
+            Publish(new DateOnly(2026, 9, 1), new DateOnly(2026, 10, 16));
+            await using var factory = await Factory(workerEnabled: true);
+
+            _ = factory.Services;
+            await _logs.WaitFor(e => e.EventId.Name == "ReferenceRateNextRun");
+
+            var run = await SingleRun(factory);
+            (run.Kind, run.Outcome).ShouldBe((MarketSyncKind.Startup, MarketSyncOutcome.Succeeded));
+            (run.Fetched, run.Added).ShouldBe((_source.Rates.Count, _source.Rates.Count));
+            (run.WindowFrom, run.WindowTo).ShouldBe((new DateOnly(2015, 1, 1), new DateOnly(2026, 10, 19)));
+            run.StartedAt.ShouldBe(Monday);
+        }
+
+        [Fact]
+        public async Task A_provider_failure_on_startup_is_recorded_with_the_error_code()
+        {
+            _source.Failure = new MarketDataException("bcb sgs 12 2015: HTTP 503", sourceErrorCode: "555");
+            await using var factory = await Factory(workerEnabled: true);
+
+            _ = factory.Services;
+            await _logs.WaitFor(e => e.EventId.Name == "ReferenceRateNextRun");
+
+            var run = await SingleRun(factory);
+            (run.Kind, run.Outcome, run.SourceErrorCode).ShouldBe((MarketSyncKind.Startup, MarketSyncOutcome.SourceUnavailable, "555"));
+        }
+
+        // Em dia ao subir, a tarefa não chama a fonte e não deixa execução gravada.
+        [Fact]
+        public async Task A_startup_that_does_nothing_records_nothing()
+        {
+            Publish(new DateOnly(2026, 9, 1), new DateOnly(2026, 10, 16));
+            await using (var seeding = await Factory(workerEnabled: false))
+                await seeding.Services.GetRequiredService<ReferenceRateSync>().RunAsync(CancellationToken.None);
+
+            await using var factory = await Factory(workerEnabled: true, clear: false);
+            _ = factory.Services;
+            await _logs.WaitFor(e => e.EventId.Name == "ReferenceRateNextRun");
+
+            await using var scope = factory.Services.CreateAsyncScope();
+            (await scope.ServiceProvider.GetRequiredService<AppDbContext>().MarketSyncRuns.CountAsync()).ShouldBe(0);
+        }
+
+        private static async Task<MarketSyncRun> SingleRun(PrismaApiFactory factory)
+        {
+            await using var scope = factory.Services.CreateAsyncScope();
+            return await scope.ServiceProvider.GetRequiredService<AppDbContext>().MarketSyncRuns.AsNoTracking().SingleAsync();
+        }
+
         private static async Task<int> Count(PrismaApiFactory factory)
         {
             await using var scope = factory.Services.CreateAsyncScope();
@@ -232,7 +284,9 @@ public sealed class ReferenceRateWorkerTests
             {
                 await using var cleaner = new PrismaApiFactory(postgres.ConnectionString);
                 await using var scope = cleaner.Services.CreateAsyncScope();
-                await scope.ServiceProvider.GetRequiredService<AppDbContext>().ReferenceRates.ExecuteDeleteAsync();
+                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                await db.ReferenceRates.ExecuteDeleteAsync();
+                await db.MarketSyncRuns.ExecuteDeleteAsync();
             }
 
             return new PrismaApiFactory(

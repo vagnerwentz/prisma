@@ -20,15 +20,31 @@ public static class SaveDeposit
     public sealed record FundingRequest(Guid FromAccountId, Guid ToAccountId, PaymentMethod Method = PaymentMethod.Pix);
 
     // Pedido de criação. O ClientRequestId vem da tela, escolhido ao abrir o formulário.
+    //
+    // RateE4 é a taxa contratada em E4, e o que ela é depende do IndexKind: o percentual do CDI (Cdi) ou a taxa ao ano (CdiPlus,
+    // Prefixed). IndexPercentE4 é o nome antigo, aceito só no CDI para uma tela aberta antes desta versão (CLAUDE.md, seção 6).
     public sealed record CreateRequest(
         Guid? GoalId, Guid ClientRequestId, DateOnly DepositDate, long AmountCents, FixedIncomeProductKind ProductKind,
-        FixedIncomeIndexKind IndexKind, long IndexPercentE4, DateOnly? MaturityDate, DepositLiquidity Liquidity, string? Note,
-        FundingRequest? Funding = null);
+        FixedIncomeIndexKind IndexKind, DateOnly? MaturityDate, DepositLiquidity Liquidity, string? Note,
+        FundingRequest? Funding = null, long? RateE4 = null, long? IndexPercentE4 = null)
+    {
+        public long? ResolveRate() => Rates.Resolve(IndexKind, RateE4, IndexPercentE4);
+    }
 
     // Edição do contrato. A caixa muda por PATCH /{id}/goal, não aqui.
     public sealed record UpdateRequest(
         DateOnly DepositDate, long AmountCents, FixedIncomeProductKind ProductKind, FixedIncomeIndexKind IndexKind,
-        long IndexPercentE4, DateOnly? MaturityDate, DepositLiquidity Liquidity, string? Note);
+        DateOnly? MaturityDate, DepositLiquidity Liquidity, string? Note, long? RateE4 = null, long? IndexPercentE4 = null)
+    {
+        public long? ResolveRate() => Rates.Resolve(IndexKind, RateE4, IndexPercentE4);
+    }
+
+    internal static class Rates
+    {
+        // A taxa do pedido: a nova, ou (só no CDI) a do nome antigo.
+        public static long? Resolve(FixedIncomeIndexKind kind, long? rateE4, long? legacyPercentE4) =>
+            rateE4 ?? (kind == FixedIncomeIndexKind.Cdi ? legacyPercentE4 : null);
+    }
 
     public sealed class CreateValidator : AbstractValidator<CreateRequest>
     {
@@ -36,6 +52,7 @@ public static class SaveDeposit
         {
             RuleFor(x => x.ClientRequestId).NotEmpty().WithMessage("O pedido veio sem identificador.");
             RuleFor(x => x.AmountCents).GreaterThan(0).WithMessage("O valor deve ser maior que zero.");
+            RuleFor(x => x.ResolveRate()).NotNull().WithMessage("Informe a taxa do aporte.");
             When(x => x.Funding is not null, () =>
             {
                 RuleFor(x => x.Funding!.FromAccountId).NotEmpty().WithMessage("Escolha a conta de onde o dinheiro saiu.");
@@ -47,7 +64,11 @@ public static class SaveDeposit
 
     public sealed class UpdateValidator : AbstractValidator<UpdateRequest>
     {
-        public UpdateValidator() => RuleFor(x => x.AmountCents).GreaterThan(0).WithMessage("O valor deve ser maior que zero.");
+        public UpdateValidator()
+        {
+            RuleFor(x => x.AmountCents).GreaterThan(0).WithMessage("O valor deve ser maior que zero.");
+            RuleFor(x => x.ResolveRate()).NotNull().WithMessage("Informe a taxa do aporte.");
+        }
     }
 
     public sealed class Handler(AppDbContext db, ICurrentUser currentUser, IClock clock, ILogger<Handler> logger)
@@ -63,11 +84,11 @@ public static class SaveDeposit
                 return new Error(ErrorType.NotFound, "Objetivo não encontrado.");
 
             var created = FixedIncomeDeposit.Create(
-                currentUser.UserId, req.GoalId, req.DepositDate, req.AmountCents, req.ProductKind, req.IndexKind, req.IndexPercentE4,
+                currentUser.UserId, req.GoalId, req.DepositDate, req.AmountCents, req.ProductKind, req.IndexKind, req.ResolveRate()!.Value,
                 req.MaturityDate, req.Liquidity, req.Note, req.ClientRequestId, clock.Today);
             if (!created.IsSuccess)
                 return created.Error;
-            if (await BeforeFirstRate(req.DepositDate, ct) is { } early)
+            if (created.Value.Remuneration.UsesCdi && await BeforeFirstRate(req.DepositDate, ct) is { } early)
                 return early;
 
             if (req.Funding is { } funding)
@@ -130,11 +151,11 @@ public static class SaveDeposit
 
             var before = DepositResponse.From(deposit);
             var error = deposit.Update(
-                req.DepositDate, req.AmountCents, req.ProductKind, req.IndexKind, req.IndexPercentE4, req.MaturityDate, req.Liquidity,
+                req.DepositDate, req.AmountCents, req.ProductKind, req.IndexKind, req.ResolveRate()!.Value, req.MaturityDate, req.Liquidity,
                 req.Note, clock.Today);
             if (error is not null)
                 return error;
-            if (await BeforeFirstRate(req.DepositDate, ct) is { } early)
+            if (deposit.Remuneration.UsesCdi && await BeforeFirstRate(req.DepositDate, ct) is { } early)
                 return early;
 
             await db.SaveChangesAsync(ct);
@@ -170,7 +191,7 @@ public static class SaveDeposit
             var changed = new List<string>();
             if (before.DepositDate != after.DepositDate) changed.Add("date");
             if (before.AmountCents != after.AmountCents) changed.Add("amount");
-            if (before.IndexPercentE4 != after.IndexPercentE4) changed.Add("percent");
+            if (before.RateE4 != after.RateE4) changed.Add("rate");
             if (before.MaturityDate != after.MaturityDate) changed.Add("maturity");
             if (before.Liquidity != after.Liquidity) changed.Add("liquidity");
             if (before.Note != after.Note) changed.Add("note");

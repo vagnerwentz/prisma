@@ -1,4 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router'
+import { AppLayout } from '@/components/AppLayout'
+import { NotFoundPage } from '@/components/NotFoundPage'
 import { PrismLogo } from '@/components/brand/PrismLogo'
 import { useCurrentUser } from './queries'
 
@@ -38,4 +40,11 @@ export function RedirectIfAuthenticated() {
   if (isPending) return <FullScreenMessage>Carregando…</FullScreenMessage>
   if (user) return <Navigate to="/" replace />
   return <Outlet />
+}
+
+// A tela de admin só abre para quem é admin (docs/admin-mercado.md, 7); para os outros ela não existe: a mesma página de
+// "endereço inexistente", sem revelar que há uma tela ali. Quem manda é o servidor, que confere a cada pedido.
+export function RequireAdmin() {
+  const { data: user } = useCurrentUser()
+  return user?.isAdmin ? <AppLayout /> : <NotFoundPage />
 }

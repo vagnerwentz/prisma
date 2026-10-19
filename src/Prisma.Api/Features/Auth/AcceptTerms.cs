@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Identity;
 using Prisma.Api.Infrastructure.Auth;
 using Prisma.Api.Infrastructure.Http;
@@ -12,7 +13,7 @@ namespace Prisma.Api.Features.Auth;
 // caixa marcada; a API grava as versões vigentes e o instante (LegalTerms).
 public static class AcceptTerms
 {
-    public sealed class Handler(UserManager<AppUser> users, ICurrentUser currentUser, IClock clock, ILogger<Handler> logger)
+    public sealed class Handler(UserManager<AppUser> users, ICurrentUser currentUser, IClock clock, IOptions<AdminOptions> admins, ILogger<Handler> logger)
     {
         public async Task<Result<SessionUser>> Execute(CancellationToken ct)
         {
@@ -26,7 +27,7 @@ public static class AcceptTerms
                 throw new InvalidOperationException("Não foi possível gravar o aceite: " + string.Join(",", updated.Errors.Select(e => e.Code)));
 
             logger.TermsAccepted(user.Id, LegalTerms.TermsVersion, LegalTerms.PrivacyVersion);
-            return SessionUser.Of(user);
+            return SessionUser.Of(user, admins.Value);
         }
     }
 

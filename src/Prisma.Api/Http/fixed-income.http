@@ -57,10 +57,63 @@ Content-Type: application/json
   "amountCents": 609731,
   "productKind": "Cdb",
   "indexKind": "Cdi",
-  "indexPercentE4": 1000000,
+  "rateE4": 1000000,
   "maturityDate": null,
   "liquidity": "Unknown",
   "note": "CDB do Itaú"
+}
+
+### CDI + taxa fixa ao ano: rateE4 é a taxa ao ano em E4 (2% a.a. = 20000, de 0,01% a 100%)
+POST {{baseUrl}}/fixed-income-deposits
+Content-Type: application/json
+
+{
+  "goalId": null,
+  "clientRequestId": "33333333-3333-4333-8333-333333333333",
+  "depositDate": "2026-07-21",
+  "amountCents": 609731,
+  "productKind": "Cdb",
+  "indexKind": "CdiPlus",
+  "rateE4": 20000,
+  "maturityDate": null,
+  "liquidity": "Unknown",
+  "note": null
+}
+
+### Pré-fixado: rateE4 é a taxa ao ano em E4 (14% a.a. = 140000). Não depende das taxas do CDI (nem da data do primeiro dia do histórico)
+POST {{baseUrl}}/fixed-income-deposits
+Content-Type: application/json
+
+{
+  "goalId": null,
+  "clientRequestId": "44444444-4444-4444-8444-444444444444",
+  "depositDate": "2026-10-01",
+  "amountCents": 500000,
+  "productKind": "Cdb",
+  "indexKind": "Prefixed",
+  "rateE4": 140000,
+  "maturityDate": null,
+  "liquidity": "Unknown",
+  "note": null
+}
+
+### "indexPercentE4" ainda é aceito no lugar de "rateE4" só quando indexKind é "Cdi" (tela aberta antes desta versão); o aporte volta com os dois nomes.
+
+### LCI ou LCA: mesmo corpo do CDB, com "productKind": "Lci" ou "Lca". Isentas de IR (pessoa física); a LCA também de IOF. O imposto sai no saldo.
+POST {{baseUrl}}/fixed-income-deposits
+Content-Type: application/json
+
+{
+  "goalId": null,
+  "clientRequestId": "55555555-5555-4555-8555-555555555555",
+  "depositDate": "2026-07-21",
+  "amountCents": 479731,
+  "productKind": "Lci",
+  "indexKind": "Cdi",
+  "rateE4": 900000,
+  "maturityDate": null,
+  "liquidity": "Unknown",
+  "note": null
 }
 
 ### Lançar um aporte que saiu de uma conta (cria a transferência junto: o saldo da conta cai e o "Investido" do Resumo sobe).
@@ -75,7 +128,7 @@ Content-Type: application/json
   "amountCents": 1000000,
   "productKind": "Cdb",
   "indexKind": "Cdi",
-  "indexPercentE4": 1000000,
+  "rateE4": 1000000,
   "maturityDate": null,
   "liquidity": "Unknown",
   "note": null,
@@ -98,7 +151,7 @@ Content-Type: application/json
   "amountCents": 609731,
   "productKind": "Cdb",
   "indexKind": "Cdi",
-  "indexPercentE4": 1100000,
+  "rateE4": 1100000,
   "maturityDate": null,
   "liquidity": "Daily",
   "note": null

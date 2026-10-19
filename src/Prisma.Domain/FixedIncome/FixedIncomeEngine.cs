@@ -1,6 +1,6 @@
 namespace Prisma.Domain.FixedIncome;
 
-// Rendimento bruto de um aporte em CDB pós-fixado, a x % do CDI (docs/renda-fixa.md, seção 5.1). É a convenção da B3
+// Rendimento bruto de um aporte em CDB (docs/renda-fixa.md, seções 5.1 e 5.5). Pós-fixado a x % do CDI: É a convenção da B3
 // ("Metodologia de Cálculo Acumulado de DI"), a do mercado, conferida com extratos do banco (diferença máxima de R$ 0,01):
 //
 //   f_k = 1 + (p / 100) × TDI_k        TDI_k é a taxa diária da série, p o percentual contratado
@@ -17,46 +17,51 @@ public static class FixedIncomeEngine
     // Teto do aporte, R$ 1 bilhão, para que principal × fator caiba com folga em Int128.
     public const long MaxPrincipalCents = 100_000_000_000;
 
-    private const long Scale16 = 10_000_000_000_000_000;
-
-    private const long Scale8 = 100_000_000;
-
-    // O fator acumulado não passa de 1.000×: acima disso o histórico ou o percentual estão errados.
-    private static readonly Int128 MaxAccumulated = (Int128)1_000 * Scale16;
+    // O percentual de 100 % do CDI, para o CDI+ (a taxa fixa entra como um fator à parte).
+    private const long Cdi100 = 1_000_000;
 
     public static Result<FixedIncomeBalance> Balance(
-        Money principal, DateOnly depositDate, IndexPercent percent, RateHistory rates, DateOnly asOf)
+        Money principal, DateOnly depositDate, IndexPercent percent, RateHistory rates, DateOnly asOf) =>
+        Balance(principal, depositDate, Remuneration.PercentOfCdi(percent), rates, asOf);
+
+    // CDI+ (docs/renda-fixa.md, 5.5): o fator do CDI a 100 % vezes o da taxa fixa, (1 + s)^(n/252), com n as taxas usadas.
+    // Os dois acumulam em 16 casas, e o produto é arredondado uma vez só, em 8. Pré-fixado: não lê `rates` (PrefixedYield).
+    public static Result<FixedIncomeBalance> Balance(
+        Money principal, DateOnly depositDate, Remuneration remuneration, RateHistory rates, DateOnly asOf)
     {
         if (principal.Cents < 1 || principal.Cents > MaxPrincipalCents)
             return new Error(ErrorType.Validation, "O valor do aporte está fora do limite.");
-        if (!percent.IsInRange)
-            return new Error(ErrorType.Validation, "O percentual do CDI está fora do limite (de 0,01% a 500%).");
+        if (!remuneration.IsInRange)
+            return new Error(ErrorType.Validation, remuneration.RangeMessage);
         if (asOf < depositDate)
             return new Error(ErrorType.Validation, "A data de referência é anterior à data do aporte.");
+        if (!remuneration.UsesCdi)
+            return Prefixed.PrefixedYield.Balance(principal, depositDate, new AnnualRate(remuneration.ValueE4), asOf);
         if (rates.FirstDate is not { } first || depositDate < first)
             return new Error(
                 ErrorType.Validation, "Não há taxa do CDI para a data do aporte.", "RatesUnavailable");
 
-        Int128 accumulated = Scale16;
+        var (percent, spread) = Parts(remuneration);
+        Int128 cdi = FixedPoint.Scale16, fixedPart = FixedPoint.Scale16;
         var used = 0;
         DateOnly? through = null;
         for (var i = rates.IndexOfFirstOnOrAfter(depositDate); i < rates.Count && rates[i].Date < asOf; i++)
         {
-            // p/100 × TDI tem 14 casas: exato em 16, sem arredondar ("16 casas sem arredondamento" da B3).
-            var daily = Scale16 + (Int128)rates[i].RateE8 * percent.TenThousandths * 100;
-            accumulated = accumulated * daily / Scale16;
-            if (accumulated > MaxAccumulated)
+            Step(ref cdi, ref fixedPart, rates[i], percent, spread);
+            if (Product(cdi, fixedPart) > FixedPoint.MaxAccumulated)
                 return new Error(ErrorType.Validation, "O rendimento calculado está fora do limite.");
 
             used++;
             through = rates[i].Date;
         }
 
-        var factorE8 = (long)((accumulated + Scale8 / 2) / (Scale16 / Scale8));
-        var gross = (long)(((Int128)principal.Cents * factorE8 + Scale8 / 2) / Scale8);
-
-        return new FixedIncomeBalance(principal, new Money(gross), factorE8, used, through);
+        var factorE8 = FixedPoint.FactorE8(Product(cdi, fixedPart));
+        return new FixedIncomeBalance(principal, FixedPoint.Gross(principal, factorE8), factorE8, used, through);
     }
+
+    public static Result<IReadOnlyList<Money?>> Series(
+        Money principal, DateOnly depositDate, IndexPercent percent, RateHistory rates, IReadOnlyList<DateOnly> asOfDates) =>
+        Series(principal, depositDate, Remuneration.PercentOfCdi(percent), rates, asOfDates);
 
     // O saldo bruto do aporte em várias datas de uma vez, para o gráfico da evolução (docs/renda-fixa.md, 6.2). Uma passada só
     // pelas taxas: o fator vai acumulando e cada data lê o saldo daquele ponto, em vez de recalcular do zero. O contrato é um só: o
@@ -64,7 +69,7 @@ public static class FixedIncomeEngine
     //
     // `asOfDates` em ordem estritamente crescente. A lista devolvida tem uma posição por data.
     public static Result<IReadOnlyList<Money?>> Series(
-        Money principal, DateOnly depositDate, IndexPercent percent, RateHistory rates, IReadOnlyList<DateOnly> asOfDates)
+        Money principal, DateOnly depositDate, Remuneration remuneration, RateHistory rates, IReadOnlyList<DateOnly> asOfDates)
     {
         for (var i = 1; i < asOfDates.Count; i++)
             if (asOfDates[i] <= asOfDates[i - 1])
@@ -72,14 +77,17 @@ public static class FixedIncomeEngine
 
         if (principal.Cents < 1 || principal.Cents > MaxPrincipalCents)
             return new Error(ErrorType.Validation, "O valor do aporte está fora do limite.");
-        if (!percent.IsInRange)
-            return new Error(ErrorType.Validation, "O percentual do CDI está fora do limite (de 0,01% a 500%).");
+        if (!remuneration.IsInRange)
+            return new Error(ErrorType.Validation, remuneration.RangeMessage);
+        if (!remuneration.UsesCdi)
+            return Prefixed.PrefixedYield.Series(principal, depositDate, new AnnualRate(remuneration.ValueE4), asOfDates);
         if (rates.FirstDate is not { } first || depositDate < first)
             return new Error(
                 ErrorType.Validation, "Não há taxa do CDI para a data do aporte.", "RatesUnavailable");
 
+        var (percent, spread) = Parts(remuneration);
         var points = new Money?[asOfDates.Count];
-        Int128 accumulated = Scale16;
+        Int128 cdi = FixedPoint.Scale16, fixedPart = FixedPoint.Scale16;
         var next = rates.IndexOfFirstOnOrAfter(depositDate);
         for (var i = 0; i < asOfDates.Count; i++)
         {
@@ -88,16 +96,30 @@ public static class FixedIncomeEngine
 
             for (; next < rates.Count && rates[next].Date < asOfDates[i]; next++)
             {
-                var daily = Scale16 + (Int128)rates[next].RateE8 * percent.TenThousandths * 100;
-                accumulated = accumulated * daily / Scale16;
-                if (accumulated > MaxAccumulated)
+                Step(ref cdi, ref fixedPart, rates[next], percent, spread);
+                if (Product(cdi, fixedPart) > FixedPoint.MaxAccumulated)
                     return new Error(ErrorType.Validation, "O rendimento calculado está fora do limite.");
             }
 
-            var factorE8 = (long)((accumulated + Scale8 / 2) / (Scale16 / Scale8));
-            points[i] = new Money((long)(((Int128)principal.Cents * factorE8 + Scale8 / 2) / Scale8));
+            points[i] = FixedPoint.Gross(principal, FixedPoint.FactorE8(Product(cdi, fixedPart)));
         }
 
         return points;
     }
+
+    // % do CDI: o percentual contratado e nenhum fator fixo (1,0). CDI+: 100 % do CDI e o fator diário da taxa.
+    private static (long Percent, Int128 Spread) Parts(Remuneration remuneration) =>
+        remuneration.Kind == FixedIncomeIndexKind.CdiPlus
+            ? (Cdi100, new AnnualRate(remuneration.ValueE4).DailyFactor())
+            : (remuneration.ValueE4, FixedPoint.Scale16);
+
+    private static void Step(ref Int128 cdi, ref Int128 fixedPart, DailyRate rate, long percent, Int128 spread)
+    {
+        // p/100 × TDI tem 14 casas: exato em 16, sem arredondar ("16 casas sem arredondamento" da B3).
+        var daily = FixedPoint.Scale16 + (Int128)rate.RateE8 * percent * 100;
+        cdi = cdi * daily / FixedPoint.Scale16;
+        fixedPart = fixedPart * spread / FixedPoint.Scale16;
+    }
+
+    private static Int128 Product(Int128 cdi, Int128 fixedPart) => cdi * fixedPart / FixedPoint.Scale16;
 }

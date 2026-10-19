@@ -9,8 +9,9 @@ namespace Prisma.Api.Features.FixedIncome;
 // O aporte com o saldo bruto calculado até a data de referência. Sem taxa para a data do aporte (histórico que não chega até ela),
 // os campos de saldo vêm nulos e Unavailable explica: nunca zero no lugar de taxa que falta.
 public sealed record DepositBalance(
-    Guid DepositId, Guid? GoalId, DateOnly DepositDate, long PrincipalCents, long IndexPercentE4, long? GrossBalanceCents, long? GrossYieldCents,
-    long? FactorE8, int? RatesUsed, DateOnly? RatesThrough, string? Unavailable, DepositTax? Tax);
+    Guid DepositId, Guid? GoalId, DateOnly DepositDate, long PrincipalCents, FixedIncomeProductKind ProductKind, FixedIncomeIndexKind IndexKind, long RateE4,
+    long? GrossBalanceCents, long? GrossYieldCents, long? FactorE8, int? RatesUsed, DateOnly? RatesThrough, string? Unavailable,
+    DepositTax? Tax, long? IndexPercentE4 = null);
 
 // O imposto estimado do aporte se ele fosse resgatado na data de referência, e o que sobra depois dele (R.7). IOF e IR em centavos,
 // a alíquota do IR em pontos-base (2250 = 22,5 %), o prazo em dias corridos e a versão da regra que valeu.
@@ -76,11 +77,11 @@ public static class GetBalances
         private static DepositBalance Balance(FixedIncomeDeposit deposit, RateBook book, DateOnly asOf)
         {
             var result = FixedIncomeEngine.Balance(
-                new Money(deposit.AmountCents), deposit.DepositDate, new IndexPercent(deposit.IndexPercentE4), book.History, asOf);
+                new Money(deposit.AmountCents), deposit.DepositDate, deposit.Remuneration, book.History, asOf);
             if (!result.IsSuccess)
                 return new DepositBalance(
-                    deposit.Id, deposit.GoalId, deposit.DepositDate, deposit.AmountCents, deposit.IndexPercentE4, null, null, null, null, null,
-                    result.Error.Code ?? "Unavailable", null);
+                    deposit.Id, deposit.GoalId, deposit.DepositDate, deposit.AmountCents, deposit.ProductKind, deposit.IndexKind, deposit.RateE4, null, null, null,
+                    null, null, result.Error.Code ?? "Unavailable", null, DepositResponse.LegacyPercent(deposit));
 
             var b = result.Value;
             var tax = FixedIncomeTax.Estimate(deposit.ProductKind, deposit.DepositDate, asOf, b.GrossYield);
@@ -94,8 +95,8 @@ public static class GetBalances
             }
 
             return new DepositBalance(
-                deposit.Id, deposit.GoalId, deposit.DepositDate, deposit.AmountCents, deposit.IndexPercentE4, b.GrossBalance.Cents,
-                b.GrossYield.Cents, b.FactorE8, b.RatesUsed, b.RatesThrough, null, estimated);
+                deposit.Id, deposit.GoalId, deposit.DepositDate, deposit.AmountCents, deposit.ProductKind, deposit.IndexKind, deposit.RateE4, b.GrossBalance.Cents,
+                b.GrossYield.Cents, b.FactorE8, b.RatesUsed, b.RatesThrough, null, estimated, DepositResponse.LegacyPercent(deposit));
         }
 
         private static GroupBalance Sum(IReadOnlyList<DepositBalance> items)

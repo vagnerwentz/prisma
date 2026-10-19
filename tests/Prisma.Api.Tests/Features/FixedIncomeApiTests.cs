@@ -244,9 +244,10 @@ public sealed class FixedIncomeApiTests(PostgresFixture postgres)
         (await Deposits(client)).ShouldBeEmpty();
     }
 
-    // IPCA, IPCA+ e outros produtos não são aceitos: nunca um número que pareça certo (docs/renda-fixa.md, 2.5).
+    // IPCA, IPCA+ e produtos que ainda não existem (debênture; a LCI e a LCA entraram na R.13) não são aceitos: nunca um número que pareça certo
+    // (docs/renda-fixa.md, 2.5).
     [Theory]
-    [InlineData("Lci", "Cdi", "Unknown")]
+    [InlineData("Debenture", "Cdi", "Unknown")]
     [InlineData("Cdb", "Ipca", "Unknown")]
     [InlineData("Cdb", "IpcaPlus", "Unknown")]
     [InlineData("Cdb", "Cdi", "Whenever")]
@@ -350,7 +351,7 @@ public sealed class FixedIncomeApiTests(PostgresFixture postgres)
         (await client.PutAsJsonAsync($"/fixed-income-deposits/{deposit.Id}", UpdateBody(amount: 777_777, percent: 1_100_000))).EnsureSuccessStatusCode();
 
         var entry = _logs.Entries.Single(e => e.EventId.Name == "DepositEdited");
-        entry["Fields"].ShouldBe("amount,percent");
+        entry["Fields"].ShouldBe("amount,rate");
         entry.Message.ShouldNotContain("777777");
         _logs.Entries.Where(e => (e.EventId.Name ?? "").StartsWith("Deposit") || (e.EventId.Name ?? "").StartsWith("Goal"))
             .ShouldAllBe(e => !e.Message.Contains("609731") && !e.Message.Contains("609.731"));

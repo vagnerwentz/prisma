@@ -3,7 +3,7 @@ namespace Prisma.Domain.FixedIncome;
 // O saldo bruto estimado de um aporte numa data. Nada daqui é gravado: sai do aporte e das taxas (docs/renda-fixa.md, 2.3).
 //
 // FactorE8: o fator acumulado da B3, com 8 casas (1,03193390 = 103193390). RatesUsed: quantas taxas diárias entraram.
-// RatesThrough: a data da última taxa usada (nulo se nenhuma entrou). Se for anterior ao dia útil esperado, as taxas
+// RatesThrough: a data da última taxa usada (nulo se nenhuma entrou, e sempre nulo no pré-fixado, que não usa taxas do CDI). Se for anterior ao dia útil esperado, as taxas
 // estão defasadas, e quem mostra o saldo diz "rendimento até <data>".
 public sealed record FixedIncomeBalance(Money Principal, Money GrossBalance, long FactorE8, int RatesUsed, DateOnly? RatesThrough)
 {

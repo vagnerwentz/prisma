@@ -505,10 +505,6 @@ namespace Prisma.Api.Infrastructure.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("index_kind");
 
-                    b.Property<long>("IndexPercentE4")
-                        .HasColumnType("bigint")
-                        .HasColumnName("index_percent_e4");
-
                     b.Property<string>("Liquidity")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -529,6 +525,10 @@ namespace Prisma.Api.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("product_kind");
+
+                    b.Property<long>("RateE4")
+                        .HasColumnType("bigint")
+                        .HasColumnName("rate_e4");
 
                     b.Property<Guid?>("TransferPairId")
                         .HasColumnType("uuid")
@@ -568,15 +568,103 @@ namespace Prisma.Api.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("ck_fixed_income_deposits_amount", "amount_cents >= 1 AND amount_cents <= 100000000000");
 
-                            t.HasCheckConstraint("ck_fixed_income_deposits_index_kind", "index_kind IN ('Cdi')");
+                            t.HasCheckConstraint("ck_fixed_income_deposits_index_kind", "index_kind IN ('Cdi', 'CdiPlus', 'Prefixed')");
 
                             t.HasCheckConstraint("ck_fixed_income_deposits_liquidity", "liquidity IN ('Unknown', 'Daily', 'AtMaturity')");
 
                             t.HasCheckConstraint("ck_fixed_income_deposits_maturity", "maturity_date IS NULL OR maturity_date > deposit_date");
 
-                            t.HasCheckConstraint("ck_fixed_income_deposits_percent", "index_percent_e4 BETWEEN 100 AND 5000000");
+                            t.HasCheckConstraint("ck_fixed_income_deposits_product_kind", "product_kind IN ('Cdb', 'Lci', 'Lca')");
 
-                            t.HasCheckConstraint("ck_fixed_income_deposits_product_kind", "product_kind IN ('Cdb')");
+                            t.HasCheckConstraint("ck_fixed_income_deposits_rate", "(index_kind = 'Cdi' AND rate_e4 BETWEEN 100 AND 5000000) OR (index_kind IN ('CdiPlus', 'Prefixed') AND rate_e4 BETWEEN 100 AND 1000000)");
+                        });
+                });
+
+            modelBuilder.Entity("Prisma.Domain.FixedIncome.MarketSyncRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Added")
+                        .HasColumnType("integer")
+                        .HasColumnName("added");
+
+                    b.Property<string>("ErrorSummary")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("error_summary");
+
+                    b.Property<int>("Fetched")
+                        .HasColumnType("integer")
+                        .HasColumnName("fetched");
+
+                    b.Property<DateTime>("FinishedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("finished_at");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("outcome");
+
+                    b.Property<int>("Revised")
+                        .HasColumnType("integer")
+                        .HasColumnName("revised");
+
+                    b.Property<string>("Series")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("series");
+
+                    b.Property<string>("SourceErrorCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("source_error_code");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at");
+
+                    b.Property<int>("Unchanged")
+                        .HasColumnType("integer")
+                        .HasColumnName("unchanged");
+
+                    b.Property<DateOnly>("WindowFrom")
+                        .HasColumnType("date")
+                        .HasColumnName("window_from");
+
+                    b.Property<DateOnly>("WindowTo")
+                        .HasColumnType("date")
+                        .HasColumnName("window_to");
+
+                    b.HasKey("Id")
+                        .HasName("pk_market_sync_runs");
+
+                    b.HasIndex("Series", "StartedAt")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("ix_market_sync_runs_series_started_at");
+
+                    b.ToTable("market_sync_runs", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_market_sync_runs_counts", "fetched >= 0 AND added >= 0 AND revised >= 0 AND unchanged >= 0");
+
+                            t.HasCheckConstraint("ck_market_sync_runs_kind", "kind IN ('Scheduled', 'Startup', 'Manual')");
+
+                            t.HasCheckConstraint("ck_market_sync_runs_outcome", "outcome IN ('Succeeded', 'SourceUnavailable', 'Failed', 'TimedOut')");
+
+                            t.HasCheckConstraint("ck_market_sync_runs_series", "series IN ('Cdi')");
+
+                            t.HasCheckConstraint("ck_market_sync_runs_window", "window_from <= window_to");
                         });
                 });
 

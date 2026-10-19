@@ -1,11 +1,12 @@
 namespace Prisma.Domain.FixedIncome;
 
-// O produto de renda fixa. Só CDB nesta versão (docs/renda-fixa.md, D10); LCI/LCA e outros entram com regra tributária própria.
-public enum FixedIncomeProductKind { Cdb }
+// O produto de renda fixa (docs/renda-fixa.md, D10 e 6.5): CDB, LCI e LCA. A remuneração é a mesma nos três (FixedIncomeIndexKind); o que muda
+// é o imposto (FixedIncomeTax): a LCI e a LCA são isentas de IR para pessoa física. Outros produtos entram com regra tributária própria.
+public enum FixedIncomeProductKind { Cdb, Lci, Lca }
 
-// O índice de referência. Só CDI nesta versão: IPCA e IPCA+ pedem fonte e fórmula próprias (docs/renda-fixa.md, 2.5) e não são
-// aceitos antes disso, para nunca mostrar um número que pareça certo.
-public enum FixedIncomeIndexKind { Cdi }
+// Como o aporte rende (docs/renda-fixa.md, 5.1 e 5.5): Cdi (X % do CDI), CdiPlus (CDI + taxa fixa ao ano) ou Prefixed (taxa fixa ao
+// ano). IPCA e IPCA+ pedem fonte e fórmula próprias (2.5) e não são aceitos antes disso, para nunca mostrar um número que pareça certo.
+public enum FixedIncomeIndexKind { Cdi, CdiPlus, Prefixed }
 
 // Liquidez do investimento, só informativa por enquanto (não muda o cálculo).
 public enum DepositLiquidity { Unknown, Daily, AtMaturity }
@@ -32,8 +33,11 @@ public sealed class FixedIncomeDeposit : Entity
 
     public FixedIncomeIndexKind IndexKind { get; private set; }
 
-    // O percentual contratado do CDI (IndexPercent, em E4): 110% = 1.100.000.
-    public long IndexPercentE4 { get; private set; }
+    // A taxa contratada, em E4, e o que ela é depende do índice: Cdi, o percentual do CDI (IndexPercent, 110% = 1.100.000); CdiPlus e
+    // Prefixed, a taxa ao ano (AnnualRate, 14% = 140.000). Lida sempre pelo `Remuneration`, nunca solta.
+    public long RateE4 { get; private set; }
+
+    public Remuneration Remuneration => Remuneration.Of(IndexKind, RateE4);
 
     public DateOnly? MaturityDate { get; private set; }
 
@@ -52,34 +56,36 @@ public sealed class FixedIncomeDeposit : Entity
 
     public static Result<FixedIncomeDeposit> Create(
         Guid userId, Guid? goalId, DateOnly depositDate, long amountCents, FixedIncomeProductKind productKind,
-        FixedIncomeIndexKind indexKind, long indexPercentE4, DateOnly? maturityDate, DepositLiquidity liquidity, string? note,
+        FixedIncomeIndexKind indexKind, long rateE4, DateOnly? maturityDate, DepositLiquidity liquidity, string? note,
         Guid clientRequestId, DateOnly today)
     {
         if (clientRequestId == Guid.Empty)
             return new Error(ErrorType.Validation, "O pedido veio sem identificador.");
 
         var deposit = new FixedIncomeDeposit { UserId = userId, GoalId = goalId, ClientRequestId = clientRequestId };
-        var error = deposit.Update(depositDate, amountCents, productKind, indexKind, indexPercentE4, maturityDate, liquidity, note, today);
+        var error = deposit.Update(depositDate, amountCents, productKind, indexKind, rateE4, maturityDate, liquidity, note, today);
         return error is null ? deposit : error;
     }
 
     // Troca o contrato inteiro. Recusada, o aporte fica como estava. A caixa muda por MoveTo, não por aqui.
     public Error? Update(
         DateOnly depositDate, long amountCents, FixedIncomeProductKind productKind, FixedIncomeIndexKind indexKind,
-        long indexPercentE4, DateOnly? maturityDate, DepositLiquidity liquidity, string? note, DateOnly today)
+        long rateE4, DateOnly? maturityDate, DepositLiquidity liquidity, string? note, DateOnly today)
     {
         note = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
 
         if (amountCents < 1 || amountCents > FixedIncomeEngine.MaxPrincipalCents)
             return Invalid("O valor do aporte precisa ser maior que zero e caber no limite.");
-        if (!new IndexPercent(indexPercentE4).IsInRange)
-            return Invalid("O percentual do CDI precisa estar entre 0,01% e 500%.");
         if (depositDate > today)
             return Invalid("A data do aporte não pode estar no futuro.");
         if (maturityDate is { } maturity && maturity <= depositDate)
             return Invalid("O vencimento precisa ser depois da data do aporte.");
         if (!Enum.IsDefined(productKind) || !Enum.IsDefined(indexKind) || !Enum.IsDefined(liquidity))
             return Invalid("Produto, índice ou liquidez inválidos.");
+        if (!Remuneration.Of(indexKind, rateE4).IsInRange)
+            return Invalid(indexKind == FixedIncomeIndexKind.Cdi
+                ? "O percentual do CDI precisa estar entre 0,01% e 500%."
+                : "A taxa ao ano precisa estar entre 0,01% e 100%.");
         if (note is { Length: > NoteMaxLength })
             return Invalid($"A observação pode ter até {NoteMaxLength} caracteres.");
 
@@ -87,7 +93,7 @@ public sealed class FixedIncomeDeposit : Entity
         AmountCents = amountCents;
         ProductKind = productKind;
         IndexKind = indexKind;
-        IndexPercentE4 = indexPercentE4;
+        RateE4 = rateE4;
         MaturityDate = maturityDate;
         Liquidity = liquidity;
         Note = note;

@@ -9,6 +9,22 @@ import {
   formatPercentE4,
   goalProgress,
   limitationsNote,
+  addMonths,
+  allDeposits,
+  depositTitle,
+  isLetter,
+  lettersTaxFootnote,
+  maturityWarning,
+  productKinds,
+  productLabels,
+  taxScope,
+  formatRate,
+  indexKindLabels,
+  indexKinds,
+  initialRateText,
+  parseRate,
+  ratesScope,
+  rateFields,
   parsePercent,
   percentFromE4,
   percentToE4,
@@ -20,8 +36,11 @@ import {
   shownYield,
   taxFootnote,
   yieldLabels,
+  type Balances,
   type DepositBalance,
   type GroupBalance,
+  type IndexKind,
+  type ProductKind,
   type RatesStatus,
 } from './fixedIncome'
 
@@ -67,6 +86,162 @@ describe('percentual do CDI em E4', () => {
     expect(formatPercent(100)).toBe('100%')
     expect(formatPercent(112.5)).toBe('112,5%')
     expect(formatPercentE4(1_000_000)).toBe('100% do CDI')
+  })
+})
+
+describe('taxa do aporte: CDI, CDI + taxa e pré-fixado', () => {
+  it('os três jeitos de render, na ordem da tela', () => {
+    expect(indexKinds).toEqual(['Cdi', 'CdiPlus', 'Prefixed'])
+    expect(indexKindLabels).toEqual({ Cdi: '% do CDI', CdiPlus: 'CDI + taxa', Prefixed: 'Pré-fixado' })
+  })
+
+  it('cada índice tem a sua faixa: o percentual do CDI vai a 500% e a taxa ao ano, a 100%', () => {
+    expect(parseRate('110', 'Cdi')).toBe(110)
+    expect(parseRate('500', 'Cdi')).toBe(500)
+    expect(parseRate('500,01', 'Cdi')).toBeNull()
+    expect(parseRate('2', 'CdiPlus')).toBe(2)
+    expect(parseRate('14', 'Prefixed')).toBe(14)
+    expect(parseRate('100', 'Prefixed')).toBe(100)
+    expect(parseRate('110', 'Prefixed')).toBeNull()
+    expect(parseRate('100,01', 'CdiPlus')).toBeNull()
+    expect(parseRate('0', 'Prefixed')).toBeNull()
+    expect(parseRate('abc', 'CdiPlus')).toBeNull()
+  })
+
+  it('a taxa viaja em E4, igual nos três', () => {
+    expect(percentToE4(14)).toBe(140_000)
+    expect(percentToE4(2)).toBe(20_000)
+    expect(percentFromE4(140_000)).toBe(14)
+  })
+
+  it('lê como o mercado escreve', () => {
+    expect(formatRate('Cdi', 1_100_000)).toBe('110% do CDI')
+    expect(formatRate('CdiPlus', 20_000)).toBe('CDI + 2% a.a.')
+    expect(formatRate('CdiPlus', 25_000)).toBe('CDI + 2,5% a.a.')
+    expect(formatRate('Prefixed', 140_000)).toBe('14% a.a. (pré)')
+  })
+
+  it('o campo diz o que é a taxa e o erro cita a faixa certa', () => {
+    expect(rateFields.Cdi.suffix).toBe('% do CDI')
+    expect(rateFields.CdiPlus.suffix).toContain('ao ano')
+    expect(rateFields.CdiPlus.suffix).toContain('CDI')
+    expect(rateFields.Prefixed.suffix).toBe('% ao ano')
+    expect(rateFields.Cdi.error).toContain('500%')
+    expect(rateFields.Prefixed.error).toContain('100% ao ano')
+    expect(rateFields.Cdi.hint).toBeNull()
+    expect(rateFields.Prefixed.hint).toContain('252')
+  })
+
+  it('só o CDI começa preenchido (com o padrão do objetivo); os outros começam vazios', () => {
+    expect(initialRateText('Cdi', 1_100_000)).toBe('110')
+    expect(initialRateText('CdiPlus', 1_100_000)).toBe('')
+    expect(initialRateText('Prefixed', 1_100_000)).toBe('')
+  })
+})
+
+describe('produto: CDB, LCI e LCA', () => {
+  it('três produtos, e só as letras são isentas', () => {
+    expect(productKinds).toEqual(['Cdb', 'Lci', 'Lca'])
+    expect(productLabels).toEqual({ Cdb: 'CDB', Lci: 'LCI', Lca: 'LCA' })
+    expect(isLetter('Cdb')).toBe(false)
+    expect(isLetter('Lci')).toBe(true)
+    expect(isLetter('Lca')).toBe(true)
+  })
+
+  it('soma meses sem passar do fim do mês e vira o ano', () => {
+    expect(addMonths('2026-01-15', 6)).toBe('2026-07-15')
+    expect(addMonths('2026-08-31', 6)).toBe('2027-02-28')
+    expect(addMonths('2027-08-31', 6)).toBe('2028-02-29')
+    expect(addMonths('2026-10-18', 6)).toBe('2027-04-18')
+    expect(addMonths('2026-12-31', 1)).toBe('2027-01-31')
+  })
+
+  it('avisa o vencimento menor que 6 meses nas letras, e só nelas', () => {
+    expect(maturityWarning('Lci', '2026-10-18', '2027-04-17')).toContain('prazo mínimo de 6 meses')
+    expect(maturityWarning('Lca', '2026-10-18', '2027-01-01')).toBe('LCI e LCA têm prazo mínimo de 6 meses. Confira o vencimento.')
+    expect(maturityWarning('Lci', '2026-10-18', '2027-04-18')).toBeNull()
+    expect(maturityWarning('Lci', '2026-10-18', '2028-10-18')).toBeNull()
+    expect(maturityWarning('Cdb', '2026-10-18', '2026-11-18')).toBeNull()
+    expect(maturityWarning('Lci', '2026-10-18', '')).toBeNull()
+  })
+
+  it('não avisa de um vencimento antes do aporte: o formulário já recusa', () => {
+    expect(maturityWarning('Lci', '2026-10-18', '2026-10-01')).toBeNull()
+  })
+
+  it('o título da linha traz o produto e a taxa', () => {
+    expect(depositTitle('Cdb', 'Cdi', 1_100_000)).toBe('CDB · 110% do CDI')
+    expect(depositTitle('Lci', 'Cdi', 900_000)).toBe('LCI · 90% do CDI')
+    expect(depositTitle('Lca', 'Prefixed', 110_000)).toBe('LCA · 11% a.a. (pré)')
+  })
+
+  it('a explicação do imposto: do CDB, das letras ou das duas; sem aporte, a do CDB', () => {
+    const of = (...p: ProductKind[]) => taxScope(p.map((productKind) => ({ productKind })))
+    expect(of()).toEqual({ cdb: true, letters: false })
+    expect(of('Cdb')).toEqual({ cdb: true, letters: false })
+    expect(of('Lci', 'Lca')).toEqual({ cdb: false, letters: true })
+    expect(of('Cdb', 'Lci')).toEqual({ cdb: true, letters: true })
+  })
+
+  it('a nota das letras cita a lei e diz o que cada uma paga', () => {
+    expect(lettersTaxFootnote).toContain('isentas de IR')
+    expect(lettersTaxFootnote).toContain('Lei 11.033')
+    expect(lettersTaxFootnote).toContain('LCA também não paga IOF')
+    expect(lettersTaxFootnote).toContain('LCI paga o IOF')
+    expect(lettersTaxFootnote.toLowerCase()).not.toContain('lucro')
+  })
+
+  it('a nota do imposto da linha: IR do CDB, isenção das letras e IOF da LCI nova', () => {
+    const base = {
+      iofCents: 0,
+      irCents: 0,
+      totalCents: 0,
+      irRateBasisPoints: 2_250,
+      holdingDays: 87,
+      ruleVersion: 'v',
+      netYieldCents: 0,
+      netBalanceCents: 0,
+    }
+    const tax = (over: Partial<typeof base>) => ({ ...base, ...over })
+    expect(depositTaxNote(tax({ irRateBasisPoints: 2_250, iofCents: 0, holdingDays: 87 }))).toBe('IR 22,5% · 87 dias')
+    expect(depositTaxNote(tax({ irRateBasisPoints: 2_250, iofCents: 100, holdingDays: 10 }))).toBe('IOF + IR 22,5% · 10 dias')
+    expect(depositTaxNote(tax({ irRateBasisPoints: 0, iofCents: 0, holdingDays: 87 }))).toBe('Isento de IR · 87 dias')
+    expect(depositTaxNote(tax({ irRateBasisPoints: 0, iofCents: 100, holdingDays: 10 }))).toBe('IOF, isento de IR · 10 dias')
+    expect(depositTaxNote(tax({ irRateBasisPoints: 0, iofCents: 0, holdingDays: 1 }))).toBe('Isento de IR · 1 dia')
+    expect(depositTaxNote(null)).toBeNull()
+  })
+})
+
+describe('de onde vêm os números', () => {
+  const kinds = (...k: IndexKind[]) => k.map((indexKind) => ({ indexKind }))
+
+  it('só CDI, só pré ou os dois; sem aporte vale o CDI', () => {
+    expect(ratesScope([])).toBe('cdi')
+    expect(ratesScope(kinds('Cdi', 'CdiPlus'))).toBe('cdi')
+    expect(ratesScope(kinds('Prefixed'))).toBe('prefixed')
+    expect(ratesScope(kinds('Prefixed', 'Prefixed'))).toBe('prefixed')
+    expect(ratesScope(kinds('Cdi', 'Prefixed'))).toBe('both')
+    expect(ratesScope(kinds('CdiPlus', 'Prefixed'))).toBe('both')
+  })
+
+  it('a nota de rodapé fala só do que foi usado', () => {
+    const status = rates()
+    expect(ratesFootnote(status)).toContain('CDI publicado pelo Banco Central até 15/10')
+    expect(ratesFootnote(status, 'cdi')).not.toContain('pré-fixado')
+    expect(ratesFootnote(status, 'prefixed')).toContain('taxa contratada')
+    expect(ratesFootnote(status, 'prefixed')).not.toContain('Banco Central')
+    expect(ratesFootnote(status, 'both')).toContain('Banco Central até 15/10')
+    expect(ratesFootnote(status, 'both')).toContain('pré-fixado')
+    for (const scope of ['cdi', 'prefixed', 'both'] as const) expect(ratesFootnote(status, scope)).toContain('o extrato do banco manda')
+  })
+
+  it('junta os aportes de todos os objetivos e dos soltos', () => {
+    const d = (id: string) => ({ depositId: id }) as DepositBalance
+    const balances = {
+      goals: [{ deposits: [d('a'), d('b')] }, { deposits: [d('c')] }],
+      unassigned: { deposits: [d('d')] },
+    } as unknown as Balances
+    expect(allDeposits(balances).map((x) => x.depositId)).toEqual(['a', 'b', 'c', 'd'])
   })
 })
 
@@ -180,7 +355,9 @@ describe('bruto e líquido estimado', () => {
     goalId: null,
     depositDate: '2026-07-21',
     principalCents: 100_000,
-    indexPercentE4: 1_000_000,
+    productKind: 'Cdb',
+    indexKind: 'Cdi',
+    rateE4: 1_000_000,
     grossBalanceCents: 101_000,
     grossYieldCents: 1_000,
     factorE8: 101_000_000,
@@ -217,7 +394,10 @@ describe('bruto e líquido estimado', () => {
 describe('avisos de limitação', () => {
   it('diz o que a renda fixa ainda não faz', () => {
     expect(limitationsNote).toContain('CDB')
+    expect(limitationsNote).toContain('CDB, LCI e LCA')
     expect(limitationsNote).toContain('percentual do CDI')
+    expect(limitationsNote).toContain('o CDI mais uma taxa')
+    expect(limitationsNote).toContain('taxa fixa ao ano')
     expect(limitationsNote).toContain('IPCA')
     expect(limitationsNote).toContain('resgates')
     expect(limitationsNote).toContain('projeção')

@@ -19,6 +19,9 @@ public static class AuthSetup
     // "Avise a gente" (I.7c3): exige login, então limitado por pessoa, não por IP.
     public const string AssetRequestsRateLimitPolicy = "asset-requests";
 
+    // Disparos manuais da sincronização dos dados de mercado (docs/admin-mercado.md, 6): por pessoa, não por IP.
+    public const string AdminSyncRateLimitPolicy = "admin-sync";
+
     public static readonly TimeSpan SessionCheckInterval = TimeSpan.FromMinutes(5);
 
     public static IServiceCollection AddAuth(this IServiceCollection services, IConfiguration configuration)
@@ -30,6 +33,11 @@ public static class AuthSetup
             .PersistKeysToDbContext<AppDbContext>();
 
         services.Configure<RegistrationOptions>(configuration.GetSection(RegistrationOptions.Section));
+        services.AddOptions<AdminOptions>()
+            .Bind(configuration.GetSection(AdminOptions.Section))
+            .Validate(o => o.IsValid(), "Configuração Admin inválida: Admin:Emails precisa ter só e-mails e SyncTimeoutSeconds ficar de 1 a 300.")
+            .ValidateOnStart();
+        services.AddScoped<IAuthorizationHandler, AdminAuthorizationHandler>();
         services.AddOptions<AppOptions>()
             .Bind(configuration.GetSection(AppOptions.Section))
             .Validate(o => o.IsValid(), "Configuração App inválida: App:PublicUrl precisa ser a raiz do site (https://dominio/).")
@@ -94,7 +102,8 @@ public static class AuthSetup
 
         // Todo endpoint exige login, salvo os marcados com AllowAnonymous.
         services.AddAuthorizationBuilder()
-            .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
+            .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
+            .AddPolicy(AdminOptions.PolicyName, policy => policy.RequireAuthenticatedUser().AddRequirements(new AdminRequirement()));
 
         services.AddHttpContextAccessor();
         services.AddScoped<ScopedUser>();
@@ -133,6 +142,17 @@ public static class AuthSetup
                     _ => new FixedWindowRateLimiterOptions
                     {
                         PermitLimit = assetRequestsLimit,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                    }));
+
+            var adminSyncLimit = configuration.GetValue("RateLimiting:AdminSync:PermitLimit", 6);
+            options.AddPolicy(AdminSyncRateLimitPolicy, context =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = adminSyncLimit,
                         Window = TimeSpan.FromMinutes(1),
                         QueueLimit = 0,
                     }));

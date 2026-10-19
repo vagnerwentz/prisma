@@ -223,6 +223,18 @@ public static partial class AppLog
     [LoggerMessage(4207, LogLevel.Information, "Next reference rates sync at {NextRunUtc:o}")]
     public static partial void ReferenceRateNextRun(this ILogger logger, DateTime nextRunUtc);
 
+    // Pedido de sincronização pela tela de admin (docs/admin-mercado.md): quem pediu fica só aqui, no userId, e nunca na tabela.
+    [LoggerMessage(4208, LogLevel.Information, "Market data sync requested by {UserId}: series {Series}, {From:yyyy-MM-dd} to {To:yyyy-MM-dd}")]
+    public static partial void MarketDataSyncRequested(this ILogger logger, Guid userId, string series, DateOnly? from, DateOnly? to);
+
+    [LoggerMessage(4209, LogLevel.Information, "Market data sync {RunId} of series {Series} ({Kind}) finished: {Outcome}, {Fetched} fetched, {Added} added, {Revised} revised, in {ElapsedMs} ms")]
+    public static partial void MarketDataSyncFinished(
+        this ILogger logger, Guid runId, string series, string kind, string outcome, int fetched, int added, int revised, double elapsedMs);
+
+    // O código de erro que a página do firewall do Banco Central mostra: só dígitos, o número que ele pede num chamado.
+    [LoggerMessage(4210, LogLevel.Warning, "The market data provider rejected the request with error code {SourceErrorCode}")]
+    public static partial void MarketDataSourceErrorCode(this ILogger logger, string sourceErrorCode);
+
     [LoggerMessage(4300, LogLevel.Information, "Savings goal {GoalId} created")]
     public static partial void GoalCreated(this ILogger logger, Guid goalId);
 

@@ -1,0 +1,29 @@
+# Admin dos dados de mercado (docs/admin-mercado.md). Exige sessão de um e-mail da lista `Admin:Emails` (com o e-mail confirmado):
+# em desenvolvimento, `dotnet user-secrets set "Admin:Emails:0" "<seu e-mail>" --project src/Prisma.Api`; na produção, a variável
+# `Admin__Emails__0`. Rode antes o Login de auth.http com esse e-mail. Quem não é admin recebe 403; sem sessão, 401.
+
+### Quem sou eu: isAdmin diz se a tela de admin aparece
+GET {{baseUrl}}/auth/me
+
+### O estado de cada série: histórico, se está em dia, próxima execução automática e as últimas execuções
+GET {{baseUrl}}/admin/market-data
+
+### Sincronizar agora (a janela normal: do último dia gravado, menos 10 dias, até hoje). Espera até 90 s.
+# 200 = a execução; 502 SourceUnavailable (com sourceErrorCode quando o Banco Central mandou o número da rejeição);
+# 504 SyncTimedOut; 429 se passar de 6 por minuto. Divide o lock da tarefa: duas ao mesmo tempo não duplicam nada.
+POST {{baseUrl}}/admin/market-data/cdi/sync
+
+### Reprocessar um período (de 1 dia a 10 anos, nunca no futuro nem antes do início do histórico): 400 InvalidWindow se não valer
+POST {{baseUrl}}/admin/market-data/cdi/refresh
+Content-Type: application/json
+
+{
+  "from": "2026-10-01",
+  "to": "2026-10-16"
+}
+
+### As últimas execuções, da mais nova para a mais antiga (?limit= de 1 a 100, padrão 20)
+GET {{baseUrl}}/admin/market-data/cdi/runs?limit=20
+
+### Série que não existe: 404 UnknownSeries
+POST {{baseUrl}}/admin/market-data/selic/sync

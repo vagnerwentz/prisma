@@ -13,11 +13,20 @@ import { formatCents } from '@/lib/money'
 import {
   defaultIndexPercentE4,
   formatPercent,
-  parsePercent,
+  indexKindLabels,
+  indexKinds,
+  maturityWarning,
+  productKinds,
+  productLabels,
+  initialRateText,
+  parseRate,
   percentFromE4,
   percentToE4,
+  rateFields,
   type Deposit,
   type Goal,
+  type IndexKind,
+  type ProductKind,
 } from './fixedIncome'
 import {
   useCreateDeposit,
@@ -60,8 +69,11 @@ function DepositForm({ view, goals, onDone }: { view: DepositView; goals: Goal[]
   const [requestId] = useState(() => crypto.randomUUID())
   const [goalId, setGoalId] = useState<string | null>(deposit ? deposit.goalId : view.kind === 'new' ? view.goalId : null)
   const defaultE4 = goals.find((g) => g.id === goalId)?.defaultIndexPercentE4 ?? defaultIndexPercentE4
-  const [percent, setPercent] = useState<string | null>(deposit ? formatPercent(percentFromE4(deposit.indexPercentE4)).replace('%', '') : null)
-  const percentText = percent ?? formatPercent(percentFromE4(defaultE4)).replace('%', '')
+  const [product, setProduct] = useState<ProductKind>(deposit?.productKind ?? 'Cdb')
+  const [kind, setKind] = useState<IndexKind>(deposit?.indexKind ?? 'Cdi')
+  const [percent, setPercent] = useState<string | null>(deposit ? formatPercent(percentFromE4(deposit.rateE4)).replace('%', '') : null)
+  const percentText = percent ?? initialRateText(kind, defaultE4)
+  const field = rateFields[kind]
   const [amountCents, setAmountCents] = useState(deposit?.amountCents ?? 0)
   const [date, setDate] = useState(deposit?.depositDate ?? todayInSaoPaulo())
   const [maturity, setMaturity] = useState(deposit?.maturityDate ?? '')
@@ -80,10 +92,10 @@ function DepositForm({ view, goals, onDone }: { view: DepositView; goals: Goal[]
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
-    const parsed = parsePercent(percentText)
+    const parsed = parseRate(percentText, kind)
     const found: Errors = {
       amount: amountCents > 0 ? undefined : 'Digite o valor aportado.',
-      percent: parsed === null ? 'Use um percentual entre 0,01% e 500%.' : undefined,
+      percent: parsed === null ? field.error : undefined,
       maturity: maturity && maturity < date ? 'O vencimento não pode ser antes do aporte.' : undefined,
       funding: funded && (!from || !to) ? 'Escolha de qual conta saiu e em qual conta de investimento entrou.' : undefined,
     }
@@ -93,9 +105,9 @@ function DepositForm({ view, goals, onDone }: { view: DepositView; goals: Goal[]
     const common = {
       depositDate: date,
       amountCents,
-      productKind: 'Cdb' as const,
-      indexKind: 'Cdi' as const,
-      indexPercentE4: percentToE4(parsed),
+      productKind: product,
+      indexKind: kind,
+      rateE4: percentToE4(parsed),
       maturityDate: maturity || null,
       liquidity: deposit?.liquidity ?? ('Unknown' as const),
       note: deposit?.note ?? null,
@@ -191,22 +203,50 @@ function DepositForm({ view, goals, onDone }: { view: DepositView; goals: Goal[]
             ))}
           </ChipRow>
         </Section>
+        <Section title="Produto">
+          <ChipRow>
+            {productKinds.map((p) => (
+              <Chip key={p} selected={p === product} onClick={() => setProduct(p)}>
+                {productLabels[p]}
+              </Chip>
+            ))}
+          </ChipRow>
+        </Section>
         <Section title="Rende">
+          <ChipRow>
+            {indexKinds.map((k) => (
+              <Chip
+                key={k}
+                selected={k === kind}
+                onClick={() => {
+                  setKind(k)
+                  setPercent(null)
+                  setErrors((e) => ({ ...e, percent: undefined }))
+                }}
+              >
+                {indexKindLabels[k]}
+              </Chip>
+            ))}
+          </ChipRow>
           <div className="flex items-center gap-2">
             <Input
               value={percentText}
               onChange={(e) => setPercent(e.target.value)}
               inputMode="decimal"
-              aria-label="Percentual do CDI"
+              aria-label={field.label}
               className="w-28 tabular-nums"
             />
-            <span className="text-sm text-muted-foreground">% do CDI</span>
+            <span className="text-sm text-muted-foreground">{field.suffix}</span>
           </div>
+          {field.hint && <p className="text-xs text-muted-foreground">{field.hint}</p>}
           <FieldError message={errors.percent} />
         </Section>
         <Section title="Vencimento" aside="opcional">
           <Input type="date" value={maturity} onChange={(e) => setMaturity(e.target.value)} aria-label="Vencimento" className="w-44" />
           <FieldError message={errors.maturity} />
+          {maturityWarning(product, date, maturity) && (
+            <p className="text-xs text-muted-foreground">{maturityWarning(product, date, maturity)}</p>
+          )}
         </Section>
         {!deposit && (
           <Section title="Saiu de uma conta?">

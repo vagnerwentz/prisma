@@ -11,7 +11,53 @@ export type GroupBalance = Schemas['GroupBalance']
 export type DepositBalance = Schemas['DepositBalance']
 export type EvolutionPoint = Schemas['EvolutionPoint']
 
-// O percentual do CDI viaja em E4: 100% = 1_000_000 (a API aceita de 100 a 5_000_000).
+// O produto (docs/renda-fixa.md, 6.5): CDB, LCI e LCA rendem do mesmo jeito; o que muda é o imposto. As letras são isentas de IR para
+// pessoa física (Lei 11.033, art. 3º) e a LCA também de IOF.
+export type ProductKind = Deposit['productKind']
+export const productKinds: ProductKind[] = ['Cdb', 'Lci', 'Lca']
+export const productLabels: Record<ProductKind, string> = { Cdb: 'CDB', Lci: 'LCI', Lca: 'LCA' }
+export const isLetter = (product: ProductKind): boolean => product !== 'Cdb'
+
+// Prazo mínimo das letras sem índice de preços: 6 meses (Resolução CMN 5.215/2025). Só avisa: letras antigas tinham 90 dias e a pessoa
+// pode cadastrar histórico.
+export const letterMinMonths = 6
+
+// Soma meses a uma data AAAA-MM-DD sem passar do fim do mês (31/08 + 6 meses = 28/02).
+export function addMonths(date: string, months: number): string {
+  const [y, m, d] = date.split('-').map(Number)
+  const index = y * 12 + (m - 1) + months
+  const year = Math.floor(index / 12)
+  const month = (index % 12) + 1
+  const last = new Date(Date.UTC(year, month, 0)).getUTCDate()
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(Math.min(d, last)).padStart(2, '0')}`
+}
+
+export function maturityWarning(product: ProductKind, depositDate: string, maturity: string): string | null {
+  if (!isLetter(product) || !maturity || maturity < depositDate) return null
+  return maturity < addMonths(depositDate, letterMinMonths)
+    ? `LCI e LCA têm prazo mínimo de ${letterMinMonths} meses. Confira o vencimento.`
+    : null
+}
+
+// Como o aporte aparece nas listas: "LCI · 90% do CDI".
+export function depositTitle(product: ProductKind, kind: IndexKind, rateE4: number): string {
+  return `${productLabels[product]} · ${formatRate(kind, rateE4)}`
+}
+
+// Quais imposto se explica: o do CDB, o das letras ou os dois. Sem aporte, o do CDB (a explicação de sempre).
+export function taxScope(deposits: readonly Pick<DepositBalance, 'productKind'>[]): { cdb: boolean; letters: boolean } {
+  const letters = deposits.some((d) => d.productKind !== 'Cdb')
+  const cdb = deposits.some((d) => d.productKind === 'Cdb')
+  return { cdb: cdb || !letters, letters }
+}
+
+// Como o aporte rende (docs/renda-fixa.md, 5.1 e 5.5): X % do CDI, CDI + uma taxa fixa ao ano, ou uma taxa fixa ao ano (pré).
+export type IndexKind = Deposit['indexKind']
+export const indexKinds: IndexKind[] = ['Cdi', 'CdiPlus', 'Prefixed']
+export const indexKindLabels: Record<IndexKind, string> = { Cdi: '% do CDI', CdiPlus: 'CDI + taxa', Prefixed: 'Pré-fixado' }
+
+// A taxa viaja em E4 (100% = 1_000_000) e o que ela é depende do índice: o percentual do CDI (a API aceita de 0,01% a 500%) ou a
+// taxa ao ano (de 0,01% a 100%). Um campo só na tela, com o rótulo do índice.
 export const percentScale = 10_000
 export const defaultIndexPercentE4 = 100 * percentScale
 
@@ -23,12 +69,39 @@ export function percentFromE4(e4: number): number {
   return e4 / percentScale
 }
 
-// "100", "112,5" → 100, 112.5. Texto inválido ou fora de 0,01% a 500%: null.
-export function parsePercent(text: string): number | null {
+// "100", "112,5" → 100, 112.5. Texto inválido ou fora de 0,01% a `max` (500% no CDI): null.
+export function parsePercent(text: string, max = 500): number | null {
   const normalized = text.trim().replace('%', '').replace(/\s/g, '').replace(',', '.')
   if (!/^\d+(\.\d{1,4})?$/.test(normalized)) return null
   const value = Number(normalized)
-  return value >= 0.01 && value <= 500 ? value : null
+  return value >= 0.01 && value <= max ? value : null
+}
+
+type RateField = { max: number; suffix: string; label: string; hint: string | null; error: string }
+
+export const rateFields: Record<IndexKind, RateField> = {
+  Cdi: { max: 500, suffix: '% do CDI', label: 'Percentual do CDI', hint: null, error: 'Use um percentual entre 0,01% e 500%.' },
+  CdiPlus: {
+    max: 100,
+    suffix: '% ao ano, mais o CDI',
+    label: 'Taxa ao ano',
+    hint: 'Rende o CDI mais esta taxa fixa por ano, como "CDI + 2%".',
+    error: 'Use uma taxa entre 0,01% e 100% ao ano.',
+  },
+  Prefixed: {
+    max: 100,
+    suffix: '% ao ano',
+    label: 'Taxa ao ano',
+    hint: 'Taxa fixa por ano, contada em dias úteis (252 por ano).',
+    error: 'Use uma taxa entre 0,01% e 100% ao ano.',
+  },
+}
+
+export const parseRate = (text: string, kind: IndexKind): number | null => parsePercent(text, rateFields[kind].max)
+
+// O texto inicial do campo: no CDI, o padrão do objetivo; nos outros, vazio (não há taxa padrão a sugerir).
+export function initialRateText(kind: IndexKind, defaultE4: number): string {
+  return kind === 'Cdi' ? formatPercent(percentFromE4(defaultE4)).replace('%', '') : ''
 }
 
 // 100 → "100%"; 112.5 → "112,5%".
@@ -38,6 +111,28 @@ export function formatPercent(percent: number): string {
 
 export function formatPercentE4(e4: number): string {
   return `${formatPercent(percentFromE4(e4))} do CDI`
+}
+
+// O que o aporte rende, como se lê: "110% do CDI", "CDI + 2% a.a.", "14% a.a. (pré)".
+export function formatRate(kind: IndexKind, rateE4: number): string {
+  const rate = formatPercent(percentFromE4(rateE4))
+  if (kind === 'CdiPlus') return `CDI + ${rate} a.a.`
+  if (kind === 'Prefixed') return `${rate} a.a. (pré)`
+  return formatPercentE4(rateE4)
+}
+
+// De onde vêm os números de um conjunto de aportes: só do CDI, só da taxa contratada (pré) ou dos dois. Sem aporte, vale o CDI
+// (o aviso de taxas ausentes continua aparecendo antes do primeiro aporte).
+export type RatesScope = 'cdi' | 'prefixed' | 'both'
+
+export function ratesScope(deposits: readonly Pick<DepositBalance, 'indexKind'>[]): RatesScope {
+  const prefixed = deposits.filter((d) => d.indexKind === 'Prefixed').length
+  if (prefixed === 0) return 'cdi'
+  return prefixed === deposits.length ? 'prefixed' : 'both'
+}
+
+export function allDeposits(balances: Balances): DepositBalance[] {
+  return [...balances.goals.flatMap((g) => g.deposits), ...balances.unassigned.deposits]
 }
 
 // Quanto da meta já foi: 0 a 1, sem passar de 1. Sem meta: null (a barra nem aparece).
@@ -74,11 +169,15 @@ export function ratesNotice(rates: RatesStatus): RatesNotice | null {
   return null
 }
 
-// A nota que fica sempre visível (seção 7.3).
-export function ratesFootnote(rates: RatesStatus): string {
-  return rates.through
-    ? `Cálculo pelo CDI publicado pelo Banco Central até ${formatShortDate(rates.through)}. Estimativa; o extrato do banco manda.`
-    : 'Cálculo pelo CDI publicado pelo Banco Central. Estimativa; o extrato do banco manda.'
+// A nota que fica sempre visível (seção 7.3). O pré-fixado não usa o CDI: rende pela taxa contratada, em dias úteis, até hoje.
+export function ratesFootnote(rates: RatesStatus, scope: RatesScope = 'cdi'): string {
+  if (scope === 'prefixed') return 'Cálculo pela taxa contratada, em dias úteis, até hoje. Estimativa; o extrato do banco manda.'
+  const cdi = rates.through
+    ? `Cálculo pelo CDI publicado pelo Banco Central até ${formatShortDate(rates.through)}`
+    : 'Cálculo pelo CDI publicado pelo Banco Central'
+  return scope === 'both'
+    ? `${cdi}; o pré-fixado, pela taxa contratada, em dias úteis, até hoje. Estimativa; o extrato do banco manda.`
+    : `${cdi}. Estimativa; o extrato do banco manda.`
 }
 
 export function depositCountLabel(count: number): string {
@@ -143,7 +242,12 @@ export const balanceLabels: Record<ValueMode, string> = { gross: 'Saldo bruto es
 
 // O que a renda fixa do Prisma ainda não faz (R.8): sempre visível, para ninguém ler o número como mais do que ele é.
 export const limitationsNote =
-  'Por enquanto só CDB que rende um percentual do CDI: sem IPCA nem prefixado, sem resgates e sem projeção do que vai render.'
+  'Por enquanto só CDB, LCI e LCA que rendem um percentual do CDI, o CDI mais uma taxa ou uma taxa fixa ao ano: sem IPCA, sem resgates e sem projeção do que vai render.'
+
+// O imposto das letras: a LCI e a LCA são isentas de IR para pessoa física (Lei 11.033, art. 3º); a LCA também de IOF, e a LCI paga o
+// IOF dos primeiros 29 dias, como o CDB.
+export const lettersTaxFootnote =
+  'LCI e LCA: isentas de IR para pessoa física (Lei 11.033, art. 3º), então o líquido é o bruto. A LCA também não paga IOF; a LCI paga o IOF dos primeiros 29 dias, como o CDB.'
 
 // A explicação do imposto, sempre a mesma: é estimativa de resgate hoje, e quem retém é o banco.
 export const taxFootnote =
@@ -154,6 +258,9 @@ export function depositTaxNote(tax: DepositTax | null | undefined): string | nul
   if (!tax) return null
   const parts = []
   if (tax.iofCents > 0) parts.push('IOF')
-  parts.push(`IR ${formatPercent(tax.irRateBasisPoints / 100)}`)
-  return `${parts.join(' + ')} · ${tax.holdingDays} ${tax.holdingDays === 1 ? 'dia' : 'dias'}`
+  const exempt = tax.irRateBasisPoints === 0
+  if (!exempt) parts.push(`IR ${formatPercent(tax.irRateBasisPoints / 100)}`)
+  // LCI e LCA: sem IR. "Isento de IR" sozinho, ou "IOF, isento de IR" quando ainda há IOF (LCI com menos de 30 dias).
+  const label = exempt ? (parts.length ? `${parts.join(' + ')}, isento de IR` : 'Isento de IR') : parts.join(' + ')
+  return `${label} · ${tax.holdingDays} ${tax.holdingDays === 1 ? 'dia' : 'dias'}`
 }

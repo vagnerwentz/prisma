@@ -14,6 +14,9 @@ public sealed class FakeReferenceRateSource : IReferenceRateSource
 
     public Exception? Failure { get; set; }
 
+    // Demora antes de responder, e desiste se quem pediu cancelar: para o teto de espera da sincronização manual.
+    public TimeSpan Delay { get; set; }
+
     // Roda no meio da busca, antes de devolver: para simular outra execução gravando ao mesmo tempo.
     public Func<Task>? OnFetch { get; set; }
 
@@ -24,6 +27,8 @@ public sealed class FakeReferenceRateSource : IReferenceRateSource
     public async Task<IReadOnlyList<DailyRate>> FetchAsync(DateOnly from, DateOnly to, CancellationToken ct)
     {
         _requests.Enqueue((from, to));
+        if (Delay > TimeSpan.Zero)
+            await Task.Delay(Delay, ct);
         if (OnFetch is not null)
             await OnFetch();
         if (Failure is not null)

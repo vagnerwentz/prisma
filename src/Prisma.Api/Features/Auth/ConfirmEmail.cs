@@ -40,7 +40,8 @@ public static class ConfirmEmail
     }
 
     public sealed class Handler(
-        UserManager<AppUser> users, SignInManager<AppUser> signIn, IOptions<IdentityOptions> identity, ILogger<Handler> logger)
+        UserManager<AppUser> users, SignInManager<AppUser> signIn, IOptions<IdentityOptions> identity, IOptions<AdminOptions> admins,
+        ILogger<Handler> logger)
     {
         public async Task<Result<SessionUser>> Execute(Request req, CancellationToken ct)
         {
@@ -83,7 +84,7 @@ public static class ConfirmEmail
             await users.UpdateSecurityStampAsync(user);
             await signIn.SignInAsync(user, isPersistent: true);
             logger.EmailConfirmed(user.Id);
-            return SessionUser.Of(user);
+            return SessionUser.Of(user, admins.Value);
         }
 
         private Error LockedOut(AppUser user)

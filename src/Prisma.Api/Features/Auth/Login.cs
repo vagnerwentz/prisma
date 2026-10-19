@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using FluentValidation;
 using Microsoft.AspNetCore.Identity;
 using Prisma.Api.Infrastructure.Auth;
@@ -20,7 +21,7 @@ public static class Login
         }
     }
 
-    public sealed class Handler(UserManager<AppUser> users, SignInManager<AppUser> signIn, ILogger<Handler> logger)
+    public sealed class Handler(UserManager<AppUser> users, SignInManager<AppUser> signIn, IOptions<AdminOptions> admins, ILogger<Handler> logger)
     {
         // Mesma mensagem para e-mail inexistente e senha errada: não revela quem tem conta.
         private static readonly Error InvalidCredentials =
@@ -68,7 +69,7 @@ public static class Login
 
             await signIn.SignInAsync(user, isPersistent: true);
             logger.LoginSucceeded(user.Id);
-            return SessionUser.Of(user);
+            return SessionUser.Of(user, admins.Value);
         }
     }
 

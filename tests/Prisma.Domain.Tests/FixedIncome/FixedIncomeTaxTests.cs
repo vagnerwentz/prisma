@@ -119,6 +119,110 @@ public sealed class FixedIncomeTaxTests
     public void Redeeming_on_the_deposit_day_has_no_yield_and_no_tax() =>
         Estimate(0, 0).TotalCents.ShouldBe(0);
 
+    // ---- LCI e LCA (docs/renda-fixa.md, 6.5): isentas de IR para pessoa física (Lei 11.033/2004, art. 3º, II para a LCI e IV para a LCA) ----
+
+    private static TaxEstimate Estimate(FixedIncomeProductKind product, long yieldCents, int days) =>
+        FixedIncomeTax.Estimate(product, Deposit, Deposit.AddDays(days), new Money(yieldCents)).Value;
+
+    [Theory]
+    [InlineData(FixedIncomeProductKind.Lci)]
+    [InlineData(FixedIncomeProductKind.Lca)]
+    public void The_letters_pay_no_ir_in_any_bracket(FixedIncomeProductKind product)
+    {
+        foreach (var days in new[] { 30, 180, 181, 360, 361, 720, 721, 3_650 })
+        {
+            var estimate = Estimate(product, 100_000, days);
+
+            estimate.IrCents.ShouldBe(0, $"{product} em {days} dias");
+            estimate.IrRateBasisPoints.ShouldBe(0, $"{product} em {days} dias");
+            estimate.IofCents.ShouldBe(0, $"{product} em {days} dias");
+            estimate.TotalCents.ShouldBe(0, $"{product} em {days} dias");
+            estimate.HoldingDays.ShouldBe(days);
+        }
+    }
+
+    // A LCI não tem alíquota zero de IOF no Decreto 6.306 (art. 32, § 2º): vale a mesma tabela do CDB abaixo de 30 dias, e o IR segue
+    // isento (o IOF não entra na base de um IR que não existe).
+    [Theory]
+    [InlineData(1, 96)]
+    [InlineData(15, 50)]
+    [InlineData(29, 3)]
+    [InlineData(30, 0)]
+    public void The_lci_pays_the_cdb_iof_table_under_30_days_and_no_ir(int days, int expectedPercent)
+    {
+        var estimate = Estimate(FixedIncomeProductKind.Lci, 100_000, days);
+
+        estimate.IofCents.ShouldBe(expectedPercent * 1_000);
+        estimate.IrCents.ShouldBe(0);
+        estimate.TotalCents.ShouldBe(expectedPercent * 1_000);
+    }
+
+    // A LCA tem alíquota zero de IOF (Decreto 6.306, art. 32, § 2º, V): nem no primeiro dia.
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(15)]
+    [InlineData(29)]
+    public void The_lca_pays_no_iof_even_on_the_first_days(int days) =>
+        Estimate(FixedIncomeProductKind.Lca, 100_000, days).TotalCents.ShouldBe(0);
+
+    [Fact]
+    public void The_same_yield_is_taxed_in_the_cdb_and_not_in_the_letters()
+    {
+        Estimate(FixedIncomeProductKind.Cdb, 100_000, 400).IrCents.ShouldBe(17_500);
+        Estimate(FixedIncomeProductKind.Lci, 100_000, 400).IrCents.ShouldBe(0);
+        Estimate(FixedIncomeProductKind.Lca, 100_000, 400).IrCents.ShouldBe(0);
+    }
+
+    [Fact]
+    public void The_net_of_a_letter_after_30_days_is_the_gross()
+    {
+        var gross = new Money(1_050_000);
+        var yield = new Money(50_000);
+
+        foreach (var product in new[] { FixedIncomeProductKind.Lci, FixedIncomeProductKind.Lca })
+        {
+            var tax = FixedIncomeTax.Estimate(product, Deposit, Deposit.AddDays(200), yield).Value;
+            var (netYield, netBalance) = FixedIncomeTax.Net(gross, yield, tax);
+
+            netYield.ShouldBe(yield);
+            netBalance.ShouldBe(gross);
+        }
+    }
+
+    [Theory]
+    [InlineData(FixedIncomeProductKind.Lci, 0, 1)]
+    [InlineData(FixedIncomeProductKind.Lci, -500, 100)]
+    [InlineData(FixedIncomeProductKind.Lca, 0, 100)]
+    public void A_letter_without_yield_has_no_tax(FixedIncomeProductKind product, long yieldCents, int days) =>
+        Estimate(product, yieldCents, days).TotalCents.ShouldBe(0);
+
+    [Fact]
+    public void Each_product_reports_its_own_rule_version()
+    {
+        Estimate(FixedIncomeProductKind.Cdb, 100_000, 100).RuleVersion.ShouldBe("cdb-lei-11033-2005");
+        Estimate(FixedIncomeProductKind.Lci, 100_000, 100).RuleVersion.ShouldBe("lci-lei-11033-2005");
+        Estimate(FixedIncomeProductKind.Lca, 100_000, 100).RuleVersion.ShouldBe("lca-lei-11033-2005");
+    }
+
+    [Theory]
+    [InlineData(FixedIncomeProductKind.Lci)]
+    [InlineData(FixedIncomeProductKind.Lca)]
+    public void The_letters_rules_start_on_the_first_day_of_2005_like_the_cdb(FixedIncomeProductKind product)
+    {
+        FixedIncomeTax.Estimate(product, new DateOnly(2004, 6, 1), new DateOnly(2004, 12, 31), new Money(1_000)).IsSuccess.ShouldBeFalse();
+        FixedIncomeTax.Estimate(product, new DateOnly(2004, 6, 1), new DateOnly(2005, 1, 1), new Money(1_000)).IsSuccess.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void A_product_without_a_tax_rule_is_refused_not_taxed_as_a_cdb()
+    {
+        var result = FixedIncomeTax.Estimate((FixedIncomeProductKind)99, Deposit, Deposit.AddDays(100), new Money(100_000));
+
+        result.IsSuccess.ShouldBeFalse();
+        result.Error!.Type.ShouldBe(ErrorType.Validation);
+    }
+
     // ---- Entradas inválidas e regra por data ----
 
     [Fact]
