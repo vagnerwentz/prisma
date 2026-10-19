@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Prisma.Api.Infrastructure.Logging;
 using Prisma.Domain.FixedIncome;
 
@@ -17,7 +18,7 @@ namespace Prisma.Api.Infrastructure.Market.Bcb;
 //    sincronização num fim de semana, e vira lista vazia. Qualquer outro 404 é falha.
 //
 // Devolve tudo ou nada: se uma janela falha, a falha sobe e nenhuma taxa é devolvida pela metade.
-public sealed class BcbSgsRateSource(HttpClient http, ILogger<BcbSgsRateSource> logger) : IReferenceRateSource
+public sealed partial class BcbSgsRateSource(HttpClient http, ILogger<BcbSgsRateSource> logger) : IReferenceRateSource
 {
     public const string HttpClientName = "bcb-sgs";
 
@@ -68,11 +69,13 @@ public sealed class BcbSgsRateSource(HttpClient http, ILogger<BcbSgsRateSource> 
             if (response.StatusCode == HttpStatusCode.NotFound && body.Contains(NoValuesMarker, StringComparison.Ordinal))
                 return [];
             if (!response.IsSuccessStatusCode)
-                throw new MarketDataException($"bcb sgs {SeriesCode} {range}: HTTP {(int)response.StatusCode}");
+                throw new MarketDataException(
+                    $"bcb sgs {SeriesCode} {range}: HTTP {(int)response.StatusCode}", sourceErrorCode: ErrorCodeIn(body));
 
             var mediaType = response.Content.Headers.ContentType?.MediaType;
             if (!string.Equals(mediaType, "application/json", StringComparison.OrdinalIgnoreCase))
-                throw new MarketDataException($"bcb sgs {SeriesCode} {range}: unexpected content type '{mediaType}'");
+                throw new MarketDataException(
+                    $"bcb sgs {SeriesCode} {range}: unexpected content type '{mediaType}'", sourceErrorCode: ErrorCodeIn(body));
 
             return Parse(body, start, end, range);
         }
@@ -89,6 +92,18 @@ public sealed class BcbSgsRateSource(HttpClient http, ILogger<BcbSgsRateSource> 
         {
             throw new MarketDataException($"bcb sgs {SeriesCode} {range}: timed out", ex);
         }
+    }
+
+    // A página de rejeição do firewall do Banco Central ("Requisição inválida! … O código de erro é: 1234567890") traz um número que
+    // ele pede num chamado. Só esse número (dígitos, até MarketSyncRun.MaxSourceErrorCodeLength) sai do corpo: o resto nunca é
+    // guardado nem logado.
+    [GeneratedRegex(@"c[oó]digo de erro [eé]:\s*(\d{1,40})(?!\d)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex ErrorCodePattern();
+
+    public static string? ErrorCodeIn(string body)
+    {
+        var match = ErrorCodePattern().Match(body);
+        return match.Success ? match.Groups[1].Value : null;
     }
 
     private static List<DailyRate> Parse(string body, DateOnly start, DateOnly end, string range)

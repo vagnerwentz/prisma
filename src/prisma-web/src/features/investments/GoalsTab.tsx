@@ -17,9 +17,13 @@ import {
   depositTaxNote,
   depositUnavailableNote,
   depositYield,
-  formatPercentE4,
+  depositTitle,
+  lettersTaxFootnote,
+  taxScope,
   goalProgress,
   limitationsNote,
+  allDeposits,
+  ratesScope,
   looseGoalParam,
   periodLabels,
   periodRange,
@@ -128,8 +132,9 @@ function ModeToggle({ mode, onChange }: { mode: ValueMode; onChange: (mode: Valu
   )
 }
 
-function Notices({ balances }: { balances: Balances }) {
-  const notice = ratesNotice(balances.rates)
+// O aviso das taxas do CDI só vale para quem usa o CDI: uma lista só de pré-fixado não depende delas.
+function Notices({ balances, deposits }: { balances: Balances; deposits: DepositBalance[] }) {
+  const notice = ratesScope(deposits) === 'prefixed' ? null : ratesNotice(balances.rates)
   return (
     <>
       {notice && (
@@ -142,12 +147,14 @@ function Notices({ balances }: { balances: Balances }) {
   )
 }
 
-function Footnote({ balances, mode }: { balances: Balances; mode: ValueMode }) {
+function Footnote({ balances, deposits, mode }: { balances: Balances; deposits: DepositBalance[]; mode: ValueMode }) {
+  const tax = taxScope(deposits)
   return (
     <div className="flex flex-col gap-1 px-1 text-xs text-muted-foreground">
-      <p>{ratesFootnote(balances.rates)}</p>
+      <p>{ratesFootnote(balances.rates, ratesScope(deposits))}</p>
       <p>{limitationsNote}</p>
-      {mode === 'net' && <p>{taxFootnote}</p>}
+      {mode === 'net' && tax.cdb && <p>{taxFootnote}</p>}
+      {mode === 'net' && tax.letters && <p>{lettersTaxFootnote}</p>}
     </div>
   )
 }
@@ -188,7 +195,7 @@ function GoalList({
 
   return (
     <>
-      <Notices balances={balances} />
+      <Notices balances={balances} deposits={allDeposits(balances)} />
       <section className="surface flex flex-col gap-1 rounded-2xl p-5">
         <p className="text-sm text-muted-foreground">{balanceLabels[mode]}</p>
         <p className="font-display text-4xl leading-none tabular-nums">{formatCents(shownBalance(total, mode))}</p>
@@ -243,7 +250,7 @@ function GoalList({
           <Plus /> Novo aporte
         </Button>
       </div>
-      <Footnote balances={balances} mode={mode} />
+      <Footnote balances={balances} deposits={allDeposits(balances)} mode={mode} />
     </>
   )
 }
@@ -362,7 +369,7 @@ function GoalDetail({
           </Button>
         )}
       </div>
-      <Notices balances={balances} />
+      <Notices balances={balances} deposits={entry?.deposits ?? []} />
       <section className="flex flex-col gap-1 px-1">
         <h2 className="text-sm text-muted-foreground">{goal?.name ?? 'Sem objetivo'}</h2>
         <p className="font-display text-4xl leading-none tabular-nums">{formatCents(shown)}</p>
@@ -444,7 +451,7 @@ function GoalDetail({
                     <span className="min-w-0 flex-1">
                       <span className="block font-medium tabular-nums">{formatCents(d.amountCents)}</span>
                       <span className="block text-sm text-muted-foreground">
-                        {formatShortDate(d.depositDate)} · {formatPercentE4(d.indexPercentE4)}
+                        {formatShortDate(d.depositDate)} · {depositTitle(d.productKind, d.indexKind, d.rateE4)}
                         {d.maturityDate && ` · vence ${formatShortDate(d.maturityDate)}`}
                         {d.funding && ' · saiu de uma conta'}
                       </span>
@@ -466,7 +473,7 @@ function GoalDetail({
         )}
       </section>
 
-      <Footnote balances={balances} mode={mode} />
+      <Footnote balances={balances} deposits={entry?.deposits ?? []} mode={mode} />
 
       {goal && (
         <Button

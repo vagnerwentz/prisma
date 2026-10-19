@@ -18,13 +18,19 @@ public sealed record GoalsResponse(IReadOnlyList<GoalResponse> Goals, Unassigned
 // A transferência que financiou o aporte, quando o dinheiro saiu de uma conta pelo app e as pontas continuam vivas.
 public sealed record FundingResponse(Guid TransferPairId, Guid FromAccountId, Guid InvestmentAccountId);
 
+// RateE4 é a taxa contratada, e o que ela é depende do IndexKind: o percentual do CDI (Cdi) ou a taxa ao ano (CdiPlus, Prefixed).
+// IndexPercentE4 é o nome antigo, só para uma tela aberta antes desta versão: traz o percentual nos aportes de CDI e nulo nos outros.
 public sealed record DepositResponse(
     Guid Id, Guid? GoalId, DateOnly DepositDate, long AmountCents, FixedIncomeProductKind ProductKind, FixedIncomeIndexKind IndexKind,
-    long IndexPercentE4, DateOnly? MaturityDate, DepositLiquidity Liquidity, string? Note, FundingResponse? Funding = null)
+    long RateE4, DateOnly? MaturityDate, DepositLiquidity Liquidity, string? Note, FundingResponse? Funding = null,
+    long? IndexPercentE4 = null)
 {
     public static DepositResponse From(FixedIncomeDeposit d, FundingResponse? funding = null) =>
-        new(d.Id, d.GoalId, d.DepositDate, d.AmountCents, d.ProductKind, d.IndexKind, d.IndexPercentE4, d.MaturityDate, d.Liquidity,
-            d.Note, funding);
+        new(d.Id, d.GoalId, d.DepositDate, d.AmountCents, d.ProductKind, d.IndexKind, d.RateE4, d.MaturityDate, d.Liquidity,
+            d.Note, funding, LegacyPercent(d));
+
+    // O nome antigo do campo: só no CDI, onde a taxa é o percentual.
+    public static long? LegacyPercent(FixedIncomeDeposit d) => d.IndexKind == FixedIncomeIndexKind.Cdi ? d.RateE4 : null;
 }
 
 // O financiamento dos aportes (docs/renda-fixa.md, D3): a transferência que tirou o dinheiro de uma conta e o pôs na conta de

@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <None Update="Market\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Market\Fixtures\*.html" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

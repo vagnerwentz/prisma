@@ -185,6 +185,54 @@ public sealed class BcbSgsRateSourceTests
         error.Message.ShouldContain("content type");
     }
 
+    // A página de rejeição do firewall do Banco Central (vista em 2026-10-19, com status 200 e text/html): o número que ela traz é o
+    // que o Banco pede num chamado, e é só ele que sai do corpo. A fixture reproduz a forma da página ("Requisição inválida!" e
+    // "O código de erro é: <número>"), não é uma captura byte a byte.
+    [Fact]
+    public async Task The_firewall_page_gives_the_error_code_and_nothing_else_of_the_body()
+    {
+        var page = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(Fixture("bcb-firewall-rejection.html"), Encoding.UTF8, "text/html"),
+        };
+
+        var error = await Should.ThrowAsync<MarketDataException>(() =>
+            Source(new StubHttpHandler(_ => page)).FetchAsync(From, To, CancellationToken.None));
+
+        error.SourceErrorCode.ShouldBe("7240913300019");
+        error.Message.ShouldNotContain("7240913300019");
+        error.Message.ShouldNotContain("Requisição");
+        error.Message.ShouldNotContain("administrador");
+        _logs.Entries.ShouldAllBe(e => !e.Message.Contains("administrador") && !e.Message.Contains("Central de Atendimento"));
+    }
+
+    [Fact]
+    public async Task The_same_page_with_an_error_status_gives_the_code_too()
+    {
+        var page = new HttpResponseMessage(HttpStatusCode.Forbidden)
+        {
+            Content = new StringContent(Fixture("bcb-firewall-rejection.html"), Encoding.UTF8, "text/html"),
+        };
+
+        var error = await Should.ThrowAsync<MarketDataException>(() =>
+            Source(new StubHttpHandler(_ => page)).FetchAsync(From, To, CancellationToken.None));
+
+        error.SourceErrorCode.ShouldBe("7240913300019");
+        error.Message.ShouldContain("403");
+    }
+
+    [Theory]
+    [InlineData("<html><body>Requisição inválida</body></html>", null)] // sem número
+    [InlineData("<html>O código de erro é: abc</html>", null)] // não é número
+    [InlineData("<html>O código de erro é: </html>", null)]
+    [InlineData("<html>o CÓDIGO DE ERRO É:   42 fim</html>", "42")] // espaços e caixa
+    [InlineData("<html>O codigo de erro e: 99</html>", "99")] // sem acento
+    [InlineData("<html>O código de erro é: 7777777777777777777777777777777777777777</html>", "7777777777777777777777777777777777777777")] // 40
+    [InlineData("<html>O código de erro é: 77777777777777777777777777777777777777777</html>", null)] // 41: não cabe, não guarda pela metade
+    [InlineData("{\"error\":\"Valor 123 inválido\"}", null)]
+    public void The_code_is_extracted_only_when_the_page_says_so(string body, string? expected) =>
+        BcbSgsRateSource.ErrorCodeIn(body).ShouldBe(expected);
+
     [Fact]
     public async Task Html_declared_as_json_is_a_failure_too() =>
         await Should.ThrowAsync<MarketDataException>(() =>

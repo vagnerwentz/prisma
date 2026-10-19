@@ -84,7 +84,7 @@ function GoalForm({ goal, onDone, onSaved }: { goal?: Goal; onDone: () => void; 
               aria-label="Percentual do CDI"
               className="w-28 tabular-nums"
             />
-            <span className="text-sm text-muted-foreground">% do CDI (CDB pós-fixado)</span>
+            <span className="text-sm text-muted-foreground">% do CDI (pós-fixado)</span>
           </div>
           <FieldError message={errors.percent} />
         </Section>

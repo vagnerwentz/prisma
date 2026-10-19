@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Console;
 using Npgsql;
 using Prisma.Api.Features.Accounts;
+using Prisma.Api.Features.Admin;
 using Prisma.Api.Features.Assets;
 using Prisma.Api.Features.Rates;
 using Prisma.Api.Features.Recurrences;
@@ -88,6 +89,7 @@ builder.Services.AddAssetFeatures(builder.Configuration);
 builder.Services.AddReferenceRateFeatures(builder.Configuration);
 builder.Services.AddInvestmentFeatures();
 builder.Services.AddFixedIncomeFeatures();
+builder.Services.AddAdminFeatures();
 
 builder.Services.AddHealthChecks()
     .AddCheck<DatabaseHealthCheck>("database");
@@ -154,5 +156,6 @@ app.MapAssetEndpoints();
 app.MapInvestmentEndpoints();
 app.MapFixedIncomeEndpoints();
 app.MapDiagnosticsEndpoints();
+app.MapAdminEndpoints();
 
 app.Run();

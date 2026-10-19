@@ -10,7 +10,10 @@ namespace Prisma.Architecture.Tests;
 //
 // Mais um uso, de diagnóstico e não de negócio (docs/renda-fixa.md, D8, aprovada pelo dono em 2026-10-17): dizer quais dias o
 // histórico do CDI deveria ter, para achar lacuna e defasagem. Mora no próprio namespace `Coverage`, liberado sozinho, e o
-// cálculo do rendimento (Prisma.Domain.FixedIncome) continua proibido de usar o calendário.
+// cálculo do rendimento do CDI (Prisma.Domain.FixedIncome) continua proibido de usar o calendário.
+//
+// E um uso de negócio (docs/renda-fixa.md, 5.5, decisão do dono em 2026-10-18): o pré-fixado conta os dias úteis do prazo, porque
+// não tem série de taxas para contar. Mora no namespace `Prefixed`, liberado sozinho; o motor do CDI e do CDI+ segue sem calendário.
 public sealed class BankCalendarUsageTests
 {
     private const string CalendarNamespace = "Prisma.Domain.Calendar";
@@ -21,6 +24,7 @@ public sealed class BankCalendarUsageTests
         "Prisma.Domain.Recurrences",
         "Prisma.Domain.Statements",
         "Prisma.Domain.FixedIncome.Coverage",
+        "Prisma.Domain.FixedIncome.Prefixed",
     ];
 
     [Fact]

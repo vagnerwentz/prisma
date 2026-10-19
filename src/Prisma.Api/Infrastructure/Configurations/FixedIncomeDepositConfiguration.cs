@@ -20,7 +20,10 @@ public sealed class FixedIncomeDepositConfiguration : IEntityTypeConfiguration<F
         {
             table.HasCheckConstraint("ck_fixed_income_deposits_amount",
                 $"amount_cents >= 1 AND amount_cents <= {FixedIncomeEngine.MaxPrincipalCents}");
-            table.HasCheckConstraint("ck_fixed_income_deposits_percent", "index_percent_e4 BETWEEN 100 AND 5000000");
+            // A taxa é uma só e o índice diz o que ela é: percentual do CDI (de 0,01 % a 500 %) ou taxa ao ano (de 0,01 % a 100 %).
+            table.HasCheckConstraint("ck_fixed_income_deposits_rate",
+                $"(index_kind = 'Cdi' AND rate_e4 BETWEEN {IndexPercent.Min} AND {IndexPercent.Max}) " +
+                $"OR (index_kind IN ('CdiPlus', 'Prefixed') AND rate_e4 BETWEEN {AnnualRate.Min} AND {AnnualRate.Max})");
             table.HasCheckConstraint("ck_fixed_income_deposits_maturity", "maturity_date IS NULL OR maturity_date > deposit_date");
             table.HasCheckConstraint("ck_fixed_income_deposits_product_kind", $"product_kind IN ({products})");
             table.HasCheckConstraint("ck_fixed_income_deposits_index_kind", $"index_kind IN ({indexes})");
@@ -32,6 +35,9 @@ public sealed class FixedIncomeDepositConfiguration : IEntityTypeConfiguration<F
         builder.Property(d => d.IndexKind).HasConversion<string>().HasMaxLength(20);
         builder.Property(d => d.Liquidity).HasConversion<string>().HasMaxLength(20);
         builder.Property(d => d.Note).HasMaxLength(FixedIncomeDeposit.NoteMaxLength);
+
+        // Calculada de IndexKind + RateE4: não vira coluna.
+        builder.Ignore(d => d.Remuneration);
 
         // Editar enquanto outro pedido edita, move ou exclui o mesmo aporte dá 409 (CLAUDE.md, seção 6).
         builder.Property<uint>("Version").IsRowVersion();

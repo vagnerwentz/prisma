@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using FluentValidation;
 using Microsoft.AspNetCore.Identity;
 using Prisma.Api.Infrastructure;
@@ -39,6 +40,7 @@ public static class ResetPassword
         UserManager<AppUser> users,
         SignInManager<AppUser> signIn,
         EmailQueue emails,
+        IOptions<AdminOptions> admins,
         ILogger<Handler> logger)
     {
         public async Task<Result<SessionUser>> Execute(Request req, CancellationToken ct)
@@ -77,7 +79,7 @@ public static class ResetPassword
 
             await signIn.SignInAsync(user, isPersistent: true);
             logger.PasswordReset(user.Id);
-            return SessionUser.Of(user);
+            return SessionUser.Of(user, admins.Value);
         }
     }
 

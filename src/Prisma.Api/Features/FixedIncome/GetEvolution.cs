@@ -61,7 +61,7 @@ public static class GetEvolution
             foreach (var deposit in deposits)
             {
                 var series = FixedIncomeEngine.Series(
-                    new Money(deposit.AmountCents), deposit.DepositDate, new IndexPercent(deposit.IndexPercentE4), book.History, dates);
+                    new Money(deposit.AmountCents), deposit.DepositDate, deposit.Remuneration, book.History, dates);
                 if (!series.IsSuccess)
                     unavailable++;
 

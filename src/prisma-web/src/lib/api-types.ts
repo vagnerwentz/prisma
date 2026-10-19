@@ -4443,6 +4443,320 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/market-data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MarketSeriesStatus"][];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/market-data/{series}/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    series: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MarketSyncRunResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Bad Gateway */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Gateway Timeout */
+                504: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/market-data/{series}/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    series: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SyncMarketDataRefreshRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MarketSyncRunResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Bad Gateway */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Gateway Timeout */
+                504: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/market-data/{series}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    series: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MarketSyncRunResponse"][];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4601,8 +4915,10 @@ export interface components {
             depositDate: string;
             /** Format: int64 */
             principalCents: number;
+            productKind: components["schemas"]["FixedIncomeProductKind"];
+            indexKind: components["schemas"]["FixedIncomeIndexKind"];
             /** Format: int64 */
-            indexPercentE4: number;
+            rateE4: number;
             /** Format: int64 */
             grossBalanceCents: null | number;
             /** Format: int64 */
@@ -4615,6 +4931,8 @@ export interface components {
             ratesThrough: null | string;
             unavailable: null | string;
             tax: null | components["schemas"]["DepositTax"];
+            /** Format: int64 */
+            indexPercentE4?: null | number;
         };
         /** @enum {unknown} */
         DepositLiquidity: "Unknown" | "Daily" | "AtMaturity";
@@ -4630,12 +4948,14 @@ export interface components {
             productKind: components["schemas"]["FixedIncomeProductKind"];
             indexKind: components["schemas"]["FixedIncomeIndexKind"];
             /** Format: int64 */
-            indexPercentE4: number;
+            rateE4: number;
             /** Format: date */
             maturityDate: null | string;
             liquidity: components["schemas"]["DepositLiquidity"];
             note: null | string;
             funding?: null | components["schemas"]["FundingResponse"];
+            /** Format: int64 */
+            indexPercentE4?: null | number;
         };
         DepositTax: {
             /** Format: int64 */
@@ -4680,9 +5000,9 @@ export interface components {
             points: components["schemas"]["EvolutionPoint"][];
         };
         /** @enum {unknown} */
-        FixedIncomeIndexKind: "Cdi";
+        FixedIncomeIndexKind: "Cdi" | "CdiPlus" | "Prefixed";
         /** @enum {unknown} */
-        FixedIncomeProductKind: "Cdb";
+        FixedIncomeProductKind: "Cdb" | "Lci" | "Lca";
         ForgotPasswordRequest: {
             email: string;
         };
@@ -5099,6 +5419,65 @@ export interface components {
             balance: components["schemas"]["GroupBalance"];
             deposits: components["schemas"]["DepositBalance"][];
         };
+        MarketSeriesStatus: {
+            code: string;
+            name: string;
+            source: string;
+            /** Format: int32 */
+            count: number;
+            /** Format: date */
+            first: null | string;
+            /** Format: date */
+            last: null | string;
+            /** Format: date */
+            expectedLast: string;
+            stale: boolean;
+            complete: boolean;
+            /** Format: int32 */
+            missingBusinessDayCount: number;
+            /** Format: date-time */
+            lastFetchedAt: null | string;
+            /** Format: date-time */
+            lastRevisedAt: null | string;
+            schedule: components["schemas"]["MarketSyncSchedule"];
+            lastRun: null | components["schemas"]["MarketSyncRunResponse"];
+            lastSuccessfulRun: null | components["schemas"]["MarketSyncRunResponse"];
+        };
+        /** @enum {unknown} */
+        MarketSyncKind: "Scheduled" | "Startup" | "Manual";
+        /** @enum {unknown} */
+        MarketSyncOutcome: "Succeeded" | "SourceUnavailable" | "Failed" | "TimedOut";
+        MarketSyncRunResponse: {
+            /** Format: uuid */
+            id: string;
+            series: string;
+            kind: components["schemas"]["MarketSyncKind"];
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: date-time */
+            finishedAt: string;
+            outcome: components["schemas"]["MarketSyncOutcome"];
+            /** Format: date */
+            windowFrom: string;
+            /** Format: date */
+            windowTo: string;
+            /** Format: int32 */
+            fetched: number;
+            /** Format: int32 */
+            added: number;
+            /** Format: int32 */
+            revised: number;
+            /** Format: int32 */
+            unchanged: number;
+            sourceErrorCode: null | string;
+            errorSummary: null | string;
+        };
+        MarketSyncSchedule: {
+            runTimes: string[];
+            /** Format: date-time */
+            nextRunUtc: string;
+            enabled: boolean;
+        };
         MoveDepositRequest: {
             /** Format: uuid */
             goalId: null | string;
@@ -5276,13 +5655,15 @@ export interface components {
             amountCents: number;
             productKind: components["schemas"]["FixedIncomeProductKind"];
             indexKind: components["schemas"]["FixedIncomeIndexKind"];
-            /** Format: int64 */
-            indexPercentE4: number;
             /** Format: date */
             maturityDate: null | string;
             liquidity: components["schemas"]["DepositLiquidity"];
             note: null | string;
             funding?: null | components["schemas"]["SaveDepositFundingRequest"];
+            /** Format: int64 */
+            rateE4?: null | number;
+            /** Format: int64 */
+            indexPercentE4?: null | number;
         };
         SaveDepositFundingRequest: {
             /** Format: uuid */
@@ -5298,12 +5679,14 @@ export interface components {
             amountCents: number;
             productKind: components["schemas"]["FixedIncomeProductKind"];
             indexKind: components["schemas"]["FixedIncomeIndexKind"];
-            /** Format: int64 */
-            indexPercentE4: number;
             /** Format: date */
             maturityDate: null | string;
             liquidity: components["schemas"]["DepositLiquidity"];
             note: null | string;
+            /** Format: int64 */
+            rateE4?: null | number;
+            /** Format: int64 */
+            indexPercentE4?: null | number;
         };
         SaveGoalRequest: {
             name: string;
@@ -5362,9 +5745,16 @@ export interface components {
             id: string;
             email: string;
             mustAcceptTerms: boolean;
+            isAdmin: boolean;
         };
         /** @enum {unknown} */
         StatementShift: "Next" | "Previous";
+        SyncMarketDataRefreshRequest: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+        };
         TradeLineResponse: {
             /** Format: uuid */
             assetId: string;

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Prisma.Api.Infrastructure;
@@ -37,21 +38,87 @@ public sealed class ReferenceRateSync(
 
     private const ReferenceRateSeries Series = ReferenceRateSeries.Cdi;
 
+    // Quanto tempo as execuções guardadas ficam na tabela (docs/admin-mercado.md, 5).
+    public static readonly TimeSpan RunRetention = TimeSpan.FromDays(90);
+
     // A janela normal: do último dia gravado (menos a sobreposição) até hoje.
     public async Task<ReferenceRateSyncResult> RunAsync(CancellationToken ct)
     {
-        var settings = options.Value;
+        var (from, to) = await NormalWindow(ct);
+        return await RefreshRangeAsync(from, to, ct);
+    }
+
+    private async Task<(DateOnly From, DateOnly To)> NormalWindow(CancellationToken ct)
+    {
         DateOnly? last;
         await using (var scope = scopes.CreateAsyncScope())
             last = await LastStoredDate(scope.ServiceProvider.GetRequiredService<AppDbContext>(), ct);
 
-        var today = clock.Today;
-        var from = last is { } date ? date.AddDays(-settings.OverlapDays) : settings.InitialLoadFrom;
-        return await RefreshRangeAsync(from, today, ct);
+        var from = last is { } date ? date.AddDays(-options.Value.OverlapDays) : options.Value.InitialLoadFrom;
+        return (from, clock.Today);
+    }
+
+    // A mesma sincronização, mas gravando a execução em `market_sync_runs` (docs/admin-mercado.md, 5 e 8): é por onde passam a
+    // tarefa, nos horários marcados e ao subir, e o disparo manual da tela de admin. Sem `from`/`to`, a janela normal.
+    //
+    // Falha da fonte, tempo esgotado e erro inesperado viram o desfecho da execução, gravada, e não exceção: quem chamou lê o
+    // `Outcome`. Só o cancelamento de quem chamou (a API parando) sobe. `timeout` é o teto de espera (inclusive a vez no lock);
+    // ao estourar, a execução é gravada como `TimedOut`.
+    public async Task<MarketSyncRun> RunRecordedAsync(
+        MarketSyncKind kind, DateOnly? from, DateOnly? to, TimeSpan? timeout, CancellationToken ct)
+    {
+        var startedAt = clock.UtcNow;
+        var elapsed = Stopwatch.StartNew();
+        var (windowFrom, windowTo) = from is { } f && to is { } t ? (f, t) : await NormalWindow(ct);
+
+        using var limit = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        if (timeout is { } wait)
+            limit.CancelAfter(wait);
+
+        MarketSyncRun run;
+        try
+        {
+            var result = await RefreshRangeAsync(windowFrom, windowTo, limit.Token);
+            run = MarketSyncRun.Succeeded(
+                Series, kind, startedAt, clock.UtcNow, windowFrom, windowTo, result.Fetched, result.Added, result.Revised, result.Unchanged);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested && limit.IsCancellationRequested)
+        {
+            run = MarketSyncRun.Unsuccessful(Series, kind, startedAt, clock.UtcNow, windowFrom, windowTo, MarketSyncOutcome.TimedOut);
+        }
+        // O Banco Central fora do ar é esperado de vez em quando: aviso, não erro.
+        catch (MarketDataException ex)
+        {
+            logger.ReferenceRateSyncUnavailable(ex);
+            if (ex.SourceErrorCode is { } code)
+                logger.MarketDataSourceErrorCode(code);
+            run = MarketSyncRun.Unsuccessful(
+                Series, kind, startedAt, clock.UtcNow, windowFrom, windowTo, MarketSyncOutcome.SourceUnavailable, ex.SourceErrorCode);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            logger.ReferenceRateSyncFailed(ex);
+            run = MarketSyncRun.Unsuccessful(Series, kind, startedAt, clock.UtcNow, windowFrom, windowTo, MarketSyncOutcome.Failed);
+        }
+
+        // Gravar o resultado não depende do tempo limite nem de quem desistiu: a execução aconteceu.
+        await using (var scope = scopes.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.MarketSyncRuns.Add(run);
+            var oldest = run.StartedAt - RunRetention;
+            await db.MarketSyncRuns.Where(r => r.Series == Series && r.StartedAt < oldest).ExecuteDeleteAsync(CancellationToken.None);
+            await db.SaveChangesAsync(CancellationToken.None);
+        }
+
+        logger.MarketDataSyncFinished(
+            run.Id, run.Series.ToString(), run.Kind.ToString(), run.Outcome.ToString(), run.Fetched, run.Added, run.Revised,
+            elapsed.Elapsed.TotalMilliseconds);
+        return run;
     }
 
     // Reprocessa um período à escolha (corrigir lacuna, conferir uma revisão). É a mesma sincronização com outra janela, e é
-    // idempotente do mesmo jeito. Hoje só se chama de código/teste: não há endpoint.
+    // idempotente do mesmo jeito. A tela de admin chega aqui por RunRecordedAsync.
     public async Task<ReferenceRateSyncResult> RefreshRangeAsync(DateOnly from, DateOnly to, CancellationToken ct)
     {
         await using var scope = scopes.CreateAsyncScope();

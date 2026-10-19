@@ -78,6 +78,9 @@ public sealed class AppDbContext(
     // Taxas diárias do CDI, do Banco Central: dado de mercado, o mesmo para todos (docs/renda-fixa.md, 2.4). Sem filtro.
     public DbSet<ReferenceRate> ReferenceRates => Set<ReferenceRate>();
 
+    // Execuções da sincronização dos dados de mercado, para a tela de admin (docs/admin-mercado.md). Global, sem dado pessoal.
+    public DbSet<MarketSyncRun> MarketSyncRuns => Set<MarketSyncRun>();
+
     // Fila de e-mails a enviar (docs/email.md, seção 3). Sem filtro: a tarefa atende todo mundo.
     public DbSet<OutboxEmail> OutboxEmails => Set<OutboxEmail>();
 
@@ -102,6 +105,8 @@ public sealed class AppDbContext(
         typeof(CorporateEvent),
         // Taxas diárias do CDI (renda fixa): o mesmo histórico para todos; só a sincronização escreve.
         typeof(ReferenceRate),
+        // Execuções da sincronização do mercado: dado operacional, o mesmo para todos, sem quem pediu; só a sincronização escreve.
+        typeof(MarketSyncRun),
         // Fila de e-mails: só a API escreve e só a tarefa lê, para todos; nenhum endpoint a lista. O UserId é referência.
         typeof(OutboxEmail),
         // Contas apagadas: o dono não existe mais; só a limpeza lê (AccountEraser).

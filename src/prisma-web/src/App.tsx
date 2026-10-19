@@ -4,7 +4,7 @@ import { AppLayout } from '@/components/AppLayout'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { NotFoundPage } from '@/components/NotFoundPage'
 import { PrismLogo } from '@/components/brand/PrismLogo'
-import { RedirectIfAuthenticated, RequireAuth } from '@/features/auth/guards'
+import { RedirectIfAuthenticated, RequireAdmin, RequireAuth } from '@/features/auth/guards'
 import { SummaryPage } from '@/features/dashboard/SummaryPage'
 
 // O resumo (tela inicial) vai no pacote principal; as demais telas são baixadas quando abertas.
@@ -28,6 +28,7 @@ const InvestmentsPage = lazy(() => import('@/features/investments/InvestmentsPag
 const AcceptTermsPage = lazy(() => import('@/features/auth/AcceptTermsPage').then((m) => ({ default: m.AcceptTermsPage })))
 const ChangePasswordPage = lazy(() => import('@/features/auth/ChangePasswordPage').then((m) => ({ default: m.ChangePasswordPage })))
 const DeleteAccountPage = lazy(() => import('@/features/auth/DeleteAccountPage').then((m) => ({ default: m.DeleteAccountPage })))
+const AdminPage = lazy(() => import('@/features/admin/AdminPage').then((m) => ({ default: m.AdminPage })))
 const AccountDetailPage = lazy(() =>
   import('@/features/accounts/AccountDetailPage').then((m) => ({ default: m.AccountDetailPage })),
 )
@@ -72,6 +73,9 @@ export function App() {
                 <Route path="/contas/investimentos" element={<InvestmentsPage />} />
                 <Route path="/trocar-senha" element={<ChangePasswordPage />} />
                 <Route path="/apagar-conta" element={<DeleteAccountPage />} />
+              </Route>
+              <Route element={<RequireAdmin />}>
+                <Route path="/admin" element={<AdminPage />} />
               </Route>
             </Route>
             {CrashOnPurpose && <Route path="/dev/erro" element={<CrashOnPurpose />} />}
