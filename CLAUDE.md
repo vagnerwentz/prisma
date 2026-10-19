@@ -78,7 +78,7 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 | Ativo que saiu da bolsa antes do catálogo | `Asset.FromHistory` | entra inativo com o evento; nunca digitado pelo usuário |
 | Aviso de ativo faltando | `AssetRequest` | "Não encontrou? Avise a gente": só o código, um por pessoa; "chegou" é calculado pelo catálogo, nunca gravado |
 | Conferir um evento | `EventReview` | o que o evento fez com a quantidade da pessoa: "Confere" ou "Não confere" (para a curadoria); guarda a versão do evento, e o evento corrigido volta a pedir |
-| Dia útil bancário | `BankCalendar` | fins de semana e feriados nacionais; só débito automático e vencimento da fatura |
+| Dia útil bancário | `BankCalendar` | fins de semana e feriados nacionais; débito automático, vencimento da fatura e os dias úteis do pré-fixado |
 | Fila de e-mails | `OutboxEmail` (`EmailKind`, `EmailStatus`) | pedido gravado junto com o motivo; o conteúdo e o token saem na hora do envio (`IEmailComposer`); `docs/email.md` |
 | Data de entrada da conta | `AppUser.CreatedAt` (`users.created_at`) | carimbada com o `IClock` na criação; nas contas de antes da coluna é aproximada (o registro mais antigo que a pessoa ainda tinha) |
 | Aceite dos termos | `LegalTerms` (`TermsVersion`, `PrivacyVersion`, `TermsAcceptedAt` no usuário) | a caixa do cadastro; versão nova pede o aceite de novo ao entrar (`SessionUser.MustAcceptTerms`, A.4) |
@@ -86,12 +86,13 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 | Senhas erradas com prazo | `AppUserManager.AccessFailedAsync` / `LastAccessFailedAt` | só soma com as anteriores até 15 min depois da última; vale para login, confirmação, troca de senha e apagar a conta (H.4e) |
 | Link de confirmação / de senha nova | `ConfirmEmail` / `ResetPassword` | token do Identity depois do `#` (`/confirmar-email#u=…&t=…`, `/nova-senha#…`); 3 dias e 1 hora, uma vez só |
 | Objetivo (a "caixa") | `SavingsGoal` (`savings_goals`) | na tela, "objetivo": nunca "cofrinho". Tem nome, meta e % do CDI padrão; excluir um com aportes pergunta se os investimentos ficam ("Sem objetivo") ou vão junto; `docs/renda-fixa.md` |
-| Aporte em renda fixa | `FixedIncomeDeposit` (`fixed_income_deposits`) | data, valor, % do CDI, vencimento opcional; `GoalId` opcional; só CDB + CDI (IPCA e IPCA+ são recusados); `ClientRequestId` contra duplicar |
+| Aporte em renda fixa | `FixedIncomeDeposit` (`fixed_income_deposits`) | data, valor, taxa, vencimento opcional; `GoalId` opcional; produto `Cdb`, `Lci` ou `Lca`; índice `Cdi`, `CdiPlus` ou `Prefixed` (IPCA e IPCA+ são recusados); `RateE4` é a taxa (percentual do CDI, ou taxa ao ano); `ClientRequestId` contra duplicar |
 | Aporte que saiu de uma conta | `FixedIncomeDeposit.TransferPairId` (`FixedIncomeFunding`) | cria a transferência junto, na mesma gravação; valor e data ficam travados; excluir pergunta se a transferência fica ou sai junto (R.4b) |
 | Taxa do CDI | `ReferenceRate` (`reference_rates`, global) / `DailyRate` | série SGS 12 do Banco Central, só dias úteis; fração diária em 10⁻⁸ (`DailyRateE8`); o percentual do CDI viaja em E4 (100% = `1_000_000`, `IndexPercent`) |
 | Rendimento de um aporte | `FixedIncomeEngine.Balance` | fator da B3 em `Int128`, 16 casas por passo e 8 no final; saldo = principal × fator, meio centavo para cima; a taxa do dia do aporte conta, a do dia da referência não; nunca gravado |
-| Imposto estimado | `FixedIncomeTax` (`TaxEstimate`) | IOF abaixo de 30 dias (tabela do Decreto 6.306) + IR regressivo 22,5/20/17,5/15% sobre o rendimento líquido do IOF, por aporte; regra versionada por data; é o imposto de resgatar hoje, não imposto devido |
+| Imposto estimado | `FixedIncomeTax` (`TaxEstimate`) | CDB: IOF abaixo de 30 dias (tabela do Decreto 6.306) + IR regressivo 22,5/20/17,5/15% sobre o rendimento líquido do IOF, por aporte. LCI e LCA (`FixedIncomeProductKind`): IR zero para pessoa física (Lei 11.033, art. 3º), IOF zero na LCA e tabela do CDB na LCI (R.13). Regra versionada por data e por produto; é o imposto de resgatar hoje, não imposto devido |
 | Histórico do CDI defasado ou incompleto | `ReferenceRateCoverage` (`Prisma.Domain.FixedIncome.Coverage`) | único uso do `BankCalendar` no CDI, só para diagnóstico: dia útil sem taxa avisa; o cálculo usa só as datas gravadas |
+| Como o aporte rende | `Remuneration` (o índice é o `FixedIncomeIndexKind`: `Cdi`, `CdiPlus`, `Prefixed`) / `AnnualRate` | X % do CDI, CDI + taxa ao ano, ou taxa ao ano (pré-fixado, base 252 dias úteis); a taxa ao ano vai em E4 (14 % = `140_000`, de 0,01 % a 100 %). Domínio, API e tela prontos (R.10 a R.12); `docs/renda-fixa.md`, 5.5 |
 | Renda fixa na carteira | `PortfolioGroup.FixedIncome` / `FixedIncomeHolding` | um grupo só para qualquer índice, pesado pelo aportado (o custo da renda fixa), com uma linha por objetivo e o rendimento bruto ao lado (R.9) |
 
 ---
@@ -153,6 +154,8 @@ docs/
 ├── landing.md                  # Página de apresentação: o que promete, visual, LGPD, como é servida e o que falta para ir ao ar
 ├── email.md                    # Etapas H.4: envio (fila no Postgres + Resend), confirmação de e-mail, senha
 ├── investimentos.md            # Fase I: catálogo de ativos (brapi), carteira, proventos, logos, notas, eventos; decisões e achados
+├── admin-mercado.md            # Admin dos dados de mercado (R.15 e R.16 feitas): rota e tela para disparar a sincronização do BCB à mão, mantendo o horário automático
+├── renda-fixa-ipca.md          # IPCA e IPCA+ (R.17 a R.21, planejado): fatos verificados das fontes, decisões, cálculo e fases
 ├── renda-fixa.md               # Renda fixa (R.0 a R.9): objetivos, aportes em CDB/CDI, taxas do Banco Central, rendimento, imposto estimado; fórmulas, fontes, decisões e retomada
 ├── operacao.md                 # Roteiros da produção: usuários do banco, backup, restauração (e contas apagadas), logs; versão do Postgres local; página e domínio; e-mail; titulares e incidente; IP do cliente atrás do Railway
 ├── consultas-saude.md          # SQL só de leitura e agregado para ver como o sistema está (pessoas, uso, e-mail, limpeza); nunca devolve dado de ninguém
@@ -230,6 +233,7 @@ validação de invariante pertencem ao `Prisma.Domain`.
   JSON (a API do BCB devolve erro com 200, 406 e até HTML), não grava nada. Valor revisado na fonte atualiza a linha (`RevisedAt`) e
   avisa no log. O domínio diz o que está defasado ou incompleto (`ReferenceRateCoverage`), e a tela mostra o aviso; sem taxa, o saldo
   mostra o aportado e diz isso (`docs/renda-fixa.md`, seção 3; `docs/operacao.md`, seção 4.5).
+  **Admin (R.15 e R.16 feitas; `docs/admin-mercado.md`):** rotas `/admin/market-data` disparam essa mesma sincronização à mão (`sync` na janela normal, `refresh` num período de até 10 anos), pelo mesmo `ReferenceRateSync` e o mesmo lock, **sem tirar os horários**. A tarefa e o disparo gravam cada execução em `market_sync_runs` (`ReferenceRateSync.RunRecordedAsync`; tabela global, sem dado pessoal, 90 dias, quem pediu só no log). Falha da fonte, tempo esgotado (90 s no manual) e erro inesperado viram o desfecho gravado, não exceção; o código de erro da página de rejeição do BCB (`MarketDataException.SourceErrorCode`) fica na execução. O IPCA entra depois como uma série mensal própria (`docs/renda-fixa-ipca.md`).
 - **Única consulta que grava:** `GET /categories` entrega ao usuário as categorias das versões novas do
   catálogo (`CategoryCatalog`, uma vez por versão, só para ele; `docs/fase-2.md`, 2.11). Sincronizar no
   login não bastaria: a sessão é persistente.
@@ -340,9 +344,9 @@ de membro. Confere que toda tabela tem dono (herda `Entity`, com o filtro) ou es
 tabelas globais (`AppDbContext.GlobalTables`; `OwnershipTests`, regra 6). Também confere que todo ícone do catálogo de categorias (`DefaultCategories`) está no mapa
 fechado do front (`categoryIcons.ts`); ícone novo no catálogo entra nos dois lugares. E que só a série
 (débito automático), a fatura (vencimento em dia útil) e o diagnóstico do histórico do CDI (`ReferenceRateCoverage`,
-no namespace `Prisma.Domain.FixedIncome.Coverage`) usam o calendário bancário (`BankCalendar`,
-`docs/fase-2.md`, 2.15; `docs/renda-fixa.md`, 3.3): o resto fica na data em que aconteceu. O rendimento do CDI nunca o usa: conta só as datas
-que o Banco Central publicou.
+no namespace `Prisma.Domain.FixedIncome.Coverage`) e os dias úteis do pré-fixado (`Prisma.Domain.FixedIncome.Prefixed`) usam o calendário bancário (`BankCalendar`,
+`docs/fase-2.md`, 2.15; `docs/renda-fixa.md`, 3.3): o resto fica na data em que aconteceu. O rendimento do CDI e do CDI+ nunca o usa: conta só as datas
+que o Banco Central publicou; só o pré-fixado, que não tem série, conta dias úteis.
 
 **Fixtures de parser** (Fase 4): arquivos reais de OFX e de fatura em PDF,
 anonimizados, com o resultado esperado versionado ao lado. Quando o banco mudar o
@@ -587,7 +591,7 @@ por conversa, arquivo versionado ou histórico do shell.
   grupo "Renda fixa" da Carteira. Nunca "cofrinho": "objetivo" e "aporte". O rendimento é `text-spectrum` e o imposto, tinta;
   a chave **Bruto | Líquido estimado** vale para a lista e o detalhe, o gráfico é sempre bruto (e diz isso). Toda tela que mostra
   esses números leva a nota "Estimativa; o extrato do banco manda" com a data da última taxa, o aviso do que ainda não existe
-  (só CDB a % do CDI, sem resgates nem projeção) e, no líquido, a explicação do imposto; "taxas defasadas" e "incompletas" têm
+  (só CDB, LCI e LCA, em % do CDI, CDI + taxa ou pré-fixado, sem resgates nem projeção) e, no líquido, a explicação do imposto de cada produto que há na lista; as letras mostram "Isento de IR" e, no líquido, a explicação do imposto; "taxas defasadas" e "incompletas" têm
   texto próprio. Nunca "lucro" nem "você ganhou" para o líquido.
 - **Resumo × Análise:** o Resumo (`/`) é de relance (destaque, Entrou/Saiu/Investido, Hoje); o que
   explica o mês vai na Análise (`/analise`), e o que olha para a frente, na seção "Daqui para frente"
@@ -642,6 +646,7 @@ por conversa, arquivo versionado ou histórico do shell.
   Página para quem não entrou não carrega script, fonte nem imagem de terceiros e não grava cookie.
 - Segredos via User Secrets em desenvolvimento e variáveis de ambiente em produção.
   Nada de connection string ou client secret commitado.
+- **Superfície de admin (R.15, `docs/admin-mercado.md`):** toda rota `/admin` leva a política `Admin`, no grupo (`AdminModule`): e-mail confirmado e presente em `Admin:Emails` (variável de ambiente `Admin__Emails__0`; sem diferenciar maiúsculas; lista vazia = ninguém é admin; entrada que não parece e-mail impede a API de subir), conferido no banco a cada pedido (`AdminAuthorizationHandler`). Os `POST` têm limite de taxa por pessoa (`admin-sync`, 6 por minuto), teto de janela (10 anos) e série validada numa lista fechada; o pedido vai ao log (`MarketDataSyncRequested`, só ids e tipos). Um teste recusa rota `/admin` sem a política (`AdminMarketDataApiTests`). `isAdmin` vai em `/auth/me` só para a tela decidir se mostra a entrada. A tela `/admin` (`features/admin`, lazy) só abre para quem é admin (`RequireAdmin`; para os outros é o 404 de sempre), com a entrada "Dados de mercado" no menu da conta. Nada de dado de usuário passa por ela, e a lista de admins nunca entra no repositório.
 - **O repositório é público.** Falha de segurança ainda aberta não se descreve em nada versionado (`PLAN.md`, `docs/`,
   comentário, commit, PR): o relatório da auditoria (2026-10-15), os cenários e o desenho de cada correção ficam em
   `.security/` (fora do git, como o `.lgpd/`), e a lista viva do que falta é o `.security/pendencias.md`. O `PLAN.md`

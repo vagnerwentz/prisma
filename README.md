@@ -272,7 +272,7 @@ ops/backup/test/roundtrip.sh /tmp/schema.sql
 ## Project documents
 
 The roadmap (`PLAN.md`), the phase specifications (`docs/`, including `docs/renda-fixa.md` for fixed income: formulas,
-sources and decisions), the operations runbook (`docs/operacao.md`: database users, backups, restore, logs, the CDI sync)
+sources and decisions; `docs/admin-mercado.md` for the market-data admin, where the CDI sync can be triggered by hand; `docs/renda-fixa-ipca.md` for the planned inflation-indexed products), the operations runbook (`docs/operacao.md`: database users, backups, restore, logs, the CDI sync)
 and the working agreement (`CLAUDE.md`)
 are working documents written in Portuguese.
 

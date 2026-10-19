@@ -258,7 +258,7 @@ conferia. Se estiver certo, nada a fazer por ora (a resposta à pessoa vem com a
 
 ## 4.5 Taxas do CDI da renda fixa (renda fixa, R.2 e R.3)
 
-A renda fixa (objetivos e aportes em CDB a % do CDI) calcula o rendimento com o CDI diário do Banco Central, guardado na
+A renda fixa (objetivos e aportes em CDB a % do CDI ou CDI + taxa; o pré-fixado não usa o CDI) calcula o rendimento com o CDI diário do Banco Central, guardado na
 tabela global `reference_rates` (uma linha por dia útil, série `Cdi`, fonte `bcb-sgs-12`). Uma tarefa dentro da própria API
 (`ReferenceRateWorker`) a sincroniza em dois horários, **19h30 e 23h30 de São Paulo** (o CDI de um dia sai à noite), e ao
 subir, se a tabela estiver vazia ou atrasada. A API do Banco Central não pede cadastro nem token. Pede a partir de 10 dias
@@ -293,6 +293,16 @@ Uma falha nunca derruba a API: vai para o log, e a próxima execução tenta de 
 - **Privacidade:** nenhum dado de ninguém vai ao Banco Central: a API só baixa a série pública. Os objetivos e aportes de cada
   pessoa são dados dela (`savings_goals`, `fixed_income_deposits`) e entram na exclusão da conta, na limpeza do excluído e na
   cópia dos dados (`ops/privacy/export-user.sql`); `reference_rates` é dado de mercado, sem dono.
+
+- **Admin dos dados de mercado (R.15 e R.16 feitas; `docs/admin-mercado.md`):** pela tela **Dados de mercado** (menu da conta, só para admin; `/admin`) ou pelas rotas: `POST /admin/market-data/cdi/sync` dispara a
+  sincronização do CDI à mão (janela normal) e `POST …/cdi/refresh` reprocessa um período (até 10 anos); `GET /admin/market-data` e
+  `GET …/cdi/runs` mostram o estado e as últimas execuções, com o erro do Banco Central e o **código da página de rejeição**, que é o número
+  que o BCB pede num chamado (o mesmo vai ao log como `MarketDataSourceErrorCode`). Sem a tela, a chamada se faz com o
+  `src/Prisma.Api/Http/admin-market.http`; "reiniciar o serviço da API" deixa de ser o caminho. **Variável `Admin__Emails__0` no Railway**
+  (o e-mail de quem pode, com o e-mail confirmado), **antes do merge**: sem ela a API sobe e ninguém é admin; com uma entrada que não é
+  e-mail, a API **não sobe**. `Admin__SyncTimeoutSeconds` (padrão 90) é o teto do disparo manual. As execuções (da tarefa e do manual) ficam
+  90 dias em `market_sync_runs`, sem dado pessoal; quem pediu só aparece no log (`MarketDataSyncRequested`, com o `userId`).
+  A migration `AddMarketSyncRuns` cria a tabela. O horário automático (19h30 e 23h30 e ao subir) **continua igual**.
 
 ## 5. Backup fora do Railway (H.2b)
 
