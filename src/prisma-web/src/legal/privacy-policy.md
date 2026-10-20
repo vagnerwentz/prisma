@@ -48,15 +48,16 @@ atendimento.
   cartões, lançamentos (valor, data, descrição, categoria, conta), compras parceladas, lançamentos que se repetem,
   faturas e transferências; na parte de investimentos, os ativos da sua carteira, as notas de corretagem que você
   digita (corretora, datas, quantidades, preços e custos), os proventos recebidos, os avisos de ativo que falta no
-  catálogo e a sua conferência dos eventos das empresas.
+  catálogo e a sua conferência dos eventos das empresas; na renda fixa, os objetivos que você cria, os aportes (valor,
+  data, taxa, vencimento e observação) e os resgates (valor, data e, se você digitar, o valor líquido que o banco pagou).
 - **O que não pedimos**: senha ou acesso ao seu banco ou corretora, número de cartão, CPF, endereço ou telefone.
 - **Para quê**: mostrar seus lançamentos, calcular saldos, faturas, resumo do mês, análises e a posição dos seus
-  investimentos, só para você.
+  investimentos (inclusive o rendimento e o imposto estimado da renda fixa), só para você.
 - **Base legal**: execução de contrato (art. 7º, V).
 - **Por quanto tempo**: enquanto a conta existir. O que você exclui some do app na hora e é apagado de vez do banco de
   dados em até **1 hora** (o "Desfazer" vale por 30 minutos). Isso vale também para uma ocorrência excluída de um
   lançamento que se repete: nada fica guardado dela.
-- **Descrições são texto livre**: você escreve o que quiser nelas. Se escrever algo que revele saúde, religião ou outro
+- **Descrições e observações são texto livre**: você escreve o que quiser nelas (nos lançamentos e nos aportes de renda fixa). Se escrever algo que revele saúde, religião ou outro
   dado sensível (ex.: o nome de um tratamento), esse texto fica guardado como qualquer outra descrição. Por isso:
   - não pedimos nenhum dado sensível;
   - recomendamos que você não registre informação desse tipo além do necessário para se organizar;
@@ -132,8 +133,9 @@ funcionar, cada uma só com o necessário:
 | Cloudflare | endereço do site (DNS), guarda da cópia de segurança criptografada e repasse das mensagens enviadas ao contato | Estados Unidos e rede global | a cópia criptografada (sem a chave) e as mensagens enviadas ao contato |
 | Google (Gmail) | caixa de entrada onde chegam as mensagens enviadas ao contato | Estados Unidos e rede global | as mensagens que você enviar ao contato |
 
-Os dados de mercado (lista de ativos da bolsa e logotipos das empresas) vêm da brapi.dev. **Nenhum dado seu nem
-identificador da sua conta é enviado a ela**: o app só baixa a lista pública, sem relação com quem usa.
+Os dados de mercado vêm de fontes públicas: a lista de ativos da bolsa e os logotipos das empresas, da brapi.dev, e a
+taxa diária do CDI, usada para calcular o rendimento da renda fixa, do Banco Central do Brasil. **Nenhum dado seu nem
+identificador da sua conta é enviado a elas**: o app só baixa a lista e a série públicas, sem relação com quem usa.
 
 Podemos ter de fornecer dados a autoridades quando houver ordem judicial ou obrigação legal.
 
@@ -221,3 +223,6 @@ Cada versão desta política tem número e data de vigência, e as anteriores fi
 **Histórico de versões**
 
 - v1.0 (15/10/2026): publicação inicial.
+- v1.0 (20/10/2026): texto esclarecido, sem mudança de finalidade, base legal, retenção ou compartilhamento: a renda fixa
+  (objetivos, aportes e resgates) entre os dados que você registra, a observação do aporte entre os textos livres e o
+  Banco Central entre as fontes públicas de dados de mercado. Por ser esclarecimento, continua na versão 1.0.
