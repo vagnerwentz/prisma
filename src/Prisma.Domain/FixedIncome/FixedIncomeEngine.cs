@@ -59,6 +59,22 @@ public static class FixedIncomeEngine
         return new FixedIncomeBalance(principal, FixedPoint.Gross(principal, factorE8), factorE8, used, through);
     }
 
+    // Com resgates: o fator é o do aporte inteiro (a taxa não depende do quanto sobrou) e o principal é o que sobra na data.
+    // Resgate com data igual ou anterior a `asOf` já conta. Sem resgates, é exatamente o `Balance` de sempre.
+    public static Result<FixedIncomeBalance> Balance(
+        Money principal, DateOnly depositDate, Remuneration remuneration, RateHistory rates, DateOnly asOf,
+        IReadOnlyList<RedemptionStep> redemptions)
+    {
+        var whole = Balance(principal, depositDate, remuneration, rates, asOf);
+        if (!whole.IsSuccess || redemptions.Count == 0)
+            return whole;
+        if (StepsError(principal, depositDate, redemptions) is { } error)
+            return error;
+
+        var remaining = new Money(Remaining(principal, redemptions, asOf));
+        return whole.Value with { Principal = remaining, GrossBalance = FixedPoint.Gross(remaining, whole.Value.FactorE8) };
+    }
+
     public static Result<IReadOnlyList<Money?>> Series(
         Money principal, DateOnly depositDate, IndexPercent percent, RateHistory rates, IReadOnlyList<DateOnly> asOfDates) =>
         Series(principal, depositDate, Remuneration.PercentOfCdi(percent), rates, asOfDates);
@@ -69,7 +85,14 @@ public static class FixedIncomeEngine
     //
     // `asOfDates` em ordem estritamente crescente. A lista devolvida tem uma posição por data.
     public static Result<IReadOnlyList<Money?>> Series(
-        Money principal, DateOnly depositDate, Remuneration remuneration, RateHistory rates, IReadOnlyList<DateOnly> asOfDates)
+        Money principal, DateOnly depositDate, Remuneration remuneration, RateHistory rates, IReadOnlyList<DateOnly> asOfDates) =>
+        Series(principal, depositDate, remuneration, rates, asOfDates, []);
+
+    // Com resgates (docs/renda-fixa-resgate.md, 3): o principal vale por trechos, e o resgate com data igual ou anterior à da
+    // referência já conta (o do dia sai do saldo do dia). O fator é o mesmo de sempre; só o principal que ele multiplica muda.
+    public static Result<IReadOnlyList<Money?>> Series(
+        Money principal, DateOnly depositDate, Remuneration remuneration, RateHistory rates, IReadOnlyList<DateOnly> asOfDates,
+        IReadOnlyList<RedemptionStep> redemptions)
     {
         for (var i = 1; i < asOfDates.Count; i++)
             if (asOfDates[i] <= asOfDates[i - 1])
@@ -77,16 +100,35 @@ public static class FixedIncomeEngine
 
         if (principal.Cents < 1 || principal.Cents > MaxPrincipalCents)
             return new Error(ErrorType.Validation, "O valor do aporte está fora do limite.");
+        if (StepsError(principal, depositDate, redemptions) is { } stepsError)
+            return stepsError;
         if (!remuneration.IsInRange)
             return new Error(ErrorType.Validation, remuneration.RangeMessage);
+
+        var factors = Factors(depositDate, remuneration, rates, asOfDates);
+        if (!factors.IsSuccess)
+            return factors.Error;
+
+        var points = new Money?[asOfDates.Count];
+        for (var i = 0; i < points.Length; i++)
+            if (factors.Value[i] is { } factor)
+                points[i] = FixedPoint.Gross(new Money(Remaining(principal, redemptions, asOfDates[i])), factor);
+
+        return points;
+    }
+
+    // O fator acumulado (8 casas) em cada data, numa passada só; nulo antes da data do aporte.
+    private static Result<long?[]> Factors(
+        DateOnly depositDate, Remuneration remuneration, RateHistory rates, IReadOnlyList<DateOnly> asOfDates)
+    {
         if (!remuneration.UsesCdi)
-            return Prefixed.PrefixedYield.Series(principal, depositDate, new AnnualRate(remuneration.ValueE4), asOfDates);
+            return Prefixed.PrefixedYield.Factors(depositDate, new AnnualRate(remuneration.ValueE4), asOfDates);
         if (rates.FirstDate is not { } first || depositDate < first)
             return new Error(
                 ErrorType.Validation, "Não há taxa do CDI para a data do aporte.", "RatesUnavailable");
 
         var (percent, spread) = Parts(remuneration);
-        var points = new Money?[asOfDates.Count];
+        var points = new long?[asOfDates.Count];
         Int128 cdi = FixedPoint.Scale16, fixedPart = FixedPoint.Scale16;
         var next = rates.IndexOfFirstOnOrAfter(depositDate);
         for (var i = 0; i < asOfDates.Count; i++)
@@ -101,10 +143,37 @@ public static class FixedIncomeEngine
                     return new Error(ErrorType.Validation, "O rendimento calculado está fora do limite.");
             }
 
-            points[i] = FixedPoint.Gross(principal, FixedPoint.FactorE8(Product(cdi, fixedPart)));
+            points[i] = FixedPoint.FactorE8(Product(cdi, fixedPart));
         }
 
         return points;
+    }
+
+    // O principal que sobra numa data: o aporte menos o que os resgates até ela (inclusive) já tiraram.
+    internal static long Remaining(Money principal, IReadOnlyList<RedemptionStep> redemptions, DateOnly asOf)
+    {
+        var remaining = principal.Cents;
+        foreach (var step in redemptions)
+            if (step.Date <= asOf)
+                remaining -= step.Principal.Cents;
+
+        return remaining;
+    }
+
+    // Os resgates precisam caber no aporte: nenhum antes da data dele, nenhum de principal negativo (zero vale: resgate só de rendimento,
+    // quando o fator é alto e o principal pequeno), e a soma nunca passa do principal.
+    private static Error? StepsError(Money principal, DateOnly depositDate, IReadOnlyList<RedemptionStep> redemptions)
+    {
+        long total = 0;
+        foreach (var step in redemptions)
+        {
+            if (step.Date < depositDate || step.Principal.Cents < 0)
+                return new Error(ErrorType.Validation, "Os resgates do aporte são inválidos.");
+
+            total += step.Principal.Cents;
+        }
+
+        return total > principal.Cents ? new Error(ErrorType.Validation, "Os resgates do aporte passam do valor aportado.") : null;
     }
 
     // % do CDI: o percentual contratado e nenhum fator fixo (1,0). CDI+: 100 % do CDI e o fator diário da taxa.

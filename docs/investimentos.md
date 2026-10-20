@@ -1407,7 +1407,7 @@ corretora mostra).
   `FixedIncome` (entre os fundos e "Outros"), o `PortfolioSnapshot.Build` recebe `FixedIncomeHolding` e devolve as linhas por
   objetivo, e o total "Investido" e os pesos de todos os ativos passam a ser sobre o conjunto. A renda fixa não tem quantidade
   nem nota: o que entra é o aportado até a data da carteira e o rendimento bruto ao lado. A aba **Objetivos** (renda fixa por
-  objetivo, com saldo, gráfico, imposto estimado) é a visão detalhada; a Carteira é a visão geral.
+  objetivo, com saldo, gráfico, imposto estimado) é a visão detalhada; a Carteira é a visão geral. **Com os resgates (R.26, `docs/renda-fixa-resgate.md`)** o peso e o aportado são o principal que **sobra** na data da carteira (o resgate depois do fim do ano não conta nele), o objetivo resgatado por inteiro some e a linha conta só os aportes que ainda têm principal.
 - **Liquidação paga em cotas (I.7c4):** feita, com BCFF11 → BTHF11 e IRDM11 → IRIM11. PETZ3 → AUAU3 e CVBI11 → PCIP11
   a conferir se mantiveram o custo.
 - **Conferir a carteira com a B3** (sugerido ao dono, 2026-10-12): com todas as notas lançadas, comparar a quantidade de

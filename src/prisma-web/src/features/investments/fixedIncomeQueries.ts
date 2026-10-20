@@ -6,6 +6,7 @@ import { invalidateMoney } from '@/features/transactions/queries'
 export type GoalChanges = Schemas['SaveGoalRequest']
 export type NewDeposit = Schemas['SaveDepositCreateRequest']
 export type DepositChanges = Schemas['SaveDepositUpdateRequest']
+export type NewRedemption = Schemas['RedemptionsCreateRequest']
 
 export function useGoals() {
   return useQuery({
@@ -106,3 +107,68 @@ export const useRestoreDeposit = () =>
     const { error, response } = await api.POST('/fixed-income-deposits/{id}/restore', { params: { path: { id } } })
     if (!response.ok) throw new ApiError(response.status, error)
   }, { money: true })
+
+// Resgates (docs/renda-fixa-resgate.md): a lista de um aporte, a prévia (sem gravar) e criar, excluir e desfazer. Todos mexem em saldos, no
+// Investido e nos lançamentos quando o resgate cai numa conta, então invalidam também o dinheiro.
+export function useRedemptions(depositId: string | null) {
+  return useQuery({
+    queryKey: [...fixedIncomeKey, 'redemptions', depositId],
+    enabled: depositId !== null,
+    queryFn: async () =>
+      unwrap(await api.GET('/fixed-income-deposits/{id}/redemptions', { params: { path: { id: depositId! } } })),
+  })
+}
+
+// A prévia do resgate: o saldo na data e, com o valor, o resgate como seria gravado. Mantém a anterior enquanto a nova carrega, para o
+// painel não piscar a cada dígito.
+export function useRedemptionPreview(
+  depositId: string,
+  query: { date: string; grossCents: number | null; netCents: number | null },
+) {
+  return useQuery({
+    queryKey: [...fixedIncomeKey, 'redemption-preview', depositId, query.date, query.grossCents, query.netCents],
+    placeholderData: keepPreviousData,
+    queryFn: async () =>
+      unwrap(
+        await api.GET('/fixed-income-deposits/{id}/redemptions/preview', {
+          params: {
+            path: { id: depositId },
+            query: {
+              date: query.date,
+              grossCents: query.grossCents ?? undefined,
+              netCents: query.netCents ?? undefined,
+            },
+          },
+        }),
+      ),
+  })
+}
+
+export const useCreateRedemption = () =>
+  useFixedIncomeMutation(
+    async ({ depositId, body }: { depositId: string; body: NewRedemption }) =>
+      unwrap(await api.POST('/fixed-income-deposits/{id}/redemptions', { params: { path: { id: depositId } }, body })),
+    { money: true },
+  )
+
+export const useDeleteRedemption = () =>
+  useFixedIncomeMutation(
+    async ({ depositId, id, transfer }: { depositId: string; id: string; transfer?: 'keep' | 'delete' }) => {
+      const { error, response } = await api.DELETE('/fixed-income-deposits/{id}/redemptions/{redemptionId}', {
+        params: { path: { id: depositId, redemptionId: id }, query: { transfer } },
+      })
+      if (!response.ok) throw new ApiError(response.status, error)
+    },
+    { money: true },
+  )
+
+export const useRestoreRedemption = () =>
+  useFixedIncomeMutation(
+    async ({ depositId, id }: { depositId: string; id: string }) => {
+      const { error, response } = await api.POST('/fixed-income-deposits/{id}/redemptions/{redemptionId}/restore', {
+        params: { path: { id: depositId, redemptionId: id } },
+      })
+      if (!response.ok) throw new ApiError(response.status, error)
+    },
+    { money: true },
+  )

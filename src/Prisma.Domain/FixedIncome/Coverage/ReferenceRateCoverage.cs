@@ -24,6 +24,17 @@ public sealed record ReferenceRateCoverage(
         return date;
     }
 
+    // O último dia em que se pode resgatar um aporte que rende pelo CDI: o dia útil anterior a ele precisa ter taxa (sem ela o saldo seria
+    // subestimado). É o primeiro dia útil depois da última taxa gravada, sem passar de hoje. A tela parte dele ao abrir o resgate.
+    public static DateOnly LatestRedemptionDate(DateOnly lastRate, DateOnly today)
+    {
+        var date = lastRate.AddDays(1);
+        while (!BankCalendar.IsBusinessDay(date))
+            date = date.AddDays(1);
+
+        return date < today ? date : today;
+    }
+
     public static ReferenceRateCoverage Analyze(IEnumerable<DateOnly> storedDates, DateOnly today)
     {
         var stored = storedDates.ToHashSet();

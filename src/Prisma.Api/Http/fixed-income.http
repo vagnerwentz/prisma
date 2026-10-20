@@ -170,8 +170,38 @@ DELETE {{baseUrl}}/fixed-income-deposits/<id do aporte>
 ###
 POST {{baseUrl}}/fixed-income-deposits/<id do aporte>/restore
 
+### Resgatar (R.23, docs/renda-fixa-resgate.md): total ou parcial, pelo valor BRUTO. O principal e o rendimento saem na proporção do saldo na data,
+### e o imposto (IOF e IR da faixa do aporte) é calculado e congelado. netCents é o líquido do extrato, opcional: se vier, vale e o imposto é a diferença.
+### 400 se o valor passa do saldo, a data é futura, anterior ao aporte ou ao último resgate dele, ou o CDI ainda não chegou até a data (RatesUnavailable).
+POST {{baseUrl}}/fixed-income-deposits/<id do aporte>/redemptions
+Content-Type: application/json
+
+{
+  "clientRequestId": "{{$guid}}",
+  "redemptionDate": "2026-09-15",
+  "grossCents": 300000,
+  "netCents": null,
+  "funding": { "toAccountId": "<id da conta corrente ou da carteira onde o dinheiro caiu>" }
+}
+### funding é opcional (R.24) e só vale para aporte que saiu de uma conta pelo app: o principal volta como transferência da conta de
+### investimento e o rendimento líquido entra como receita. 400 RedemptionNeedsFundedDeposit / RedemptionNeedsPaymentAccount.
+
+### Prévia do resgate (R.25): o mesmo cálculo da gravação, sem gravar. Sem grossCents, só o saldo na data; com ele, o resgate como seria gravado.
+### Pedido que o domínio recusaria vem como `problem` (200), não como erro. `latestDate` é o último dia possível hoje (no CDI, o dia seguinte à última taxa).
+GET {{baseUrl}}/fixed-income-deposits/<id do aporte>/redemptions/preview?date=2026-09-15&grossCents=300000&netCents=
+
+### Os resgates do aporte, em ordem
+GET {{baseUrl}}/fixed-income-deposits/<id do aporte>/redemptions
+
+### Excluir e desfazer um resgate: só o ÚLTIMO do aporte se exclui (409 RedemptionNotLast); desfazer só volta se o aporte está como estava (409 RedemptionCannotReturn).
+### Se o resgate caiu numa conta, escolha ?transfer=keep (a transferência e a receita ficam) ou ?transfer=delete (saem juntas); sem a escolha, 400 TransferChoiceRequired.
+DELETE {{baseUrl}}/fixed-income-deposits/<id do aporte>/redemptions/<id do resgate>?transfer=delete
+###
+POST {{baseUrl}}/fixed-income-deposits/<id do aporte>/redemptions/<id do resgate>/restore
+
 ### Saldo de cada aporte, de cada caixa, dos soltos e total, até uma data (padrão: hoje; data futura é 400): bruto e, em `tax`
 ### (por aporte) e `estimatedTaxCents`/`netYieldCents`/`netBalanceCents` (por grupo), o imposto e o líquido estimados de resgatar na data (R.7).
+### Com resgates (até a data): `principalCents` do aporte é o que SOBRA, `redeemed` traz o que já saiu (bruto, principal, rendimento, imposto pago, líquido) e o grupo soma em `redeemed*Cents`.
 ### `rates` diz até que dia as taxas do CDI vão, se estão defasadas e se falta algum dia útil.
 GET {{baseUrl}}/fixed-income/balances?asOf=2026-10-16
 

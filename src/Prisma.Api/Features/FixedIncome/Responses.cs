@@ -86,9 +86,18 @@ public static class Goals
             .GroupBy(_ => 1)
             .Select(g => new { Count = g.Count(), Principal = g.Sum(d => d.AmountCents) })
             .SingleOrDefaultAsync(ct);
+        var redeemed = (await RedeemedPrincipalByGoal(db, ct)).GetValueOrDefault(goal.Id);
         return new GoalResponse(goal.Id, goal.Name, goal.Description, goal.TargetCents, goal.DefaultIndexPercentE4,
-            totals?.Count ?? 0, totals?.Principal ?? 0);
+            totals?.Count ?? 0, (totals?.Principal ?? 0) - redeemed);
     }
+
+    // O principal que os resgates vivos já tiraram dos aportes vivos, por objetivo (os soltos ficam na chave Guid.Empty).
+    public static async Task<Dictionary<Guid, long>> RedeemedPrincipalByGoal(AppDbContext db, CancellationToken ct) =>
+        await db.FixedIncomeRedemptions.AsNoTracking()
+            .Join(db.FixedIncomeDeposits.AsNoTracking(), r => r.DepositId, d => d.Id, (r, d) => new { d.GoalId, r.PrincipalCents })
+            .GroupBy(x => x.GoalId ?? Guid.Empty)
+            .Select(g => new { Goal = g.Key, Principal = g.Sum(x => x.PrincipalCents) })
+            .ToDictionaryAsync(x => x.Goal, x => x.Principal, ct);
 
     // O objetivo existe (e é da pessoa: o filtro de dono vale) e não foi excluído.
     public static Task<bool> Exists(AppDbContext db, Guid goalId, CancellationToken ct) =>

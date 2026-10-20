@@ -75,6 +75,9 @@ public sealed class AppDbContext(
 
     public DbSet<FixedIncomeDeposit> FixedIncomeDeposits => Set<FixedIncomeDeposit>();
 
+    // Resgates dos aportes (docs/renda-fixa-resgate.md): fatos realizados, com o imposto congelado.
+    public DbSet<FixedIncomeRedemption> FixedIncomeRedemptions => Set<FixedIncomeRedemption>();
+
     // Taxas diárias do CDI, do Banco Central: dado de mercado, o mesmo para todos (docs/renda-fixa.md, 2.4). Sem filtro.
     public DbSet<ReferenceRate> ReferenceRates => Set<ReferenceRate>();
 

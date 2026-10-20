@@ -56,6 +56,9 @@ Use um e-mail que seja seu e que você acompanhe: é por ele que você confirma 
   Imposto de Renda.
 - A lista de ativos e alguns eventos das empresas vêm de fontes públicas e da nossa curadoria, e podem ter atrasos ou
   erros. O app pede que você confira cada evento que mexe na sua carteira.
+- **Rendimento e imposto da renda fixa são estimativas.** O app calcula pelo CDI publicado pelo Banco Central e pela
+  taxa que você informou, e estima o imposto como se você resgatasse naquele dia. O valor que vale é o do extrato do
+  seu banco, que pode diferir em centavos ou por regras do produto que o app não conhece.
 
 Esses avisos descrevem o que o serviço é. Eles não afastam a nossa responsabilidade por defeitos do próprio app nos
 limites da seção 9.
