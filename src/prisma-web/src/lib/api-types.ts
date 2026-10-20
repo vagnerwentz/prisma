@@ -4339,6 +4339,275 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/fixed-income-deposits/{id}/redemptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RedemptionResponse"][];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RedemptionsCreateRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RedemptionResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fixed-income-deposits/{id}/redemptions/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    date?: string;
+                    grossCents?: number;
+                    netCents?: number;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RedemptionPreviewResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fixed-income-deposits/{id}/redemptions/{redemptionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: {
+                    transfer?: string;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                    redemptionId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fixed-income-deposits/{id}/redemptions/{redemptionId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    redemptionId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RedemptionResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/fixed-income/balances": {
         parameters: {
             query?: never;
@@ -4933,9 +5202,24 @@ export interface components {
             tax: null | components["schemas"]["DepositTax"];
             /** Format: int64 */
             indexPercentE4?: null | number;
+            redeemed?: null | components["schemas"]["DepositRedeemed"];
         };
         /** @enum {unknown} */
         DepositLiquidity: "Unknown" | "Daily" | "AtMaturity";
+        DepositRedeemed: {
+            /** Format: int32 */
+            count: number;
+            /** Format: int64 */
+            grossCents: number;
+            /** Format: int64 */
+            principalCents: number;
+            /** Format: int64 */
+            yieldCents: number;
+            /** Format: int64 */
+            taxCents: number;
+            /** Format: int64 */
+            netCents: number;
+        };
         DepositResponse: {
             /** Format: uuid */
             id: string;
@@ -5226,6 +5510,26 @@ export interface components {
             netYieldCents: number;
             /** Format: int64 */
             netBalanceCents: number;
+            /**
+             * Format: int64
+             * @default 0
+             */
+            redeemedGrossCents: number;
+            /**
+             * Format: int64
+             * @default 0
+             */
+            redeemedYieldCents: number;
+            /**
+             * Format: int64
+             * @default 0
+             */
+            redeemedTaxCents: number;
+            /**
+             * Format: int64
+             * @default 0
+             */
+            redeemedNetCents: number;
         };
         HoldingResponse: {
             /** Format: uuid */
@@ -5613,6 +5917,71 @@ export interface components {
             /** Format: date */
             nextTransactionDate: null | string;
         };
+        RedemptionFundingResponse: {
+            /** Format: uuid */
+            transferPairId: null | string;
+            /** Format: uuid */
+            incomeTransactionId: null | string;
+            /** Format: uuid */
+            investmentAccountId: null | string;
+            /** Format: uuid */
+            destinationAccountId: string;
+        };
+        RedemptionPreviewResponse: {
+            /** Format: date */
+            date: string;
+            /** Format: int64 */
+            balanceCents: null | number;
+            /** Format: int64 */
+            remainingPrincipalCents: null | number;
+            redemption: null | components["schemas"]["RedemptionResponse"];
+            problem: null | string;
+            problemCode: null | string;
+            /** Format: date */
+            latestDate?: null | string;
+        };
+        RedemptionResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            depositId: string;
+            /** Format: date */
+            redemptionDate: string;
+            /** Format: int64 */
+            grossCents: number;
+            /** Format: int64 */
+            principalCents: number;
+            /** Format: int64 */
+            yieldCents: number;
+            /** Format: int64 */
+            iofCents: null | number;
+            /** Format: int64 */
+            irCents: null | number;
+            /** Format: int64 */
+            taxCents: number;
+            /** Format: int64 */
+            netCents: number;
+            taxSource: components["schemas"]["RedemptionTaxSource"];
+            taxRuleVersion: null | string;
+            funding?: null | components["schemas"]["RedemptionFundingResponse"];
+        };
+        RedemptionsCreateRequest: {
+            /** Format: uuid */
+            clientRequestId: string;
+            /** Format: date */
+            redemptionDate: string;
+            /** Format: int64 */
+            grossCents: number;
+            /** Format: int64 */
+            netCents?: null | number;
+            funding?: null | components["schemas"]["RedemptionsFundingRequest"];
+        };
+        RedemptionsFundingRequest: {
+            /** Format: uuid */
+            toAccountId: string;
+        };
+        /** @enum {unknown} */
+        RedemptionTaxSource: "Estimated" | "Informed";
         RegisterRequest: {
             email: string;
             password: string;

@@ -23,11 +23,15 @@ public static class ListGoals
                 .Select(g => new { Count = g.Count(), Principal = g.Sum(d => d.AmountCents) })
                 .SingleOrDefaultAsync(ct);
 
+            // O aportado é o que sobra: o principal que os resgates já tiraram sai da soma (docs/renda-fixa-resgate.md, 4).
+            var redeemed = await Goals.RedeemedPrincipalByGoal(db, ct);
+
             return new GoalsResponse(
                 goals.Select(g => perGoal.TryGetValue(g.Id, out var t)
-                    ? new GoalResponse(g.Id, g.Name, g.Description, g.TargetCents, g.DefaultIndexPercentE4, t.Count, t.Principal)
+                    ? new GoalResponse(g.Id, g.Name, g.Description, g.TargetCents, g.DefaultIndexPercentE4, t.Count,
+                        t.Principal - redeemed.GetValueOrDefault(g.Id))
                     : new GoalResponse(g.Id, g.Name, g.Description, g.TargetCents, g.DefaultIndexPercentE4, 0, 0)).ToList(),
-                new UnassignedResponse(loose?.Count ?? 0, loose?.Principal ?? 0));
+                new UnassignedResponse(loose?.Count ?? 0, (loose?.Principal ?? 0) - redeemed.GetValueOrDefault(Guid.Empty)));
         }
     }
 

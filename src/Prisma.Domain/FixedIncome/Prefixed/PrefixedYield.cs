@@ -41,11 +41,26 @@ internal static class PrefixedYield
     public static Result<IReadOnlyList<Money?>> Series(
         Money principal, DateOnly depositDate, AnnualRate rate, IReadOnlyList<DateOnly> asOfDates)
     {
+        var factors = Factors(depositDate, rate, asOfDates);
+        if (!factors.IsSuccess)
+            return factors.Error;
+
+        var points = new Money?[asOfDates.Count];
+        for (var i = 0; i < points.Length; i++)
+            if (factors.Value[i] is { } factor)
+                points[i] = FixedPoint.Gross(principal, factor);
+
+        return points;
+    }
+
+    // O fator (8 casas) em cada data, numa passada só; nulo antes da data do aporte.
+    public static Result<long?[]> Factors(DateOnly depositDate, AnnualRate rate, IReadOnlyList<DateOnly> asOfDates)
+    {
         if (asOfDates.Count > 0 && asOfDates[^1] > depositDate.AddYears(MaxTermYears))
             return TermError;
 
         var daily = rate.DailyFactor();
-        var points = new Money?[asOfDates.Count];
+        var points = new long?[asOfDates.Count];
         Int128 accumulated = FixedPoint.Scale16;
         var day = depositDate;
         for (var i = 0; i < asOfDates.Count; i++)
@@ -63,7 +78,7 @@ internal static class PrefixedYield
                     return OutOfRange;
             }
 
-            points[i] = FixedPoint.Gross(principal, FixedPoint.FactorE8(accumulated));
+            points[i] = FixedPoint.FactorE8(accumulated);
         }
 
         return points;

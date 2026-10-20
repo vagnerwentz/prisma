@@ -149,6 +149,16 @@ public static class SaveDeposit
                         "FundedDepositLocked");
             }
 
+            // Um aporte com resgates tem valores congelados em cima do contrato (docs/renda-fixa-resgate.md, 3): valor, data, produto,
+            // índice e taxa não mudam. Observação, vencimento e liquidez continuam editáveis.
+            if ((req.DepositDate != deposit.DepositDate || req.AmountCents != deposit.AmountCents || req.ProductKind != deposit.ProductKind
+                    || req.IndexKind != deposit.IndexKind || req.ResolveRate() != deposit.RateE4)
+                && await db.FixedIncomeRedemptions.AnyAsync(r => r.DepositId == id, ct))
+                return new Error(
+                    ErrorType.Conflict,
+                    "Este aporte já tem resgates: valor, data, produto, índice e taxa não mudam. Só a observação e o vencimento.",
+                    "RedeemedDepositLocked");
+
             var before = DepositResponse.From(deposit);
             var error = deposit.Update(
                 req.DepositDate, req.AmountCents, req.ProductKind, req.IndexKind, req.ResolveRate()!.Value, req.MaturityDate, req.Liquidity,

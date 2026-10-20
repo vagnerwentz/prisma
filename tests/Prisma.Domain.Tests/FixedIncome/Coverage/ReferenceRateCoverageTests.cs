@@ -84,6 +84,37 @@ public sealed class ReferenceRateCoverageTests
         ReferenceRateCoverage.ExpectedLastDate(new DateOnly(year, month, day))
             .ShouldBe(new DateOnly(expectedYear, expectedMonth, expectedDay));
 
+    // O último dia em que se pode resgatar um aporte do CDI: aquele cujo dia útil anterior já tem taxa gravada.
+    [Theory]
+    [InlineData(2026, 10, 15, 2026, 10, 19, 2026, 10, 16)] // quinta com taxa, segunda hoje: sexta (a de sexta ainda não saiu)
+    [InlineData(2026, 10, 16, 2026, 10, 19, 2026, 10, 19)] // sexta com taxa, segunda hoje: hoje mesmo
+    [InlineData(2026, 10, 16, 2026, 10, 17, 2026, 10, 17)] // sábado: o dia útil anterior é a sexta, que tem taxa
+    [InlineData(2026, 10, 14, 2026, 10, 19, 2026, 10, 15)] // taxas atrasadas dois dias: só até quinta
+    [InlineData(2026, 10, 15, 2026, 10, 15, 2026, 10, 15)] // nunca passa de hoje
+    public void The_latest_redemption_date_is_the_first_day_whose_previous_business_day_has_a_rate_and_never_after_today(
+        int ly, int lm, int ld, int ty, int tm, int td, int ey, int em, int ed) =>
+        ReferenceRateCoverage.LatestRedemptionDate(new DateOnly(ly, lm, ld), new DateOnly(ty, tm, td))
+            .ShouldBe(new DateOnly(ey, em, ed));
+
+    // A data devolvida sempre passa na regra do resgate: o dia útil anterior a ela tem taxa, e a data seguinte (se couber) não tem.
+    [Fact]
+    public void The_latest_redemption_date_is_always_redeemable_and_the_next_one_is_not()
+    {
+        Gen.Select(AnyDay, Gen.Int[0, 10]).Sample((last, behind) =>
+        {
+            var lastRate = last;
+            while (!BankCalendar.IsBusinessDay(lastRate))
+                lastRate = lastRate.AddDays(-1);
+            var today = lastRate.AddDays(1 + behind);
+
+            var latest = ReferenceRateCoverage.LatestRedemptionDate(lastRate, today);
+
+            var redeemable = ReferenceRateCoverage.ExpectedLastDate(latest) <= lastRate && latest <= today;
+            var nextFails = latest >= today || ReferenceRateCoverage.ExpectedLastDate(latest.AddDays(1)) > lastRate;
+            return redeemable && nextFails;
+        });
+    }
+
     [Fact]
     public void It_is_current_when_the_last_stored_date_is_the_expected_one()
     {

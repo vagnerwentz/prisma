@@ -580,6 +580,115 @@ namespace Prisma.Api.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Prisma.Domain.FixedIncome.FixedIncomeRedemption", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ClientRequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("client_request_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("DepositId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deposit_id");
+
+                    b.Property<long>("GrossCents")
+                        .HasColumnType("bigint")
+                        .HasColumnName("gross_cents");
+
+                    b.Property<Guid?>("IncomeTransactionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("income_transaction_id");
+
+                    b.Property<long?>("IofCents")
+                        .HasColumnType("bigint")
+                        .HasColumnName("iof_cents");
+
+                    b.Property<long?>("IrCents")
+                        .HasColumnType("bigint")
+                        .HasColumnName("ir_cents");
+
+                    b.Property<long>("NetCents")
+                        .HasColumnType("bigint")
+                        .HasColumnName("net_cents");
+
+                    b.Property<long>("PrincipalCents")
+                        .HasColumnType("bigint")
+                        .HasColumnName("principal_cents");
+
+                    b.Property<DateOnly>("RedemptionDate")
+                        .HasColumnType("date")
+                        .HasColumnName("redemption_date");
+
+                    b.Property<long>("TaxCents")
+                        .HasColumnType("bigint")
+                        .HasColumnName("tax_cents");
+
+                    b.Property<string>("TaxRuleVersion")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("tax_rule_version");
+
+                    b.Property<string>("TaxSource")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("tax_source");
+
+                    b.Property<Guid?>("TransferPairId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("transfer_pair_id");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<long>("YieldCents")
+                        .HasColumnType("bigint")
+                        .HasColumnName("yield_cents");
+
+                    b.HasKey("Id")
+                        .HasName("pk_fixed_income_redemptions");
+
+                    b.HasIndex("DepositId", "RedemptionDate")
+                        .HasDatabaseName("ix_fixed_income_redemptions_deposit_id_redemption_date");
+
+                    b.HasIndex("UserId", "ClientRequestId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_fixed_income_redemptions_user_request");
+
+                    b.HasIndex("UserId", "TransferPairId")
+                        .HasDatabaseName("ix_fixed_income_redemptions_user_id_transfer_pair_id");
+
+                    b.ToTable("fixed_income_redemptions", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_fixed_income_redemptions_gross", "gross_cents >= 1 AND gross_cents <= 100000000000000");
+
+                            t.HasCheckConstraint("ck_fixed_income_redemptions_split", "principal_cents >= 0 AND yield_cents >= 0 AND principal_cents + yield_cents = gross_cents");
+
+                            t.HasCheckConstraint("ck_fixed_income_redemptions_tax", "tax_cents >= 0 AND tax_cents <= yield_cents AND net_cents = gross_cents - tax_cents");
+
+                            t.HasCheckConstraint("ck_fixed_income_redemptions_tax_detail", "(tax_source = 'Estimated' AND iof_cents >= 0 AND ir_cents >= 0 AND iof_cents + ir_cents = tax_cents AND tax_rule_version IS NOT NULL) OR (tax_source = 'Informed' AND iof_cents IS NULL AND ir_cents IS NULL AND tax_rule_version IS NULL)");
+
+                            t.HasCheckConstraint("ck_fixed_income_redemptions_tax_source", "tax_source IN ('Estimated', 'Informed')");
+                        });
+                });
+
             modelBuilder.Entity("Prisma.Domain.FixedIncome.MarketSyncRun", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1746,6 +1855,23 @@ namespace Prisma.Api.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_fixed_income_deposits_users_user_id");
+                });
+
+            modelBuilder.Entity("Prisma.Domain.FixedIncome.FixedIncomeRedemption", b =>
+                {
+                    b.HasOne("Prisma.Domain.FixedIncome.FixedIncomeDeposit", null)
+                        .WithMany()
+                        .HasForeignKey("DepositId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_fixed_income_redemptions_fixed_income_deposits_deposit_id");
+
+                    b.HasOne("Prisma.Api.Infrastructure.Auth.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_fixed_income_redemptions_users_user_id");
                 });
 
             modelBuilder.Entity("Prisma.Domain.FixedIncome.SavingsGoal", b =>

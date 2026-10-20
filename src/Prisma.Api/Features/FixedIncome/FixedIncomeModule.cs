@@ -20,6 +20,8 @@ public static class FixedIncomeModule
         services.AddScoped<MoveDeposit.Handler>();
         services.AddScoped<DeleteDeposit.Handler>();
         services.AddScoped<RestoreDeposit.Handler>();
+        services.AddScoped<Redemptions.Handler>();
+        services.AddSingleton<IValidator<Redemptions.CreateRequest>, Redemptions.CreateValidator>();
 
         services.AddScoped<GetBalances.Handler>();
         services.AddScoped<GetEvolution.Handler>();
@@ -42,6 +44,7 @@ public static class FixedIncomeModule
         MoveDeposit.Map(deposits);
         DeleteDeposit.Map(deposits);
         RestoreDeposit.Map(deposits);
+        Redemptions.Map(deposits);
 
         var fixedIncome = app.MapGroup("/fixed-income");
         GetBalances.Map(fixedIncome);

@@ -66,11 +66,11 @@ public static class GetPortfolio
                 foreach (var goal in fixedBalances.Value.Goals)
                 {
                     names[goal.Id] = goal.Name;
-                    fixedIncome.Add(new FixedIncomeHolding(goal.Id, goal.Balance.DepositCount, goal.Balance.PrincipalCents, goal.Balance.GrossYieldCents));
+                    fixedIncome.Add(new FixedIncomeHolding(goal.Id, OpenDeposits(goal.Deposits), goal.Balance.PrincipalCents, goal.Balance.GrossYieldCents));
                 }
 
                 var loose = fixedBalances.Value.Unassigned.Balance;
-                fixedIncome.Add(new FixedIncomeHolding(null, loose.DepositCount, loose.PrincipalCents, loose.GrossYieldCents));
+                fixedIncome.Add(new FixedIncomeHolding(null, OpenDeposits(fixedBalances.Value.Unassigned.Deposits), loose.PrincipalCents, loose.GrossYieldCents));
                 ratesThrough = fixedBalances.Value.Total.RatesThrough;
             }
 
@@ -94,6 +94,10 @@ public static class GetPortfolio
                     f.GoalId, f.GoalId is { } id ? names[id] : null, f.DepositCount, f.PrincipalCents, f.GrossYieldCents, f.WeightBasisPoints)).ToList(),
                 ratesThrough);
         }
+
+        // Os aportes que ainda têm principal na data da carteira: o resgatado por inteiro deixou de ser um investimento (R.26). O principal e o
+        // peso já vêm descontados dos resgates, porque saem do mesmo saldo da aba Objetivos.
+        private static int OpenDeposits(IReadOnlyList<DepositBalance> deposits) => deposits.Count(d => d.PrincipalCents > 0);
 
         private async Task<IReadOnlyList<int>> Years(IReadOnlyList<TradeNote> notes, DateOnly today, CancellationToken ct)
         {

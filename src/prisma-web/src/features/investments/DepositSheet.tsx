@@ -15,7 +15,9 @@ import {
   formatPercent,
   indexKindLabels,
   indexKinds,
+  depositTitle,
   maturityWarning,
+  redemptionTaxNote,
   productKinds,
   productLabels,
   initialRateText,
@@ -27,17 +29,22 @@ import {
   type Goal,
   type IndexKind,
   type ProductKind,
+  type Redemption,
 } from './fixedIncome'
 import {
   useCreateDeposit,
   useDeleteDeposit,
+  useDeleteRedemption,
   useMoveDeposit,
+  useRedemptions,
   useRestoreDeposit,
+  useRestoreRedemption,
   useUpdateDeposit,
 } from './fixedIncomeQueries'
 
 // Novo aporte ou edição (docs/renda-fixa.md, 7.2). Aporte que saiu de uma conta (financiado) tem valor e data
-// travados: mexer neles desencontraria a transferência.
+// travados: mexer neles desencontraria a transferência. Aporte com resgates trava também produto e taxa: os resgates foram
+// congelados em cima do contrato (docs/renda-fixa-resgate.md, 3). A lista dos resgates mora aqui; só o último se exclui.
 export type DepositView = { kind: 'new'; goalId: string | null } | { kind: 'edit'; deposit: Deposit }
 
 export function DepositSheet({ view, goals, onClose }: { view: DepositView | null; goals: Goal[]; onClose: () => void }) {
@@ -65,6 +72,11 @@ function DepositForm({ view, goals, onDone }: { view: DepositView; goals: Goal[]
   const move = useMoveDeposit()
   const remove = useDeleteDeposit()
   const restore = useRestoreDeposit()
+  const redemptions = useRedemptions(deposit?.id ?? null)
+  const removeRedemption = useDeleteRedemption()
+  const restoreRedemption = useRestoreRedemption()
+  const list = redemptions.data ?? []
+  const hasRedemptions = list.length > 0
 
   const [requestId] = useState(() => crypto.randomUUID())
   const [goalId, setGoalId] = useState<string | null>(deposit ? deposit.goalId : view.kind === 'new' ? view.goalId : null)
@@ -81,9 +93,11 @@ function DepositForm({ view, goals, onDone }: { view: DepositView; goals: Goal[]
   const [fromId, setFromId] = useState<string | null>(null)
   const [toId, setToId] = useState<string | null>(null)
   const [askingDelete, setAskingDelete] = useState(false)
+  const [askingRedemption, setAskingRedemption] = useState<Redemption | null>(null)
   const [errors, setErrors] = useState<Errors>({})
 
   const locked = deposit?.funding != null
+  const valuesLocked = locked || hasRedemptions
   const investmentAccounts = accounts.filter((a) => a.type === 'Investment')
   const sourceAccounts = accounts.filter((a) => a.type !== 'Investment')
   const to = toId ?? investmentAccounts[0]?.id ?? null
@@ -148,6 +162,56 @@ function DepositForm({ view, goals, onDone }: { view: DepositView; goals: Goal[]
     }
   }
 
+  const deleteRedemption = async (redemption: Redemption, transfer?: 'keep' | 'delete') => {
+    if (!deposit) return
+    try {
+      await removeRedemption.mutateAsync({ depositId: deposit.id, id: redemption.id, transfer })
+      setAskingRedemption(null)
+      toast('Resgate excluído', {
+        description: `${formatShortDate(redemption.redemptionDate)}, ${formatCents(redemption.grossCents)}`,
+        duration: 8000,
+        action: { label: 'Desfazer', onClick: () => restoreRedemption.mutate({ depositId: deposit.id, id: redemption.id }) },
+      })
+    } catch (error) {
+      setAskingRedemption(null)
+      setErrors({ root: (error as Error).message })
+    }
+  }
+
+  if (askingRedemption)
+    return (
+      <>
+        <header className="px-4 pt-2 pb-3">
+          <SheetTitle className="font-display text-2xl font-normal">Excluir resgate</SheetTitle>
+          <p className="text-sm text-muted-foreground">
+            Este resgate caiu numa conta. O que fazer com a transferência do principal e a receita do rendimento?
+          </p>
+        </header>
+        <div className="flex flex-col gap-2 px-4 pb-6">
+          <Button
+            size="lg"
+            className="h-12 rounded-2xl"
+            disabled={removeRedemption.isPending}
+            onClick={() => deleteRedemption(askingRedemption, 'keep')}
+          >
+            Manter os lançamentos
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
+            className="h-12 rounded-2xl"
+            disabled={removeRedemption.isPending}
+            onClick={() => deleteRedemption(askingRedemption, 'delete')}
+          >
+            Excluir junto
+          </Button>
+          <Button variant="ghost" size="lg" className="h-12 rounded-2xl" onClick={() => setAskingRedemption(null)}>
+            Voltar
+          </Button>
+        </div>
+      </>
+    )
+
   if (askingDelete)
     return (
       <>
@@ -175,10 +239,16 @@ function DepositForm({ view, goals, onDone }: { view: DepositView; goals: Goal[]
     <form onSubmit={submit} noValidate className="flex min-h-0 flex-col">
       <header className="px-4 pt-2 pb-3">
         <SheetTitle className="font-display text-2xl font-normal">{deposit ? 'Editar aporte' : 'Novo aporte'}</SheetTitle>
-        {locked && <p className="text-sm text-muted-foreground">Valor e data ficam travados: o dinheiro saiu de uma conta.</p>}
+        {hasRedemptions ? (
+          <p className="text-sm text-muted-foreground">
+            Valor, data, produto e taxa ficam travados: este aporte já tem resgates.
+          </p>
+        ) : (
+          locked && <p className="text-sm text-muted-foreground">Valor e data ficam travados: o dinheiro saiu de uma conta.</p>
+        )}
       </header>
       <div className="flex min-h-0 flex-col gap-6 overflow-y-auto overscroll-contain px-4 pt-1 pb-6">
-        {locked ? (
+        {valuesLocked ? (
           <Section title="Aportado">
             <p className="font-display text-3xl tabular-nums">{formatCents(amountCents)}</p>
             <p className="text-sm text-muted-foreground">em {formatShortDate(date)}</p>
@@ -203,44 +273,52 @@ function DepositForm({ view, goals, onDone }: { view: DepositView; goals: Goal[]
             ))}
           </ChipRow>
         </Section>
-        <Section title="Produto">
-          <ChipRow>
-            {productKinds.map((p) => (
-              <Chip key={p} selected={p === product} onClick={() => setProduct(p)}>
-                {productLabels[p]}
-              </Chip>
-            ))}
-          </ChipRow>
-        </Section>
-        <Section title="Rende">
-          <ChipRow>
-            {indexKinds.map((k) => (
-              <Chip
-                key={k}
-                selected={k === kind}
-                onClick={() => {
-                  setKind(k)
-                  setPercent(null)
-                  setErrors((e) => ({ ...e, percent: undefined }))
-                }}
-              >
-                {indexKindLabels[k]}
-              </Chip>
-            ))}
-          </ChipRow>
-          <div className="flex items-center gap-2">
-            <Input
-              value={percentText}
-              onChange={(e) => setPercent(e.target.value)}
-              inputMode="decimal"
-              aria-label={field.label}
-              className="w-28 tabular-nums"
-            />
-            <span className="text-sm text-muted-foreground">{field.suffix}</span>
-          </div>
-          {field.hint && <p className="text-xs text-muted-foreground">{field.hint}</p>}
-          <FieldError message={errors.percent} />
-        </Section>
+        {hasRedemptions ? (
+          <Section title="Contrato">
+            <p className="text-sm">{depositTitle(product, kind, percentToE4(parseRate(percentText, kind) ?? 0))}</p>
+          </Section>
+        ) : (
+          <>
+            <Section title="Produto">
+              <ChipRow>
+                {productKinds.map((p) => (
+                  <Chip key={p} selected={p === product} onClick={() => setProduct(p)}>
+                    {productLabels[p]}
+                  </Chip>
+                ))}
+              </ChipRow>
+            </Section>
+            <Section title="Rende">
+              <ChipRow>
+                {indexKinds.map((k) => (
+                  <Chip
+                    key={k}
+                    selected={k === kind}
+                    onClick={() => {
+                      setKind(k)
+                      setPercent(null)
+                      setErrors((e) => ({ ...e, percent: undefined }))
+                    }}
+                  >
+                    {indexKindLabels[k]}
+                  </Chip>
+                ))}
+              </ChipRow>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={percentText}
+                  onChange={(e) => setPercent(e.target.value)}
+                  inputMode="decimal"
+                  aria-label={field.label}
+                  className="w-28 tabular-nums"
+                />
+                <span className="text-sm text-muted-foreground">{field.suffix}</span>
+              </div>
+              {field.hint && <p className="text-xs text-muted-foreground">{field.hint}</p>}
+              <FieldError message={errors.percent} />
+            </Section>
+          </>
+        )}
         <Section title="Vencimento" aside="opcional">
           <Input type="date" value={maturity} onChange={(e) => setMaturity(e.target.value)} aria-label="Vencimento" className="w-44" />
           <FieldError message={errors.maturity} />
@@ -248,6 +326,40 @@ function DepositForm({ view, goals, onDone }: { view: DepositView; goals: Goal[]
             <p className="text-xs text-muted-foreground">{maturityWarning(product, date, maturity)}</p>
           )}
         </Section>
+        {hasRedemptions && (
+          <Section title="Resgates" aside={list.length === 1 ? '1 resgate' : `${list.length} resgates`}>
+            <ul className="divide-y divide-border/60">
+              {list.map((r, index) => (
+                <li key={r.id} className="flex items-center gap-3 py-2.5">
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium tabular-nums">
+                      {formatCents(r.grossCents)} · {formatShortDate(r.redemptionDate)}
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      Líquido {formatCents(r.netCents)} · {redemptionTaxNote(r)}
+                      {r.funding && ' · caiu numa conta'}
+                    </span>
+                  </span>
+                  {index === list.length - 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="rounded-full"
+                      disabled={removeRedemption.isPending}
+                      onClick={() => (r.funding ? setAskingRedemption(r) : deleteRedemption(r))}
+                    >
+                      Excluir
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-muted-foreground">
+              Só o último resgate se exclui: os seguintes partem do que sobrou dele.
+            </p>
+          </Section>
+        )}
         {!deposit && (
           <Section title="Saiu de uma conta?">
             <ChipRow>

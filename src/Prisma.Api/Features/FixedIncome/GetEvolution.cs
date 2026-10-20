@@ -14,7 +14,7 @@ public sealed record EvolutionResponse(
 // A evolução do saldo bruto ao longo do tempo, para o gráfico (docs/renda-fixa.md, 6.2): calculada sob demanda, sem guardar um
 // registro por dia. Para cada aporte, uma passada só pelas taxas (FixedIncomeEngine.Series); os saldos dos aportes da caixa somam por data.
 //
-// Pontos: cada dia com taxa publicada, cada dia de aporte e o fim do período. O ponto de uma data é o saldo da balances com
+// Pontos: cada dia com taxa publicada, cada dia de aporte ou de resgate e o fim do período. O ponto de uma data é o saldo da balances com
 // asOf igual a ela (mesmo motor, mesma regra). Aporte sem taxa para a data dele entra pelo principal e é contado, como na balances.
 // `step=week|month` devolve só o último ponto de cada semana (começa na segunda) ou mês, mais o primeiro e o último do período.
 public static class GetEvolution
@@ -54,14 +54,20 @@ public static class GetEvolution
             if (from > to)
                 return new Error(ErrorType.Validation, "A data inicial não pode ser depois da final.");
 
-            var dates = SampleDates(book, deposits, from, to, step ?? "day");
+            var depositIds = deposits.Select(d => d.Id).ToList();
+            var redemptions = (await db.FixedIncomeRedemptions.AsNoTracking()
+                    .Where(r => depositIds.Contains(r.DepositId) && r.RedemptionDate <= to).ToListAsync(ct))
+                .ToLookup(r => r.DepositId);
+            var dates = SampleDates(book, deposits, from, to, step ?? "day", redemptions.SelectMany(g => g).Select(r => r.RedemptionDate));
             var principal = new long[dates.Count];
             var gross = new long[dates.Count];
             var unavailable = 0;
             foreach (var deposit in deposits)
             {
+                var steps = redemptions[deposit.Id]
+                    .Select(r => new RedemptionStep(r.RedemptionDate, new Money(r.PrincipalCents))).ToList();
                 var series = FixedIncomeEngine.Series(
-                    new Money(deposit.AmountCents), deposit.DepositDate, deposit.Remuneration, book.History, dates);
+                    new Money(deposit.AmountCents), deposit.DepositDate, deposit.Remuneration, book.History, dates, steps);
                 if (!series.IsSuccess)
                     unavailable++;
 
@@ -70,8 +76,10 @@ public static class GetEvolution
                     if (dates[i] < deposit.DepositDate)
                         continue;
 
-                    principal[i] += deposit.AmountCents;
-                    gross[i] += series.IsSuccess ? series.Value[i]!.Value.Cents : deposit.AmountCents;
+                    // O que sobra do aporte na data: os resgates até ela já saíram.
+                    var remaining = deposit.AmountCents - steps.Where(s => s.Date <= dates[i]).Sum(s => s.Principal.Cents);
+                    principal[i] += remaining;
+                    gross[i] += series.IsSuccess ? series.Value[i]!.Value.Cents : remaining;
                 }
             }
 
@@ -80,7 +88,8 @@ public static class GetEvolution
         }
 
         // Os dias que valem um ponto: cada dia com taxa, cada dia de aporte e as pontas do período. Em ordem crescente, sem repetir.
-        private static List<DateOnly> SampleDates(RateBook book, List<FixedIncomeDeposit> deposits, DateOnly from, DateOnly to, string step)
+        private static List<DateOnly> SampleDates(
+            RateBook book, List<FixedIncomeDeposit> deposits, DateOnly from, DateOnly to, string step, IEnumerable<DateOnly> redemptionDates)
         {
             var all = new SortedSet<DateOnly> { from, to };
             for (var i = 0; i < book.History.Count; i++)
@@ -89,6 +98,11 @@ public static class GetEvolution
             foreach (var deposit in deposits)
                 if (deposit.DepositDate >= from && deposit.DepositDate <= to)
                     all.Add(deposit.DepositDate);
+
+            // O dia de um resgate também é um ponto: é onde o saldo cai.
+            foreach (var date in redemptionDates)
+                if (date >= from && date <= to)
+                    all.Add(date);
 
             var dates = all.ToList();
             if (step == "day")

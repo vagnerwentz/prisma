@@ -1,5 +1,6 @@
 import { addDays, formatShortDate } from '@/lib/dates'
 import type { Schemas } from '@/lib/api'
+import { formatCents } from '@/lib/money'
 
 // Renda fixa por objetivo (docs/renda-fixa.md, seção 7). Só bruto: imposto e líquido vêm na R.7. Aqui ficam as
 // contas e os textos puros; a tela só desenha.
@@ -10,6 +11,9 @@ export type RatesStatus = Schemas['RatesStatus']
 export type GroupBalance = Schemas['GroupBalance']
 export type DepositBalance = Schemas['DepositBalance']
 export type EvolutionPoint = Schemas['EvolutionPoint']
+export type Redemption = Schemas['RedemptionResponse']
+export type RedemptionPreview = Schemas['RedemptionPreviewResponse']
+export type DepositRedeemed = NonNullable<DepositBalance['redeemed']>
 
 // O produto (docs/renda-fixa.md, 6.5): CDB, LCI e LCA rendem do mesmo jeito; o que muda é o imposto. As letras são isentas de IR para
 // pessoa física (Lei 11.033, art. 3º) e a LCA também de IOF.
@@ -242,7 +246,7 @@ export const balanceLabels: Record<ValueMode, string> = { gross: 'Saldo bruto es
 
 // O que a renda fixa do Prisma ainda não faz (R.8): sempre visível, para ninguém ler o número como mais do que ele é.
 export const limitationsNote =
-  'Por enquanto só CDB, LCI e LCA que rendem um percentual do CDI, o CDI mais uma taxa ou uma taxa fixa ao ano: sem IPCA, sem resgates e sem projeção do que vai render.'
+  'Por enquanto só CDB, LCI e LCA que rendem um percentual do CDI, o CDI mais uma taxa ou uma taxa fixa ao ano: sem IPCA e sem projeção do que vai render.'
 
 // O imposto das letras: a LCI e a LCA são isentas de IR para pessoa física (Lei 11.033, art. 3º); a LCA também de IOF, e a LCI paga o
 // IOF dos primeiros 29 dias, como o CDB.
@@ -263,4 +267,80 @@ export function depositTaxNote(tax: DepositTax | null | undefined): string | nul
   // LCI e LCA: sem IR. "Isento de IR" sozinho, ou "IOF, isento de IR" quando ainda há IOF (LCI com menos de 30 dias).
   const label = exempt ? (parts.length ? `${parts.join(' + ')}, isento de IR` : 'Isento de IR') : parts.join(' + ')
   return `${label} · ${tax.holdingDays} ${tax.holdingDays === 1 ? 'dia' : 'dias'}`
+}
+
+// ---------- Resgate (docs/renda-fixa-resgate.md, 4 e 6) ----------
+// A API entrega tudo calculado (saldo do que sobra, o que já saiu, o imposto congelado e a prévia); aqui ficam só a escolha do que mostrar
+// e os textos. O imposto nunca é refeito na tela.
+
+// Aporte resgatado por inteiro: já houve resgate e não sobra principal. Vai para a seção "Resgatados", fora do saldo.
+export const isFullyRedeemed = (b: Pick<DepositBalance, 'principalCents' | 'redeemed'>): boolean =>
+  b.redeemed != null && b.principalCents === 0
+
+// Os aportes com saldo (ou sem saldo calculado ainda) e os resgatados por inteiro, na ordem em que vieram.
+export function splitByRedemption<T extends { id: string }>(
+  deposits: readonly T[],
+  balanceOf: ReadonlyMap<string, DepositBalance>,
+): { open: T[]; redeemed: T[] } {
+  const open: T[] = []
+  const redeemed: T[] = []
+  for (const deposit of deposits) {
+    const balance = balanceOf.get(deposit.id)
+    ;(balance && isFullyRedeemed(balance) ? redeemed : open).push(deposit)
+  }
+  return { open, redeemed }
+}
+
+// Só se resgata o que tem principal; sem o saldo carregado, o botão não aparece.
+export const canRedeem = (balance: DepositBalance | undefined): boolean => balance !== undefined && balance.principalCents > 0
+
+// O que já saiu de um grupo, no que a pessoa recebeu: o líquido e o imposto pago. Nunca "lucro" nem "ganho".
+export function redeemedLine(
+  group: Pick<GroupBalance, 'redeemedGrossCents' | 'redeemedTaxCents' | 'redeemedNetCents'>,
+): string | null {
+  const { redeemedGrossCents, redeemedTaxCents, redeemedNetCents } = group
+  if (!redeemedGrossCents) return null
+  return `Já resgatado: líquido ${formatCents(redeemedNetCents ?? 0)} · imposto pago ${formatCents(redeemedTaxCents ?? 0)}`
+}
+
+export function depositRedeemedNote(redeemed: DepositRedeemed, remainingPrincipalCents: number): string {
+  const count = redeemed.count === 1 ? '1 resgate' : `${redeemed.count} resgates`
+  const left = remainingPrincipalCents > 0 ? `sobra ${formatCents(remainingPrincipalCents)} de principal` : 'nada sobra'
+  return `Resgatado ${formatCents(redeemed.grossCents)} em ${count} · ${left}`
+}
+
+// De onde veio o imposto do resgate: calculado (IOF e IR) ou o total que a pessoa leu no extrato.
+export function redemptionTaxNote(redemption: Redemption): string {
+  if (redemption.taxSource === 'Informed') return `Imposto ${formatCents(redemption.taxCents)}, pelo extrato`
+  const parts: string[] = []
+  if (redemption.iofCents) parts.push(`IOF ${formatCents(redemption.iofCents)}`)
+  if (redemption.irCents) parts.push(`IR ${formatCents(redemption.irCents)}`)
+  return parts.length > 0 ? parts.join(' · ') : 'Sem imposto'
+}
+
+// As linhas da prévia, como seriam gravadas.
+export function previewRows(redemption: Redemption): { label: string; cents: number }[] {
+  return [
+    { label: 'Rendimento bruto que sai', cents: redemption.yieldCents },
+    { label: redemption.taxSource === 'Informed' ? 'Imposto pelo extrato' : 'Imposto estimado', cents: redemption.taxCents },
+    { label: 'Líquido que cai', cents: redemption.netCents },
+  ]
+}
+
+// A conta onde sugerir que o dinheiro caiu: a de onde o aporte saiu, se ainda serve; senão a primeira corrente ou a carteira. Aporte que
+// não saiu de uma conta pelo app não oferece conta (a API recusa: não há de onde devolver o principal).
+type AccountChoice = { id: string; type: string; isActive: boolean }
+
+export const redemptionAccountTypes = ['Checking', 'Cash']
+
+export const usableForRedemption = (account: AccountChoice): boolean =>
+  account.isActive && redemptionAccountTypes.includes(account.type)
+
+export function redemptionDestination(
+  funding: Deposit['funding'] | undefined,
+  accounts: readonly AccountChoice[],
+): string | null {
+  if (!funding) return null
+  const usable = accounts.filter(usableForRedemption)
+  return usable.find((a) => a.id === funding.fromAccountId)?.id ?? usable[0]?.id ?? null
 }

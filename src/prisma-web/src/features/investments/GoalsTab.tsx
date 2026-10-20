@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronRight, Info, Plus } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, Info, Plus } from 'lucide-react'
 import { lazy, Suspense, useState } from 'react'
 import { toast } from 'sonner'
 import { BottomSheet } from '@/components/BottomSheet'
@@ -13,6 +13,12 @@ import { cn } from '@/lib/utils'
 import { DepositSheet, type DepositView } from './DepositSheet'
 import {
   balanceLabels,
+  canRedeem,
+  depositRedeemedNote,
+  isFullyRedeemed,
+  redeemedLine,
+  splitByRedemption,
+  type Deposit,
   depositCountLabel,
   depositTaxNote,
   depositUnavailableNote,
@@ -53,6 +59,7 @@ import {
   useRestoreGoal,
 } from './fixedIncomeQueries'
 import { GoalSheet, type GoalView } from './GoalSheet'
+import { RedemptionSheet } from './RedemptionSheet'
 
 const EvolutionChart = lazy(() => import('./EvolutionChart'))
 
@@ -63,6 +70,7 @@ export function GoalsTab({ goalParam, onOpen }: { goalParam: string | null; onOp
   const balances = useFixedIncomeBalances()
   const [goalView, setGoalView] = useState<GoalView | null>(null)
   const [depositView, setDepositView] = useState<DepositView | null>(null)
+  const [redeeming, setRedeeming] = useState<Deposit | null>(null)
   const [mode, setMode] = useState<ValueMode>('gross')
 
   const goalList = goals.data?.goals ?? []
@@ -91,6 +99,7 @@ export function GoalsTab({ goalParam, onOpen }: { goalParam: string | null; onOp
           onBack={() => onOpen(null)}
           onEdit={(goal) => setGoalView({ kind: 'edit', goal })}
           onDeposit={setDepositView}
+          onRedeem={setRedeeming}
           onDeleted={() => onOpen(null)}
         />
       ) : (
@@ -106,6 +115,7 @@ export function GoalsTab({ goalParam, onOpen }: { goalParam: string | null; onOp
       )}
       <GoalSheet view={goalView} onClose={() => setGoalView(null)} onSaved={(id) => goalView?.kind === 'new' && onOpen(id)} />
       <DepositSheet view={depositView} goals={goalList} onClose={() => setDepositView(null)} />
+      <RedemptionSheet deposit={redeeming} onClose={() => setRedeeming(null)} />
     </div>
   )
 }
@@ -208,6 +218,7 @@ function GoalList({
             Imposto estimado (se resgatar hoje) <span className="font-medium tabular-nums">{formatCents(total.estimatedTaxCents)}</span>
           </p>
         )}
+        {redeemedLine(total) && <p className="text-sm text-muted-foreground">{redeemedLine(total)}</p>}
       </section>
 
       <ul className="flex flex-col gap-3">
@@ -312,6 +323,7 @@ function GoalDetail({
   onBack,
   onEdit,
   onDeposit,
+  onRedeem,
   onDeleted,
 }: {
   goal: Goal | null
@@ -320,6 +332,7 @@ function GoalDetail({
   onBack: () => void
   onEdit: (goal: Goal) => void
   onDeposit: (view: DepositView) => void
+  onRedeem: (deposit: Deposit) => void
   onDeleted: () => void
 }) {
   const today = todayInSaoPaulo()
@@ -328,6 +341,8 @@ function GoalDetail({
   const balance = entry?.balance
   const deposits = useFixedIncomeDeposits(scope)
   const balanceOf = new Map<string, DepositBalance>((entry?.deposits ?? []).map((d) => [d.depositId, d]))
+  const { open, redeemed } = splitByRedemption(deposits.data ?? [], balanceOf)
+  const [showRedeemed, setShowRedeemed] = useState(false)
   const first = (deposits.data ?? []).map((d) => d.depositDate).sort()[0] ?? null
   const [period, setPeriod] = useState<Period>('ALL')
   const range = periodRange(period, today, first)
@@ -383,6 +398,7 @@ function GoalDetail({
             Imposto estimado (se resgatar hoje) <span className="font-medium tabular-nums">{formatCents(balance.estimatedTaxCents)}</span>
           </p>
         )}
+        {balance && redeemedLine(balance) && <p className="text-sm text-muted-foreground">{redeemedLine(balance)}</p>}
       </section>
 
       {hasDeposits && (
@@ -420,6 +436,7 @@ function GoalDetail({
               <span className="size-2.5 rounded-full bg-[linear-gradient(#8b5cf6,#22d3ee)]" /> Saldo bruto
             </span>
             {mode === 'net' && <span>O gráfico mostra valores brutos.</span>}
+            {(balance?.redeemedGrossCents ?? 0) > 0 && <span>Os resgates aparecem como queda no saldo.</span>}
           </div>
         </section>
       )}
@@ -437,41 +454,48 @@ function GoalDetail({
           <p className="surface rounded-2xl p-4 text-sm text-muted-foreground">Nenhum aporte neste objetivo ainda.</p>
         ) : (
           <ul className="surface divide-y divide-border/60 rounded-2xl">
-            {(deposits.data ?? []).map((d) => {
-              const b = balanceOf.get(d.id)
-              const note = b ? depositUnavailableNote(b) : null
-              const yieldCents = b ? depositYield(b, mode) : null
-              return (
-                <li key={d.id}>
-                  <button
-                    type="button"
-                    onClick={() => onDeposit({ kind: 'edit', deposit: d })}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-muted/70"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block font-medium tabular-nums">{formatCents(d.amountCents)}</span>
-                      <span className="block text-sm text-muted-foreground">
-                        {formatShortDate(d.depositDate)} · {depositTitle(d.productKind, d.indexKind, d.rateE4)}
-                        {d.maturityDate && ` · vence ${formatShortDate(d.maturityDate)}`}
-                        {d.funding && ' · saiu de uma conta'}
-                      </span>
-                      {mode === 'net' && b?.tax && (
-                        <span className="block text-xs text-muted-foreground">
-                          Imposto estimado {formatCents(b.tax.totalCents)} · {depositTaxNote(b.tax)}
-                        </span>
-                      )}
-                      {note && <span className="block text-xs text-muted-foreground">{note}</span>}
-                    </span>
-                    <span className="text-spectrum shrink-0 text-sm font-medium tabular-nums">
-                      {yieldCents !== null ? `+${formatCents(yieldCents)}` : ''}
-                    </span>
-                  </button>
-                </li>
-              )
-            })}
+            {open.map((d) => (
+              <DepositRow
+                key={d.id}
+                deposit={d}
+                balance={balanceOf.get(d.id)}
+                mode={mode}
+                onEdit={() => onDeposit({ kind: 'edit', deposit: d })}
+                onRedeem={() => onRedeem(d)}
+              />
+            ))}
           </ul>
         )}
       </section>
+
+      {redeemed.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="-ml-2 self-start rounded-full px-3 text-foreground/75"
+            aria-expanded={showRedeemed}
+            onClick={() => setShowRedeemed((v) => !v)}
+          >
+            Resgatados ({redeemed.length})
+            <ChevronDown className={cn('transition-transform', showRedeemed && 'rotate-180')} />
+          </Button>
+          {showRedeemed && (
+            <ul className="surface divide-y divide-border/60 rounded-2xl">
+              {redeemed.map((d) => (
+                <DepositRow
+                  key={d.id}
+                  deposit={d}
+                  balance={balanceOf.get(d.id)}
+                  mode={mode}
+                  onEdit={() => onDeposit({ kind: 'edit', deposit: d })}
+                  onRedeem={() => onRedeem(d)}
+                />
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       <Footnote balances={balances} deposits={entry?.deposits ?? []} mode={mode} />
 
@@ -505,5 +529,66 @@ function GoalDetail({
         </div>
       </BottomSheet>
     </>
+  )
+}
+
+// Uma linha de aporte. O botão "Resgatar" fica fora do botão da linha (que abre a edição) e só aparece se ainda sobra principal. O aporte
+// resgatado por inteiro mostra o que recebeu, não um rendimento (já não rende).
+function DepositRow({
+  deposit: d,
+  balance: b,
+  mode,
+  onEdit,
+  onRedeem,
+}: {
+  deposit: Deposit
+  balance: DepositBalance | undefined
+  mode: ValueMode
+  onEdit: () => void
+  onRedeem: () => void
+}) {
+  const note = b ? depositUnavailableNote(b) : null
+  const yieldCents = b && !isFullyRedeemed(b) ? depositYield(b, mode) : null
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onEdit}
+        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-muted/70"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block font-medium tabular-nums">{formatCents(d.amountCents)}</span>
+          <span className="block text-sm text-muted-foreground">
+            {formatShortDate(d.depositDate)} · {depositTitle(d.productKind, d.indexKind, d.rateE4)}
+            {d.maturityDate && ` · vence ${formatShortDate(d.maturityDate)}`}
+            {d.funding && ' · saiu de uma conta'}
+          </span>
+          {b?.redeemed && (
+            <span className="block text-xs text-muted-foreground">{depositRedeemedNote(b.redeemed, b.principalCents)}</span>
+          )}
+          {b?.redeemed && isFullyRedeemed(b) && (
+            <span className="block text-xs text-muted-foreground">
+              Recebido {formatCents(b.redeemed.netCents)} · imposto pago {formatCents(b.redeemed.taxCents)}
+            </span>
+          )}
+          {mode === 'net' && b?.tax && !isFullyRedeemed(b) && (
+            <span className="block text-xs text-muted-foreground">
+              Imposto estimado {formatCents(b.tax.totalCents)} · {depositTaxNote(b.tax)}
+            </span>
+          )}
+          {note && <span className="block text-xs text-muted-foreground">{note}</span>}
+        </span>
+        <span className="text-spectrum shrink-0 text-sm font-medium tabular-nums">
+          {yieldCents !== null ? `+${formatCents(yieldCents)}` : ''}
+        </span>
+      </button>
+      {canRedeem(b) && (
+        <div className="px-4 pb-3">
+          <Button data-tint="series" className="tinted-action h-9 rounded-xl px-4 text-sm" onClick={onRedeem}>
+            Resgatar
+          </Button>
+        </div>
+      )}
+    </li>
   )
 }

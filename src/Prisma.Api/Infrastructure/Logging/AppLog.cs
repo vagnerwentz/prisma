@@ -263,6 +263,16 @@ public static partial class AppLog
     [LoggerMessage(4314, LogLevel.Information, "Fixed income deposit {DepositId} restored")]
     public static partial void DepositRestored(this ILogger logger, Guid depositId);
 
+    // Só ids: valor, imposto e conta nunca vão ao log.
+    [LoggerMessage(4315, LogLevel.Information, "Fixed income redemption {RedemptionId} added to deposit {DepositId}")]
+    public static partial void RedemptionAdded(this ILogger logger, Guid redemptionId, Guid depositId);
+
+    [LoggerMessage(4316, LogLevel.Information, "Fixed income redemption {RedemptionId} of deposit {DepositId} deleted")]
+    public static partial void RedemptionDeleted(this ILogger logger, Guid redemptionId, Guid depositId);
+
+    [LoggerMessage(4317, LogLevel.Information, "Fixed income redemption {RedemptionId} of deposit {DepositId} restored")]
+    public static partial void RedemptionRestored(this ILogger logger, Guid redemptionId, Guid depositId);
+
     [LoggerMessage(4100, LogLevel.Information, "Holding {HoldingId} of asset {AssetId} added to the portfolio")]
     public static partial void HoldingAdded(this ILogger logger, Guid holdingId, Guid assetId);
 

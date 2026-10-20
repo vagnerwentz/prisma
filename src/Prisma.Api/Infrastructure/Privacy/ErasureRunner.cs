@@ -30,7 +30,7 @@ public sealed class ErasureRunner(IServiceScopeFactory scopes, IClock clock, ILo
     public static readonly IReadOnlySet<string> PurgedTables = new HashSet<string>
     {
         "transactions", "recurrence_pendings", "installment_purchases", "holdings", "asset_requests", "event_reviews",
-        "trade_notes", "fixed_income_deposits", "savings_goals", "categories", "accounts",
+        "trade_notes", "fixed_income_redemptions", "fixed_income_deposits", "savings_goals", "categories", "accounts",
     };
 
     public static readonly IReadOnlySet<string> PurgedWithAccount = new HashSet<string> { "statements", "recurrences" };
@@ -59,6 +59,8 @@ public sealed class ErasureRunner(IServiceScopeFactory scopes, IClock clock, ILo
 
         // Renda fixa: os aportes antes dos objetivos que os guardavam. Excluir o objetivo deixa os aportes soltos ou os leva junto,
         // então um objetivo vencido nunca é apontado por aporte vivo; o NOT EXISTS é a segunda trava.
+        // Os resgates excluídos à parte, e os do aporte que sai de vez vão com ele (a chave estrangeira é em cascata).
+        "DELETE FROM fixed_income_redemptions WHERE deleted_at < @cutoff",
         "DELETE FROM fixed_income_deposits WHERE deleted_at < @cutoff",
         """
         DELETE FROM savings_goals g WHERE g.deleted_at < @cutoff

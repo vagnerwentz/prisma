@@ -22,6 +22,7 @@ public sealed class AccountEraser(AppDbContext db, IClock clock)
         "DELETE FROM event_reviews WHERE user_id = @user",
         "DELETE FROM asset_requests WHERE user_id = @user",
         "DELETE FROM holdings WHERE user_id = @user",
+        "DELETE FROM fixed_income_redemptions WHERE user_id = @user",
         "DELETE FROM fixed_income_deposits WHERE user_id = @user",
         "DELETE FROM savings_goals WHERE user_id = @user",
         "DELETE FROM recurrence_pendings WHERE user_id = @user",

@@ -9,6 +9,14 @@ import {
   formatPercentE4,
   goalProgress,
   limitationsNote,
+  canRedeem,
+  depositRedeemedNote,
+  isFullyRedeemed,
+  previewRows,
+  redeemedLine,
+  redemptionDestination,
+  redemptionTaxNote,
+  splitByRedemption,
   addMonths,
   allDeposits,
   depositTitle,
@@ -42,6 +50,7 @@ import {
   type IndexKind,
   type ProductKind,
   type RatesStatus,
+  type Redemption,
 } from './fixedIncome'
 
 const rates = (over: Partial<RatesStatus> = {}): RatesStatus => ({
@@ -328,6 +337,10 @@ const group: GroupBalance = {
   estimatedTaxCents: 22_500,
   netYieldCents: 77_500,
   netBalanceCents: 1_077_500,
+  redeemedGrossCents: 0,
+  redeemedYieldCents: 0,
+  redeemedTaxCents: 0,
+  redeemedNetCents: 0,
 }
 
 describe('bruto e líquido estimado', () => {
@@ -399,7 +412,7 @@ describe('avisos de limitação', () => {
     expect(limitationsNote).toContain('o CDI mais uma taxa')
     expect(limitationsNote).toContain('taxa fixa ao ano')
     expect(limitationsNote).toContain('IPCA')
-    expect(limitationsNote).toContain('resgates')
+    expect(limitationsNote).not.toContain('resgates')
     expect(limitationsNote).toContain('projeção')
   })
 
@@ -407,5 +420,172 @@ describe('avisos de limitação', () => {
     expect(taxFootnote).toContain('regressiva da B3')
     expect(taxFootnote).toContain('banco retém')
     expect(taxFootnote).toContain('IOF')
+  })
+})
+
+// O resgate na tela (docs/renda-fixa-resgate.md, 4 e 6): o que sobra, o que já saiu e o imposto, tudo vindo pronto da API.
+// O formatador de dinheiro usa espaço não separável depois do R$.
+const nb = (text: string) => text.replace(/R\$ /g, 'R$\u00a0')
+
+const balanceOfDeposit = (over: Partial<DepositBalance> = {}): DepositBalance =>
+  ({
+    depositId: 'd1',
+    goalId: null,
+    depositDate: '2026-07-21',
+    principalCents: 1_000_000,
+    productKind: 'Cdb',
+    indexKind: 'Cdi',
+    rateE4: 1_000_000,
+    grossBalanceCents: 1_031_934,
+    grossYieldCents: 31_934,
+    factorE8: null,
+    ratesUsed: null,
+    ratesThrough: null,
+    unavailable: null,
+    tax: null,
+    redeemed: null,
+    ...over,
+  }) as DepositBalance
+
+const redeemedOf = (over: Partial<NonNullable<DepositBalance['redeemed']>> = {}) => ({
+  count: 1,
+  grossCents: 300_000,
+  principalCents: 293_987,
+  yieldCents: 6_013,
+  taxCents: 1_353,
+  netCents: 298_647,
+  ...over,
+})
+
+const redemptionOf = (over: Partial<Redemption> = {}): Redemption => ({
+  id: 'r1',
+  depositId: 'd1',
+  redemptionDate: '2026-09-15',
+  grossCents: 300_000,
+  principalCents: 293_987,
+  yieldCents: 6_013,
+  iofCents: 0,
+  irCents: 1_353,
+  taxCents: 1_353,
+  netCents: 298_647,
+  taxSource: 'Estimated',
+  taxRuleVersion: 'cdb-lei-11033-2005',
+  ...over,
+})
+
+describe('aporte resgatado', () => {
+  it('só está resgatado por inteiro quando já houve resgate e não sobra principal', () => {
+    expect(isFullyRedeemed(balanceOfDeposit())).toBe(false)
+    expect(isFullyRedeemed(balanceOfDeposit({ redeemed: redeemedOf(), principalCents: 706_013 }))).toBe(false)
+    expect(isFullyRedeemed(balanceOfDeposit({ redeemed: redeemedOf(), principalCents: 0 }))).toBe(true)
+    // Sem resgate, principal zero não acontece, mas nunca vira "resgatado".
+    expect(isFullyRedeemed(balanceOfDeposit({ principalCents: 0 }))).toBe(false)
+  })
+
+  it('separa os aportes com saldo dos resgatados por inteiro, sem perder a ordem', () => {
+    const deposits = [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }]
+    const balanceOf = new Map([
+      ['a', balanceOfDeposit({ depositId: 'a' })],
+      ['b', balanceOfDeposit({ depositId: 'b', redeemed: redeemedOf(), principalCents: 0 })],
+      ['c', balanceOfDeposit({ depositId: 'c', redeemed: redeemedOf(), principalCents: 5 })],
+    ])
+
+    const { open, redeemed } = splitByRedemption(deposits, balanceOf)
+
+    expect(open.map((d) => d.id)).toEqual(['a', 'c', 'd']) // 'd' não tem saldo calculado: continua aberto
+    expect(redeemed.map((d) => d.id)).toEqual(['b'])
+  })
+
+  it('só pede resgate de aporte com o que resgatar', () => {
+    expect(canRedeem(balanceOfDeposit())).toBe(true)
+    expect(canRedeem(balanceOfDeposit({ principalCents: 706_013, redeemed: redeemedOf() }))).toBe(true)
+    expect(canRedeem(balanceOfDeposit({ principalCents: 0, redeemed: redeemedOf() }))).toBe(false)
+    // Sem o saldo carregado ainda, o botão não aparece.
+    expect(canRedeem(undefined)).toBe(false)
+  })
+})
+
+describe('o que já foi resgatado', () => {
+  it('a linha do grupo diz o líquido recebido e o imposto pago, sem "lucro"', () => {
+    const line = redeemedLine({ redeemedGrossCents: 300_000, redeemedTaxCents: 1_353, redeemedNetCents: 298_647 })
+
+    expect(line).toBe(nb('Já resgatado: líquido R$ 2.986,47 · imposto pago R$ 13,53'))
+    expect(line).not.toMatch(/lucro|ganh/i)
+  })
+
+  it('sem resgate, não há linha', () => {
+    expect(redeemedLine({ redeemedGrossCents: 0, redeemedTaxCents: 0, redeemedNetCents: 0 })).toBeNull()
+  })
+
+  it('a nota do aporte conta os resgates e diz quanto sobra de principal', () => {
+    expect(depositRedeemedNote(redeemedOf(), 706_013)).toBe(
+      nb('Resgatado R$ 3.000,00 em 1 resgate · sobra R$ 7.060,13 de principal'),
+    )
+    expect(depositRedeemedNote(redeemedOf({ count: 2 }), 0)).toBe(nb('Resgatado R$ 3.000,00 em 2 resgates · nada sobra'))
+  })
+
+  it('o imposto do resgate diz de onde veio: calculado (IOF e IR) ou o do extrato', () => {
+    expect(redemptionTaxNote(redemptionOf())).toBe(nb('IR R$ 13,53'))
+    expect(redemptionTaxNote(redemptionOf({ iofCents: 500, irCents: 1_000, taxCents: 1_500 }))).toBe(
+      nb('IOF R$ 5,00 · IR R$ 10,00'),
+    )
+    expect(redemptionTaxNote(redemptionOf({ iofCents: 0, irCents: 0, taxCents: 0 }))).toBe('Sem imposto')
+    expect(
+      redemptionTaxNote(
+        redemptionOf({ taxSource: 'Informed', iofCents: null, irCents: null, taxCents: 1_300, taxRuleVersion: null }),
+      ),
+    ).toBe(nb('Imposto R$ 13,00, pelo extrato'))
+  })
+})
+
+describe('prévia do resgate', () => {
+  it('mostra o que sai de rendimento, o imposto e o líquido que cai', () => {
+    expect(previewRows(redemptionOf())).toEqual([
+      { label: 'Rendimento bruto que sai', cents: 6_013 },
+      { label: 'Imposto estimado', cents: 1_353 },
+      { label: 'Líquido que cai', cents: 298_647 },
+    ])
+  })
+
+  it('com o líquido do extrato, o imposto deixa de ser estimado', () => {
+    const rows = previewRows(redemptionOf({ taxSource: 'Informed', taxCents: 1_300, netCents: 298_700 }))
+
+    expect(rows.map((r) => r.label)).toEqual(['Rendimento bruto que sai', 'Imposto pelo extrato', 'Líquido que cai'])
+  })
+})
+
+describe('conta onde o dinheiro cai', () => {
+  const accounts = [
+    { id: 'itau', type: 'Checking', isActive: true },
+    { id: 'carteira', type: 'Cash', isActive: true },
+    { id: 'velha', type: 'Checking', isActive: false },
+    { id: 'inv', type: 'Investment', isActive: true },
+    { id: 'visa', type: 'CreditCard', isActive: true },
+  ]
+
+  it('sugere a conta de onde o aporte saiu', () => {
+    expect(redemptionDestination({ transferPairId: 'p', fromAccountId: 'carteira', investmentAccountId: 'inv' }, accounts)).toBe(
+      'carteira',
+    )
+  })
+
+  it('se essa conta não serve mais, sugere a primeira conta corrente ou a carteira', () => {
+    expect(redemptionDestination({ transferPairId: 'p', fromAccountId: 'velha', investmentAccountId: 'inv' }, accounts)).toBe(
+      'itau',
+    )
+    expect(redemptionDestination({ transferPairId: 'p', fromAccountId: 'inv', investmentAccountId: 'inv' }, accounts)).toBe(
+      'itau',
+    )
+  })
+
+  it('aporte que não saiu de uma conta não oferece conta', () => {
+    expect(redemptionDestination(null, accounts)).toBeNull()
+    expect(redemptionDestination(undefined, accounts)).toBeNull()
+  })
+
+  it('sem nenhuma conta que sirva, não sugere nenhuma', () => {
+    expect(
+      redemptionDestination({ transferPairId: 'p', fromAccountId: 'x', investmentAccountId: 'inv' }, [accounts[3], accounts[4]]),
+    ).toBeNull()
   })
 })

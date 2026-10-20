@@ -61,5 +61,9 @@ SELECT jsonb_pretty(jsonb_build_object(
     FROM savings_goals g WHERE g.user_id = :'user_id' AND g.deleted_at IS NULL),
   'aportesRendaFixa', (
     SELECT coalesce(jsonb_agg(to_jsonb(d) - 'user_id' - 'deleted_at' - 'xmin' - 'client_request_id' ORDER BY d.deposit_date, d.created_at), '[]')
-    FROM fixed_income_deposits d WHERE d.user_id = :'user_id' AND d.deleted_at IS NULL)
+    FROM fixed_income_deposits d WHERE d.user_id = :'user_id' AND d.deleted_at IS NULL),
+  'resgatesRendaFixa', (
+    SELECT coalesce(jsonb_agg(to_jsonb(r) - 'user_id' - 'deleted_at' - 'xmin' - 'client_request_id' ORDER BY r.redemption_date, r.created_at), '[]')
+    FROM fixed_income_redemptions r WHERE r.user_id = :'user_id' AND r.deleted_at IS NULL
+      AND EXISTS (SELECT 1 FROM fixed_income_deposits d WHERE d.id = r.deposit_id AND d.deleted_at IS NULL))
 ));
