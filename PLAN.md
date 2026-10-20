@@ -36,7 +36,7 @@ Estas estão fechadas. Não reabrir sem conversa explícita.
 | Dinheiro | `long` em centavos, sempre |
 | Multiusuário | Dados por `UserId`, sem grupo familiar |
 | Investimentos | Aporte é transferência (Fase 1). Carteira e proventos na Fase I (`docs/investimentos.md`): provento é receita na conta onde caiu, ligada ao ativo; catálogo de ativos global, vindo da brapi. Operações e preço médio pelas notas digitadas, com os eventos da empresa (I.7); cotação fica para depois |
-| Renda fixa | Objetivos ("caixas") com aportes em CDB (a % do CDI, CDI + taxa ou pré-fixado) cadastrados à mão (`docs/renda-fixa.md`): rendimento pela convenção da B3 em inteiro (`Int128`) com o CDI do Banco Central (SGS 12, tabela global `reference_rates`); imposto estimado (IOF + IR regressivo) por aporte, só como "se resgatar hoje"; sem projeção, sem resgate, sem IPCA por ora. Aporte pode sair de uma conta (cria a transferência). Na Carteira é um grupo só, pesado pelo aportado |
+| Renda fixa | Objetivos ("caixas") com aportes em CDB (a % do CDI, CDI + taxa ou pré-fixado) cadastrados à mão (`docs/renda-fixa.md`): rendimento pela convenção da B3 em inteiro (`Int128`) com o CDI do Banco Central (SGS 12, tabela global `reference_rates`); imposto estimado (IOF + IR regressivo) por aporte, só como "se resgatar hoje"; com resgate total ou parcial (R.22 a R.26), sem projeção e sem IPCA por ora. Aporte pode sair de uma conta (cria a transferência). Na Carteira é um grupo só, pesado pelo aportado |
 | Hospedagem | Uso próprio: Railway, com API, React e Postgres num só projeto e o React servido pela API (mesmo domínio). Cadastro público: reavaliar antes de abrir |
 | Nome público | **Prisma Money** (2026-10-13): domínio `prismamoney.com.br`, Instagram `@prismamoneybrasil`. O código continua `Prisma` |
 | Página de apresentação | React pré-renderizado em `/` para quem não tem sessão, só com o cadastro aberto (`docs/landing.md`) |
@@ -52,7 +52,7 @@ Estas estão fechadas. Não reabrir sem conversa explícita.
 | **2** | Dashboard: receitas, despesas, sobra, investido, por categoria, comparativo mensal | `docs/fase-2.md` |
 | **H** | Hospedagem para uso próprio: build de produção e deploy no Railway | etapas no próprio `PLAN.md` |
 | **I** | Investimentos: catálogo de ativos (brapi), carteira, proventos e logos | `docs/investimentos.md` |
-| **R** | Renda fixa: objetivos, aportes em CDB/CDI, taxas do Banco Central, rendimento, imposto estimado, grupo na Carteira | `docs/renda-fixa.md` |
+| **R** | Renda fixa: objetivos, aportes em CDB/LCI/LCA (CDI, CDI+, pré-fixado), taxas do Banco Central, rendimento, imposto estimado, resgate, grupo na Carteira | `docs/renda-fixa.md` |
 | **3** | Entrada inteligente: QR Code da NFC-e, CNPJ/CNAE, merchants, regras que aprendem | a escrever |
 | **4** | Importação: OFX, fatura do Itaú em PDF, deduplicação | a escrever |
 | **5** | PWA instalável, orçamentos por categoria, metas, E2E com Playwright | a escrever |
@@ -1054,7 +1054,7 @@ O dono lançou todas as notas que tem (2026-10-12).
 
 Pedida pelo dono (2026-10-17), fora da ordem das fases: objetivos financeiros ("caixas") com investimentos em renda fixa
 cadastrados à mão, rendimento calculado pelo CDI do Banco Central. Plano completo, fórmulas, fontes e decisões
-(D1 a D13) em `docs/renda-fixa.md`. Sem integração bancária nem movimentação real.
+(D1 a D18) em `docs/renda-fixa.md`; o resgate (R.22 a R.26) em `docs/renda-fixa-resgate.md`. Sem integração bancária nem movimentação real.
 
 - [x] **R.0 Verificação** — fórmula da B3 conferida e reproduzida com dois extratos do banco do dono (diferença máxima de
   R$ 0,01); tabela de IOF lida no decreto; tabela de IR pela B3 (texto legal pendente, dispensado por ora).
@@ -1089,7 +1089,7 @@ cadastrados à mão, rendimento calculado pelo CDI do Banco Central. Plano compl
   eventos) e não cita objetivos e aportes em renda fixa (nome e meta do objetivo; data, valor, % do CDI, vencimento e conta de origem
   do aporte); a seção 5 cita a brapi como fonte de dados de mercado e não o Banco Central (que também não recebe dado de ninguém);
   e os termos (seção 4) falam de "preço médio, resultado de vendas, rendimentos" sem a estimativa de imposto da renda fixa. São
-  esclarecimentos, não nova finalidade nem novo operador, então não pedem novo aceite por si; a versão só sobe se o dono decidir.
+  esclarecimentos, não nova finalidade nem novo operador, então não pedem novo aceite por si; a versão só sobe se o dono decidir. **Feito em 2026-10-20 (R.26, a pedido do dono):** os três pontos foram esclarecidos nos textos (e a observação do aporte entrou entre os textos livres), com a versão mantida em 1.0 e o esclarecimento registrado no histórico da política.
 - [x] **R.9 Renda fixa na Carteira** — grupo único "Renda fixa" (todos os índices) na aba Carteira: peso pelo aportado, linhas por objetivo, rendimento ao lado, atalho para Objetivos; vale por ano. `PortfolioGroup.FixedIncome`, `FixedIncomeHolding` no `PortfolioSnapshot`, `fixedIncome` em `GET /portfolio`. Conferida em 320/390/1280, claro e escuro.
 
 - [x] **R.10 CDI+ e pré-fixado (domínio)** — `Remuneration` (X % do CDI, CDI + taxa a.a., pré-fixado), `AnnualRate` (0,01 % a 100 % a.a., E4), `FixedPoint` e `PrefixedYield` (`Prisma.Domain.FixedIncome.Prefixed`, dias úteis pelo `BankCalendar`, quarto uso liberado em `BankCalendarUsageTests`). `FixedIncomeEngine.Balance/Series` ganham a sobrecarga com `Remuneration`; as antigas seguem iguais. Vetores independentes (Python/Decimal), oráculo em BigInteger e mutações provadas (`docs/renda-fixa.md`, 5.5 e D14). Sem banco, API nem tela.
@@ -1113,6 +1113,14 @@ em `market_sync_runs`, execução síncrona, horário automático mantido): M1 e
 - [ ] **R.19 IPCA+: domínio do cálculo** — `IpcaPlus`, fator de inflação pela convenção decidida, IPCA+0, `Series`; vetores independentes, oráculo em BigInteger, mutações; o CDI inalterado.
 - [ ] **R.20 IPCA+: API** — saldo, evolução, Carteira e estado do IPCA (só acrescenta); `SaveDeposit` confere o primeiro índice conhecido.
 - [ ] **R.21 IPCA+: tela e documentos** — 4º chip "IPCA +", campo, avisos ("inflação até <mês>", estimativa pelo contrato), `gen:api`.
+
+**Resgate de renda fixa (R.22 a R.26, feitas em 2026-10-19, com o "de acordo" do dono; `docs/renda-fixa-resgate.md`).** Revê a D5: parcial e total, imposto calculado com o líquido do extrato opcional, contas opcionais (principal como transferência, rendimento líquido como receita), a pessoa escolhe o aporte. Independe do IPCA (em espera).
+
+- [x] **R.22 Resgate: domínio e motor** — `FixedIncomeRedemption` (principal e imposto congelados, líquido informado), `Balance`/`Series` com os resgates do aporte (`RedemptionStep`); oráculo em `BigInteger`, propriedades (CsCheck), bordas e mutações. Feita em 2026-10-19: 30 testes novos em `FixedIncomeRedemptionTests`, 15 mutações provadas. Decisões do dono: as quatro recomendações da seção 8 da spec (taxas ausentes recusam, aporte sem financiamento só registra, só o último resgate se exclui, categoria "Rendimentos").
+- [x] **R.23 Resgate: API e migration** — tabela com dono e soft delete, `POST/GET/DELETE` e desfazer de resgates (só o último se exclui), `balances`, `evolution` e objetivos descontando (só acrescenta), contrato do aporte travado; `export-user.sql`, limpeza dos excluídos e exclusão de conta. Feita em 2026-10-19: 19 testes de integração (`FixedIncomeRedemptionApiTests`), 9 mutações provadas (3 sobreviveram no começo e viraram testes). **Migration `AddFixedIncomeRedemptions` aplicada no banco de dev em 2026-10-19 (autorizada pelo dono).** A Carteira segue sem descontar resgates (R.26); `gen:api` entra com a tela (R.25).
+- [x] **R.24 Resgate: contas** — transferência do principal (conta de investimento → corrente ou carteira) e receita do rendimento líquido (categoria "Rendimentos"), na mesma gravação; só para aporte que saiu de uma conta pelo app; excluir com "manter ou excluir junto" e desfazer que traz tudo. Feita em 2026-10-19: 10 testes de domínio e 15 de integração (`FixedIncomeRedemptionFundingApiTests`), 16 mutações provadas. **Migration `AddRedemptionFunding` aplicada no banco de dev em 2026-10-19 (autorizada pelo dono).**
+- [x] **R.25 Resgate: tela** — painel "Resgatar" (data a partir do último dia possível, valor bruto com "Resgatar tudo", prévia do imposto vinda da API, líquido do extrato opcional, conta onde cai), botão em cada aporte, lista dos resgates no painel do aporte (só o último se exclui; pergunta se os lançamentos ficam), contrato travado, seção "Resgatados", linha "Já resgatado", `gen:api`. Para a prévia sem refazer a regra na tela, a API ganhou `GET /fixed-income-deposits/{id}/redemptions/preview` (com `latestDate`, domínio `ReferenceRateCoverage.LatestRedemptionDate`). Feita em 2026-10-19: Vitest das contas puras, 5 testes de integração da prévia, mutações provadas, conferência visual por toque real em 390, 320 (escuro) e 1280. Nenhuma migration nova.
+- [x] **R.26 Resgate: Carteira e documentos** — a Carteira já pesava pelo principal que sobra (lê o mesmo saldo da aba Objetivos, R.23): faltavam a prova por teste (`PortfolioRedemptionTests`: peso, resgate depois do fim do ano não conta, objetivo resgatado por inteiro some) e o contador de aportes da linha, que contava os resgatados por inteiro (corrigido). Documentos varridos (`renda-fixa.md`, `investimentos.md`, `CLAUDE.md`, `README`, `PLAN.md`); a política de privacidade e os termos foram **esclarecidos em 2026-10-20, a pedido do dono** (renda fixa entre os dados registrados, observação do aporte entre os textos livres, Banco Central entre as fontes públicas, linha da estimativa de imposto nos termos), com a **versão mantida em 1.0** (esclarecimento, sem novo aceite); a revisão do advogado (A.2) segue pendente. Feita em 2026-10-19.
 ---
 
 ## Fases 3 a 5

@@ -63,8 +63,11 @@ reality, so the monthly numbers match your bank account instead of your receipts
   can come out of an account, which creates the transfer with it (income and expense never change, "invested" goes up).
   Each goal shows its balance, a chart of its evolution and the yield of every deposit; a switch shows gross values or an
   estimate net of tax (IOF under 30 days and the regressive income tax, per deposit, as if it were redeemed today).
+  A deposit can be redeemed in full or in part: the principal and the yield come out in proportion, the tax is
+  calculated (or taken from the bank statement, if you type it in), and the money can land in one of your accounts as a
+  transfer of the principal plus income for the net yield. Redeemed deposits are listed apart and leave the balance.
   Nothing is projected: it always says up to which day the rates go, and warns when they are late or incomplete.
-  In the portfolio it is one group, "Fixed income", weighted by the amount deposited, with one line per goal.
+  In the portfolio it is one group, "Fixed income", weighted by the amount still invested, with one line per goal.
 - **Cash-flow dashboard:** what came in, what went out and what was invested each month, by
   settlement date; category breakdown, month-over-month explanation and upcoming commitments.
 - **Categories:** a default set per user that evolves: new default categories reach existing users

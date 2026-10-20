@@ -91,9 +91,10 @@ dado real, nome de quem usa o app nem endereço de produção. Licença: todos o
 | Taxa do CDI | `ReferenceRate` (`reference_rates`, global) / `DailyRate` | série SGS 12 do Banco Central, só dias úteis; fração diária em 10⁻⁸ (`DailyRateE8`); o percentual do CDI viaja em E4 (100% = `1_000_000`, `IndexPercent`) |
 | Rendimento de um aporte | `FixedIncomeEngine.Balance` | fator da B3 em `Int128`, 16 casas por passo e 8 no final; saldo = principal × fator, meio centavo para cima; a taxa do dia do aporte conta, a do dia da referência não; nunca gravado |
 | Imposto estimado | `FixedIncomeTax` (`TaxEstimate`) | CDB: IOF abaixo de 30 dias (tabela do Decreto 6.306) + IR regressivo 22,5/20/17,5/15% sobre o rendimento líquido do IOF, por aporte. LCI e LCA (`FixedIncomeProductKind`): IR zero para pessoa física (Lei 11.033, art. 3º), IOF zero na LCA e tabela do CDB na LCI (R.13). Regra versionada por data e por produto; é o imposto de resgatar hoje, não imposto devido |
+| Resgate de um aporte | `FixedIncomeRedemption` (`fixed_income_redemptions`) | total ou parcial, pelo valor bruto; principal, rendimento e imposto (calculado, ou o líquido do extrato) **congelados** na gravação, porque o resgate seguinte parte do que sobrou; só o último de cada aporte se exclui; aporte com resgate trava valor, data, produto, índice e taxa. Pode cair numa conta (`FixedIncomeRedemptionFunding`, R.24): o principal volta como transferência da conta de investimento e o rendimento líquido entra como receita, nunca o imposto como despesa; só aporte financiado por conta. API pronta (R.23 e R.24): `docs/renda-fixa-resgate.md` |
 | Histórico do CDI defasado ou incompleto | `ReferenceRateCoverage` (`Prisma.Domain.FixedIncome.Coverage`) | único uso do `BankCalendar` no CDI, só para diagnóstico: dia útil sem taxa avisa; o cálculo usa só as datas gravadas |
 | Como o aporte rende | `Remuneration` (o índice é o `FixedIncomeIndexKind`: `Cdi`, `CdiPlus`, `Prefixed`) / `AnnualRate` | X % do CDI, CDI + taxa ao ano, ou taxa ao ano (pré-fixado, base 252 dias úteis); a taxa ao ano vai em E4 (14 % = `140_000`, de 0,01 % a 100 %). Domínio, API e tela prontos (R.10 a R.12); `docs/renda-fixa.md`, 5.5 |
-| Renda fixa na carteira | `PortfolioGroup.FixedIncome` / `FixedIncomeHolding` | um grupo só para qualquer índice, pesado pelo aportado (o custo da renda fixa), com uma linha por objetivo e o rendimento bruto ao lado (R.9) |
+| Renda fixa na carteira | `PortfolioGroup.FixedIncome` / `FixedIncomeHolding` | um grupo só para qualquer índice, pesado pelo aportado que sobra depois dos resgates (o custo da renda fixa), com uma linha por objetivo (conta só os aportes que ainda têm principal; o objetivo resgatado por inteiro some) e o rendimento bruto ao lado (R.9, R.26) |
 
 ---
 
@@ -156,7 +157,8 @@ docs/
 ├── investimentos.md            # Fase I: catálogo de ativos (brapi), carteira, proventos, logos, notas, eventos; decisões e achados
 ├── admin-mercado.md            # Admin dos dados de mercado (R.15 e R.16 feitas): rota e tela para disparar a sincronização do BCB à mão, mantendo o horário automático
 ├── renda-fixa-ipca.md          # IPCA e IPCA+ (R.17 a R.21, EM ESPERA por decisão do dono, 2026-10-19): fatos verificados das fontes, decisões, cálculo e fases; não implementar sem ele pedir
-├── renda-fixa.md               # Renda fixa (R.0 a R.9): objetivos, aportes em CDB/CDI, taxas do Banco Central, rendimento, imposto estimado; fórmulas, fontes, decisões e retomada
+├── renda-fixa-resgate.md       # Resgate de renda fixa (R.22 a R.26, feitas): parcial e total, por aporte; imposto calculado, com o líquido do extrato opcional; cai numa conta se a pessoa quiser; prévia do imposto vinda da API; a Carteira pesa pelo principal que sobra
+├── renda-fixa.md               # Renda fixa (R.0 a R.16; o resgate em `renda-fixa-resgate.md`): objetivos, aportes em CDB/LCI/LCA (CDI, CDI+, pré-fixado), taxas do Banco Central, rendimento, imposto estimado; fórmulas, fontes, decisões e retomada
 ├── operacao.md                 # Roteiros da produção: usuários do banco, backup, restauração (e contas apagadas), logs; versão do Postgres local; página e domínio; e-mail; titulares e incidente; IP do cliente atrás do Railway
 ├── consultas-saude.md          # SQL só de leitura e agregado para ver como o sistema está (pessoas, uso, e-mail, limpeza); nunca devolve dado de ninguém
 └── validacao-premissas.md      # Premissas do produto e o resultado de cada validação
@@ -591,7 +593,7 @@ por conversa, arquivo versionado ou histórico do shell.
   grupo "Renda fixa" da Carteira. Nunca "cofrinho": "objetivo" e "aporte". O rendimento é `text-spectrum` e o imposto, tinta;
   a chave **Bruto | Líquido estimado** vale para a lista e o detalhe, o gráfico é sempre bruto (e diz isso). Toda tela que mostra
   esses números leva a nota "Estimativa; o extrato do banco manda" com a data da última taxa, o aviso do que ainda não existe
-  (só CDB, LCI e LCA, em % do CDI, CDI + taxa ou pré-fixado, sem resgates nem projeção) e, no líquido, a explicação do imposto de cada produto que há na lista; as letras mostram "Isento de IR" e, no líquido, a explicação do imposto; "taxas defasadas" e "incompletas" têm
+  (só CDB, LCI e LCA, em % do CDI, CDI + taxa ou pré-fixado, sem IPCA nem projeção; os resgates têm tela: botão "Resgatar" em cada aporte, "Resgatados", linha "Já resgatado" com o líquido e o imposto pago, e a prévia do imposto vem da API, nunca refeita na tela, R.25) e, no líquido, a explicação do imposto de cada produto que há na lista; as letras mostram "Isento de IR" e, no líquido, a explicação do imposto; "taxas defasadas" e "incompletas" têm
   texto próprio. Nunca "lucro" nem "você ganhou" para o líquido.
 - **Resumo × Análise:** o Resumo (`/`) é de relance (destaque, Entrou/Saiu/Investido, Hoje); o que
   explica o mês vai na Análise (`/analise`), e o que olha para a frente, na seção "Daqui para frente"

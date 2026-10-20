@@ -1,9 +1,9 @@
 # Renda fixa (objetivos e aportes) — plano
 
-> **Estado (2026-10-18): implementado, da R.0 à R.9.** Este arquivo nasceu como o plano (proposta revisada com o retorno do dono em
+> **Estado (2026-10-19): implementado, da R.0 à R.16 (CDI, CDI+, pré-fixado, LCI e LCA, admin dos dados de mercado) e o resgate (R.22 a R.26, `docs/renda-fixa-resgate.md`); IPCA e IPCA+ (R.17 a R.21) EM ESPERA.** Este arquivo nasceu como o plano (proposta revisada com o retorno do dono em
 > 2026-10-17: D1–D12 aceitos com a recomendação, exceto a D3, reaberta, e o objetivo como "caixa", seção 2.2) e agora também é o registro do que foi feito:
 > o texto das seções 1 a 12 é o plano e as decisões; as partes marcadas **Implementado** dizem como ficou; a seção 13 é o resumo para retomar.
-> O que ainda falta: texto legal do IR por conferir (dispensado pelo dono), resgates, IPCA e IPCA+, cotação/projeção (seção 12, item 14).
+> O que ainda falta: texto legal do IR por conferir (dispensado pelo dono), IPCA e IPCA+ (em espera), cotação/projeção (seção 12, item 14). Os resgates foram feitos (D18).
 >
 > Legenda usada em todo o texto: **[V]** fato verificado (com a fonte), **[H]** hipótese ainda sem prova,
 > **[D]** decisão que depende do dono.
@@ -50,7 +50,7 @@ exige perguntar** (este plano não pede nenhuma).
 | **Estratégia/produto** | tipo (CDB pós), índice (CDI), % contratado | **não** como tabela: são campos do aporte (cada aplicação real é um contrato; o "mesmo CDB" com 100% e outro com 110% não cabem numa estratégia única do objetivo). O objetivo guarda só o **padrão** para pré-preencher o formulário |
 | **Taxa de referência** (CDI) | dado de mercado, global, imutável na prática | sim: `ReferenceRate` (global) |
 | **Regra tributária** | tabela de IR/IOF por prazo, muda por lei | **não** como tabela: código versionado no domínio (ver 6.4) |
-| **Resgate** | tira principal e dispara IR/IOF reais | **fora da v1** (ver D5) |
+| **Resgate** | tira principal e dispara IR/IOF reais | **feito (R.22 a R.26)**: ver D18 e `docs/renda-fixa-resgate.md` (a D5 o deixava fora da v1) |
 
 ### 2.2 `SavingsGoal` (`savings_goals`) — herda `Entity`
 - Campos: `Name` (obrigatório, até 80), `Description?`, `TargetCents?` (`long`, > 0), `DefaultIndexPercent?` e `DefaultProductKind?` (só pré-preenchimento do formulário de aporte).
@@ -90,7 +90,9 @@ exige perguntar** (este plano não pede nenhuma).
 | `DELETE` e `POST .../restore` do aporte | soft delete e desfazer; se a caixa foi excluída nesse meio-tempo, o aporte volta solto |
 
 Data do aporte antes do primeiro dia do histórico do CDI: 400 `BeforeFirstRate` (sem nenhuma taxa carregada, não confere).
-IPCA, IPCA+ e produto diferente de CDB são recusados (400). Percentuais e datas em E4 e `DateOnly`; dinheiro em centavos.
+IPCA e IPCA+ são recusados (400); os produtos aceitos são CDB, LCI e LCA (R.13). Percentuais e datas em E4 e `DateOnly`; dinheiro em centavos.
+
+**Resgates (R.23 a R.25, D18):** `POST|GET /fixed-income-deposits/{id}/redemptions`, `GET .../redemptions/preview` (a prévia, sem gravar), `DELETE .../redemptions/{redemptionId}?transfer=keep|delete` (só o último de cada aporte) e `POST .../{redemptionId}/restore`; contrato, erros e regras em `docs/renda-fixa-resgate.md` (seções 11 a 13).
 
 **R.11 (CDI+ e pré-fixado).** O pedido leva `indexKind` (`Cdi`, `CdiPlus`, `Prefixed`) e `rateE4`; a resposta, dos aportes e do saldo, traz `indexKind` e `rateE4`. O nome antigo `indexPercentE4` continua valendo **só no `Cdi`**: aceito no pedido quando `rateE4` não vem e devolvido nas respostas dos aportes de CDI (nulo nos outros), para a tela aberta antes do deploy (a API só acrescenta, `CLAUDE.md` seção 6). Sem taxa nenhuma, 400 "Informe a taxa do aporte.". O `BeforeFirstRate` só vale para quem usa o CDI (`Cdi`, `CdiPlus`): o pré-fixado entra com qualquer data e tem saldo mesmo sem nenhuma taxa gravada. No saldo, o pré-fixado não tem `ratesThrough` (nulo) e a data do grupo vem só dos aportes que usam o CDI; na evolução, os pontos continuam nas datas das taxas, dos aportes e do fim do período (um pré-fixado sozinho, sem histórico do CDI, tem só as pontas).
 
@@ -135,7 +137,7 @@ sobra não mudam (CLAUDE.md, regra 5).
 Até lá, um aporte de IPCA/IPCA+ **não deve ser aceito** com um número que pareça certo: a tela aceita só CDB-CDI.
 
 ### 2.6 O que fica fora de propósito
-Sem tabela de snapshot diário (6.2), sem tabela de regra tributária (6.4), sem tabela de estratégia, sem resgate (D5), sem `ReferenceRateRevision`
+Sem tabela de snapshot diário (6.2), sem tabela de regra tributária (6.4), sem tabela de estratégia, sem estratégia de lote no resgate (a pessoa escolhe o aporte, D18), sem `ReferenceRateRevision`
 histórico (a revisão fica no log e em `RevisedAt`; reavaliar se a fonte revisar valores na prática).
 
 ### 2.7 Propriedade e autorização
@@ -271,7 +273,7 @@ Esses números são **vetores de teste candidatos**: precisam ser conferidos com
 Vetor mínimo sem rede: 3 dias com `DI = 0,050788` a 110% ⇒ `C = 1,0016769405041684` (16 casas) ⇒ R$ 1.000,00 → R$ 1.001,68.
 
 ### 5.3 Saldo do grupo, rendimento e resgates
-`S_grupo(t) = Σ S_j(t)`; `R_bruto = S_grupo − Σ P_j`. Como a v1 não tem resgate, "principal" é só a soma dos aportes. Se entrar resgate (D5), o principal passa a ser *aportes − principal resgatado* e cada resgate reduz um lote (FIFO ou escolhido) sem reescrever o histórico.
+`S_grupo(t) = Σ S_j(t)`; `R_bruto = S_grupo − Σ P_j`. Sem resgate, "principal" é a soma dos aportes. **Com o resgate (R.22 a R.26, D18)** o principal passa a ser *aportes − principal resgatado*, por aporte: cada resgate reduz o aporte que a pessoa escolheu (não há FIFO) e congela o que saiu, sem reescrever o histórico (`docs/renda-fixa-resgate.md`, seção 3).
 
 ### 5.4 Representação numérica (decisão a aprovar, D1)
 - Dinheiro: `Money(long Cents)`, sem exceção.
@@ -368,7 +370,7 @@ Nova aba **"Objetivos"** em `/contas/investimentos` (ao lado de Carteira/Provent
 4. **Novo aporte** (`BottomSheet`): data (padrão hoje), valor, % do CDI (pré-preenchido), vencimento opcional. Pré-visualiza "rende até 15/10" se houver taxas.
 5. **Edição/exclusão** de aporte: igual ao resto do app (soft delete + "Desfazer" por 30 min); editar mostra aviso de que altera o histórico.
 
-**Implementado (R.6, R.7, R.9, R.12 e R.14).** Na seção "Produto" do painel do aporte, os chips **CDB | LCI | LCA** (antes de "Rende"); as linhas leem "LCI · 90% do CDI"; no líquido, as letras mostram "Isento de IR · 87 dias" (ou "IOF, isento de IR" na LCI com menos de 30 dias) e o rodapé ganha a nota das letras (Lei 11.033, art. 3º) além da do CDB, cada uma só se há aporte do produto. Vencimento menor que 6 meses numa LCI ou LCA mostra "LCI e LCA têm prazo mínimo de 6 meses. Confira o vencimento." e **não bloqueia**. O saldo por aporte (`GET /fixed-income/balances`) devolve `productKind` para a lista de todos os objetivos escolher a nota. No painel do aporte, a seção "Rende" tem três chips, **% do CDI | CDI + taxa | Pré-fixado**, e um campo só, que muda de rótulo e de faixa com o índice ("% do CDI", até 500%; "% ao ano, mais o CDI" e "% ao ano", até 100%), com uma dica de uma linha fora do CDI e sem taxa sugerida (só o CDI vem com o percentual padrão do objetivo); trocar de chip limpa o campo e o erro. Nas listas, "110% do CDI", "CDI + 2% a.a." e "14% a.a. (pré)". Os avisos de taxas do CDI (ausentes, defasadas, incompletas) e a nota de rodapé só falam do CDI quando há aporte que o usa: uma lista só de pré-fixado diz que o cálculo é pela taxa contratada, em dias úteis, até hoje; uma mista diz as duas coisas (`ratesScope`). A aba "Objetivos" (`?aba=objetivos&objetivo=<id>|sem`) tem a lista (total, cartão por objetivo com a barra da meta, "Sem objetivo" só se houver aportes soltos), o detalhe (números grandes, gráfico de evolução em Recharts com 1M/3M/6M/Tudo, aportes com o rendimento de cada um e a origem da conta) e os painéis (objetivo; aporte, com "Saiu de uma conta?"). A chave **Bruto | Líquido estimado** vale para a lista e o detalhe; o gráfico é sempre bruto e diz isso. Excluir pergunta (objetivo: manter ou levar os investimentos; aporte financiado: manter ou levar a transferência) e o toast tem "Desfazer". Avisos: taxas "sem taxa", "incompletas" e "defasadas" têm texto próprio; a nota "Estimativa; o extrato manda" traz a data da última taxa; mais o que a renda fixa ainda não faz (só CDB a % do CDI, sem IPCA, resgates nem projeção) e, no líquido, a explicação do imposto. Código: `src/prisma-web/src/features/investments/` (`GoalsTab`, `GoalSheet`, `DepositSheet`, `EvolutionChart`, `fixedIncome.ts` com as contas puras e o Vitest, `fixedIncomeQueries.ts`); chaves de cache em `fixedIncomeKey`.
+**Implementado (R.6, R.7, R.9, R.12 e R.14).** Na seção "Produto" do painel do aporte, os chips **CDB | LCI | LCA** (antes de "Rende"); as linhas leem "LCI · 90% do CDI"; no líquido, as letras mostram "Isento de IR · 87 dias" (ou "IOF, isento de IR" na LCI com menos de 30 dias) e o rodapé ganha a nota das letras (Lei 11.033, art. 3º) além da do CDB, cada uma só se há aporte do produto. Vencimento menor que 6 meses numa LCI ou LCA mostra "LCI e LCA têm prazo mínimo de 6 meses. Confira o vencimento." e **não bloqueia**. O saldo por aporte (`GET /fixed-income/balances`) devolve `productKind` para a lista de todos os objetivos escolher a nota. No painel do aporte, a seção "Rende" tem três chips, **% do CDI | CDI + taxa | Pré-fixado**, e um campo só, que muda de rótulo e de faixa com o índice ("% do CDI", até 500%; "% ao ano, mais o CDI" e "% ao ano", até 100%), com uma dica de uma linha fora do CDI e sem taxa sugerida (só o CDI vem com o percentual padrão do objetivo); trocar de chip limpa o campo e o erro. Nas listas, "110% do CDI", "CDI + 2% a.a." e "14% a.a. (pré)". Os avisos de taxas do CDI (ausentes, defasadas, incompletas) e a nota de rodapé só falam do CDI quando há aporte que o usa: uma lista só de pré-fixado diz que o cálculo é pela taxa contratada, em dias úteis, até hoje; uma mista diz as duas coisas (`ratesScope`). A aba "Objetivos" (`?aba=objetivos&objetivo=<id>|sem`) tem a lista (total, cartão por objetivo com a barra da meta, "Sem objetivo" só se houver aportes soltos), o detalhe (números grandes, gráfico de evolução em Recharts com 1M/3M/6M/Tudo, aportes com o rendimento de cada um e a origem da conta) e os painéis (objetivo; aporte, com "Saiu de uma conta?"). A chave **Bruto | Líquido estimado** vale para a lista e o detalhe; o gráfico é sempre bruto e diz isso. Excluir pergunta (objetivo: manter ou levar os investimentos; aporte financiado: manter ou levar a transferência) e o toast tem "Desfazer". Avisos: taxas "sem taxa", "incompletas" e "defasadas" têm texto próprio; a nota "Estimativa; o extrato manda" traz a data da última taxa; mais o que a renda fixa ainda não faz (só CDB, LCI e LCA, em % do CDI, CDI + taxa ou pré-fixado, sem IPCA nem projeção; os resgates têm tela, R.25) e, no líquido, a explicação do imposto. Código: `src/prisma-web/src/features/investments/` (`GoalsTab`, `GoalSheet`, `DepositSheet`, `EvolutionChart`, `fixedIncome.ts` com as contas puras e o Vitest, `fixedIncomeQueries.ts`); chaves de cache em `fixedIncomeKey`.
 
 ### 7.3 Regras de texto e honestidade
 - Rótulos fixos: "Aportado", "Rendimento bruto", "Imposto estimado (se resgatar hoje)", "Saldo líquido estimado". Nunca "lucro" nem "você ganhou" para o líquido.
@@ -398,7 +400,7 @@ Mutação invalida as chaves novas (`invalidateMoney` ganha as chaves de objetiv
 | Valores absurdos | teto de aporte (ex.: R$ 100 milhões em centavos cabe em `long`) e `Int128` nos produtos intermediários |
 | LGPD | tabelas novas com `user_id` entram na exclusão de conta, na cópia dos dados e no roteiro de titulares; **não** exigem revisão da política (dado financeiro que a pessoa já informa), mas confirmar se a política de privacidade lista "objetivos e aportes" |
 
-Sem movimentação real, sem integração bancária, sem ordens, sem resgate efetivo.
+Sem movimentação real, sem integração bancária, sem ordens: o app não movimenta dinheiro. O resgate é um registro do que a pessoa fez no banco (e, se ela quiser, lança a transferência do principal e a receita do rendimento nas contas dela).
 
 ---
 
@@ -456,7 +458,7 @@ Regressão contra referência: arquivo `fixed-income-reference.json` versionado 
 | **D2 (confirmada pelo extrato)** | Início da capitalização: a taxa do dia da aplicação entra | confirmada com 2 casos reais do banco, diferença ≤ R$ 0,01 (5.2) | capitalizar só a partir do dia útil seguinte |
 | **D3 (reaberta)** | Relação com contas/transferências e com o "Investido" do Resumo | **o aporte pode sair de uma conta**: no formulário, "Sai de qual conta?" (lista das contas correntes/dinheiro) + "Entra em qual conta de investimento?"; ao salvar, o app cria **a transferência** (par ligado por `TransferPairId`, regra 5) **e** o aporte, na mesma gravação, e o aporte guarda a ligação (`TransferPairId?`). Resultado: o saldo do Itaú cai R$ 10.000, o card "Investido" do Resumo sobe R$ 10.000 e nada é contado duas vezes. "Não sai de nenhuma conta" continua existindo (investimento antigo que você só quer acompanhar) | independente (como estava); só vincular a uma transferência **já existente** |
 | **D4** | Faixa permitida do `% do CDI` | de 0,01% a 500%, 4 casas | só 1–200%; só múltiplos de 0,5 |
-| **D5** | Resgates na v1 | **fora**; objetivo/aporte podem ser removidos ("Desfazer"), sem retirada parcial | resgate por lote (FIFO) já na v1, o que traz IR/IOF reais ao motor |
+| **D5** | Resgates na v1 | **fora**; objetivo/aporte podem ser removidos ("Desfazer"), sem retirada parcial; **revista pela D18 (2026-10-19): o resgate parcial e total entrou, por aporte** | resgate por lote (FIFO) já na v1, o que traz IR/IOF reais ao motor |
 | **D6** | Horário(s) da sincronização | 19h30 e 23h30 (SP), mais ao subir se defasado | 1x ao dia às 4h, como os ativos (o CDI do dia só entraria no dia seguinte) |
 | **D7** | Lugar na interface | aba "Objetivos" em `/contas/investimentos` | rota própria; item novo no menu |
 | **D8** | Autorizar `BankCalendar` para diagnosticar lacuna do CDI (ajusta `BankCalendarUsageTests`) | sim, só para diagnóstico, nunca para calcular | diagnosticar sem calendário (só "defasagem") |
@@ -465,6 +467,7 @@ Regressão contra referência: arquivo `fixed-income-reference.json` versionado 
 | **D11** | Nomes (código em inglês, UI em pt-BR) e glossário no `CLAUDE.md` | `SavingsGoal`/"objetivo", `FixedIncomeDeposit`/"aporte", `ReferenceRate`/"taxa de referência" | nome comercial de produto na tela (descartado: "cofrinho" não aparece) |
 | **D12** | Teste ponta a ponta com Playwright | não agora (Fase 5); integração por slice + verificação manual | introduzir Playwright já |
 | **D13 (2026-10-17)** | A renda fixa na aba Carteira (R.9) | **um grupo só, "Renda fixa", para qualquer índice**; peso pelo **aportado** (o custo da renda fixa, a mesma régua da bolsa); **linhas por objetivo**; rendimento bruto ao lado; vale por ano (aportado até o fim dele) | pesar pelo saldo com rendimento (mistura custo com valor atual); linhas por aporte ou por índice (lista longa) |
+| **D18 (2026-10-19)** | Resgate de renda fixa (revê a D5; R.22 a R.26) | **parcial e total**, por aporte; principal e rendimento saem na proporção, faixa de IR do aporte; imposto calculado, com o **líquido do extrato opcional** (vale o do extrato); contas **opcionais** (principal como transferência, rendimento líquido como receita); só o último resgate de um aporte se exclui (`docs/renda-fixa-resgate.md`; **decisões da seção 1 do dono, perguntas da seção 8 em aberto**) | só total; FIFO por objetivo; transferir só o líquido (deixaria a conta de investimento negativa) |
 | **D17 (2026-10-19)** | IPCA e IPCA+ (R.17 a R.21) | **estender o modelo atual** com uma tabela mensal própria (a `reference_rates` não comporta valor negativo nem frequência mensal), número-índice e variação, cálculo pela razão dos índices; convenção de apropriação (F1 a F3) **decidida só com extrato real** (R.17); produto da primeira entrega: CDB, LCI e LCA (`docs/renda-fixa-ipca.md`) | substituir a tabela do CDI; estratégias genéricas por modalidade; repetir o valor mensal em todos os dias |
 | **D16 (2026-10-19)** | Admin dos dados de mercado (R.15, R.16) | rota e tela de admin para disparar a sincronização do BCB à mão (CDI, depois IPCA), **sem tirar o horário automático**; admin por lista de e-mails na configuração; histórico das execuções em tabela; execução síncrona com teto de 90 s; código do erro do firewall do BCB guardado (`docs/admin-mercado.md`, M1 a M6; **M1 e M2 aprovadas pelo dono em 2026-10-19, R.15 e R.16 feitas**) | papéis do Identity; token em cabeçalho; só log; fila com andamento |
 | **D15 (2026-10-18)** | LCI e LCA (R.13, R.14) | produto no aporte (`Cdb`, `Lci`, `Lca`), mesma remuneração; **IR zero** nas duas, **IOF zero na LCA e tabela do CDB na LCI**; vencimento abaixo de 6 meses só **avisa** na tela (R.14); IPCA segue fora | tratar a LCI também como isenta de IOF; recusar vencimento abaixo de 6 meses |
@@ -495,7 +498,8 @@ Cada etapa: teste junto com a implementação, `dotnet test` verde, checkbox no 
 15. **R.14 LCI e LCA, tela e documentos (feita; falta só o extrato real):** seletor de produto (CDB | LCI | LCA) no aporte, produto nas linhas, "isento de IR" no lugar do imposto das letras, aviso de vencimento abaixo de 6 meses, nota de limitações, `gen:api`, `.http`, todos os documentos.
 16. **R.15 Admin dos dados de mercado, API (feita, `docs/admin-mercado.md`):** política `Admin` (e-mails em `Admin:Emails`), rotas de estado, `sync`, `refresh` e execuções, `market_sync_runs` (migration `AddMarketSyncRuns`), código do erro do BCB, `isAdmin` em `/auth/me`. **R.16 Tela `/admin` (feita).** O horário automático da `ReferenceRateWorker` **não muda**: o disparo manual usa a mesma sincronização e o mesmo lock.
 17. **R.17 a R.21 IPCA e IPCA+ (planejadas e EM ESPERA por decisão do dono, 2026-10-19; `docs/renda-fixa-ipca.md`):** verificação com extrato real (sem código), IPCA persistido, domínio do cálculo, API e tela.
-18. **(Depois)** resgates (D5), IPCA e IPCA+ (cada um com fonte e fórmula próprias, ver 2.5), outros produtos (LCI/LCA com regra própria), projeção rotulada.
+18. **(Depois)** IPCA e IPCA+ (cada um com fonte e fórmula próprias, ver 2.5), projeção rotulada. (Resgates e LCI/LCA: feitos, itens 15 e 19.)
+19. **R.22 a R.26 Resgate (feitas, `docs/renda-fixa-resgate.md`, D18):** `FixedIncomeRedemption` (parcial e total, por aporte; principal, rendimento e imposto congelados; o líquido do extrato vale se a pessoa o informar), motor com os resgates por trechos, tabela `fixed_income_redemptions`, rotas `/fixed-income-deposits/{id}/redemptions` (criar, prévia, listar, excluir só o último, desfazer), o resgate que cai numa conta (transferência do principal e receita do rendimento líquido, só para aporte financiado), tela ("Resgatar", "Resgatados", prévia do imposto vinda da API) e a Carteira pesando pelo principal que sobra.
 
 ---
 
@@ -507,11 +511,11 @@ Cada etapa: teste junto com a implementação, `dotnet test` verde, checkbox no 
 
 **Verificação do dono (2026-10-18):** testou a tela (objetivos, aportes, bruto e líquido, aporte financiado, gráfico, exclusão com desfazer, Carteira) e confirmou que está tudo certo.
 
-**Feito:** R.0 a R.9 e R.4b na `main` (PR #20); R.10 a R.16 (CDI+, pré-fixado, LCI e LCA, admin dos dados de mercado) na branch `feat/renda-fixa-produtos-e-admin`, em 2 commits (código e testes; documentos), **PR ainda por abrir** (o ambiente não tem `gh`). Última suíte completa verde: 2078 testes de .NET (1080 de domínio, 17 de arquitetura, 981 de integração; 7 ignorados; os `[Live]` ficam de fora) e 546 do Vitest. O líquido (imposto estimado) e a renda fixa na Carteira estão prontos.
+**Feito:** R.0 a R.9 e R.4b na `main` (PR #20); R.10 a R.16 (CDI+, pré-fixado, LCI e LCA, admin dos dados de mercado) na `main` pelo PR #22 (`5ad48b5`); o **resgate (R.22 a R.26)** está no working tree, **sem commit nem PR ainda** (o ambiente não tem `gh`). Última suíte completa verde (2026-10-19, com o resgate): 2169 testes de .NET (1127 de domínio, 17 de arquitetura, 1025 de integração; 7 ignorados; os `[Live]` ficam de fora) e 559 do Vitest. O líquido (imposto estimado) e a renda fixa na Carteira estão prontos.
 
 **Em espera (decisão do dono, 2026-10-19):** IPCA e IPCA+ (R.17 a R.21). O dono vai buscar dados melhores (extrato real de um CDB IPCA+ e do Tesouro IPCA+, com datas, valor aplicado e saldos em duas ou mais datas) para a R.17, que decide a convenção de apropriação (F1 a F3) e **não tem código**. Até lá a API e a tela recusam IPCA e IPCA+, e nada se implementa. Retomar por `docs/renda-fixa-ipca.md`, seção 5.
 
-**Variável a pôr no Railway antes do merge:** `Admin__Emails__0` (o e-mail de quem pode abrir a tela de admin; sem ela ninguém é admin). A migration `AddMarketSyncRuns` roda sozinha no deploy.
+**Variável a pôr no Railway:** `Admin__Emails__0` (o e-mail de quem pode abrir a tela de admin; sem ela ninguém é admin; o merge do PR #22 já ocorreu, então vale conferir). As migrations `AddMarketSyncRuns` (já na `main`) e, com o resgate, `AddFixedIncomeRedemptions` e `AddRedemptionFunding` rodam sozinhas no deploy; a do resgate acrescenta só tabela e colunas.
 
 **Decisões do dono que valem na tela**
 - O objetivo é uma **caixa**. Excluir um objetivo com aportes **pergunta**: manter os investimentos (ficam em "Sem objetivo") ou excluir junto. Desfazer vale 30 minutos.
@@ -529,9 +533,9 @@ Cada etapa: teste junto com a implementação, `dotnet test` verde, checkbox no 
 
 **Pendente** (2026-10-18)
 - **Extrato real (do dono):** conferir um CDI+, um pré-fixado, uma LCI e uma LCA do banco contra o app (tolerância de R$ 0,01), como foi com o CDI (R.0). Se divergir, o ajuste é de uma linha: como o fator da taxa fixa é arredondado (5.5). A tela e a API já estão prontas para receber esses aportes.
-- Nada obrigatório da renda fixa. A política de privacidade e os termos **não foram mudados** (R.8): a seção 3.2 da política não cita objetivos e aportes em renda fixa, a seção 5 não cita o Banco Central e os termos não citam a estimativa de imposto; decisão do dono (e do advogado, A.2) se vira texto novo e se a versão sobe (`LegalTerms`).
+- Nada obrigatório da renda fixa. **Texto legal (2026-10-20, a pedido do dono):** na R.8 a política e os termos não foram mudados (a seção 3.2 da política não citava objetivos e aportes em renda fixa, a seção 5 não citava o Banco Central e os termos não citavam a estimativa de imposto). Agora foram esclarecidos: a renda fixa (objetivos, aportes e resgates) entra entre os dados registrados, a observação do aporte entre os textos livres, o Banco Central entre as fontes públicas e os termos ganharam a linha da estimativa de rendimento e imposto. **A versão continua 1.0** (`LegalTerms` e os dois `.md` iguais): é esclarecimento, sem finalidade, base legal, retenção ou compartilhamento novos, e a regra do repositório é subir a versão só em mudança que pede aceite. O histórico da política registra o esclarecimento de 20/10/2026. A revisão do advogado (A.2) segue pendente, e ele pode decidir que a mudança pede novo aceite.
 - Texto legal do IR: o art. 1º da Lei 11.033 foi conferido em 2026-10-18 (cópia da Câmara: 22,5/20/17,5/15%, igual à tabela do app); a IN RFB 1.585 segue por conferir. A tabela vinha da B3 confirmada pelo dono. A regra é versionada por data: lei nova entra como regra nova em `FixedIncomeTax`.
-- Depois (seção 12, item 14): resgates (D5), IPCA e IPCA+, outros produtos (LCI/LCA com regra própria), projeção rotulada, gráfico líquido, cotação.
+- Depois (seção 12, item 14): IPCA e IPCA+ (em espera), projeção rotulada, gráfico líquido, cotação.
 - Operação: roteiro em `docs/operacao.md`, seção 4.5 (eventos de log, avisos de taxa defasada/incompleta, o que fazer).
 
 **Lições do ambiente**

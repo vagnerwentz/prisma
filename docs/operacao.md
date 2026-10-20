@@ -291,8 +291,8 @@ Uma falha nunca derruba a API: vai para o log, e a próxima execução tenta de 
 - **Variáveis:** `Bcb__BaseUrl` (padrão `https://api.bcb.gov.br/`) e `Rates__Sync__Enabled` (liga por padrão; os testes
   de integração o desligam).
 - **Privacidade:** nenhum dado de ninguém vai ao Banco Central: a API só baixa a série pública. Os objetivos e aportes de cada
-  pessoa são dados dela (`savings_goals`, `fixed_income_deposits`) e entram na exclusão da conta, na limpeza do excluído e na
-  cópia dos dados (`ops/privacy/export-user.sql`); `reference_rates` é dado de mercado, sem dono.
+  pessoa são dados dela (`savings_goals`, `fixed_income_deposits` e, com o resgate, `fixed_income_redemptions`) e entram na exclusão da conta, na limpeza do excluído (o resgate sai de vez junto com o aporte, em cascata, ou à parte depois de 30 min) e na
+  cópia dos dados (`ops/privacy/export-user.sql`, `resgatesRendaFixa`); `reference_rates` é dado de mercado, sem dono.
 
 - **Admin dos dados de mercado (R.15 e R.16 feitas; `docs/admin-mercado.md`):** pela tela **Dados de mercado** (menu da conta, só para admin; `/admin`) ou pelas rotas: `POST /admin/market-data/cdi/sync` dispara a
   sincronização do CDI à mão (janela normal) e `POST …/cdi/refresh` reprocessa um período (até 10 anos); `GET /admin/market-data` e
