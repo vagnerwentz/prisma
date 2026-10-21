@@ -3,11 +3,12 @@ import { Link } from 'react-router'
 import { AccountTile } from '@/components/brand/Tiles'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAccountBalances, useAccounts } from '@/features/accounts/queries'
+import { useFixedIncomeBalances } from '@/features/investments/fixedIncomeQueries'
 import { formatMonth, monthOf, todayInSaoPaulo } from '@/lib/dates'
 import { formatCents } from '@/lib/money'
 import { cn } from '@/lib/utils'
 import { useUpcomingStatements, type UpcomingStatement } from './queries'
-import { balanceInAccounts, describeDue } from './upcoming'
+import { describeDue, splitBalances, type AccountsSplit } from './upcoming'
 
 // "Em contas" e "Próximas faturas" (docs/fase-2.md, 2.4). Olham para hoje, não para o mês escolhido
 // no Resumo. Carregado sob demanda: os ladrilhos de conta trazem os logos de marca.
@@ -15,11 +16,13 @@ export default function TodayPanel() {
   const upcoming = useUpcomingStatements()
   const accounts = useAccounts()
   const balances = useAccountBalances()
+  // O rendimento da renda fixa por conta de investimento (D20). Não segura a tela: sem ele, o Investido é só o saldo das contas.
+  const yields = useFixedIncomeBalances().data?.byAccount ?? []
 
   if (upcoming.isPending || accounts.isPending || balances.isPending) return <Skeleton className="h-40 w-full rounded-2xl" />
   if (upcoming.isError || accounts.isError || balances.isError) return null
 
-  const inAccounts = balanceInAccounts(accounts.data, balances.data)
+  const inAccounts = splitBalances(accounts.data, balances.data, yields)
   const hasCards = accounts.data.some((a) => a.isActive && a.type === 'CreditCard')
   if (!inAccounts && !hasCards) return null
 
@@ -32,30 +35,74 @@ export default function TodayPanel() {
           inAccounts && hasCards && 'sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] sm:items-start',
         )}
       >
-        {inAccounts && <InAccounts cents={inAccounts.cents} count={inAccounts.count} />}
+        {inAccounts && <InAccounts split={inAccounts} />}
         {hasCards && <UpcomingStatements statements={upcoming.data.statements} totalCents={upcoming.data.totalCents} />}
       </div>
     </section>
   )
 }
 
-function InAccounts({ cents, count }: { cents: number; count: number }) {
+function InAccounts({ split }: { split: AccountsSplit }) {
+  // Sem conta de investimento, é o saldo de sempre. Com ela, o dinheiro livre e o investido aparecem separados (docs/renda-fixa.md, D20).
+  if (split.investedCount === 0) {
+    return (
+      <Link to="/contas" className={cardClass}>
+        <WalletIcon />
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="text-sm font-medium text-foreground/75">Em contas</span>
+          <span className="text-xs text-muted-foreground">
+            Saldo de hoje{split.availableCount > 1 ? `, em ${split.availableCount} contas` : ''}
+          </span>
+        </div>
+        <Figure cents={split.availableCents} />
+      </Link>
+    )
+  }
+
   return (
-    <Link
-      to="/contas"
-      className="surface flex items-center gap-3 rounded-2xl p-4 transition-colors hover:bg-muted/40 active:bg-muted/70 sm:flex-col sm:items-start"
-    >
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-foreground [&_svg]:size-5">
-        <Wallet />
-      </span>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="text-sm font-medium text-foreground/75">Em contas</span>
-        <span className="text-xs text-muted-foreground">Saldo de hoje{count > 1 ? `, em ${count} contas` : ''}</span>
+    <Link to="/contas" className={cardClass}>
+      <WalletIcon />
+      <div className="flex min-w-0 flex-1 flex-col gap-3 sm:w-full">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <span className="text-sm font-medium text-foreground/75">Disponível</span>
+            <span className="text-xs text-muted-foreground">
+              {split.availableCount > 0 ? 'Conta corrente e carteira' : 'Nenhuma conta corrente ou carteira'}
+            </span>
+          </div>
+          <Figure cents={split.availableCents} />
+        </div>
+        <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-3">
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <span className="text-sm font-medium text-foreground/75">Investido</span>
+            <span className="text-xs text-muted-foreground">
+              {split.yieldCents > 0 ? `Com ${formatCents(split.yieldCents)} de rendimento` : 'Contas de investimento'}
+            </span>
+          </div>
+          <Figure cents={split.investedCents} />
+        </div>
       </div>
-      <span className="truncate text-[clamp(1.05rem,4.8vw,1.35rem)] leading-tight font-semibold tracking-tight tabular-nums">
-        {formatCents(cents).replace('-', '−')}
-      </span>
     </Link>
+  )
+}
+
+const cardClass =
+  'surface flex items-center gap-3 rounded-2xl p-4 transition-colors hover:bg-muted/40 active:bg-muted/70 sm:flex-col sm:items-start'
+
+function WalletIcon() {
+  return (
+    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-foreground [&_svg]:size-5">
+      <Wallet />
+    </span>
+  )
+}
+
+// Valor que não pode ser cortado: o texto ao lado quebra de linha, o número não.
+function Figure({ cents }: { cents: number }) {
+  return (
+    <span className="shrink-0 text-[clamp(1.05rem,4.8vw,1.35rem)] leading-tight font-semibold tracking-tight tabular-nums">
+      {formatCents(cents).replace('-', '−')}
+    </span>
   )
 }
 

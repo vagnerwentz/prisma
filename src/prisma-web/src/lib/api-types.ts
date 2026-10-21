@@ -5236,6 +5236,14 @@ export interface components {
         };
         /** @enum {unknown} */
         AccountType: "Checking" | "CreditCard" | "Cash" | "Investment";
+        AccountYield: {
+            /** Format: uuid */
+            accountId: string;
+            /** Format: int32 */
+            depositCount: number;
+            /** Format: int64 */
+            grossYieldCents: number;
+        };
         AddHoldingRequest: {
             /** Format: uuid */
             assetId: string;
@@ -5273,6 +5281,7 @@ export interface components {
             goals: components["schemas"]["GoalBalance"][];
             unassigned: components["schemas"]["LooseBalance"];
             total: components["schemas"]["GroupBalance"];
+            byAccount: components["schemas"]["AccountYield"][];
         };
         BatchLine: {
             /** Format: uuid */

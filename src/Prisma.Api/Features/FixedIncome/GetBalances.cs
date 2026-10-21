@@ -36,8 +36,13 @@ public sealed record GoalBalance(
 
 public sealed record LooseBalance(GroupBalance Balance, IReadOnlyList<DepositBalance> Deposits);
 
+// O rendimento bruto do que sobra dos aportes que entraram numa conta de investimento (D20): o saldo da conta guarda só o principal, e
+// com este número a tela mostra o que está investido naquela conta. Só aporte financiado por conta, com as duas pontas vivas.
+public sealed record AccountYield(Guid AccountId, int DepositCount, long GrossYieldCents);
+
 public sealed record BalancesResponse(
-    DateOnly AsOf, RatesStatus Rates, IReadOnlyList<GoalBalance> Goals, LooseBalance Unassigned, GroupBalance Total);
+    DateOnly AsOf, RatesStatus Rates, IReadOnlyList<GoalBalance> Goals, LooseBalance Unassigned, GroupBalance Total,
+    IReadOnlyList<AccountYield> ByAccount);
 
 // O saldo de cada aporte, de cada caixa e de tudo, até uma data (docs/renda-fixa.md, 6). É o
 // total aportado, o rendimento calculado das taxas do CDI publicadas e a data até onde elas vão, nunca uma projeção: data de
@@ -71,6 +76,15 @@ public static class GetBalances
                 .ToDictionary(g => g.Key, g => g.Select(x => x.Balance).ToList());
             var loose = balances.Where(x => x.Deposit.GoalId is null).Select(x => x.Balance).ToList();
 
+            var pairs = deposits.Where(d => d.TransferPairId is not null).Select(d => d.TransferPairId!.Value).Distinct().ToList();
+            var live = await Fundings.LiveFundings(db, pairs, ct);
+            var byAccount = balances
+                .Where(x => x.Deposit.TransferPairId is { } pair && live.ContainsKey(pair))
+                .GroupBy(x => live[x.Deposit.TransferPairId!.Value].InvestmentAccountId)
+                .Select(g => new AccountYield(g.Key, g.Count(), g.Sum(x => x.Balance.GrossYieldCents ?? 0)))
+                .OrderBy(a => a.AccountId)
+                .ToList();
+
             return new BalancesResponse(
                 asOf,
                 book.Status,
@@ -80,7 +94,8 @@ public static class GetBalances
                     return new GoalBalance(g.Id, g.Name, g.TargetCents, Sum(inside), inside);
                 }).ToList(),
                 new LooseBalance(Sum(loose), loose),
-                Sum(balances.Select(x => x.Balance).ToList()));
+                Sum(balances.Select(x => x.Balance).ToList()),
+                byAccount);
         }
 
         private static DepositBalance Balance(

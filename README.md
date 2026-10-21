@@ -24,7 +24,10 @@ reality, so the monthly numbers match your bank account instead of your receipts
 
 ## What it does
 
-- **Accounts:** checking, cash, investments and credit cards, with balances.
+- **Accounts:** checking, cash, investments and credit cards, with balances. The summary splits what is **available**
+  (checking and cash) from what is **invested** (investment accounts plus the fixed-income yield that came in through
+  them), so money moved to an investment never reads as spendable cash; the account's own balance stays the principal,
+  matching the statement.
 - **Credit card statements:** each purchase lands on the right statement from the card's closing and
   due days; statement dates can be adjusted when the bank moves them.
 - **Aligned with the bank:** a purchase the bank posted to the next statement can be moved there

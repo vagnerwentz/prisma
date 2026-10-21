@@ -1,6 +1,6 @@
 # Resgate de renda fixa: especificação e plano
 
-> **Estado (2026-10-21): R.22 a R.31 feitas.** O resgate de um aporte (R.22 a R.26, aprovado pelo dono em 2026-10-19, inclusive as quatro recomendações da seção 8) está na `main` (PR #23); o **resgate em lote** (R.27 a R.31, seção 15 e como ficou na seção 16) está no working tree, sem commit. Revê a
+> **Estado (2026-10-21): R.22 a R.31 feitas.** O resgate de um aporte (R.22 a R.26, aprovado pelo dono em 2026-10-19, inclusive as quatro recomendações da seção 8) está na `main` (PR #23); o **resgate em lote** (R.27 a R.31, seção 15 e como ficou na seção 16) está commitado e enviado na branch `feat/renda-fixa-resgate-lote`, ainda sem PR. Revê a
 > **D5** de `docs/renda-fixa.md` (resgates fora da v1): a decisão passa a ser a **D18** (seção 7 daquele arquivo). Etapas R.22 a R.31 no `PLAN.md`
 > (a R.17 a R.21 é o IPCA, **em espera**: `docs/renda-fixa-ipca.md`).
 >
@@ -213,7 +213,7 @@ O banco informa **um** líquido para o resgate todo, então o lote aceita um lí
 
 ## 16. Como a R.27 a R.31 ficaram (2026-10-21)
 
-Tudo no working tree, sem commit; sem migration (o lote só usa `fixed_income_redemptions` e os lançamentos que o resgate de um aporte já criava). Suíte completa verde: Domínio 1147, Arquitetura 17, API 1047 (7 ignorados) e Vitest 575.
+Commitado e enviado na branch `feat/renda-fixa-resgate-lote` (`b32faba`), sem PR; sem migration (o lote só usa `fixed_income_redemptions` e os lançamentos que o resgate de um aporte já criava). Suíte completa verde no commit: Domínio 1147, Arquitetura 17, API 1047 (7 ignorados) e Vitest 575.
 
 - **R.27 (Problema I).** `allGross` e `nearlyAll` em `fixedIncome.ts`; `RedemptionSheet` guarda o modo "tudo" e o último saldo **com a data a que pertence** (`balanceAt`); um saldo de outra data nunca vale. Limite de "quase tudo": `NEARLY_ALL_CENTS` = 5. O defeito original era só de tela: a conta do app batia com o extrato dentro de 1 centavo (seção 15.1).
 - **R.28.** `RedemptionAllocator` (`Prisma.Domain/FixedIncome`): `Allocate`, `TotalBalance` e `DistributeNet`, puro (não conhece banco, relógio nem imposto). 20 testes; o caso do extrato do dono (três aportes, 01/09/2025) é um deles. Sete mutações provadas; a que tirava a trava "o imposto de uma linha não passa do rendimento dela" sobreviveu e virou o teste do aporte sem rendimento. A repartição dos centavos do líquido foi refinada: um a um da última linha para trás, só onde ainda cabe (15.5).

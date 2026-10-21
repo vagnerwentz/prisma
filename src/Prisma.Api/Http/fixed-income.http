@@ -236,6 +236,7 @@ Content-Type: application/json
 ### Saldo de cada aporte, de cada caixa, dos soltos e total, até uma data (padrão: hoje; data futura é 400): bruto e, em `tax`
 ### (por aporte) e `estimatedTaxCents`/`netYieldCents`/`netBalanceCents` (por grupo), o imposto e o líquido estimados de resgatar na data (R.7).
 ### Com resgates (até a data): `principalCents` do aporte é o que SOBRA, `redeemed` traz o que já saiu (bruto, principal, rendimento, imposto pago, líquido) e o grupo soma em `redeemed*Cents`.
+### `byAccount` (D20, R.32): o rendimento bruto do que sobra, por conta de investimento, só dos aportes que saíram de uma conta pelo app (com a transferência viva); aporte só acompanhado não aparece. O saldo da conta continua sendo o principal.
 ### `rates` diz até que dia as taxas do CDI vão, se estão defasadas e se falta algum dia útil.
 GET {{baseUrl}}/fixed-income/balances?asOf=2026-10-16
 

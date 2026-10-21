@@ -37,27 +37,33 @@ public sealed record DepositResponse(
 // investimento. Vive em duas linhas de transação, que a tela de lançamentos também enxerga, exclui e restaura.
 public static class Fundings
 {
+    // O financiamento vivo de cada par: as duas pontas existem. Par sem uma delas (excluída) não entra.
+    public static async Task<Dictionary<Guid, FundingResponse>> LiveFundings(
+        AppDbContext db, IReadOnlyCollection<Guid> pairs, CancellationToken ct)
+    {
+        var live = new Dictionary<Guid, FundingResponse>();
+        if (pairs.Count == 0) return live;
+        var legs = await db.Transactions.AsNoTracking()
+            .Where(t => t.TransferPairId != null && pairs.Contains(t.TransferPairId.Value))
+            .Select(t => new { Pair = t.TransferPairId!.Value, t.AccountId, t.TransferDirection })
+            .ToListAsync(ct);
+        foreach (var group in legs.GroupBy(l => l.Pair))
+        {
+            var from = group.SingleOrDefault(l => l.TransferDirection == TransferDirection.Out);
+            var to = group.SingleOrDefault(l => l.TransferDirection == TransferDirection.In);
+            if (from is not null && to is not null)
+                live[group.Key] = new FundingResponse(group.Key, from.AccountId, to.AccountId);
+        }
+
+        return live;
+    }
+
     // Os financiamentos vivos de um conjunto de aportes. Aporte sem par, ou com as pontas excluídas, fica sem financiamento.
     public static async Task<IReadOnlyList<DepositResponse>> Respond(
         AppDbContext db, IReadOnlyCollection<FixedIncomeDeposit> deposits, CancellationToken ct)
     {
         var pairs = deposits.Where(d => d.TransferPairId is not null).Select(d => d.TransferPairId!.Value).Distinct().ToList();
-        var live = new Dictionary<Guid, FundingResponse>();
-        if (pairs.Count > 0)
-        {
-            var legs = await db.Transactions.AsNoTracking()
-                .Where(t => t.TransferPairId != null && pairs.Contains(t.TransferPairId.Value))
-                .Select(t => new { Pair = t.TransferPairId!.Value, t.AccountId, t.TransferDirection })
-                .ToListAsync(ct);
-            foreach (var group in legs.GroupBy(l => l.Pair))
-            {
-                var from = group.SingleOrDefault(l => l.TransferDirection == TransferDirection.Out);
-                var to = group.SingleOrDefault(l => l.TransferDirection == TransferDirection.In);
-                if (from is not null && to is not null)
-                    live[group.Key] = new FundingResponse(group.Key, from.AccountId, to.AccountId);
-            }
-        }
-
+        var live = await LiveFundings(db, pairs, ct);
         return deposits
             .Select(d => DepositResponse.From(d, d.TransferPairId is { } pair && live.TryGetValue(pair, out var funding) ? funding : null))
             .ToList();
