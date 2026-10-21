@@ -199,6 +199,40 @@ DELETE {{baseUrl}}/fixed-income-deposits/<id do aporte>/redemptions/<id do resga
 ###
 POST {{baseUrl}}/fixed-income-deposits/<id do aporte>/redemptions/<id do resgate>/restore
 
+### Resgate em lote (R.29): um resgate do extrato que cobre vários aportes. Cada aporte mantém o seu resgate; o lote os cria juntos, tudo ou nada.
+### `depositIds` são os aportes do lote; `all: true` resgata o saldo inteiro deles na data, ou `grossCents` é o valor bruto, dividido do aporte mais
+### antigo ao mais novo (o último pode sair em parte). `netCents` é o líquido do extrato, um só: o imposto se reparte entre os aportes. `funding` é a
+### conta onde caiu, uma só; aporte que não saiu de uma conta pelo app entra só como registro. O pedido repetido (mesmo clientRequestId) devolve o que já foi criado.
+POST {{baseUrl}}/fixed-income-deposits/redemptions/batch
+Content-Type: application/json
+
+{
+  "clientRequestId": "{{$guid}}",
+  "depositIds": ["<id do aporte 1>", "<id do aporte 2>", "<id do aporte 3>"],
+  "redemptionDate": "2026-09-15",
+  "all": false,
+  "grossCents": 539541,
+  "netCents": null,
+  "funding": { "toAccountId": "<id da conta de destino>" }
+}
+
+### Prévia do lote, sem gravar: uma linha por aporte (saldo, e o resgate como seria gravado se o valor chegar até ele) e o total. Sem `all` nem `grossCents`, só os saldos.
+### Pedido que o domínio recusaria vem como `problem` (200), com os saldos ainda ali. `skipped`: NotYetDeposited (aporte depois da data) ou FullyRedeemed.
+GET {{baseUrl}}/fixed-income-deposits/redemptions/batch/preview?depositIds=<id do aporte 1>&depositIds=<id do aporte 2>&date=2026-09-15&grossCents=539541&netCents=
+
+### Desfazer o lote: exclui o último resgate de cada aporte da lista, tudo ou nada (409 RedemptionNotLast, com a data do aporte na mensagem, se um deles já não é o último).
+### Se algum caiu numa conta, `transfer` é "keep" ou "delete"; sem a escolha, 400 TransferChoiceRequired.
+POST {{baseUrl}}/fixed-income-deposits/redemptions/batch/undo
+Content-Type: application/json
+
+{
+  "items": [
+    { "depositId": "<id do aporte 1>", "redemptionId": "<id do resgate 1>" },
+    { "depositId": "<id do aporte 2>", "redemptionId": "<id do resgate 2>" }
+  ],
+  "transfer": "delete"
+}
+
 ### Saldo de cada aporte, de cada caixa, dos soltos e total, até uma data (padrão: hoje; data futura é 400): bruto e, em `tax`
 ### (por aporte) e `estimatedTaxCents`/`netYieldCents`/`netBalanceCents` (por grupo), o imposto e o líquido estimados de resgatar na data (R.7).
 ### Com resgates (até a data): `principalCents` do aporte é o que SOBRA, `redeemed` traz o que já saiu (bruto, principal, rendimento, imposto pago, líquido) e o grupo soma em `redeemed*Cents`.

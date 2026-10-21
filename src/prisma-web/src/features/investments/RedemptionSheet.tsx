@@ -10,7 +10,15 @@ import { AmountField, Chip, ChipRow, DateChooser, Section } from '@/features/tra
 import { formatShortDate, todayInSaoPaulo } from '@/lib/dates'
 import { formatCents } from '@/lib/money'
 import { useDebouncedValue } from '@/lib/useDebouncedValue'
-import { depositTitle, previewRows, redemptionDestination, usableForRedemption, type Deposit } from './fixedIncome'
+import {
+  allGross,
+  depositTitle,
+  nearlyAll,
+  previewRows,
+  redemptionDestination,
+  usableForRedemption,
+  type Deposit,
+} from './fixedIncome'
 import { useCreateRedemption, useDeleteRedemption, useRedemptionPreview } from './fixedIncomeQueries'
 
 // Resgatar um aporte, no todo ou em parte (docs/renda-fixa-resgate.md, 6). A pessoa digita o valor bruto, como no banco; a prévia
@@ -35,7 +43,12 @@ function RedemptionForm({ deposit, onDone }: { deposit: Deposit; onDone: () => v
   const [picked, setPicked] = useState<string | null>(null)
   const [latest, setLatest] = useState<string | null>(null)
   const date = picked ?? (latest !== null && latest < today ? latest : today)
-  const [grossCents, setGrossCents] = useState(0)
+  // "Resgatar tudo" é um modo, não uma cópia do valor: enquanto a pessoa não digita, o valor acompanha o saldo da data escolhida.
+  // `balanceAt` é o último saldo que a API deu, com a data a que ele pertence.
+  const [typedCents, setTypedCents] = useState(0)
+  const [all, setAll] = useState(false)
+  const [balanceAt, setBalanceAt] = useState<{ date: string; cents: number } | null>(null)
+  const grossCents = allGross(all, balanceAt, date, typedCents)
   const [informNet, setInformNet] = useState(false)
   const [netCents, setNetCents] = useState(0)
   const [pickedAccount, setPickedAccount] = useState<string | null | undefined>(undefined)
@@ -55,6 +68,8 @@ function RedemptionForm({ deposit, onDone }: { deposit: Deposit; onDone: () => v
   const info = preview.data
   if (info?.latestDate && info.latestDate !== latest) setLatest(info.latestDate)
   const balance = info?.balanceCents ?? null
+  if (info && balance !== null && info.date === wanted.date && (balanceAt?.date !== info.date || balanceAt.cents !== balance))
+    setBalanceAt({ date: info.date, cents: balance })
   const redemption = info?.redemption ?? null
   // O que a pessoa está digitando ainda não chegou à prévia: não mostra o resultado de um valor antigo.
   const typing = wanted.date !== date || wanted.grossCents !== (grossCents > 0 ? grossCents : null)
@@ -113,7 +128,10 @@ function RedemptionForm({ deposit, onDone }: { deposit: Deposit; onDone: () => v
         <div className="flex flex-col gap-2">
           <AmountField
             value={grossCents}
-            onChange={setGrossCents}
+            onChange={(cents) => {
+              setAll(false)
+              setTypedCents(cents)
+            }}
             income={false}
             label="Valor bruto resgatado"
             compact
@@ -121,15 +139,9 @@ function RedemptionForm({ deposit, onDone }: { deposit: Deposit; onDone: () => v
           />
           <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
             <span>{balance !== null ? `Saldo bruto em ${formatShortDate(wanted.date)}: ${formatCents(balance)}` : ' '}</span>
-            {balance !== null && balance > 0 && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="-mr-2 rounded-full"
-                onClick={() => setGrossCents(balance)}
-              >
-                Resgatar tudo
+            {balance !== null && balance > 0 && !all && (
+              <Button type="button" variant="ghost" size="sm" className="-mr-2 rounded-full" onClick={() => setAll(true)}>
+                {nearlyAll(grossCents, balance) ? `Resgatar tudo (${formatCents(balance)})` : 'Resgatar tudo'}
               </Button>
             )}
           </div>

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  allGross,
+  nearlyAll,
   defaultIndexPercentE4,
   balanceLabels,
   depositCountLabel,
@@ -587,5 +589,33 @@ describe('conta onde o dinheiro cai', () => {
     expect(
       redemptionDestination({ transferPairId: 'p', fromAccountId: 'x', investmentAccountId: 'inv' }, [accounts[3], accounts[4]]),
     ).toBeNull()
+  })
+})
+
+describe('resgatar tudo como modo', () => {
+  const balanceAt = { date: '2025-09-01', cents: 116453 }
+
+  it('segue o saldo da data escolhida enquanto a pessoa não digita', () => {
+    expect(allGross(true, balanceAt, '2025-09-01', 0)).toBe(116453)
+  })
+
+  it('não usa o saldo de outra data (o valor velho depois de trocar a data)', () => {
+    expect(allGross(true, balanceAt, '2025-09-12', 0)).toBe(0)
+    expect(allGross(true, null, '2025-09-01', 0)).toBe(0)
+  })
+
+  it('fora do modo vale o que foi digitado', () => {
+    expect(allGross(false, balanceAt, '2025-09-12', 5000)).toBe(5000)
+  })
+})
+
+describe('nearlyAll', () => {
+  it('oferece tudo a até 5 centavos do saldo, e só abaixo dele', () => {
+    expect(nearlyAll(116450, 116453)).toBe(true)
+    expect(nearlyAll(116448, 116453)).toBe(true)
+    expect(nearlyAll(116447, 116453)).toBe(false)
+    expect(nearlyAll(116453, 116453)).toBe(false)
+    expect(nearlyAll(116454, 116453)).toBe(false)
+    expect(nearlyAll(0, 3)).toBe(false)
   })
 })

@@ -7,6 +7,8 @@ export type GoalChanges = Schemas['SaveGoalRequest']
 export type NewDeposit = Schemas['SaveDepositCreateRequest']
 export type DepositChanges = Schemas['SaveDepositUpdateRequest']
 export type NewRedemption = Schemas['RedemptionsCreateRequest']
+export type NewRedemptionBatch = Schemas['RedemptionBatchesCreateRequest']
+export type RedemptionBatchUndo = Schemas['RedemptionBatchesUndoRequest']
 
 export function useGoals() {
   return useQuery({
@@ -168,6 +170,48 @@ export const useRestoreRedemption = () =>
       const { error, response } = await api.POST('/fixed-income-deposits/{id}/redemptions/{redemptionId}/restore', {
         params: { path: { id: depositId, redemptionId: id } },
       })
+      if (!response.ok) throw new ApiError(response.status, error)
+    },
+    { money: true },
+  )
+
+// Resgate em lote (docs/renda-fixa-resgate.md, 15): a prévia da divisão entre os aportes, criar o lote e desfazê-lo. Mexem em saldos, no
+// Investido e nos lançamentos, então invalidam também o dinheiro. Com `all`, o valor não vai: a API resgata o saldo inteiro dos aportes.
+export function useRedemptionBatchPreview(
+  query: { depositIds: string[]; date: string; all: boolean; grossCents: number | null; netCents: number | null },
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: [...fixedIncomeKey, 'redemption-batch-preview', query.depositIds, query.date, query.all, query.grossCents, query.netCents],
+    enabled: enabled && query.depositIds.length > 0,
+    placeholderData: keepPreviousData,
+    queryFn: async () =>
+      unwrap(
+        await api.GET('/fixed-income-deposits/redemptions/batch/preview', {
+          params: {
+            query: {
+              depositIds: query.depositIds,
+              date: query.date,
+              all: query.all || undefined,
+              grossCents: query.all ? undefined : (query.grossCents ?? undefined),
+              netCents: query.netCents ?? undefined,
+            },
+          },
+        }),
+      ),
+  })
+}
+
+export const useCreateRedemptionBatch = () =>
+  useFixedIncomeMutation(
+    async (body: NewRedemptionBatch) => unwrap(await api.POST('/fixed-income-deposits/redemptions/batch', { body })),
+    { money: true },
+  )
+
+export const useUndoRedemptionBatch = () =>
+  useFixedIncomeMutation(
+    async (body: RedemptionBatchUndo) => {
+      const { error, response } = await api.POST('/fixed-income-deposits/redemptions/batch/undo', { body })
       if (!response.ok) throw new ApiError(response.status, error)
     },
     { money: true },
