@@ -6,6 +6,7 @@ import { PrismLogo } from '@/components/brand/PrismLogo'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useFixedIncomeBalances } from '@/features/investments/fixedIncomeQueries'
 import { useHoldings } from '@/features/investments/queries'
 import { seriesCount } from '@/features/recurrences/listing'
 import { useRecurrences } from '@/features/recurrences/queries'
@@ -18,6 +19,8 @@ import { useAccountBalances, useAccounts, type Account, type AccountBalance } fr
 export function AccountsPage() {
   const accounts = useAccounts()
   const balances = useAccountBalances()
+  // Rendimento da renda fixa por conta de investimento (docs/renda-fixa.md, D20): a conta de investimento mostra "Investido".
+  const yields = new Map((useFixedIncomeBalances().data?.byAccount ?? []).map((y) => [y.accountId, y.grossYieldCents]))
   const navigate = useNavigate()
   const [creating, setCreating] = useState(false)
   // Lançamentos que se repetem (docs/fase-2.md, 2.14): a entrada da tela, só quando já há alguma série.
@@ -64,7 +67,7 @@ export function AccountsPage() {
       {sorted.length > 0 && (
         <ul className="surface overflow-hidden rounded-2xl">
           {sorted.map((account) => (
-            <AccountRow key={account.id} account={account} balance={balances.data?.get(account.id)} />
+            <AccountRow key={account.id} account={account} balance={balances.data?.get(account.id)} yieldCents={yields.get(account.id) ?? 0} />
           ))}
         </ul>
       )}
@@ -112,7 +115,7 @@ export function AccountsPage() {
   )
 }
 
-function AccountRow({ account, balance }: { account: Account; balance: AccountBalance | undefined }) {
+function AccountRow({ account, balance, yieldCents }: { account: Account; balance: AccountBalance | undefined; yieldCents: number }) {
   // Cartão: fechamento e vencimento, sem repetir "Cartão" (o "Disponível" e o logo já dizem). Curto
   // e com espaço inseparável dentro de cada dado, para a linha quebrar só entre eles em 320px.
   const details =
@@ -139,8 +142,11 @@ function AccountRow({ account, balance }: { account: Account; balance: AccountBa
           </p>
           {/* Quebra em vez de cortar: fechamento e vencimento são o que se procura aqui. */}
           <p className="text-sm text-pretty text-muted-foreground">{details.join(' · ')}</p>
+          {account.type === 'Investment' && yieldCents > 0 && (
+            <p className="text-xs text-pretty text-muted-foreground">{`Com\u00a0${formatCents(yieldCents)} de rendimento`}</p>
+          )}
         </div>
-        {balance && <BalanceFigure account={account} balance={balance} />}
+        {balance && <BalanceFigure account={account} balance={balance} yieldCents={yieldCents} />}
         <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
       </Link>
     </li>
@@ -148,10 +154,13 @@ function AccountRow({ account, balance }: { account: Account; balance: AccountBa
 }
 
 // Conta: saldo atual. Cartão: limite disponível, ou o que falta pagar quando não há limite.
-function BalanceFigure({ account, balance }: { account: Account; balance: AccountBalance }) {
+// Conta de investimento: "Investido", o principal mais o rendimento bruto da renda fixa que entrou por ela (o saldo da conta, na tela dela,
+// segue sendo só o principal e bate com o extrato).
+function BalanceFigure({ account, balance, yieldCents }: { account: Account; balance: AccountBalance; yieldCents: number }) {
+  const invested = account.type === 'Investment'
   const [label, cents] =
     account.type !== 'CreditCard'
-      ? ['Saldo', balance.balanceCents]
+      ? [invested ? 'Investido' : 'Saldo', invested && balance.balanceCents != null ? balance.balanceCents + yieldCents : balance.balanceCents]
       : balance.availableCreditCents != null
         ? ['Disponível', balance.availableCreditCents]
         : ['A pagar', balance.owedCents]

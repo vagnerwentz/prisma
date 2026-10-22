@@ -117,7 +117,7 @@ A diferença "só oficial × projetado" é de uns R$ 3 neste caso: cresce com ca
 | **R.19** | Domínio do cálculo: `IpcaPlus`, fator de inflação, IPCA+0, `Series` | `FixedIncomeEngine`, `Remuneration`, `AnnualRate`, novo tipo no namespace do calendário, teste de arquitetura | Vetores independentes, oráculo em BigInteger, mutações provadas e o CDI inalterado |
 | **R.20** | API: saldo, evolução, Carteira, estado do IPCA | `GetBalances`, `GetEvolution`, `SaveDeposit`, `Responses`, migration (constraint) | Testes de API com o Postgres real; regressão do CDI |
 | **R.21** | Tela e documentos: chip, campo, avisos, `gen:api` | `DepositSheet`, `fixedIncome.ts`, `GoalsTab` | Conferida em 320/390/1280, claro e escuro |
-| **Depois** | Tesouro IPCA+, projeção, resgates | — | — |
+| **Depois** | Tesouro IPCA+, projeção (os resgates já foram feitos: `docs/renda-fixa-resgate.md`) | — | — |
 
 Cada etapa segue o protocolo (um estágio por vez, teste junto, mutação provada, documentação em dia, sem commit sem pedido).
 

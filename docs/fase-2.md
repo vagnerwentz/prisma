@@ -70,7 +70,7 @@ quais faturas vêm pela frente.
 
 - **Próxima fatura de cada cartão ativo:** a primeira não paga que vence hoje ou depois, com total
   maior que zero. Mostra cartão, mês, vencimento e total; no topo, a soma de todas.
-- **Em contas:** soma dos saldos atuais das contas ativas que não são cartão (regra 2.5 da Fase 1).
+- **Em contas:** soma dos saldos atuais das contas ativas que não são cartão (regra 2.5 da Fase 1). **Desde a R.33 (2026-10-21, `docs/renda-fixa.md`, D20)**, havendo conta de investimento ativa, o bloco mostra **Disponível** (corrente e carteira) e **Investido** (contas de investimento, com o rendimento bruto da renda fixa que entrou por elas); sem conta de investimento, é a soma de sempre. O saldo da conta não muda.
   Reaproveita `GET /accounts/balances`.
 - Os dois blocos olham para **hoje** (`IClock.Today`), não para o mês escolhido no Resumo.
 - O total da fatura é o mesmo da tela do cartão (compras ativas; o pagamento não conta). Fatura

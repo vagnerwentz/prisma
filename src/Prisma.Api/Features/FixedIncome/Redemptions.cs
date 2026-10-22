@@ -86,7 +86,7 @@ public static class Redemptions
 
             if (req.Funding is { } funding)
             {
-                var legs = await Fund(deposit, created.Value, funding, ct);
+                var legs = await Fund(db, deposit, created.Value, funding, ct);
                 if (!legs.IsSuccess)
                     return legs.Error;
 
@@ -118,8 +118,8 @@ public static class Redemptions
 
         // As pontas do resgate numa conta (docs/renda-fixa-resgate.md, 5): só um aporte que saiu de uma conta pelo app sabe de qual conta de
         // investimento o principal volta. Sem isso (aporte só acompanhado, ou com as pontas apagadas), a conta é recusada.
-        private async Task<Result<RedemptionLegs>> Fund(
-            FixedIncomeDeposit deposit, FixedIncomeRedemption redemption, FundingRequest funding, CancellationToken ct)
+        internal static async Task<Result<RedemptionLegs>> Fund(
+            AppDbContext db, FixedIncomeDeposit deposit, FixedIncomeRedemption redemption, FundingRequest funding, CancellationToken ct)
         {
             var depositLegs = deposit.TransferPairId is { } pair ? await Fundings.LiveLegs(db, pair, ct) : [];
             var investmentId = depositLegs.Count == 2

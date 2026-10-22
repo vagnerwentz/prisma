@@ -24,7 +24,10 @@ reality, so the monthly numbers match your bank account instead of your receipts
 
 ## What it does
 
-- **Accounts:** checking, cash, investments and credit cards, with balances.
+- **Accounts:** checking, cash, investments and credit cards, with balances. The summary splits what is **available**
+  (checking and cash) from what is **invested** (investment accounts plus the fixed-income yield that came in through
+  them), so money moved to an investment never reads as spendable cash; the account's own balance stays the principal,
+  matching the statement.
 - **Credit card statements:** each purchase lands on the right statement from the card's closing and
   due days; statement dates can be adjusted when the bank moves them.
 - **Aligned with the bank:** a purchase the bank posted to the next statement can be moved there
@@ -66,6 +69,9 @@ reality, so the monthly numbers match your bank account instead of your receipts
   A deposit can be redeemed in full or in part: the principal and the yield come out in proportion, the tax is
   calculated (or taken from the bank statement, if you type it in), and the money can land in one of your accounts as a
   transfer of the principal plus income for the net yield. Redeemed deposits are listed apart and leave the balance.
+  Several deposits can be redeemed in one go, the way a bank statement shows it: type the gross amount and it is split
+  from the oldest deposit to the newest (untick a deposit and the rest is redistributed); each deposit keeps its own
+  redemption, they are all created together or not at all, and one undo reverts the whole batch.
   Nothing is projected: it always says up to which day the rates go, and warns when they are late or incomplete.
   In the portfolio it is one group, "Fixed income", weighted by the amount still invested, with one line per goal.
 - **Cash-flow dashboard:** what came in, what went out and what was invested each month, by

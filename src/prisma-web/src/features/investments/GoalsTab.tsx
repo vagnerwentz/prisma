@@ -5,11 +5,13 @@ import { BottomSheet } from '@/components/BottomSheet'
 import { StaleFade } from '@/components/StaleFade'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatShortDate, todayInSaoPaulo } from '@/lib/dates'
 import { formatCents } from '@/lib/money'
 import { cn } from '@/lib/utils'
+import { BatchRedemptionSheet } from './BatchRedemptionSheet'
 import { DepositSheet, type DepositView } from './DepositSheet'
 import {
   balanceLabels,
@@ -60,6 +62,7 @@ import {
 } from './fixedIncomeQueries'
 import { GoalSheet, type GoalView } from './GoalSheet'
 import { RedemptionSheet } from './RedemptionSheet'
+import { batchCountLabel, selectableDeposits, toggleAll, toggleId } from './redemptionBatch'
 
 const EvolutionChart = lazy(() => import('./EvolutionChart'))
 
@@ -348,12 +351,23 @@ function GoalDetail({
   const range = periodRange(period, today, first)
   const evolution = useFixedIncomeEvolution(scope, range.from, range.step)
   const [asking, setAsking] = useState(false)
+  // Modo "Selecionar" (docs/renda-fixa-resgate.md, 15.2): marca aportes da lista para resgatar de uma vez.
+  const [selecting, setSelecting] = useState(false)
+  const [selected, setSelected] = useState<string[]>([])
+  const [batching, setBatching] = useState<Deposit[] | null>(null)
   const remove = useDeleteGoal()
   const restore = useRestoreGoal()
 
   const principal = balance?.principalCents ?? goal?.principalCents ?? 0
   const shown = balance ? shownBalance(balance, mode) : principal
   const hasDeposits = (deposits.data?.length ?? 0) > 0
+  const selectable = selectableDeposits(open, balanceOf)
+  // Só os que ainda podem ser resgatados contam (um aporte pode ter sido resgatado por inteiro depois de marcado).
+  const picked = selectable.filter((d) => selected.includes(d.id))
+  const stopSelecting = () => {
+    setSelecting(false)
+    setSelected([])
+  }
 
   const deleteGoal = async (choice?: 'keep' | 'delete') => {
     if (!goal) return
@@ -444,10 +458,45 @@ function GoalDetail({
       <section className="flex flex-col gap-2">
         <div className="flex items-center justify-between px-1">
           <h3 className="text-sm font-medium text-foreground/75">Aportes</h3>
-          <Button size="sm" className="rounded-full" onClick={() => onDeposit({ kind: 'new', goalId: goal?.id ?? null })}>
-            <Plus /> Aporte
-          </Button>
+          <div className="flex items-center gap-1">
+            {selecting ? (
+              <Button variant="ghost" size="sm" className="rounded-full" onClick={stopSelecting}>
+                Cancelar
+              </Button>
+            ) : (
+              <>
+                {selectable.length > 1 && (
+                  <Button variant="ghost" size="sm" className="rounded-full" onClick={() => setSelecting(true)}>
+                    Selecionar
+                  </Button>
+                )}
+                <Button size="sm" className="rounded-full" onClick={() => onDeposit({ kind: 'new', goalId: goal?.id ?? null })}>
+                  <Plus /> Aporte
+                </Button>
+              </>
+            )}
+          </div>
         </div>
+        {selecting && (
+          <div className="surface flex flex-col gap-2 rounded-2xl p-3">
+            <div className="flex items-center justify-between gap-2 px-1">
+              <span className="text-sm text-muted-foreground" aria-live="polite">
+                {picked.length === 0 ? 'Toque nos aportes para resgatar de uma vez.' : `${batchCountLabel(picked.length)} selecionado${picked.length === 1 ? '' : 's'}`}
+              </span>
+              <Button variant="ghost" size="sm" className="-mr-1 rounded-full" onClick={() => setSelected(toggleAll(picked.map((d) => d.id), selectable))}>
+                {picked.length === selectable.length ? 'Limpar' : 'Selecionar todos'}
+              </Button>
+            </div>
+            <Button
+              data-tint="series"
+              className="tinted-action h-11 rounded-xl text-sm"
+              disabled={picked.length === 0}
+              onClick={() => setBatching(picked)}
+            >
+              Resgatar {picked.length > 0 ? batchCountLabel(picked.length) : 'selecionados'}
+            </Button>
+          </div>
+        )}
         {deposits.isPending ? (
           <Skeleton className="h-24 w-full rounded-2xl" />
         ) : !hasDeposits ? (
@@ -460,6 +509,11 @@ function GoalDetail({
                 deposit={d}
                 balance={balanceOf.get(d.id)}
                 mode={mode}
+                selection={
+                  selecting
+                    ? { selectable: canRedeem(balanceOf.get(d.id)), checked: selected.includes(d.id), onToggle: () => setSelected((ids) => toggleId(ids, d.id)) }
+                    : undefined
+                }
                 onEdit={() => onDeposit({ kind: 'edit', deposit: d })}
                 onRedeem={() => onRedeem(d)}
               />
@@ -510,6 +564,15 @@ function GoalDetail({
         </Button>
       )}
 
+      <BatchRedemptionSheet
+        deposits={batching}
+        onClose={() => setBatching(null)}
+        onDone={() => {
+          setBatching(null)
+          stopSelecting()
+        }}
+      />
+
       <BottomSheet open={asking} onClose={() => setAsking(false)}>
         <header className="px-4 pt-2 pb-3">
           <SheetTitle className="font-display text-2xl font-normal">Excluir "{goal?.name}"</SheetTitle>
@@ -538,12 +601,15 @@ function DepositRow({
   deposit: d,
   balance: b,
   mode,
+  selection,
   onEdit,
   onRedeem,
 }: {
   deposit: Deposit
   balance: DepositBalance | undefined
   mode: ValueMode
+  // No modo "Selecionar": a linha marca em vez de abrir a edição, e o aporte sem principal não se marca.
+  selection?: { selectable: boolean; checked: boolean; onToggle: () => void }
   onEdit: () => void
   onRedeem: () => void
 }) {
@@ -551,11 +617,20 @@ function DepositRow({
   const yieldCents = b && !isFullyRedeemed(b) ? depositYield(b, mode) : null
   return (
     <li>
-      <button
-        type="button"
-        onClick={onEdit}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-muted/70"
-      >
+      {selection ? (
+        <label
+          className={cn(
+            'flex w-full items-center gap-3 px-4 py-3 text-left transition-colors',
+            selection.selectable ? 'cursor-pointer active:bg-muted/70' : 'opacity-60',
+          )}
+        >
+          <Checkbox
+            checked={selection.checked}
+            disabled={!selection.selectable}
+            onCheckedChange={selection.onToggle}
+            aria-label={`Aporte de ${formatShortDate(d.depositDate)}`}
+            className="shrink-0"
+          />
         <span className="min-w-0 flex-1">
           <span className="block font-medium tabular-nums">{formatCents(d.amountCents)}</span>
           <span className="block text-sm text-muted-foreground">
@@ -581,8 +656,41 @@ function DepositRow({
         <span className="text-spectrum shrink-0 text-sm font-medium tabular-nums">
           {yieldCents !== null ? `+${formatCents(yieldCents)}` : ''}
         </span>
-      </button>
-      {canRedeem(b) && (
+        </label>
+      ) : (
+        <button
+          type="button"
+          onClick={onEdit}
+          className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-muted/70"
+        >
+        <span className="min-w-0 flex-1">
+          <span className="block font-medium tabular-nums">{formatCents(d.amountCents)}</span>
+          <span className="block text-sm text-muted-foreground">
+            {formatShortDate(d.depositDate)} · {depositTitle(d.productKind, d.indexKind, d.rateE4)}
+            {d.maturityDate && ` · vence ${formatShortDate(d.maturityDate)}`}
+            {d.funding && ' · saiu de uma conta'}
+          </span>
+          {b?.redeemed && (
+            <span className="block text-xs text-muted-foreground">{depositRedeemedNote(b.redeemed, b.principalCents)}</span>
+          )}
+          {b?.redeemed && isFullyRedeemed(b) && (
+            <span className="block text-xs text-muted-foreground">
+              Recebido {formatCents(b.redeemed.netCents)} · imposto pago {formatCents(b.redeemed.taxCents)}
+            </span>
+          )}
+          {mode === 'net' && b?.tax && !isFullyRedeemed(b) && (
+            <span className="block text-xs text-muted-foreground">
+              Imposto estimado {formatCents(b.tax.totalCents)} · {depositTaxNote(b.tax)}
+            </span>
+          )}
+          {note && <span className="block text-xs text-muted-foreground">{note}</span>}
+        </span>
+        <span className="text-spectrum shrink-0 text-sm font-medium tabular-nums">
+          {yieldCents !== null ? `+${formatCents(yieldCents)}` : ''}
+        </span>
+        </button>
+      )}
+      {canRedeem(b) && !selection && (
         <div className="px-4 pb-3">
           <Button data-tint="series" className="tinted-action h-9 rounded-xl px-4 text-sm" onClick={onRedeem}>
             Resgatar

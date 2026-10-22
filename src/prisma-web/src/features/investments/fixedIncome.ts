@@ -318,6 +318,20 @@ export function redemptionTaxNote(redemption: Redemption): string {
   return parts.length > 0 ? parts.join(' · ') : 'Sem imposto'
 }
 
+// O valor do resgate no modo "Resgatar tudo": o saldo da data escolhida, se a API já o deu para essa data (um saldo de outra data não
+// vale: é o que deixava o valor velho depois de trocar a data). Fora do modo, o que a pessoa digitou. Sem saldo da data, zero.
+export function allGross(all: boolean, balanceAt: { date: string; cents: number } | null, date: string, typedCents: number): number {
+  if (!all) return typedCents
+  return balanceAt !== null && balanceAt.date === date ? balanceAt.cents : 0
+}
+
+// Valor digitado a poucos centavos do saldo (o extrato do banco difere do app em centavos): oferece "tudo" para não deixar centavos soltos.
+export const NEARLY_ALL_CENTS = 5
+export function nearlyAll(grossCents: number, balanceCents: number): boolean {
+  const gap = balanceCents - grossCents
+  return grossCents > 0 && gap > 0 && gap <= NEARLY_ALL_CENTS
+}
+
 // As linhas da prévia, como seriam gravadas.
 export function previewRows(redemption: Redemption): { label: string; cents: number }[] {
   return [

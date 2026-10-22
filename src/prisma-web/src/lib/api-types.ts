@@ -4608,6 +4608,195 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/fixed-income-deposits/redemptions/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RedemptionBatchesCreateRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BatchResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fixed-income-deposits/redemptions/batch/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    depositIds: string[];
+                    date?: string;
+                    all?: boolean;
+                    grossCents?: number;
+                    netCents?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BatchPreviewResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fixed-income-deposits/redemptions/batch/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RedemptionBatchesUndoRequest"];
+                };
+            };
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/fixed-income/balances": {
         parameters: {
             query?: never;
@@ -5047,6 +5236,14 @@ export interface components {
         };
         /** @enum {unknown} */
         AccountType: "Checking" | "CreditCard" | "Cash" | "Investment";
+        AccountYield: {
+            /** Format: uuid */
+            accountId: string;
+            /** Format: int32 */
+            depositCount: number;
+            /** Format: int64 */
+            grossYieldCents: number;
+        };
         AddHoldingRequest: {
             /** Format: uuid */
             assetId: string;
@@ -5084,6 +5281,45 @@ export interface components {
             goals: components["schemas"]["GoalBalance"][];
             unassigned: components["schemas"]["LooseBalance"];
             total: components["schemas"]["GroupBalance"];
+            byAccount: components["schemas"]["AccountYield"][];
+        };
+        BatchLine: {
+            /** Format: uuid */
+            depositId: string;
+            /** Format: int64 */
+            balanceCents: null | number;
+            /** Format: int64 */
+            remainingPrincipalCents: null | number;
+            skipped: null | string;
+            redemption: null | components["schemas"]["RedemptionResponse"];
+        };
+        BatchPreviewResponse: {
+            /** Format: date */
+            date: string;
+            /** Format: int64 */
+            totalBalanceCents: number;
+            lines: components["schemas"]["BatchLine"][];
+            totals: null | components["schemas"]["BatchTotals"];
+            problem: null | string;
+            problemCode: null | string;
+            /** Format: date */
+            latestDate?: null | string;
+        };
+        BatchResponse: {
+            redemptions: components["schemas"]["RedemptionResponse"][];
+            totals: components["schemas"]["BatchTotals"];
+        };
+        BatchTotals: {
+            /** Format: int64 */
+            grossCents: number;
+            /** Format: int64 */
+            principalCents: number;
+            /** Format: int64 */
+            yieldCents: number;
+            /** Format: int64 */
+            taxCents: number;
+            /** Format: int64 */
+            netCents: number;
         };
         CategoryResponse: {
             /** Format: uuid */
@@ -5916,6 +6152,30 @@ export interface components {
             amountVaries: boolean;
             /** Format: date */
             nextTransactionDate: null | string;
+        };
+        RedemptionBatchesCreateRequest: {
+            /** Format: uuid */
+            clientRequestId: string;
+            depositIds: string[];
+            /** Format: date */
+            redemptionDate: string;
+            /** @default false */
+            all: boolean;
+            /** Format: int64 */
+            grossCents?: null | number;
+            /** Format: int64 */
+            netCents?: null | number;
+            funding?: null | components["schemas"]["RedemptionsFundingRequest"];
+        };
+        RedemptionBatchesUndoItem: {
+            /** Format: uuid */
+            depositId: string;
+            /** Format: uuid */
+            redemptionId: string;
+        };
+        RedemptionBatchesUndoRequest: {
+            items: components["schemas"]["RedemptionBatchesUndoItem"][];
+            transfer?: null | string;
         };
         RedemptionFundingResponse: {
             /** Format: uuid */

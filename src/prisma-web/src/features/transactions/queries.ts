@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, unwrap, type Schemas } from '@/lib/api'
 import type { paths } from '@/lib/api-types'
-import { balancesKey, dashboardKey, holdingsKey, payoutsKey, portfolioKey, recurrencesKey, statementsKey, transactionsKey } from '@/lib/queryKeys'
+import { balancesKey, dashboardKey, fixedIncomeKey, holdingsKey, payoutsKey, portfolioKey, recurrencesKey, statementsKey, transactionsKey } from '@/lib/queryKeys'
 
 export type Transaction = Schemas['TransactionResponse']
 
@@ -58,6 +58,8 @@ export function invalidateMoney(queryClient: ReturnType<typeof useQueryClient>) 
     queryClient.invalidateQueries({ queryKey: payoutsKey }),
     queryClient.invalidateQueries({ queryKey: holdingsKey }),
     queryClient.invalidateQueries({ queryKey: portfolioKey }),
+    // O rendimento por conta de investimento (`byAccount`) depende das transferências ligadas aos aportes.
+    queryClient.invalidateQueries({ queryKey: fixedIncomeKey }),
   ])
 }
 

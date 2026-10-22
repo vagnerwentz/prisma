@@ -273,6 +273,13 @@ public static partial class AppLog
     [LoggerMessage(4317, LogLevel.Information, "Fixed income redemption {RedemptionId} of deposit {DepositId} restored")]
     public static partial void RedemptionRestored(this ILogger logger, Guid redemptionId, Guid depositId);
 
+    // O lote cria um resgate por aporte de uma vez; só a quantidade vai ao log, os ids dos resgates já saem nos eventos acima.
+    [LoggerMessage(4319, LogLevel.Information, "Fixed income redemption batch of {Count} redemptions added")]
+    public static partial void RedemptionBatchAdded(this ILogger logger, int count);
+
+    [LoggerMessage(4320, LogLevel.Information, "Fixed income redemption batch of {Count} redemptions undone")]
+    public static partial void RedemptionBatchUndone(this ILogger logger, int count);
+
     [LoggerMessage(4100, LogLevel.Information, "Holding {HoldingId} of asset {AssetId} added to the portfolio")]
     public static partial void HoldingAdded(this ILogger logger, Guid holdingId, Guid assetId);
 
