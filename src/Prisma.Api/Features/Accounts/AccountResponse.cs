@@ -11,11 +11,13 @@ public sealed record AccountResponse(
     int? ClosingDay,
     int? DueDay,
     long? CreditLimitCents,
-    bool IsActive)
+    bool IsActive,
+    // Acompanhar o caixa (I.9, docs/patrimonio.md): só a conta de investimento.
+    bool TracksCash = false)
 {
     // Projeção usada nas consultas (traduzida para SQL) e, compilada, após os comandos.
     public static readonly Expression<Func<Account, AccountResponse>> Projection = a => new AccountResponse(
-        a.Id, a.Name, a.Type, a.InitialBalanceCents, a.ClosingDay, a.DueDay, a.CreditLimitCents, a.IsActive);
+        a.Id, a.Name, a.Type, a.InitialBalanceCents, a.ClosingDay, a.DueDay, a.CreditLimitCents, a.IsActive, a.TracksCash);
 
     private static readonly Func<Account, AccountResponse> Compiled = Projection.Compile();
 

@@ -264,4 +264,74 @@ public sealed class TradeNoteTests
                 return !note.IsSuccess || note.Value.AllocateCosts().Sum() == fees + brokerage;
             });
     }
+
+    // --- Caixa da corretora (docs/investimentos.md, "I.8"): o líquido que a corretora liquida ---
+
+    // Positivo: o dinheiro sai da conta (compra). Negativo: entra (venda).
+    [Fact]
+    public void Net_cash_of_a_buy_is_the_gross_plus_the_costs()
+    {
+        // O caso do dono: 100 PETR4 × R$ 57,00 e R$ 49,70 de custos.
+        var note = Note([Buy(Itub3, 100, 5700)], fees: 4970);
+
+        note.NetCashCents().ShouldBe(574970);
+    }
+
+    [Fact]
+    public void Net_cash_of_a_sell_is_negative_and_the_costs_reduce_what_comes_in()
+    {
+        var note = Note([Sell(Itub3, 100, 6000)], fees: 5000);
+
+        note.NetCashCents().ShouldBe(-595000);
+    }
+
+    [Fact]
+    public void Net_cash_of_a_note_with_buy_and_sell_is_what_the_broker_settles_in_the_end()
+    {
+        // Compra R$ 1.000,00 e venda R$ 1.500,00, custos R$ 10,00 divididos pelo valor (4,00 e 6,00):
+        // (1.000,00 + 4,00) − (1.500,00 − 6,00) = −490,00.
+        var note = Note([Buy(Itub3, 10, 10000), Sell(Bbse3, 10, 15000)], fees: 1000);
+
+        note.NetCashCents().ShouldBe(-49000);
+    }
+
+    [Fact]
+    public void Net_cash_is_zero_when_buy_and_sell_cancel_out()
+    {
+        var note = Note([Buy(Itub3, 10, 10000), Sell(Bbse3, 10, 10000)]);
+
+        note.NetCashCents().ShouldBe(0);
+    }
+
+    [Fact]
+    public void Brokerage_fee_is_a_cost_like_the_others()
+    {
+        var note = Note([Buy(Itub3, 100, 2000)], fees: 300, brokerage: 500);
+
+        note.NetCashCents().ShouldBe(200800);
+    }
+
+    // Os custos entram na compra e saem da venda: no líquido, compras − vendas + todos os custos, para qualquer nota.
+    [Fact]
+    public void Net_cash_is_buys_minus_sells_plus_all_the_costs()
+    {
+        var trade = Gen.Select(Gen.Int[1, 500], Gen.Int[1, 50000], Gen.Bool, (quantity, price, isBuy) =>
+            isBuy ? Buy(Guid.CreateVersion7(), quantity, price) : Sell(Guid.CreateVersion7(), quantity, price));
+
+        Gen.Select(trade.List[1, 6], Gen.Int[0, 100000], Gen.Int[0, 100000], (trades, fees, brokerage) => (trades, fees, brokerage))
+            .Sample(input =>
+            {
+                var note = Note([.. input.trades], input.fees, input.brokerage);
+                var buys = input.trades.Where(t => t.Side == TradeSide.Buy).Sum(t => t.GrossCents);
+                var sells = input.trades.Where(t => t.Side == TradeSide.Sell).Sum(t => t.GrossCents);
+
+                // A corretagem só vai para quem a corretora cobra (ação); sem ação, é recusada na criação.
+                var hasStock = input.trades.Any(t => t.BrokerageKind == AssetKind.Stock);
+                var costs = input.fees + (hasStock ? input.brokerage : 0);
+                if (!hasStock && input.brokerage > 0)
+                    return true;
+
+                return note.NetCashCents() == buys - sells + costs;
+            });
+    }
 }

@@ -124,7 +124,7 @@ function Overview({ summary, monthName, monthParam }: { summary: MonthlySummary;
           </Button>
         </div>
       ) : (
-        // Celular: Entrou e Saiu lado a lado, Investido embaixo em linha. A partir de 640px, três colunas.
+        // Celular: Entrou e Saiu lado a lado, Aportado (o fluxo do mês: aportes menos resgates, I.9) embaixo em linha. A partir de 640px, três colunas.
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <Figure icon={<HandCoins />} tint={incomeTint} label="Entrou">
             {incomeCents > 0 ? <span className="text-spectrum">{formatCents(incomeCents)}</span> : formatCents(0)}
@@ -135,7 +135,7 @@ function Overview({ summary, monthName, monthParam }: { summary: MonthlySummary;
           <Figure
             icon={<Sprout />}
             tint={investedTint}
-            label="Investido"
+            label="Aportado"
             hint={investedCents < 0 ? 'resgatou mais do que aplicou' : undefined}
             wide
           >

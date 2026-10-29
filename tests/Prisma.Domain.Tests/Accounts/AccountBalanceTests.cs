@@ -27,6 +27,8 @@ public sealed class AccountBalanceTests
     [InlineData(TransactionType.Refund, null, 5000)]
     [InlineData(TransactionType.Transfer, TransferDirection.In, 5000)]
     [InlineData(TransactionType.Transfer, TransferDirection.Out, -5000)]
+    [InlineData(TransactionType.TradeSettlement, TransferDirection.Out, -5000)] // compra pela nota (I.8)
+    [InlineData(TransactionType.TradeSettlement, TransferDirection.In, 5000)]   // venda pela nota
     public void Each_kind_of_transaction_moves_the_balance_in_its_direction(
         TransactionType type, TransferDirection? direction, long expectedChange)
     {
@@ -98,5 +100,30 @@ public sealed class AccountBalanceTests
     public void Without_a_limit_there_is_no_available_credit()
     {
         CreditCardBalance.Of(null, 30000).ShouldBe(new CreditCardBalance(30000, null));
+    }
+
+    [Fact]
+    public void A_trade_settlement_without_direction_is_rejected() =>
+        Should.Throw<ArgumentException>(() => AccountBalance.Of(0, [Settled(TransactionType.TradeSettlement, 5000)]));
+
+    // O caso do dono: R$ 5.749,70 transferidos para a Íon e a compra de R$ 5.749,70 pela nota.
+    [Fact]
+    public void Transfer_in_and_trade_settlement_out_leave_the_broker_account_at_zero()
+    {
+        var balance = AccountBalance.Of(0,
+        [
+            Settled(TransactionType.Transfer, 574970, TransferDirection.In),
+            Settled(TransactionType.TradeSettlement, 574970, TransferDirection.Out),
+        ]);
+
+        balance.ShouldBe(new AccountBalance(0, 0));
+    }
+
+    [Fact]
+    public void A_trade_settlement_dated_in_the_future_only_moves_the_projected_balance()
+    {
+        var balance = AccountBalance.Of(100000, [Future(TransactionType.TradeSettlement, 40000, TransferDirection.Out)]);
+
+        balance.ShouldBe(new AccountBalance(100000, 60000));
     }
 }

@@ -1,5 +1,5 @@
 # Notas de corretagem e carteira (docs/investimentos.md, I.7b1). Exige sessão: rode antes o Login de auth.http. A nota
-# é digitada (o Prisma não importa nota) e não mexe em saldo de conta. Toda gravação confere a carteira inteira: uma
+# é digitada (o Prisma não importa nota) e só mexe em saldo de conta se levar settlementAccountId (I.8). Toda gravação confere a carteira inteira: uma
 # venda maior do que se tinha é recusada, e nada é gravado.
 
 ### Achar os ativos
@@ -23,6 +23,27 @@ Content-Type: application/json
     { "assetId": "<id do BBSE3>", "side": "Buy", "quantity": 20, "unitPriceCents": 3200 }
   ]
 }
+
+### Lançar vinculada à conta da corretora (I.8, docs/investimentos.md): o líquido da nota (compras + custos − vendas) sai da
+### conta (compra) ou entra nela (venda) como uma liquidação "TradeSettlement" no extrato, que não é receita nem despesa. A
+### nota manda: a liquidação não se edita nem se exclui à mão (409). Trocar settlementAccountId num PUT move a liquidação;
+### null (ou ausente) tira o vínculo. Conta de cartão é recusada (400); conta de outra pessoa é 404.
+POST {{baseUrl}}/trade-notes
+Content-Type: application/json
+
+{
+  "broker": "Íon",
+  "date": "2026-10-22",
+  "feesCents": 4970,
+  "brokerageFeeCents": 0,
+  "settlementAccountId": "<id da conta da Íon>",
+  "trades": [
+    { "assetId": "<id do PETR4>", "side": "Buy", "quantity": 100, "unitPriceCents": 5700 }
+  ]
+}
+
+### As liquidações no extrato
+GET {{baseUrl}}/transactions?type=TradeSettlement
 
 ### As notas, da mais recente para a mais antiga (take: só as últimas N)
 GET {{baseUrl}}/trade-notes?take=5

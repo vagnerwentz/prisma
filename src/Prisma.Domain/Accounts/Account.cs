@@ -14,12 +14,21 @@ public sealed class Account : Entity
     public long? CreditLimitCents { get; private set; }
     public bool IsActive { get; private set; }
 
+    // Acompanhar o caixa (I.9, docs/patrimonio.md): só a conta de investimento, desligado por padrão. Ligado, o caixa livre da corretora
+    // entra no patrimônio; desligado, o saldo da conta fica fora das somas do Resumo e só os ativos contam. O saldo e o extrato não mudam.
+    public bool TracksCash { get; private set; }
+
+    public const string TracksCashOnlyInvestment = "Só a conta de investimento acompanha o caixa.";
+
     public static Result<Account> Create(
         Guid userId, string name, AccountType type, long initialBalanceCents,
-        int? closingDay, int? dueDay, long? creditLimitCents)
+        int? closingDay, int? dueDay, long? creditLimitCents, bool tracksCash = false)
     {
         if (Validate(name, type, closingDay, dueDay, creditLimitCents) is { } error)
             return error;
+
+        if (tracksCash && type != AccountType.Investment)
+            return Invalid(TracksCashOnlyInvestment);
 
         return new Account
         {
@@ -31,16 +40,21 @@ public sealed class Account : Entity
             DueDay = dueDay,
             CreditLimitCents = creditLimitCents,
             IsActive = true,
+            TracksCash = tracksCash,
         };
     }
 
     // O tipo não é editável: trocar cartão por conta corrente invalidaria faturas e parcelas.
     public Result<Account> Update(
         string name, long initialBalanceCents, int? closingDay, int? dueDay,
-        long? creditLimitCents, bool isActive)
+        long? creditLimitCents, bool isActive, bool? tracksCash = null)
     {
         if (Validate(name, Type, closingDay, dueDay, creditLimitCents) is { } error)
             return error;
+
+        // Sem o campo (a tela aberta antes do deploy não o manda), a escolha da pessoa fica como estava.
+        if (tracksCash == true && Type != AccountType.Investment)
+            return Invalid(TracksCashOnlyInvestment);
 
         Name = name.Trim();
         InitialBalanceCents = initialBalanceCents;
@@ -48,6 +62,7 @@ public sealed class Account : Entity
         DueDay = dueDay;
         CreditLimitCents = creditLimitCents;
         IsActive = isActive;
+        TracksCash = tracksCash ?? TracksCash;
         return this;
     }
 

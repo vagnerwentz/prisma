@@ -120,10 +120,11 @@ export function usePositionHistory(assetId: string | null) {
   })
 }
 
-// A nota muda as notas, a carteira calculada e a lista de ativos (a nota põe os ativos nela). Saldos, não. O aviso de
-// ativo que chegou sai com a primeira nota dele.
+// A nota muda as notas, a carteira calculada e a lista de ativos (a nota põe os ativos nela). Vinculada a uma conta (I.8), muda também
+// saldos, lançamentos e o patrimônio (invalidateMoney). O aviso de ativo que chegou sai com a primeira nota dele.
 function invalidateTrades(queryClient: ReturnType<typeof useQueryClient>) {
   return Promise.all([
+    invalidateMoney(queryClient),
     queryClient.invalidateQueries({ queryKey: tradeNotesKey }),
     queryClient.invalidateQueries({ queryKey: positionsKey }),
     queryClient.invalidateQueries({ queryKey: portfolioKey }),

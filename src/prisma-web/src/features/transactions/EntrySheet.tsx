@@ -1275,7 +1275,7 @@ function RepeatForm({ transaction, accounts, onDone }: EditorProps & { transacti
   const [choice, setChoice] = useState<RepeatChoice>({ frequency: 'Monthly', endDate: null })
   // Débito automático (docs/fase-2.md, 2.15): o débito já lançado numa conta corrente vira a série.
   const accountType = accounts.find((a) => a.id === transaction.accountId)?.type
-  const autoDebitAvailable = transaction.type !== 'Transfer' && canAutoDebit({ type: transaction.type, accountType })
+  const autoDebitAvailable = transaction.type !== 'Transfer' && transaction.type !== 'TradeSettlement' && canAutoDebit({ type: transaction.type, accountType })
   const [endError, setEndError] = useState<string>()
   const [error, setError] = useState<string>()
 

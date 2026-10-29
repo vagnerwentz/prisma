@@ -38,7 +38,9 @@ public sealed record LooseBalance(GroupBalance Balance, IReadOnlyList<DepositBal
 
 // O rendimento bruto do que sobra dos aportes que entraram numa conta de investimento (D20): o saldo da conta guarda só o principal, e
 // com este número a tela mostra o que está investido naquela conta. Só aporte financiado por conta, com as duas pontas vivas.
-public sealed record AccountYield(Guid AccountId, int DepositCount, long GrossYieldCents);
+// PrincipalCents (I.9): o principal que sobra desses aportes, depois dos resgates; está no saldo da conta e também em "Investido" pela
+// carteira, então o caixa livre da corretora o desconta.
+public sealed record AccountYield(Guid AccountId, int DepositCount, long GrossYieldCents, long PrincipalCents = 0);
 
 public sealed record BalancesResponse(
     DateOnly AsOf, RatesStatus Rates, IReadOnlyList<GoalBalance> Goals, LooseBalance Unassigned, GroupBalance Total,
@@ -81,7 +83,7 @@ public static class GetBalances
             var byAccount = balances
                 .Where(x => x.Deposit.TransferPairId is { } pair && live.ContainsKey(pair))
                 .GroupBy(x => live[x.Deposit.TransferPairId!.Value].InvestmentAccountId)
-                .Select(g => new AccountYield(g.Key, g.Count(), g.Sum(x => x.Balance.GrossYieldCents ?? 0)))
+                .Select(g => new AccountYield(g.Key, g.Count(), g.Sum(x => x.Balance.GrossYieldCents ?? 0), g.Sum(x => x.Balance.PrincipalCents)))
                 .OrderBy(a => a.AccountId)
                 .ToList();
 

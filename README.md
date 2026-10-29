@@ -24,10 +24,12 @@ reality, so the monthly numbers match your bank account instead of your receipts
 
 ## What it does
 
-- **Accounts:** checking, cash, investments and credit cards, with balances. The summary splits what is **available**
-  (checking and cash) from what is **invested** (investment accounts plus the fixed-income yield that came in through
-  them), so money moved to an investment never reads as spendable cash; the account's own balance stays the principal,
-  matching the statement.
+- **Accounts:** checking, cash, investments and credit cards, with balances. The summary splits **available** money
+  (checking and cash) from what is **invested**, which comes from the assets themselves (every fixed-income deposit and every
+  stock, at cost, plus the fixed-income yield), not from account balances: money invested years ago shows up without
+  retyping its history. Money moved to an investment never reads as spendable cash, and an account's own balance never
+  changes, so it keeps matching the statement. An investment account can optionally **track its cash**: the uninvested
+  money sitting there then appears as its own line (it can go negative when the history is incomplete, and it is never hidden).
 - **Credit card statements:** each purchase lands on the right statement from the card's closing and
   due days; statement dates can be adjusted when the bank moves them.
 - **Aligned with the bank:** a purchase the bank posted to the next statement can be moved there
@@ -50,8 +52,9 @@ reality, so the monthly numbers match your bank account instead of your receipts
 - **Investments:** a portfolio of B3 stocks, REITs (FIIs) and ETFs picked from a catalog synced daily, and the
   payouts each one made (dividends, interest on equity, fund income), recorded as income in the account where the
   money landed. Brokerage notes are typed in (buys, sells and their fees, with the brokerage fee charged only on the
-  asset types the note says); quantity, average price with and without costs, and realized results are recalculated
-  from them on every read, never stored. Corporate events come from a curated shared catalog and apply on their record
+  asset types the note says), and can optionally be linked to a brokerage account, whose cash the note then debits (buys) or
+  credits (sells) as one net settlement that is neither income nor expense; quantity, average price with and without costs,
+  and realized results are recalculated from them on every read, never stored. Corporate events come from a curated shared catalog and apply on their record
   date, for everyone holding the asset: splits and reverse splits, conversions that carry the cost over, and fund
   liquidations paid in units of another fund, where the old position closes as a sale and the new units cost the
   official reference price. Each person confirms once what an event did to their own quantity, or reports that it does
@@ -63,7 +66,7 @@ reality, so the monthly numbers match your bank account instead of your receipts
 - **Fixed income by goal:** goals ("boxes", such as an emergency fund or a trip) hold CDB deposits that earn a
   percentage of the CDI, typed in by hand. The yield is calculated from the official daily CDI published by the Central
   Bank, using the B3 convention in integer math and checked against real bank statements to within one cent. A deposit
-  can come out of an account, which creates the transfer with it (income and expense never change, "invested" goes up).
+  can come out of an account, which creates the transfer with it (income and expense never change, and the month's "contributed" figure goes up).
   Each goal shows its balance, a chart of its evolution and the yield of every deposit; a switch shows gross values or an
   estimate net of tax (IOF under 30 days and the regressive income tax, per deposit, as if it were redeemed today).
   A deposit can be redeemed in full or in part: the principal and the yield come out in proportion, the tax is

@@ -9,6 +9,7 @@ import { MoneyInput } from '@/components/MoneyInput'
 import { NativeSelect } from '@/components/NativeSelect'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ApiError } from '@/lib/api'
@@ -31,6 +32,7 @@ const schema = z
     closingDay: day.optional(),
     dueDay: day.optional(),
     creditLimitCents: z.number().int(),
+    tracksCash: z.boolean(),
   })
   .superRefine((values, ctx) => {
     if (values.type !== 'CreditCard') return
@@ -55,6 +57,7 @@ const emptyForm: Values = {
   type: 'Checking',
   initialBalanceCents: 0,
   creditLimitCents: 0,
+  tracksCash: false,
 }
 
 function valuesOf(account: Account): Values {
@@ -65,6 +68,7 @@ function valuesOf(account: Account): Values {
     closingDay: account.closingDay ?? undefined,
     dueDay: account.dueDay ?? undefined,
     creditLimitCents: account.creditLimitCents ?? 0,
+    tracksCash: account.tracksCash,
   }
 }
 
@@ -101,6 +105,8 @@ export function AccountForm({
       closingDay: isCard ? (values.closingDay ?? null) : null,
       dueDay: isCard ? (values.dueDay ?? null) : null,
       creditLimitCents: isCard && values.creditLimitCents > 0 ? values.creditLimitCents : null,
+      // Só a conta de investimento acompanha o caixa (I.9, docs/patrimonio.md).
+      tracksCash: type === 'Investment' && values.tracksCash,
     }
     try {
       const saved = account
@@ -217,6 +223,26 @@ export function AccountForm({
               render={({ field }) => <MoneyInput id={`${formId}-initialBalance`} value={field.value} onChange={field.onChange} />}
             />
           </div>
+        )}
+        {type === 'Investment' && (
+          <Controller
+            control={form.control}
+            name="tracksCash"
+            render={({ field }) => (
+              <div className="flex flex-col gap-2">
+                <label className="flex items-start gap-3 rounded-xl border bg-card px-3 py-3 text-sm">
+                  <Checkbox checked={field.value} onCheckedChange={(checked) => field.onChange(checked === true)} className="mt-0.5" />
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="font-medium">Acompanhar o caixa desta conta</span>
+                    <span className="text-xs text-pretty text-muted-foreground">
+                      Ligado, o dinheiro parado aqui entra no seu patrimônio e o saldo precisa do histórico completo. Desligado, só os ativos contam
+                      e você não precisa lançar as entradas antigas. O saldo e o extrato não mudam.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            )}
+          />
         )}
       </div>
       <SheetFooterBar>

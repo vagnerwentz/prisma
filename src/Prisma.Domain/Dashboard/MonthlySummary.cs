@@ -42,6 +42,9 @@ public sealed record MonthlySummary(long IncomeCents, long ExpenseCents, long Ca
                     if (entry.AccountType == AccountType.Investment)
                         invested += sign * entry.AmountCents;
                     break;
+                // Liquidação de nota (I.8): mexe no saldo da conta, mas não é receita, despesa nem aporte/resgate.
+                case TransactionType.TradeSettlement:
+                    break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(entries));
             }

@@ -2,28 +2,29 @@ import { ChevronRight, Wallet } from 'lucide-react'
 import { Link } from 'react-router'
 import { AccountTile } from '@/components/brand/Tiles'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useAccountBalances, useAccounts } from '@/features/accounts/queries'
-import { useFixedIncomeBalances } from '@/features/investments/fixedIncomeQueries'
+import { useAccounts } from '@/features/accounts/queries'
 import { formatMonth, monthOf, todayInSaoPaulo } from '@/lib/dates'
 import { formatCents } from '@/lib/money'
 import { cn } from '@/lib/utils'
-import { useUpcomingStatements, type UpcomingStatement } from './queries'
-import { describeDue, splitBalances, type AccountsSplit } from './upcoming'
+import { hasInvestments, investedNote, tracksAnyCash, type NetWorth } from './netWorth'
+import { useNetWorth, useUpcomingStatements, type UpcomingStatement } from './queries'
+import { describeDue } from './upcoming'
 
 // "Em contas" e "Próximas faturas" (docs/fase-2.md, 2.4). Olham para hoje, não para o mês escolhido
 // no Resumo. Carregado sob demanda: os ladrilhos de conta trazem os logos de marca.
 export default function TodayPanel() {
   const upcoming = useUpcomingStatements()
   const accounts = useAccounts()
-  const balances = useAccountBalances()
-  // O rendimento da renda fixa por conta de investimento (D20). Não segura a tela: sem ele, o Investido é só o saldo das contas.
-  const yields = useFixedIncomeBalances().data?.byAccount ?? []
+  // O patrimônio de hoje (I.9): o Investido vem dos ativos, com ou sem histórico de caixa (docs/patrimonio.md).
+  const netWorth = useNetWorth()
 
-  if (upcoming.isPending || accounts.isPending || balances.isPending) return <Skeleton className="h-40 w-full rounded-2xl" />
-  if (upcoming.isError || accounts.isError || balances.isError) return null
+  if (upcoming.isPending || accounts.isPending || netWorth.isPending) return <Skeleton className="h-40 w-full rounded-2xl" />
+  if (upcoming.isError || accounts.isError || netWorth.isError) return null
 
-  const inAccounts = splitBalances(accounts.data, balances.data, yields)
+  const net = netWorth.data
   const hasCards = accounts.data.some((a) => a.isActive && a.type === 'CreditCard')
+  // Sem conta corrente, carteira nem investimento, o bloco não aparece.
+  const inAccounts = net.availableCount > 0 || hasInvestments(net)
   if (!inAccounts && !hasCards) return null
 
   return (
@@ -35,26 +36,26 @@ export default function TodayPanel() {
           inAccounts && hasCards && 'sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] sm:items-start',
         )}
       >
-        {inAccounts && <InAccounts split={inAccounts} />}
+        {inAccounts && <InAccounts net={net} />}
         {hasCards && <UpcomingStatements statements={upcoming.data.statements} totalCents={upcoming.data.totalCents} />}
       </div>
     </section>
   )
 }
 
-function InAccounts({ split }: { split: AccountsSplit }) {
-  // Sem conta de investimento, é o saldo de sempre. Com ela, o dinheiro livre e o investido aparecem separados (docs/renda-fixa.md, D20).
-  if (split.investedCount === 0) {
+function InAccounts({ net }: { net: NetWorth }) {
+  // Sem renda fixa, ação nem conta de investimento, é o saldo de sempre. Com elas, o dinheiro livre e o investido aparecem separados.
+  if (!hasInvestments(net)) {
     return (
       <Link to="/contas" className={cardClass}>
         <WalletIcon />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="text-sm font-medium text-foreground/75">Em contas</span>
           <span className="text-xs text-muted-foreground">
-            Saldo de hoje{split.availableCount > 1 ? `, em ${split.availableCount} contas` : ''}
+            Saldo de hoje{net.availableCount > 1 ? `, em ${net.availableCount} contas` : ''}
           </span>
         </div>
-        <Figure cents={split.availableCents} />
+        <Figure cents={net.availableCents} />
       </Link>
     )
   }
@@ -63,26 +64,28 @@ function InAccounts({ split }: { split: AccountsSplit }) {
     <Link to="/contas" className={cardClass}>
       <WalletIcon />
       <div className="flex min-w-0 flex-1 flex-col gap-3 sm:w-full">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-sm font-medium text-foreground/75">Disponível</span>
-            <span className="text-xs text-muted-foreground">
-              {split.availableCount > 0 ? 'Conta corrente e carteira' : 'Nenhuma conta corrente ou carteira'}
-            </span>
-          </div>
-          <Figure cents={split.availableCents} />
-        </div>
-        <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-3">
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-sm font-medium text-foreground/75">Investido</span>
-            <span className="text-xs text-muted-foreground">
-              {split.yieldCents > 0 ? `Com ${formatCents(split.yieldCents)} de rendimento` : 'Contas de investimento'}
-            </span>
-          </div>
-          <Figure cents={split.investedCents} />
-        </div>
+        <Line
+          title="Disponível"
+          note={net.availableCount > 0 ? 'Conta corrente e carteira' : 'Nenhuma conta corrente ou carteira'}
+          cents={net.availableCents}
+        />
+        <Line title="Investido" note={investedNote(net)} cents={net.investedCents} divided />
+        {/* Só de quem acompanha o caixa de uma conta de investimento (docs/patrimonio.md, regra 1). */}
+        {tracksAnyCash(net) && <Line title="Caixa nas corretoras" note="Parado, ainda não investido" cents={net.brokerCashCents} divided />}
       </div>
     </Link>
+  )
+}
+
+function Line({ title, note, cents, divided }: { title: string; note: string; cents: number; divided?: boolean }) {
+  return (
+    <div className={cn('flex items-center justify-between gap-3', divided && 'border-t border-border/60 pt-3')}>
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-sm font-medium text-foreground/75">{title}</span>
+        <span className="text-xs text-muted-foreground">{note}</span>
+      </div>
+      <Figure cents={cents} />
+    </div>
   )
 }
 

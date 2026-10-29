@@ -38,14 +38,16 @@ public sealed record TransactionResponse(
     PayoutKind? PayoutKind = null,
     string? AssetSymbol = null,
     bool AssetHasLogo = false,
-    Prisma.Domain.Market.AssetKind? AssetKind = null)
+    Prisma.Domain.Market.AssetKind? AssetKind = null,
+    // A nota de corretagem de uma liquidação (I.8): quem a gerou. Só se altera pela nota.
+    Guid? TradeNoteId = null)
 {
     public static readonly Expression<Func<Transaction, TransactionResponse>> Projection = t =>
         new TransactionResponse(
             t.Id, t.AccountId, t.Type, t.AmountCents, t.PurchaseDate, t.SettlementDate, t.StatementId,
             t.CategoryId, t.Method, t.Description, t.RawDescription, t.InstallmentPurchaseId,
             t.InstallmentNumber, t.TransferPairId, t.TransferDirection, t.Source, t.RefundedTransactionId, t.StatementPinned,
-            null, null, t.RecurrenceId, t.AmountEstimated, t.AssetId, t.PayoutKind, null);
+            null, null, t.RecurrenceId, t.AmountEstimated, t.AssetId, t.PayoutKind, null, false, null, t.TradeNoteId);
 
     private static readonly Func<Transaction, TransactionResponse> Compiled = Projection.Compile();
 

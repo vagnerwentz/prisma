@@ -34,6 +34,15 @@ public static class RestoreTradeNote
 
             foreach (var assetId in note.Trades.Select(t => t.AssetId).Distinct())
                 await Portfolio.Ensure(db, currentUser.UserId, assetId, ct);
+
+            // A conta pode ter sido excluída enquanto a nota estava excluída: a nota volta sem o vínculo, em vez de
+            // ficar impossível de restaurar.
+            var account = note.SettlementAccountId is { } accountId
+                ? await db.Accounts.SingleOrDefaultAsync(a => a.Id == accountId, ct)
+                : null;
+            if (account is null)
+                note.LinkSettlementAccount(null);
+            await NoteSettlement.Sync(db, note, account, ct);
             await db.SaveChangesAsync(ct);
             logger.TradeNoteRestored(note.Id);
             return await Response(note, ct);

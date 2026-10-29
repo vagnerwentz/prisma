@@ -9,7 +9,9 @@ namespace Prisma.Api.Features.Investments;
 // que não é ação e todos os tipos da nota estão marcados.
 public sealed record TradeNoteResponse(
     Guid Id, string Broker, DateOnly Date, long FeesCents, long BrokerageFeeCents, bool BrokerageFeeOnAllKinds,
-    IReadOnlyList<TradeLineResponse> Trades, IReadOnlyList<AssetKind> BrokerageFeeKinds)
+    IReadOnlyList<TradeLineResponse> Trades, IReadOnlyList<AssetKind> BrokerageFeeKinds,
+    // A conta que a nota liquida (I.8) e o que sai dela (positivo) ou entra (negativo); nulo e o líquido da nota, sem vínculo.
+    Guid? SettlementAccountId, long NetCashCents)
 {
     internal static TradeNoteResponse From(TradeNote note, IReadOnlyDictionary<Guid, TradeBook.AssetInfo> assets)
     {
@@ -23,7 +25,8 @@ public sealed record TradeNoteResponse(
         var onAllKinds = note.Trades.Any(t => t.BrokerageKind != AssetKind.Stock)
             && note.Trades.All(t => note.BrokerageFeeKinds.Contains(t.BrokerageKind));
         return new TradeNoteResponse(
-            note.Id, note.Broker, note.Date, note.FeesCents, note.BrokerageFeeCents, onAllKinds, lines, note.BrokerageFeeKinds);
+            note.Id, note.Broker, note.Date, note.FeesCents, note.BrokerageFeeCents, onAllKinds, lines, note.BrokerageFeeKinds,
+            note.SettlementAccountId, note.NetCashCents());
     }
 }
 

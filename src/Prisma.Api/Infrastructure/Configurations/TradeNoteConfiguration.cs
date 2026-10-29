@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Prisma.Api.Infrastructure.Auth;
+using Prisma.Domain.Accounts;
 using Prisma.Domain.Investments.Trades;
 using Prisma.Domain.Market;
 
@@ -28,6 +29,9 @@ public sealed class TradeNoteConfiguration : IEntityTypeConfiguration<TradeNote>
         builder.Property(n => n.Date).HasColumnName("trade_date");
 
         builder.HasOne<AppUser>().WithMany().HasForeignKey(n => n.UserId).OnDelete(DeleteBehavior.Restrict);
+        // A conta da corretora cujo caixa a nota mexe (I.8): opcional, e a conta não sai enquanto uma nota a aponta.
+        builder.HasOne<Account>().WithMany().HasForeignKey(n => n.SettlementAccountId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(n => n.SettlementAccountId);
         builder.HasIndex(n => new { n.UserId, n.Date });
 
         builder.OwnsMany(n => n.Trades, trades =>

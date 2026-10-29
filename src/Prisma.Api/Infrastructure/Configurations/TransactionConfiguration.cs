@@ -34,6 +34,9 @@ public sealed class TransactionConfiguration : IEntityTypeConfiguration<Transact
             // Só o débito automático gera lançamento a conferir (docs/fase-2.md, 2.15, regra 5).
             table.HasCheckConstraint("ck_transactions_amount_estimated",
                 "NOT amount_estimated OR recurrence_id IS NOT NULL");
+            // A liquidação de nota (I.8) tem a nota e a direção, e só ela tem a nota; não tem par de transferência.
+            table.HasCheckConstraint("ck_transactions_trade_settlement",
+                "(type = 'TradeSettlement') = (trade_note_id IS NOT NULL AND transfer_direction IS NOT NULL)");
             // Provento tem o ativo e o tipo, os dois, e só em receita (docs/investimentos.md, etapa 5b).
             table.HasCheckConstraint("ck_transactions_payout",
                 "(asset_id IS NULL AND payout_kind IS NULL) OR " +
@@ -76,6 +79,10 @@ public sealed class TransactionConfiguration : IEntityTypeConfiguration<Transact
         builder.HasIndex(t => new { t.UserId, t.CategoryId });
         builder.HasIndex(t => new { t.UserId, t.PurchaseDate });
         builder.HasIndex(t => t.TransferPairId);
+
+        // Uma nota tem uma liquidação só, para sempre (contando a excluída, que volta no "Desfazer" ou ao vincular de novo).
+        // Sem chave estrangeira, como o par da transferência: a limpeza apaga a liquidação junto com a nota.
+        builder.HasIndex(t => t.TradeNoteId).IsUnique().HasFilter("trade_note_id IS NOT NULL").HasDatabaseName("ux_transactions_trade_note");
 
         // O sino: os lançamentos a conferir de cada um, poucos entre todos (docs/fase-2.md, 2.15).
         builder.HasIndex(t => new { t.UserId, t.PurchaseDate }, "ix_transactions_to_confirm")

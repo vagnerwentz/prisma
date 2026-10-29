@@ -18,7 +18,9 @@ public static class DeleteAccount
             if (account is null)
                 return new Error(ErrorType.NotFound, "Conta não encontrada.");
 
-            var activeTransactions = await db.Transactions.CountAsync(t => t.AccountId == id, ct);
+            // A nota de corretagem vinculada à conta conta como uso, mesmo sem liquidação (líquido zero).
+            var activeTransactions = await db.Transactions.CountAsync(t => t.AccountId == id, ct)
+                + await db.TradeNotes.CountAsync(n => n.SettlementAccountId == id, ct);
             if (account.CheckCanDelete(activeTransactions) is { } error)
                 return error;
 

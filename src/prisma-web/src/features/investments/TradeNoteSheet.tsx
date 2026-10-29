@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { SheetTitle } from '@/components/ui/sheet'
 import { CheckChip, Chip, ChipRow, DateChooser, Section } from '@/features/transactions/fields'
+import { useAccountBalances, useAccounts } from '@/features/accounts/queries'
 import { todayInSaoPaulo } from '@/lib/dates'
 import { formatCents, parseCentsInput } from '@/lib/money'
 import { AssetPicker } from './AssetPicker'
@@ -19,10 +20,15 @@ import {
   brokerageKindsError,
   brokerChoices,
   defaultBrokerageKinds,
+  defaultSettlementAccount,
   draftErrors,
+  goesNegative,
   noteTitle,
   noteTotals,
   parseQuantity,
+  settlementAccountChoices,
+  settlementLine,
+  settlementNetCents,
   showsBrokerageKinds,
   sideLabels,
   type DraftErrors,
@@ -51,6 +57,25 @@ function rememberBroker(broker: string) {
     localStorage.setItem(lastBrokerKey, broker)
   } catch {
     // Sem armazenamento (aba anônima): a próxima nota só não vem com a corretora escolhida.
+  }
+}
+
+// A última conta da corretora escolhida, ou 'none' se a pessoa escolheu não vincular: também preferência de tela.
+const lastSettlementKey = 'prisma.lastSettlementAccount'
+
+function readLastSettlement(): string | null {
+  try {
+    return localStorage.getItem(lastSettlementKey)
+  } catch {
+    return null
+  }
+}
+
+function rememberSettlement(accountId: string | null) {
+  try {
+    localStorage.setItem(lastSettlementKey, accountId ?? 'none')
+  } catch {
+    // Sem armazenamento: a próxima nota só não vem com a conta escolhida.
   }
 }
 
@@ -105,6 +130,8 @@ function NoteForm({
   const save = useSaveTradeNote()
   const remove = useDeleteTradeNote()
   const restore = useRestoreTradeNote()
+  const accounts = useAccounts()
+  const balances = useAccountBalances()
 
   const choices = brokerChoices(lastBroker)
   const [broker, setBroker] = useState<string | null>(note?.broker ?? lastBroker)
@@ -126,6 +153,12 @@ function NoteForm({
   const [brokerageKinds, setBrokerageKinds] = useState(() =>
     note ? note.brokerageFeeKinds.flatMap((k) => (k ? [k] : [])) : defaultBrokerageKinds,
   )
+  // A conta cujo caixa a nota mexe (I.8, docs/investimentos.md): opcional. A nota guardada traz a dela (nenhuma, se for de antes da
+  // I.8); a nova começa na última escolhida ou na conta com o nome da corretora. `undefined` até as contas chegarem.
+  const settlementChoices = settlementAccountChoices(accounts.data ?? [], note?.settlementAccountId ?? null)
+  const [pickedAccount, setPickedAccount] = useState<string | null | undefined>(note ? (note.settlementAccountId ?? null) : undefined)
+  const settlementAccountId =
+    pickedAccount !== undefined ? pickedAccount : defaultSettlementAccount(settlementChoices, broker, readLastSettlement())
   const [errors, setErrors] = useState<Errors>({})
 
   const totals = noteTotals(lines)
@@ -135,6 +168,11 @@ function NoteForm({
     setBrokerageKinds((current) => (checked ? [...current, kind] : current.filter((k) => k !== kind)))
     setErrors((e) => ({ ...e, brokerage: undefined }))
   }
+  const netCents = settlementNetCents(totals, feesCents + brokerageCents)
+  const settlementAccount = settlementChoices.find((a) => a.id === settlementAccountId)
+  // O que a nota já liquidava nesta mesma conta está no saldo atual: a conta, sem ela, é o que sobra antes desta gravação.
+  const previousNet = note && note.settlementAccountId === settlementAccountId ? note.netCashCents : 0
+  const negative = lines.length > 0 && goesNegative(balances.data?.get(settlementAccountId ?? '')?.balanceCents ?? null, previousNet, netCents)
   const costsByLine = note && editing === null && sameLines(note, lines) ? note.trades.map((t) => t.costsCents) : null
 
   const putLine = (line: Line) => {
@@ -172,6 +210,7 @@ function NoteForm({
           // A marcação de antes fica de fora: a lista decide (I.7b3).
           brokerageFeeOnAllKinds: null,
           brokerageFeeKinds: brokerageKinds,
+          settlementAccountId,
           trades: lines.map((l) => ({
             assetId: l.asset.id,
             side: l.side,
@@ -181,6 +220,7 @@ function NoteForm({
         },
       })
       rememberBroker(saved.broker)
+      rememberSettlement(settlementAccountId)
       toast(note ? 'Nota salva' : 'Nota lançada', { description: noteTitle(saved.trades) })
       onDone()
     } catch (error) {
@@ -253,6 +293,28 @@ function NoteForm({
         <Section title="Data do pregão">
           <DateChooser value={date} onChange={setDate} />
         </Section>
+
+        {settlementChoices.length > 0 && (
+          <Section title="Debitar da conta">
+            <ChipRow>
+              <Chip selected={settlementAccountId === null} onClick={() => setPickedAccount(null)}>
+                Nenhuma
+              </Chip>
+              {settlementChoices.map((a) => (
+                <Chip key={a.id} selected={a.id === settlementAccountId} onClick={() => setPickedAccount(a.id)}>
+                  <AccountTile name={a.name} type={a.type} size="sm" />
+                  {a.name}
+                </Chip>
+              ))}
+            </ChipRow>
+            <p className="text-xs text-pretty text-muted-foreground">
+              {settlementAccount && lines.length > 0
+                ? settlementLine(netCents, settlementAccount.name)
+                : 'A compra sai do caixa da conta e a venda entra nele. Sem conta, o saldo não muda.'}
+            </p>
+            {negative && <p className="text-xs text-pretty text-foreground">A conta ficará negativa. Você pode salvar mesmo assim.</p>}
+          </Section>
+        )}
 
         <Section title="Operações">
           {lines.length > 0 && (

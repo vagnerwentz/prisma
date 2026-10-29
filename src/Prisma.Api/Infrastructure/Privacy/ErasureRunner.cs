@@ -55,6 +55,8 @@ public sealed class ErasureRunner(IServiceScopeFactory scopes, IClock clock, ILo
         "DELETE FROM asset_requests WHERE deleted_at < @cutoff",
         "DELETE FROM event_reviews WHERE deleted_at < @cutoff",
         "DELETE FROM trades WHERE trade_note_id IN (SELECT id FROM trade_notes WHERE deleted_at < @cutoff)",
+        // A liquidação sai com a nota (a chave não é estrangeira, como a do par da transferência).
+        "DELETE FROM transactions WHERE trade_note_id IN (SELECT id FROM trade_notes WHERE deleted_at < @cutoff)",
         "DELETE FROM trade_notes WHERE deleted_at < @cutoff",
 
         // Renda fixa: os aportes antes dos objetivos que os guardavam. Excluir o objetivo deixa os aportes soltos ou os leva junto,
@@ -87,6 +89,7 @@ public sealed class ErasureRunner(IServiceScopeFactory scopes, IClock clock, ILo
         AND NOT EXISTS (SELECT 1 FROM transactions t WHERE t.account_id = a.id)
         AND NOT EXISTS (SELECT 1 FROM transactions t JOIN statements s ON s.id = t.statement_id WHERE s.account_id = a.id)
         AND NOT EXISTS (SELECT 1 FROM installment_purchases p WHERE p.account_id = a.id)
+        AND NOT EXISTS (SELECT 1 FROM trade_notes n WHERE n.settlement_account_id = a.id)
         """,
         """
         DELETE FROM recurrence_pendings

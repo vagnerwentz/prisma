@@ -15,7 +15,9 @@ public static class UpdateAccount
         int? ClosingDay,
         int? DueDay,
         long? CreditLimitCents,
-        bool IsActive);
+        bool IsActive,
+        // Acompanhar o caixa (I.9): ausente mantém a escolha da pessoa (tela aberta antes do deploy).
+        bool? TracksCash = null);
 
     public sealed class Handler(AppDbContext db)
     {
@@ -26,7 +28,7 @@ public static class UpdateAccount
                 return new Error(ErrorType.NotFound, "Conta não encontrada.");
 
             var updated = account.Update(
-                req.Name, req.InitialBalanceCents, req.ClosingDay, req.DueDay, req.CreditLimitCents, req.IsActive);
+                req.Name, req.InitialBalanceCents, req.ClosingDay, req.DueDay, req.CreditLimitCents, req.IsActive, req.TracksCash);
             if (!updated.IsSuccess)
                 return updated.Error;
 

@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { api, unwrap, type Schemas } from '@/lib/api'
-import { dashboardKey } from '@/lib/queryKeys'
+import { dashboardKey, netWorthKey } from '@/lib/queryKeys'
 
 export type MonthlySummary = Schemas['GetMonthlySummaryResponse']
 export type CategoryTotal = Schemas['ListCategoryTotalsItem']
@@ -75,5 +75,14 @@ export function useSpendingVariation(month: string) {
     queryKey: [...dashboardKey, 'variation', month],
     placeholderData: keepPreviousData,
     queryFn: async () => unwrap(await api.GET('/dashboard/variation', { params: { query: { month } } })),
+  })
+}
+
+// O patrimônio de hoje: Disponível, Investido (dos ativos, com ou sem histórico de caixa) e o caixa das corretoras que a pessoa acompanha
+// (I.9, docs/patrimonio.md). Muda com saldos, notas, aportes e com acompanhar o caixa de uma conta.
+export function useNetWorth() {
+  return useQuery({
+    queryKey: netWorthKey,
+    queryFn: async () => unwrap(await api.GET('/dashboard/net-worth')),
   })
 }

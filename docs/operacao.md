@@ -511,7 +511,9 @@ e a limpeza a apaga de novo na primeira passada.
 
 **Se a limpeza falhar** (`ErasureRunFailed` a cada 10 minutos): a passada inteira é desfeita, e nada é apagado até a
 causa sair. Quase sempre é tabela nova com chave estrangeira para uma tabela limpa, sem estar no `ErasureRunner`. O
-teste `DeletedItemsPurgeTests` deveria ter pego antes.
+teste `DeletedItemsPurgeTests` deveria ter pego antes. Exceção deliberada: `transactions.trade_note_id` (a liquidação de uma nota de corretagem, I.8)
+**não** tem chave estrangeira, como o par da transferência; a limpeza apaga a liquidação junto com a nota (`DELETE FROM transactions WHERE trade_note_id IN …`),
+e `trade_notes.settlement_account_id` tem chave estrangeira para `accounts`, então a limpeza não apaga conta que uma nota ainda aponta.
 
 ## 6. Postgres local: mudar de versão
 

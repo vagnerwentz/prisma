@@ -359,6 +359,12 @@ namespace Prisma.Api.Infrastructure.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("name");
 
+                    b.Property<bool>("TracksCash")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("tracks_cash");
+
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -388,6 +394,8 @@ namespace Prisma.Api.Infrastructure.Migrations
                             t.HasCheckConstraint("ck_accounts_credit_limit_cents", "credit_limit_cents >= 0");
 
                             t.HasCheckConstraint("ck_accounts_due_day", "due_day BETWEEN 1 AND 31");
+
+                            t.HasCheckConstraint("ck_accounts_tracks_cash", "NOT tracks_cash OR type = 'Investment'");
                         });
                 });
 
@@ -1071,6 +1079,10 @@ namespace Prisma.Api.Infrastructure.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("fees_cents");
 
+                    b.Property<Guid?>("SettlementAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("settlement_account_id");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -1081,6 +1093,9 @@ namespace Prisma.Api.Infrastructure.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_trade_notes");
+
+                    b.HasIndex("SettlementAccountId")
+                        .HasDatabaseName("ix_trade_notes_settlement_account_id");
 
                     b.HasIndex("UserId", "Date")
                         .HasDatabaseName("ix_trade_notes_user_id_trade_date");
@@ -1687,6 +1702,10 @@ namespace Prisma.Api.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("statement_pinned");
 
+                    b.Property<Guid?>("TradeNoteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("trade_note_id");
+
                     b.Property<string>("TransferDirection")
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)")
@@ -1731,6 +1750,11 @@ namespace Prisma.Api.Infrastructure.Migrations
                     b.HasIndex("StatementId")
                         .HasDatabaseName("ix_transactions_statement_id");
 
+                    b.HasIndex("TradeNoteId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_transactions_trade_note")
+                        .HasFilter("trade_note_id IS NOT NULL");
+
                     b.HasIndex("TransferPairId")
                         .HasDatabaseName("ix_transactions_transfer_pair_id");
 
@@ -1770,6 +1794,8 @@ namespace Prisma.Api.Infrastructure.Migrations
                             t.HasCheckConstraint("ck_transactions_refund_link", "refunded_transaction_id IS NULL OR type = 'Refund'");
 
                             t.HasCheckConstraint("ck_transactions_statement_pinned", "NOT statement_pinned OR (statement_id IS NOT NULL AND type = 'Expense')");
+
+                            t.HasCheckConstraint("ck_transactions_trade_settlement", "(type = 'TradeSettlement') = (trade_note_id IS NOT NULL AND transfer_direction IS NOT NULL)");
 
                             t.HasCheckConstraint("ck_transactions_transfer_legs", "(type = 'Transfer') = (transfer_pair_id IS NOT NULL AND transfer_direction IS NOT NULL)");
                         });
@@ -1930,6 +1956,12 @@ namespace Prisma.Api.Infrastructure.Migrations
 
             modelBuilder.Entity("Prisma.Domain.Investments.Trades.TradeNote", b =>
                 {
+                    b.HasOne("Prisma.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("SettlementAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_trade_notes_accounts_settlement_account_id");
+
                     b.HasOne("Prisma.Api.Infrastructure.Auth.AppUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")

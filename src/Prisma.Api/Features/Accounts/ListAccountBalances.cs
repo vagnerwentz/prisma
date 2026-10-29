@@ -15,7 +15,10 @@ public static class ListAccountBalances
         long? BalanceCents,
         long? ProjectedBalanceCents,
         long? OwedCents,
-        long? AvailableCreditCents);
+        long? AvailableCreditCents,
+        // O que a conta pôs em ativos pelas notas de corretagem vinculadas a ela (I.8, docs/investimentos.md): só leitura,
+        // o saldo não muda. Nulo no cartão.
+        long? AssetsCents = null);
 
     public sealed class Handler(AppDbContext db, IClock clock)
     {
@@ -54,14 +57,15 @@ public static class ListAccountBalances
                 if (a.Type == AccountType.CreditCard)
                 {
                     var card = CreditCardBalance.OfStatements(a.CreditLimitCents, unpaid[a.Id]);
-                    return new Response(a.Id, null, null, card.OwedCents, card.AvailableCreditCents);
+                    return new Response(a.Id, null, null, card.OwedCents, card.AvailableCreditCents, null);
                 }
 
                 var entries = sums
                     .Where(s => s.AccountId == a.Id)
-                    .Select(s => new BalanceEntry(s.Type, s.TransferDirection, s.Cents, s.IsSettled));
+                    .Select(s => new BalanceEntry(s.Type, s.TransferDirection, s.Cents, s.IsSettled))
+                    .ToList();
                 var balance = AccountBalance.Of(a.InitialBalanceCents, entries);
-                return new Response(a.Id, balance.CurrentCents, balance.ProjectedCents, null, null);
+                return new Response(a.Id, balance.CurrentCents, balance.ProjectedCents, null, null, AccountAssets.Of(entries));
             }).ToList();
         }
     }

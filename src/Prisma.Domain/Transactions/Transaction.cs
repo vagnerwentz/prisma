@@ -48,6 +48,10 @@ public sealed class Transaction : Entity
     public Guid? AssetId { get; private set; }
     public PayoutKind? PayoutKind { get; private set; }
 
+    // Liquidação de uma nota de corretagem (I.8, docs/investimentos.md): a nota que a gerou. Só a liquidação tem; ela
+    // nasce, muda e some com a nota, nunca à mão.
+    public Guid? TradeNoteId { get; private set; }
+
     public const string PayoutUsesItsOwnEdit = "Provento usa a edição de provento.";
 
     // O dinheiro cai na conta e o dia do pagamento é o dia do caixa (CLAUDE.md, regra 4). Sem descrição: a tela
@@ -201,6 +205,9 @@ public sealed class Transaction : Entity
         Account account, TransactionType type, long amountCents, DateOnly purchaseDate,
         Category? category, PaymentMethod method, string? description)
     {
+        if (CheckNotTradeSettlement() is { } settlementError)
+            return settlementError;
+
         if (TransferPairId is not null)
             return TransferIsNotEdited;
 
@@ -227,9 +234,31 @@ public sealed class Transaction : Entity
     // Parcela de compra parcelada só é excluída ou restaurada junto com a compra, para a soma
     // das parcelas continuar igual ao total.
     public Error? CheckCanChangeIndividually() =>
-        InstallmentPurchaseId is null
+        CheckNotTradeSettlement()
+        ?? (InstallmentPurchaseId is null
             ? null
-            : new Error(ErrorType.Conflict, "Esta parcela faz parte de uma compra parcelada. Exclua a compra inteira.");
+            : new Error(ErrorType.Conflict, "Esta parcela faz parte de uma compra parcelada. Exclua a compra inteira."));
+
+    // A liquidação de nota não se edita nem se exclui à mão: a nota manda (docs/investimentos.md, "I.8", regra 4).
+    public Error? CheckNotTradeSettlement() =>
+        TradeNoteId is null ? null : new Error(ErrorType.Conflict, TradeSettlement.NotEditedByHand);
+
+    // Criada e atualizada só por TradeSettlement, que valida antes. Uma ponta só: Out é compra, In é venda.
+    internal static Transaction CreateTradeSettlement(Guid userId) =>
+        new() { UserId = userId, Source = TransactionSource.Manual };
+
+    internal void ApplyTradeSettlement(Account account, Guid tradeNoteId, long netCashCents, DateOnly date, string broker)
+    {
+        AccountId = account.Id;
+        Type = TransactionType.TradeSettlement;
+        TradeNoteId = tradeNoteId;
+        TransferDirection = netCashCents > 0 ? Transactions.TransferDirection.Out : Transactions.TransferDirection.In;
+        AmountCents = Math.Abs(netCashCents);
+        PurchaseDate = date;
+        SettlementDate = date; // Sem D+2: vale a data da nota (docs/investimentos.md, I.7).
+        Method = PaymentMethod.Ted;
+        Description = $"Nota de corretagem · {broker}";
+    }
 
     // Criada só por CardPurchase, que valida a compra inteira antes.
     internal static Transaction CreateCardInstallment(

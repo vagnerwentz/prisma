@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, unwrap, type Schemas } from '@/lib/api'
-import { fixedIncomeKey } from '@/lib/queryKeys'
+import { fixedIncomeKey, netWorthKey } from '@/lib/queryKeys'
 import { invalidateMoney } from '@/features/transactions/queries'
 
 export type GoalChanges = Schemas['SaveGoalRequest']
@@ -52,6 +52,8 @@ function useFixedIncomeMutation<TInput, TOutput>(
     mutationFn,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: fixedIncomeKey })
+      // Aporte, resgate e objetivo mudam o "Investido" (I.9), com ou sem conta de origem.
+      await queryClient.invalidateQueries({ queryKey: netWorthKey })
       if (money) await invalidateMoney(queryClient)
     },
   })
