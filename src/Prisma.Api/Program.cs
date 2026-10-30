@@ -137,6 +137,7 @@ app.UseRouting();
 
 app.UseAuthentication();
 app.UseUserLogScope();
+app.UseLastSeen();
 app.UseAuthorization();
 app.UseRateLimiter();
 

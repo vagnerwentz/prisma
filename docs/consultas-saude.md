@@ -67,6 +67,26 @@ ORDER BY 1 DESC NULLS LAST, 2 DESC NULLS LAST;
 ## 2. Atividade
 
 ```sql
+-- Último acesso (users.last_seen_at, carimbado no primeiro pedido do dia; docs/admin-email.md, 2): quantas contas
+-- usaram o app em cada janela. Só vale N dias depois do deploy da AE.1: as contas de antes da coluna foram
+-- carimbadas pela migration, e vazio quer dizer "confirmou o e-mail e nunca usou" (ou não confirmou).
+SELECT
+  count(*) FILTER (WHERE last_seen_at > now() - interval '7 days')  AS vistas_7d,
+  count(*) FILTER (WHERE last_seen_at > now() - interval '30 days') AS vistas_30d,
+  count(*) FILTER (WHERE last_seen_at > now() - interval '90 days') AS vistas_90d,
+  count(*) FILTER (WHERE last_seen_at IS NULL)                      AS nunca_usaram,
+  count(*)                                                          AS contas
+FROM users;
+```
+
+```sql
+-- Quem está sem acesso há mais de N dias (troque o 30), só a contagem, sem e-mail
+SELECT count(*) AS inativas
+FROM users
+WHERE email_confirmed AND last_seen_at < now() - interval '30 days';
+```
+
+```sql
 -- Pessoas ativas: lançaram algo nos últimos 7 e 30 dias (por quando o lançamento foi criado)
 SELECT
   count(DISTINCT user_id) FILTER (WHERE created_at > now() - interval '7 days')  AS ativas_7d,

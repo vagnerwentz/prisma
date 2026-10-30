@@ -1235,6 +1235,29 @@ em `market_sync_runs`, execução síncrona, horário automático mantido): M1 e
 
 ---
 
+## Admin: pessoas inativas e e-mail em massa (`docs/admin-email.md`)
+
+Pedido do dono (2026-10-29): achar quem não entra há algum tempo e mandar um e-mail, vendo antes a prévia. O desenho
+inteiro, as decisões da conversa e o que segue em aberto estão em `docs/admin-email.md`; **só a AE.1 está aprovada**.
+O restante (contagens no admin, descadastro, segmentos, campanha com prévia, disparo) vira etapa quando o dono decidir
+a base legal e a redação da política.
+
+- [x] **AE.1 Último acesso** — `users.last_seen_at` carimbado no primeiro pedido autenticado de cada dia civil em São
+  Paulo (não só no login: o cookie é persistente), por um UPDATE condicional atrás de uma memória do dia
+  (`ILastSeenCache`, hoje em memória do processo; Redis descartado por ora).
+  *Pronto quando:* carimba o instante do relógio no primeiro pedido; mesmo dia não muda; dia seguinte carimba; a virada é
+  à meia-noite de São Paulo, não de UTC; uma pessoa nunca mexe em outra; a memória poupa o banco; reinício só perde a
+  memória; falha ao carimbar não derruba o pedido e vira aviso; a migration carimba quem confirmou o e-mail e deixa vazio
+  quem não confirmou.
+  *Feita (2026-10-29/30):* `LastSeenStamper` e `UseLastSeen` (`Infrastructure/Auth/LastSeen.cs`), `ILastSeenCache` e
+  `InMemoryLastSeenCache`, aviso `LastSeenStampFailed` (2015), migration `AddUserLastSeenAt`, `ultimoAcessoEm` em
+  `ops/privacy/export-user.sql`, consultas em `docs/consultas-saude.md`. `LastSeenTests` (9) e `LastSeenMigrationTests`
+  (1), provados com 4 mutações (dia em UTC, sem lembrar, sem o `catch`, sem a condição do dia), cada uma pega por um teste. Suíte completa verde (2026-10-30): Domínio 1198, Arquitetura 17, API 1106 (7 ignorados).
+  **Decisão do dono (2026-10-30):** o último acesso não é citado na política de privacidade; a versão do texto fica como
+  está. O assunto volta se a política for revista (A.2) ou se o dado passar a ser usado para e-mail de relacionamento.
+
+---
+
 ## Fases 3 a 5
 
 Escopo em uma linha cada, para orientar decisões sem antecipar detalhe.
