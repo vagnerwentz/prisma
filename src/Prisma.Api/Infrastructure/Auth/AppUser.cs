@@ -26,6 +26,12 @@ public sealed class AppUser : IdentityUser<Guid>
     [PersonalData]
     public DateTime? TermsAcceptedAt { get; set; }
 
+    // Último acesso (UTC): o instante do primeiro pedido autenticado do dia em São Paulo (LastSeenStamper). Vazio em quem
+    // ainda não usou o app depois de confirmar o e-mail. Precisão de um dia: o que se pergunta é "há quantos dias não
+    // entra", e não "a que horas". As contas de antes da coluna foram carimbadas pela migration com o instante dela.
+    [PersonalData]
+    public DateTime? LastSeenAt { get; set; }
+
     // Quando a última senha errada chegou (etapa H.4e, AppUserManager): a próxima só soma com as anteriores se vier até
     // 15 minutos depois. Segurança da conta, fora da cópia dos dados (ops/privacy/export-user.sql).
     public DateTime? LastAccessFailedAt { get; set; }

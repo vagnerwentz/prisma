@@ -247,6 +247,7 @@ em meia hora.
 
 - **Trocar o e-mail da conta** (pede confirmar o novo endereço): quando fizer falta.
 - **Aviso de login de aparelho novo, 2FA:** depois do cadastro público, se fizer sentido.
+- **E-mail em massa para quem não entra há tempo** (reengajamento): desenho, descadastro e o que depende de decisão do dono em `docs/admin-email.md`; o último acesso que o alimenta (AE.1) já existe.
 - **E-mail de boas-vindas, resumo do mês, lembrete de fatura:** produto, não conta; cada um entra com decisão própria.
   A fila e o transporte já servem a eles.
 - **Webhook do Resend** (devolvido, marcado como spam): só com volume que justifique.

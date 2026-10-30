@@ -100,6 +100,10 @@ public static partial class AppLog
     [LoggerMessage(2014, LogLevel.Warning, "Password change rejected for user {UserId}: {Reason}")]
     public static partial void PasswordChangeRejected(this ILogger logger, Guid userId, string reason);
 
+    // Último acesso (docs/admin-email.md, 2): falhar não derruba o pedido; o userId vem do escopo da requisição.
+    [LoggerMessage(2015, LogLevel.Warning, "Could not stamp the last seen date")]
+    public static partial void LastSeenStampFailed(this ILogger logger, Exception exception);
+
     [LoggerMessage(3000, LogLevel.Information, "Account {AccountId} created ({AccountType})")]
     public static partial void AccountCreated(this ILogger logger, Guid accountId, AccountType accountType);
 

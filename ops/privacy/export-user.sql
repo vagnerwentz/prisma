@@ -14,6 +14,7 @@ SELECT jsonb_pretty(jsonb_build_object(
     SELECT jsonb_build_object(
       'email', u.email,
       'criadaEm', u.created_at,
+      'ultimoAcessoEm', u.last_seen_at,
       'emailConfirmado', u.email_confirmed,
       'versaoDosTermosAceita', u.terms_version,
       'versaoDaPoliticaAceita', u.privacy_version,

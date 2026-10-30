@@ -105,6 +105,10 @@ public static class AuthSetup
             .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
             .AddPolicy(AdminOptions.PolicyName, policy => policy.RequireAuthenticatedUser().AddRequirements(new AdminRequirement()));
 
+        // Último acesso: a memória é do processo (uma instância só); o carimbador usa o banco do pedido.
+        services.AddSingleton<ILastSeenCache, InMemoryLastSeenCache>();
+        services.AddScoped<LastSeenStamper>();
+
         services.AddHttpContextAccessor();
         services.AddScoped<ScopedUser>();
         services.AddScoped<ICurrentUser, HttpCurrentUser>();
