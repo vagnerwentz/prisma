@@ -91,6 +91,10 @@ reality, so the monthly numbers match your bank account instead of your receipts
   link, the password can be changed from the account menu (this device stays signed in, the others leave), and every
   security change is announced by email. The emails share the app's look: an ink header, the spectrum
   stripe and a document-like layout that holds up in Gmail, Outlook and dark mode.
+- **Admin area for the owner:** an allow-listed "Administration" entry with two screens: the market-data sync (the daily CDI
+  can be triggered by hand) and a head count of accounts. Pick a number of days and it shows how many people were active in that
+  window, how many have not used the app for that long, and how many confirmed their email and never did. Only numbers, never
+  who, and every look at the count is logged with who asked.
 
 ## Engineering highlights
 
@@ -146,6 +150,13 @@ reality, so the monthly numbers match your bank account instead of your receipts
 - **A lockout that forgets.** Five wrong passwords lock the account for 15 minutes, counted together across sign-in,
   email confirmation, password change and account deletion. A wrong password only adds up if it comes within 15
   minutes of the previous one, so a typo a week never locks anyone out.
+- **A "last seen" that costs almost nothing.** The date an account last used the app is stamped on the first authenticated
+  request of each civil day in São Paulo, not at sign-in: the session cookie is persistent, so people stay signed in for
+  weeks and a sign-in stamp would mark active people as gone. It is one conditional `UPDATE` that never loads the row, behind
+  a per-day memory that is only an optimization: losing it (a deploy, a restart, a second instance) costs one extra `UPDATE`,
+  never a wrong value, and the memory sits behind an interface so a shared cache could replace it. A failure to stamp is
+  logged and never fails the request. "No access for N days" is a domain type, and a property-based test proves that the
+  instant the SQL compares against agrees with counting civil days, including across midnight in São Paulo rather than UTC.
 - **Erasure that survives a restore.** Deleted account ids are kept for the 90 days that backups live; restoring an
   older backup brings those accounts back, and the job erases them again. Schema-reading tests fail when a new table
   with an owner or a soft delete is left out of the erasure.
@@ -284,7 +295,7 @@ ops/backup/test/roundtrip.sh /tmp/schema.sql
 ## Project documents
 
 The roadmap (`PLAN.md`), the phase specifications (`docs/`, including `docs/renda-fixa.md` for fixed income: formulas,
-sources and decisions; `docs/admin-mercado.md` for the market-data admin, where the CDI sync can be triggered by hand; `docs/renda-fixa-ipca.md` for the planned inflation-indexed products; `docs/admin-email.md` for the admin plan to find inactive people and email them), the operations runbook (`docs/operacao.md`: database users, backups, restore, logs, the CDI sync)
+sources and decisions; `docs/admin-mercado.md` for the market-data admin, where the CDI sync can be triggered by hand; `docs/renda-fixa-ipca.md` for the planned inflation-indexed products; `docs/admin-email.md` for the admin area that counts inactive people, and the plan to email them), the operations runbook (`docs/operacao.md`: database users, backups, restore, logs, the CDI sync)
 and the working agreement (`CLAUDE.md`)
 are working documents written in Portuguese.
 

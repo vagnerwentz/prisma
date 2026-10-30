@@ -29,3 +29,5 @@ export const meKey = ['auth', 'me'] as const
 export const fixedIncomeKey = ['fixed-income'] as const
 // Admin dos dados de mercado (docs/admin-mercado.md, R.16): o estado das séries e as execuções. Só quem é admin consulta.
 export const adminMarketKey = ['admin', 'market-data'] as const
+// Admin: contagem de pessoas (docs/admin-email.md, AE.3). Uma entrada por número de dias; só números, nunca quem é.
+export const adminPeopleKey = ['admin', 'people'] as const

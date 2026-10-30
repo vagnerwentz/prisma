@@ -1203,7 +1203,7 @@ Paulo e ao subir), e depois adicionar IPCA e IPCA+. **R.15 e R.16 estão feitas;
 em `market_sync_runs`, execução síncrona, horário automático mantido): M1 e M2 aprovadas pelo dono em 2026-10-19; M3 a M6 seguiram como recomendadas.**
 
 - [x] **R.15 Admin dos dados de mercado (API)** — política `Admin` (e-mails em `Admin:Emails`, falha fechada), `GET /admin/market-data`, `POST …/{série}/sync` e `…/refresh` (janela até 10 anos), `GET …/runs`; tabela global `market_sync_runs` (migration `AddMarketSyncRuns`, sem dado pessoal, 90 dias) escrita também pela tarefa; `SourceErrorCode` (código da página de rejeição do BCB) no `BcbSgsRateSource`; `isAdmin` no `/auth/me`; limite de taxa e log por pedido; teste de arquitetura de rota `/admin`. Pronto quando os testes de `docs/admin-mercado.md`, seção 9, passam e as mutações morrem. **Feita (2026-10-19):** migration `AddMarketSyncRuns` gerada, **ainda não aplicada no banco de desenvolvimento** (pede autorização do dono); `Admin__Emails` precisa estar no Railway antes do merge se o dono quiser a tela no ar.
-- [x] **R.16 Admin dos dados de mercado (tela)** — `/admin` (lazy, `noindex`, só para `isAdmin`), entrada no menu da conta, um cartão por série (estado, próxima execução automática, última execução, erro com código), "Sincronizar agora" e "Reprocessar período", lista das últimas execuções; `gen:api`; Vitest; 320/390/1280, claro e escuro. **Feita (2026-10-19):** `features/admin/*` (`adminMarket.ts` com 34 testes), guarda `RequireAdmin` (para quem não é admin a rota é o 404 de sempre), entrada "Dados de mercado" no menu da conta só para admin; conferida com toque real em 320/390/1280, claro e escuro, com o Banco Central de verdade (sincronização manual gravou a execução) e com um erro simulado com código. A migration `AddMarketSyncRuns` foi aplicada no banco de desenvolvimento (com o "OK" do dono).
+- [x] **R.16 Admin dos dados de mercado (tela)** — `/admin` (desde a AE.3, `/admin/mercado`; lazy, `noindex`, só para `isAdmin`), entrada no menu da conta, um cartão por série (estado, próxima execução automática, última execução, erro com código), "Sincronizar agora" e "Reprocessar período", lista das últimas execuções; `gen:api`; Vitest; 320/390/1280, claro e escuro. **Feita (2026-10-19):** `features/admin/*` (`adminMarket.ts` com 34 testes), guarda `RequireAdmin` (para quem não é admin a rota é o 404 de sempre), entrada "Dados de mercado" no menu da conta só para admin; conferida com toque real em 320/390/1280, claro e escuro, com o Banco Central de verdade (sincronização manual gravou a execução) e com um erro simulado com código. A migration `AddMarketSyncRuns` foi aplicada no banco de desenvolvimento (com o "OK" do dono).
 > **EM ESPERA (decisão do dono, 2026-10-19):** o dono vai buscar dados melhores (extratos reais de CDB IPCA+ e do Tesouro IPCA+) antes de seguir; **não começar a R.17 em diante sem ele pedir**. As cinco etapas abaixo seguem desmarcadas de propósito; o que já foi levantado está em `docs/renda-fixa-ipca.md`. O IPCA e o IPCA+ continuam **recusados** pela API e pela tela até lá.
 
 - [ ] **R.17 IPCA: verificação (sem código)** — **EM ESPERA** (o dono vai buscar dados melhores; as R.18 a R.21 dependem desta) — extrato real de um CDB IPCA+ (e do Tesouro) para decidir a convenção (F1 a F3); confirmar a SGS 1737 contra o IBGE, o IR sobre a correção (F7) e o comportamento do BCB. **Depende do dono.**
@@ -1255,6 +1255,32 @@ a base legal e a redação da política.
   (1), provados com 4 mutações (dia em UTC, sem lembrar, sem o `catch`, sem a condição do dia), cada uma pega por um teste. Suíte completa verde (2026-10-30): Domínio 1198, Arquitetura 17, API 1106 (7 ignorados).
   **Decisão do dono (2026-10-30):** o último acesso não é citado na política de privacidade; a versão do texto fica como
   está. O assunto volta se a política for revista (A.2) ou se o dado passar a ser usado para e-mail de relacionamento.
+- [x] **AE.2 Contagem de pessoas (API)** — `GET /admin/users/summary?days=N` (N de 1 a 365, padrão 30, escolhido pelo dono, sem
+  janelas fixas): `accounts`, `confirmed`, `unconfirmed`, `active` (vistas há menos de N dias), `inactive` (há N dias ou mais) e
+  `neverUsed`; só números, nunca quem é. Dia civil de São Paulo; a regra é `ActivityWindow` no domínio (a mesma servirá ao
+  segmento do e-mail). Uma agregação em SQL, na política `Admin`.
+  *Pronto quando:* `active + inactive + neverUsed = confirmed` para qualquer N; fronteira de N−1 e N dias; a virada é à meia-noite
+  de São Paulo, não de UTC; N fora de 1 a 365 dá 400 `InvalidDays`; sem N vale 30; 401 e 403; a resposta só tem números.
+  *Feita (2026-10-30):* `ActivityWindow` (`Prisma.Domain/Accounts`), `GetUserSummary` e `UserSummaryResponse`
+  (`Features/Admin`), `.http`, `api-types.ts` regenerado (+80 linhas, nenhuma removida; API paralela na 7161 com as tarefas
+  desligadas). `ActivityWindowTests` (13, com uma propriedade em CsCheck: comparar com `ActiveSince` dá o mesmo que contar
+  dias civis) e `AdminUsersApiTests` (15). Provados com 6 mutações (dia em UTC, erro de um dia, ativa e inativa sem exigir
+  e-mail confirmado, nunca-usou sem exigir confirmado, não confirmadas erradas); duas sobreviveram a princípio e pediram um
+  caso novo (conta sem o e-mail confirmado mas com acesso gravado). **Log:** `UserSummaryRequested` (2016, `userId` e `days`,
+  nunca os números; não sai em pedido recusado), com 2 testes e 3 mutações (sem o log, id errado, log antes de validar); o
+  `LastSeenStampFailed` (AE.1) passou a ter o `userId` do escopo conferido por teste. `docs/operacao.md` 4.6 e `docs/admin-email.md` 2.1. Suíte completa verde (2026-10-30): Domínio 1211, Arquitetura 17, API 1123 (7 ignorados).
+- [x] **AE.3 Admin como entrada + tela de Pessoas** — `/admin` vira uma página de entrada com as áreas (cartões "Dados de mercado"
+  e "Pessoas"); a tela de mercado de hoje passa para `/admin/mercado` e a nova fica em `/admin/pessoas` (campo "dias sem acesso"
+  com atalhos de 7, 30 e 90 que só preenchem o campo, aviso de que o filtro só é confiável N dias depois do deploy). O menu da
+  conta troca "Dados de mercado" por "Administração". Rotas `lazy`, guarda `RequireAdmin`. *Pronto quando:* Vitest do que é
+  texto e validação do campo, e conferência visual em 320, 390 e 1280, claro e escuro, com toque real.
+  *Feita (2026-10-30):* `AdminHomePage` (entrada), `AdminPeoplePage` (campo, atalhos 7/30/90, contagem, aviso de confiabilidade),
+  `AdminBack`, `adminPeople.ts` (validação e textos), `useUserSummary` (`keepPreviousData`, sem consultar com campo inválido),
+  chave `adminPeopleKey`, rotas `/admin`, `/admin/mercado` e `/admin/pessoas`, menu "Administração" (`ShieldCheck`). A tela de
+  mercado só ganhou o "voltar". `adminPeople.test.ts` (20), provado com 5 mutações (limite superior, sinal, plural, espaços, "hoje").
+  Conferida por mim no Chrome com toque real e API paralela (7160, banco descartável, tarefas desligadas): 320, 390 e 1280, claro e
+  escuro, sem rolagem lateral; o toque em "7 dias" recalcula; um defeito achado e corrigido (com o campo inválido ficavam na tela os
+  números do N anterior, esmaecidos). Tipos, lint e build limpos; Vitest 607. **Falta a conferência do dono**, no celular.
 
 ---
 

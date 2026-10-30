@@ -1,7 +1,8 @@
 # Admin: pessoas inativas e e-mail em massa (AE)
 
-Conversa do dono com o assistente em 2026-10-29. **Só a etapa AE.1 (último acesso) está feita**; o resto é desenho para
-decidir, sem etapa no `PLAN.md` até o dono aprovar. O que já existe e se reaproveita: a política `Admin`
+Conversa do dono com o assistente em 2026-10-29. **Estão feitas a AE.1 (último acesso), a AE.2 (contagem, API) e a AE.3 (o admin como
+entrada e a tela de Pessoas)**; o resto (descadastro, segmentos, campanha, disparo) é desenho para decidir, sem etapa no `PLAN.md`
+até o dono aprovar. O que já existe e se reaproveita: a política `Admin`
 (`docs/admin-mercado.md`), a fila `outbox_emails` com o Resend (`docs/email.md`) e o `EmailLayout` com a prévia
 (`EmailPreviewTests`).
 
@@ -50,12 +51,32 @@ WHERE id = <pessoa> AND (last_seen_at IS NULL OR last_seen_at < <início do dia 
 
 Consultas prontas: `docs/consultas-saude.md`, seção 2.
 
+## 2.1 Logs (padrão do projeto, `CLAUDE.md` seção 6)
+
+Todo evento é declarado em `Infrastructure/Logging/AppLog.cs` com `[LoggerMessage]`, mensagem em inglês, só ids e tipos
+(o teste de arquitetura recusa parâmetro com nome sensível). Faixa 2xxx (acesso).
+
+| Evento | Nível | Quando | Campos |
+|---|---|---|---|
+| `LastSeenStampFailed` (2015) | Warning | o carimbo do último acesso falhou (banco lento, coluna ausente); o pedido segue | `exception`; `userId` pelo escopo |
+| `UserSummaryRequested` (2016) | Information | um admin consultou `GET /admin/users/summary` com `days` válido | `userId` de quem pediu, `days` |
+
+- **Por que o carimbo que dá certo não loga:** seria uma linha por pessoa por dia (o nível Information é "o que se quer contar", e
+  isso já está no banco, em `last_seen_at`). Só a falha, que é o que alguém precisa investigar, vira linha.
+- **Por que a contagem loga quem pediu, e não o resultado:** é o mesmo rastro do disparo do admin de mercado
+  (`MarketDataSyncRequested`): quem usou uma superfície de admin fica só no log. Os números devolvidos não vão junto (a resposta
+  já os tem), e um pedido recusado (`days` fora de 1 a 365, ou quem não é admin) não gera o evento: a linha da requisição
+  (`RequestFinished`, com o 400 ou o 403) já o registra.
+- Testes: `LastSeenTests` (a falha vira o aviso, com o `userId`, e o pedido segue) e `AdminUsersApiTests` (o evento leva o
+  `userId` e o `days`, não leva os números, e não sai em pedido recusado). Provados com mutações (sem o log, id errado, log antes
+  de validar).
+
 ## 3. Desenho para decidir (sem etapa ainda)
 
 Ordem proposta, cada passo útil sozinho:
 
-1. **Contagens no admin.** Um cartão pequeno em `/admin`: contas, confirmadas, ativas em 7, 30 e 90 dias. Só números,
-   nunca a lista de pessoas. Logs do Railway não servem para isso (expiram e são eventos, não estado); o banco é a fonte.
+1. **Contagens no admin (AE.2 a API e AE.3 a tela, feitas).** Só números, nunca a lista de pessoas. Logs do Railway não servem
+   para isso (expiram e são eventos, não estado); o banco é a fonte. Ver a seção 3.1.
 2. **Descadastro.** Preferência por pessoa gravada **no Prisma** (não nos *Audiences* do Resend, que copiariam a lista de
    e-mails para fora e deixariam a preferência longe do apagar-conta e da cópia dos dados). Link com token assinado, sem
    exigir login, e os cabeçalhos `List-Unsubscribe` e `List-Unsubscribe-Post` (um clique) no envio; confirmar na hora de
@@ -69,6 +90,39 @@ Ordem proposta, cada passo útil sozinho:
    recebe a mesma campanha duas vezes, prioridade abaixo dos e-mails de conta na fila (cota do Resend) e histórico das
    campanhas (como o `market_sync_runs`). Log só com ids.
 6. **Depois, se houver volume:** webhook do Resend (devolvido, marcado como spam) para parar de enviar a quem reclamou.
+
+### 3.1 A contagem (AE.2)
+
+`GET /admin/users/summary?days=N`, na política `Admin` (a regra do teste que recusa rota `/admin` sem ela vale).
+
+- **N é do dono**, de 1 a 365 (padrão 30). Primeiro pensei em janelas fixas de 7, 30 e 90 dias; a decisão foi um número só,
+  porque responde exatamente ao que se quer ver e deixa a API menor. Os atalhos de 7, 30 e 90 existirão só na tela, preenchendo
+  o campo (AE.3).
+- **Resposta:** `days`, `accounts`, `confirmed`, `unconfirmed`, `active`, `inactive`, `neverUsed`. Só números.
+- **Regra (`ActivityWindow`, no domínio):** dias civis de São Paulo entre o último acesso e hoje. **Ativa** = vista há menos de
+  N dias; **inativa** = há N dias ou mais; **nunca usou** = confirmou o e-mail e não tem acesso gravado. Não há buraco entre as
+  duas metades, então vale `active + inactive + neverUsed = confirmed`, para qualquer N (a invariante é teste). Só entram
+  contas com o e-mail confirmado: quem não confirmou não pôde usar o app.
+- **No SQL**, o corte é um instante só (`ActivityWindow.ActiveSince`: o começo, em São Paulo, do dia de N−1 dias atrás),
+  comparado com `last_seen_at`; o banco não converte o fuso de cada linha. Uma propriedade em CsCheck garante que isso dá o
+  mesmo resultado que contar os dias civis.
+- **O mesmo N serve ao segmento do e-mail de quem não entra** (item 3 acima): "inativos há N dias" é exatamente o `inactive`
+  daqui, no mesmo código, então a contagem que o dono vê e a lista que o disparo usaria nunca divergem.
+- **Aviso na tela (AE.3):** contas de antes do registro de acesso foram carimbadas pela migration (seção 2); o filtro só é
+  confiável N dias depois do deploy.
+
+### 3.2 O admin como entrada (AE.3, feita)
+
+O `/admin` era a tela de dados de mercado. Com mais de uma área, virou uma página de entrada com um cartão por área, e cada área
+ganhou a própria rota: `/admin/mercado` e `/admin/pessoas`. O menu da conta tem uma só entrada, "Administração". Mais áreas
+(campanhas, fila de e-mails) entram como novos cartões em `AdminHomePage`, sem mexer no resto. Cada área leva o "voltar" para a
+entrada (`AdminBack`).
+
+**Tela de Pessoas.** Um campo "Dias sem acesso" (1 a 365, validado na tela antes de consultar; o servidor continua decidindo) com
+os atalhos 7, 30 e 90, que só preenchem o campo; a consulta espera 300 ms sem digitar. O número grande é quem está sem acesso há N
+dias ou mais; abaixo, quem acessou nos últimos N dias, quem confirmou o e-mail e nunca usou, quem ainda não confirmou e o total de
+contas, e o aviso de que o filtro só é confiável N dias depois do deploy. Trocar o número mantém a contagem anterior esmaecida;
+com o campo inválido a contagem some (a anterior seria de outro N).
 
 Outros fluxos de admin que surgiram: reenviar a confirmação a quem travou no cadastro (o de menor risco), aviso de
 manutenção ou de mudança nos termos, ver e-mails parados na fila, abrir e fechar o cadastro sem o Railway.

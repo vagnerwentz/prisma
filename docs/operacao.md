@@ -76,6 +76,8 @@ de `docs/consultas-saude.md`: só leitura, só agregadas.
 | Tentativas de login erradas | `@eventName:LoginFailed` ou `@eventName:LoginUnknownEmail` |
 | Rate limit disparando | `@eventName:RateLimited` |
 | O formato dos cabeçalhos de IP do proxy mudou (rate limit pode juntar usuários) | `@eventName:ClientIpHeadersUnexpected` (seção 11) |
+| O carimbo do último acesso falhou (o pedido seguiu normalmente; seção 4.6) | `@eventName:LastSeenStampFailed` |
+| Quem olhou a contagem de pessoas do admin, e para quantos dias (seção 4.6) | `@eventName:UserSummaryRequested` |
 | Telas que quebraram no navegador de alguém | `@eventName:ClientError` (com `@userId:…` para uma pessoa) |
 | Requisições de uma rota | `@route:/statements/{id}/pay` |
 
@@ -294,7 +296,7 @@ Uma falha nunca derruba a API: vai para o log, e a próxima execução tenta de 
   pessoa são dados dela (`savings_goals`, `fixed_income_deposits` e, com o resgate, `fixed_income_redemptions`) e entram na exclusão da conta, na limpeza do excluído (o resgate sai de vez junto com o aporte, em cascata, ou à parte depois de 30 min) e na
   cópia dos dados (`ops/privacy/export-user.sql`, `resgatesRendaFixa`); `reference_rates` é dado de mercado, sem dono.
 
-- **Admin dos dados de mercado (R.15 e R.16 feitas; `docs/admin-mercado.md`):** pela tela **Dados de mercado** (menu da conta, só para admin; `/admin`) ou pelas rotas: `POST /admin/market-data/cdi/sync` dispara a
+- **Admin dos dados de mercado (R.15 e R.16 feitas; `docs/admin-mercado.md`):** pela tela **Dados de mercado** (menu da conta, "Administração", só para admin; `/admin/mercado`) ou pelas rotas: `POST /admin/market-data/cdi/sync` dispara a
   sincronização do CDI à mão (janela normal) e `POST …/cdi/refresh` reprocessa um período (até 10 anos); `GET /admin/market-data` e
   `GET …/cdi/runs` mostram o estado e as últimas execuções, com o erro do Banco Central e o **código da página de rejeição**, que é o número
   que o BCB pede num chamado (o mesmo vai ao log como `MarketDataSourceErrorCode`). Sem a tela, a chamada se faz com o
@@ -303,6 +305,33 @@ Uma falha nunca derruba a API: vai para o log, e a próxima execução tenta de 
   e-mail, a API **não sobe**. `Admin__SyncTimeoutSeconds` (padrão 90) é o teto do disparo manual. As execuções (da tarefa e do manual) ficam
   90 dias em `market_sync_runs`, sem dado pessoal; quem pediu só aparece no log (`MarketDataSyncRequested`, com o `userId`).
   A migration `AddMarketSyncRuns` cria a tabela. O horário automático (19h30 e 23h30 e ao subir) **continua igual**.
+
+## 4.6 Último acesso e contagem de pessoas (AE.1 a AE.3)
+
+Desenho em `docs/admin-email.md`. O que operar:
+
+- **O que é.** `users.last_seen_at` guarda o instante do primeiro pedido autenticado de cada dia em São Paulo (`LastSeenStamper`,
+  um `UPDATE` condicional atrás de uma memória do dia no processo). Não há tarefa em segundo plano nem variável de ambiente: a
+  migration `AddUserLastSeenAt` cria a coluna e carimba com o instante dela quem já confirmou o e-mail. **Só a partir de N dias
+  depois do deploy a contagem de "sem acesso há N dias" é confiável.**
+- **A contagem** está em **Administração → Pessoas** (`/admin/pessoas`) ou em `GET /admin/users/summary?days=N`
+  (`src/Prisma.Api/Http/admin-market.http`). Só números, nunca quem é. Para o mesmo número em SQL, `docs/consultas-saude.md`,
+  seção 2.
+- **Logs.** Dois eventos, nenhum com e-mail, nome ou os números devolvidos:
+
+  | Evento | Nível | Quando | Campos |
+  |---|---|---|---|
+  | `LastSeenStampFailed` (2015) | Warning | o carimbo falhou; o pedido seguiu normalmente e o próximo tenta de novo | `exception`, e o `userId` pelo escopo da requisição |
+  | `UserSummaryRequested` (2016) | Information | um admin consultou a contagem com um número de dias válido | `userId` de quem pediu e `days` |
+
+  O carimbo que dá certo **não** vira log (seria uma linha por pessoa por dia, e o dado já está no banco). Um pico de
+  `LastSeenStampFailed` quer dizer banco lento ou fora do ar; isolado, não é nada: a falha não derruba o pedido nem perde o
+  carimbo do dia seguinte.
+- **A coluna não existe (banco local sem a migration):** o carimbo falha com `LastSeenStampFailed` e `/admin/users/summary`
+  responde 500. Rode `dotnet ef database update -p src/Prisma.Api -s src/Prisma.Api` e reinicie a API. Na produção as migrations
+  sobem sozinhas.
+- **Privacidade.** O último acesso é dado pessoal: vai na cópia pedida pelo titular (`ultimoAcessoEm`, `ops/privacy/export-user.sql`)
+  e sai junto com a conta. Não está citado na política de privacidade (decisão do dono, 2026-10-30; `docs/admin-email.md`, seção 2).
 
 ## 5. Backup fora do Railway (H.2b)
 

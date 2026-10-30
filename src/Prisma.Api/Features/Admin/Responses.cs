@@ -19,3 +19,8 @@ public sealed record MarketSeriesStatus(
     string Code, string Name, string Source, int Count, DateOnly? First, DateOnly? Last, DateOnly ExpectedLast, bool Stale, bool Complete,
     int MissingBusinessDayCount, DateTime? LastFetchedAt, DateTime? LastRevisedAt, MarketSyncSchedule Schedule,
     MarketSyncRunResponse? LastRun, MarketSyncRunResponse? LastSuccessfulRun);
+
+// A contagem de pessoas do admin (docs/admin-email.md, AE.2): só números, de uma janela de `Days` dias. Entre as contas com o
+// e-mail confirmado, `Active + Inactive + NeverUsed = Confirmed`.
+public sealed record UserSummaryResponse(
+    int Days, int Accounts, int Confirmed, int Unconfirmed, int Active, int Inactive, int NeverUsed);
