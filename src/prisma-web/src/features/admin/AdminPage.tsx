@@ -26,6 +26,7 @@ import {
   type MarketRun,
   type MarketSeries,
 } from './adminMarket'
+import { AdminBack } from './AdminBack'
 import { useMarketData, useRefreshMarket, useSyncMarket, useSyncRuns } from './queries'
 
 // Admin dos dados de mercado (docs/admin-mercado.md, seção 7): o estado de cada série, a próxima execução automática e as últimas
@@ -34,7 +35,8 @@ export function AdminPage() {
   const data = useMarketData()
 
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 pt-5 pb-32">
+    <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 pt-3 pb-32">
+      <AdminBack />
       <div>
         <h1 className="font-display text-3xl">Dados de mercado</h1>
         <div className="spectrum-line mt-2 opacity-80" />

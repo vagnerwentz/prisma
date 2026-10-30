@@ -11,6 +11,8 @@ Legenda: **[V]** verificado no código ou na fonte; **[H]** hipótese a confirma
 
 ---
 
+> O admin ganhou outra área (contagem de pessoas, e-mail de quem não entra): `docs/admin-email.md`. Desde a AE.3, `/admin` é a entrada do admin, e esta tela mora em `/admin/mercado`.
+
 ## 1. Por que agora
 
 - O Banco Central é imprevisível: a mesma consulta já respondeu 406, 200 com JSON de erro e 200 com HTML (`docs/renda-fixa.md`,
@@ -97,10 +99,10 @@ BCB pede se o dono abrir chamado (central +55 61 3414-2156, que a própria pági
 - **O repositório é público** (`CLAUDE.md`, seção 8): aqui só consta o desenho, não há falha aberta. A lista de admins fica em variável de ambiente, nunca no repositório.
 - Cookie `SameSite=Lax` e `POST` com JSON: o mesmo modelo das outras mutações. Nada de dado de usuário passa por esta superfície.
 
-## 7. Tela (`/admin`)
+## 7. Tela (`/admin/mercado`; era `/admin` até a AE.3)
 
 - Rota `lazy`, `noindex` como as telas do app, **fora do pacote principal**. A tela só abre se `isAdmin`; senão, a página de "endereço inexistente" (não revela a tela).
-- Entrada no **menu da conta**, só para admin.
+- Entrada pelo **menu da conta** ("Administração", só para admin), que leva à entrada do admin (`/admin`); dali, o cartão "Dados de mercado". A tela ganhou o "voltar" para a entrada.
 - Um cartão por série: nome e fonte; estado (**em dia**, **defasado**, **incompleto**, **sem taxas**) com a última data; a **próxima execução automática**;
   a última execução (quando, como, resultado e contagens) e a última que deu certo; o **erro do BCB** com o código, quando houver.
 - Ações: **"Sincronizar agora"** (janela normal) e **"Reprocessar período"** (duas datas; confirma antes). Enquanto roda, o botão fica desabilitado e diz "Sincronizando…"; no fim, o resultado em aviso (`sonner`) e o cartão se atualiza (`invalidateQueries`).

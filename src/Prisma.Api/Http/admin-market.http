@@ -27,3 +27,8 @@ GET {{baseUrl}}/admin/market-data/cdi/runs?limit=20
 
 ### Série que não existe: 404 UnknownSeries
 POST {{baseUrl}}/admin/market-data/selic/sync
+
+### Pessoas (docs/admin-email.md, AE.2): só contagens, nunca quem é. `days` de 1 a 365 (padrão 30); fora disso, 400 InvalidDays.
+# active = confirmadas vistas há menos de `days` dias; inactive = há `days` dias ou mais; neverUsed = confirmadas sem acesso.
+# active + inactive + neverUsed = confirmed. Dia civil de São Paulo.
+GET {{baseUrl}}/admin/users/summary?days=30

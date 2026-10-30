@@ -1,4 +1,4 @@
-import { Database, KeyRound, LogOut, Monitor, Moon, Sun, Trash2 } from 'lucide-react'
+import { KeyRound, LogOut, Monitor, Moon, ShieldCheck, Sun, Trash2 } from 'lucide-react'
 import { Outlet, useMatch, useNavigate } from 'react-router'
 import { BottomNav } from '@/components/BottomNav'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -83,8 +83,8 @@ function UserMenu() {
         <DropdownMenuSeparator />
         {user?.isAdmin && (
           <DropdownMenuItem onSelect={() => navigate('/admin')}>
-            <Database />
-            Dados de mercado
+            <ShieldCheck />
+            Administração
           </DropdownMenuItem>
         )}
         <DropdownMenuItem onSelect={() => navigate('/trocar-senha')}>

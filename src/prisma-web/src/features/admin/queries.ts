@@ -1,11 +1,22 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, unwrap } from '@/lib/api'
-import { adminMarketKey, fixedIncomeKey } from '@/lib/queryKeys'
+import { adminMarketKey, adminPeopleKey, fixedIncomeKey } from '@/lib/queryKeys'
 
 export function useMarketData() {
   return useQuery({
     queryKey: adminMarketKey,
     queryFn: async () => unwrap(await api.GET('/admin/market-data')),
+  })
+}
+
+// A contagem de pessoas para N dias (docs/admin-email.md, 3.1). Sem N válido não consulta. Trocar o número mantém a contagem
+// anterior na tela, esmaecida (placeholderData), em vez de piscar o carregamento.
+export function useUserSummary(days: number | null) {
+  return useQuery({
+    queryKey: [...adminPeopleKey, days],
+    queryFn: async () => unwrap(await api.GET('/admin/users/summary', { params: { query: { days: days! } } })),
+    enabled: days !== null,
+    placeholderData: keepPreviousData,
   })
 }
 

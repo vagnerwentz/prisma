@@ -23,6 +23,8 @@ public sealed class LastSeenTests(PostgresFixture postgres)
     private PrismaApiFactory Factory(Action<IServiceCollection>? services = null) =>
         new(postgres.ConnectionString, null, _clock, _logs, services);
 
+    private sealed record MeDto(Guid Id);
+
     private static async Task<(HttpClient Client, string Email)> SignedIn(PrismaApiFactory factory)
     {
         var email = $"{Guid.NewGuid():N}@teste.com.br";
@@ -169,11 +171,13 @@ public sealed class LastSeenTests(PostgresFixture postgres)
     {
         await using var factory = Factory(services => services.AddSingleton<ILastSeenCache, BrokenCache>());
         var (client, email) = await SignedIn(factory);
-
-        await Visit(client);
+        var userId = (await client.GetFromJsonAsync<MeDto>("/auth/me"))!.Id;
 
         var log = await _logs.WaitFor(l => l.EventId.Name == "LastSeenStampFailed");
         log.Level.ShouldBe(LogLevel.Warning);
+        log.Exception.ShouldBeOfType<InvalidOperationException>();
+        // O userId vem do escopo da requisição (o aviso é escrito depois do UseUserLogScope), e nada de e-mail no texto.
+        log["UserId"].ShouldBe(userId);
         log.Message.ShouldNotContain(email);
     }
 

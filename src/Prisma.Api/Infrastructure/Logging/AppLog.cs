@@ -104,6 +104,11 @@ public static partial class AppLog
     [LoggerMessage(2015, LogLevel.Warning, "Could not stamp the last seen date")]
     public static partial void LastSeenStampFailed(this ILogger logger, Exception exception);
 
+    // Quem olhou a contagem de pessoas do admin (docs/admin-email.md, 3.1): só o id de quem pediu e o número de dias, nunca
+    // os números devolvidos. Segue o MarketDataSyncRequested: o rastro de quem usou a superfície de admin fica só no log.
+    [LoggerMessage(2016, LogLevel.Information, "User summary requested by {UserId} for {Days} days")]
+    public static partial void UserSummaryRequested(this ILogger logger, Guid userId, int days);
+
     [LoggerMessage(3000, LogLevel.Information, "Account {AccountId} created ({AccountType})")]
     public static partial void AccountCreated(this ILogger logger, Guid accountId, AccountType accountType);
 
