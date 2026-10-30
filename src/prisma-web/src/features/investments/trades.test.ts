@@ -13,7 +13,12 @@ import {
   noteTotals,
   notesTotals,
   parseQuantity,
+  defaultSettlementAccount,
+  goesNegative,
   priceParts,
+  settlementAccountChoices,
+  settlementLine,
+  settlementNetCents,
   showsBrokerageKinds,
   stepTitle,
   type PositionStep,
@@ -292,5 +297,59 @@ describe('corretagem por tipo', () => {
     expect(brokerageKindsError(490, ['Etf', 'Fii'], ['Stock'])).toBe('Marque em quais ativos a corretagem foi cobrada.')
     expect(brokerageKindsError(490, ['Etf', 'Fii'], ['Etf'])).toBeUndefined()
     expect(brokerageKindsError(0, ['Etf'], [])).toBeUndefined()
+  })
+})
+
+// docs/investimentos.md, "I.8": a conta da corretora na nota.
+describe('settlement account', () => {
+  const ion = { id: 'ion', name: 'Íon', type: 'Investment', isActive: true }
+  const itau = { id: 'itau', name: 'Itaú', type: 'Checking', isActive: true }
+
+  it('computes the net cash like the API: buys minus sells plus all the costs', () => {
+    // O caso do dono: 100 × R$ 57,00 e R$ 49,70 de custos.
+    expect(settlementNetCents({ buyCents: 570_000, sellCents: 0 }, 4_970)).toBe(574_970)
+    expect(settlementNetCents({ buyCents: 0, sellCents: 600_000 }, 5_000)).toBe(-595_000)
+    expect(settlementNetCents({ buyCents: 100_000, sellCents: 150_000 }, 1_000)).toBe(-49_000)
+    expect(settlementNetCents({ buyCents: 10_000, sellCents: 10_000 }, 0)).toBe(0)
+  })
+
+  it('offers accounts but not cards, and an inactive account only if the note already has it', () => {
+    const card = { id: 'visa', name: 'Visa', type: 'CreditCard', isActive: true }
+    const old = { id: 'old', name: 'Antiga', type: 'Checking', isActive: false }
+
+    expect(settlementAccountChoices([ion, card, old, itau], null).map((a) => a.id)).toEqual(['ion', 'itau'])
+    expect(settlementAccountChoices([ion, card, old, itau], 'old').map((a) => a.id)).toEqual(['ion', 'old', 'itau'])
+  })
+
+  it('picks the last used account, else the one named like the brokerage, else none', () => {
+    expect(defaultSettlementAccount([ion, itau], 'XP', 'itau')).toBe('itau')
+    expect(defaultSettlementAccount([ion, itau], 'ION', null)).toBe('ion')
+    expect(defaultSettlementAccount([ion, itau], 'Íon', null)).toBe('ion')
+    expect(defaultSettlementAccount([ion, itau], 'ion', 'gone')).toBe('ion')
+    expect(defaultSettlementAccount([ion, itau], 'XP', null)).toBeNull()
+    expect(defaultSettlementAccount([ion, itau], null, null)).toBeNull()
+  })
+
+  it('remembers the choice of not linking, so old notes do not need to be unchecked every time', () => {
+    expect(defaultSettlementAccount([ion, itau], 'Íon', 'none')).toBeNull()
+  })
+
+  it('says what the note does to the account', () => {
+    expect(settlementLine(574_970, 'Íon')).toBe('A compra de R$\u00a05.749,70 sai de Íon.')
+    expect(settlementLine(-595_000, 'Íon')).toBe('A venda de R$\u00a05.950,00 entra em Íon.')
+    expect(settlementLine(0, 'Íon')).toBe('Compra e venda se anulam: nada é lançado na conta.')
+  })
+
+  it('warns when the buy would take the account below zero, counting what the note already settled there', () => {
+    expect(goesNegative(100_000, 0, 574_970)).toBe(true)
+    expect(goesNegative(574_970, 0, 574_970)).toBe(false)
+    // Editando: a nota já tirou R$ 5.749,70 da conta (o saldo é R$ 0,00); subir o preço em R$ 100 deixa -R$ 100.
+    expect(goesNegative(0, 574_970, 584_970)).toBe(true)
+    expect(goesNegative(0, 574_970, 574_970)).toBe(false)
+  })
+
+  it('never warns for a sell, or when the balance is unknown', () => {
+    expect(goesNegative(-5_000, 0, -10_000)).toBe(false)
+    expect(goesNegative(null, 0, 574_970)).toBe(false)
   })
 })

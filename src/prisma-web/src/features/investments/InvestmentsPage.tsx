@@ -1,5 +1,5 @@
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Tabs } from 'radix-ui'
@@ -61,7 +61,14 @@ export function InvestmentsPage() {
   const [adding, setAdding] = useState(false)
   const [open, setOpen] = useState<ListedHolding | null>(null)
   const [payoutView, setPayoutView] = useState<PayoutView | null>(null)
-  const [noteView, setNoteView] = useState<TradeNoteView | null>(null)
+  // A linha da liquidação no extrato leva à nota (?nota=<id>): abre o painel e limpa o endereço, para recarregar não reabrir.
+  const noteParam = search.get('nota')
+  const [noteView, setNoteView] = useState<TradeNoteView | null>(noteParam ? { kind: 'edit', id: noteParam } : null)
+  useEffect(() => {
+    if (noteParam) go({})
+    // Só na chegada com a nota no endereço: `go` troca por um endereço sem ela.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const holdingList = useMemo(() => holdings.data ?? [], [holdings.data])
   const allPayouts = useMemo(() => payouts.data ?? [], [payouts.data])

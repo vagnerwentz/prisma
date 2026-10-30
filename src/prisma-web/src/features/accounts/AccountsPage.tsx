@@ -6,7 +6,8 @@ import { PrismLogo } from '@/components/brand/PrismLogo'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useFixedIncomeBalances } from '@/features/investments/fixedIncomeQueries'
+import { freeCashOf } from '@/features/dashboard/netWorth'
+import { useNetWorth } from '@/features/dashboard/queries'
 import { useHoldings } from '@/features/investments/queries'
 import { seriesCount } from '@/features/recurrences/listing'
 import { useRecurrences } from '@/features/recurrences/queries'
@@ -19,8 +20,8 @@ import { useAccountBalances, useAccounts, type Account, type AccountBalance } fr
 export function AccountsPage() {
   const accounts = useAccounts()
   const balances = useAccountBalances()
-  // Rendimento da renda fixa por conta de investimento (docs/renda-fixa.md, D20): a conta de investimento mostra "Investido".
-  const yields = new Map((useFixedIncomeBalances().data?.byAccount ?? []).map((y) => [y.accountId, y.grossYieldCents]))
+  // O caixa livre de cada conta de investimento que acompanha o caixa (I.9, docs/patrimonio.md). Não segura a tela.
+  const netWorth = useNetWorth().data
   const navigate = useNavigate()
   const [creating, setCreating] = useState(false)
   // Lançamentos que se repetem (docs/fase-2.md, 2.14): a entrada da tela, só quando já há alguma série.
@@ -67,7 +68,7 @@ export function AccountsPage() {
       {sorted.length > 0 && (
         <ul className="surface overflow-hidden rounded-2xl">
           {sorted.map((account) => (
-            <AccountRow key={account.id} account={account} balance={balances.data?.get(account.id)} yieldCents={yields.get(account.id) ?? 0} />
+            <AccountRow key={account.id} account={account} balance={balances.data?.get(account.id)} freeCashCents={netWorth ? freeCashOf(netWorth, account.id) : null} />
           ))}
         </ul>
       )}
@@ -115,13 +116,15 @@ export function AccountsPage() {
   )
 }
 
-function AccountRow({ account, balance, yieldCents }: { account: Account; balance: AccountBalance | undefined; yieldCents: number }) {
+// freeCashCents: o caixa livre da conta de investimento que acompanha o caixa (I.9); nulo nas outras e enquanto não chega.
+function AccountRow({ account, balance, freeCashCents }: { account: Account; balance: AccountBalance | undefined; freeCashCents: number | null }) {
   // Cartão: fechamento e vencimento, sem repetir "Cartão" (o "Disponível" e o logo já dizem). Curto
   // e com espaço inseparável dentro de cada dado, para a linha quebrar só entre eles em 320px.
+  const untracked = account.type === 'Investment' && !account.tracksCash
   const details =
     account.type === 'CreditCard'
       ? [`Fecha\u00a0${account.closingDay}`, `vence\u00a0${account.dueDay}`]
-      : [accountTypeLabels[account.type]]
+      : [accountTypeLabels[account.type], untracked ? 'caixa não acompanhado' : null].filter(Boolean)
 
   return (
     <li className="[&+&]:border-t [&+&]:border-border/60">
@@ -142,28 +145,26 @@ function AccountRow({ account, balance, yieldCents }: { account: Account; balanc
           </p>
           {/* Quebra em vez de cortar: fechamento e vencimento são o que se procura aqui. */}
           <p className="text-sm text-pretty text-muted-foreground">{details.join(' · ')}</p>
-          {account.type === 'Investment' && yieldCents > 0 && (
-            <p className="text-xs text-pretty text-muted-foreground">{`Com\u00a0${formatCents(yieldCents)} de rendimento`}</p>
-          )}
         </div>
-        {balance && <BalanceFigure account={account} balance={balance} yieldCents={yieldCents} />}
+        {/* Conta de investimento que não acompanha o caixa não mostra valor: o que está investido é dos ativos (Resumo e Investimentos). */}
+        {!untracked && balance && <BalanceFigure account={account} balance={balance} freeCashCents={freeCashCents} />}
         <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
       </Link>
     </li>
   )
 }
 
-// Conta: saldo atual. Cartão: limite disponível, ou o que falta pagar quando não há limite.
-// Conta de investimento: "Investido", o principal mais o rendimento bruto da renda fixa que entrou por ela (o saldo da conta, na tela dela,
-// segue sendo só o principal e bate com o extrato).
-function BalanceFigure({ account, balance, yieldCents }: { account: Account; balance: AccountBalance; yieldCents: number }) {
-  const invested = account.type === 'Investment'
+// Conta: saldo atual. Cartão: limite disponível, ou o que falta pagar quando não há limite. Conta de investimento que acompanha o caixa:
+// "Caixa livre", o saldo menos o principal da renda fixa que ela financiou (o saldo da conta, na tela dela, segue batendo com o extrato).
+function BalanceFigure({ account, balance, freeCashCents }: { account: Account; balance: AccountBalance; freeCashCents: number | null }) {
   const [label, cents] =
-    account.type !== 'CreditCard'
-      ? [invested ? 'Investido' : 'Saldo', invested && balance.balanceCents != null ? balance.balanceCents + yieldCents : balance.balanceCents]
-      : balance.availableCreditCents != null
-        ? ['Disponível', balance.availableCreditCents]
-        : ['A pagar', balance.owedCents]
+    account.type === 'Investment'
+      ? ['Caixa livre', freeCashCents ?? balance.balanceCents]
+      : account.type !== 'CreditCard'
+        ? ['Saldo', balance.balanceCents]
+        : balance.availableCreditCents != null
+          ? ['Disponível', balance.availableCreditCents]
+          : ['A pagar', balance.owedCents]
   if (cents == null) return null
   return (
     <div className="shrink-0 text-right">

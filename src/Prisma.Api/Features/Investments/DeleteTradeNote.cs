@@ -24,6 +24,7 @@ public static class DeleteTradeNote
                 return positions.Error;
 
             db.TradeNotes.Remove(note);
+            await NoteSettlement.Remove(db, note.Id, ct);
             await db.SaveChangesAsync(ct);
             logger.TradeNoteDeleted(note.Id);
             return note.Id;

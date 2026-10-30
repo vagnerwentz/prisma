@@ -35,7 +35,7 @@ Estas estão fechadas. Não reabrir sem conversa explícita.
 | Visão do dashboard | **Caixa**: gasto do cartão conta no mês do vencimento da fatura |
 | Dinheiro | `long` em centavos, sempre |
 | Multiusuário | Dados por `UserId`, sem grupo familiar |
-| Investimentos | Aporte é transferência (Fase 1). Carteira e proventos na Fase I (`docs/investimentos.md`): provento é receita na conta onde caiu, ligada ao ativo; catálogo de ativos global, vindo da brapi. Operações e preço médio pelas notas digitadas, com os eventos da empresa (I.7); cotação fica para depois |
+| Investimentos | O "Investido" do Resumo vem dos ativos (renda fixa inteira e ações ao custo), não do saldo das contas, e o caixa das corretoras é opcional por conta (I.9, `docs/patrimonio.md`). Aporte é transferência (Fase 1). Carteira e proventos na Fase I (`docs/investimentos.md`): provento é receita na conta onde caiu, ligada ao ativo; catálogo de ativos global, vindo da brapi. Operações e preço médio pelas notas digitadas, com os eventos da empresa (I.7); cotação fica para depois |
 | Renda fixa | Objetivos ("caixas") com aportes em CDB (a % do CDI, CDI + taxa ou pré-fixado) cadastrados à mão (`docs/renda-fixa.md`): rendimento pela convenção da B3 em inteiro (`Int128`) com o CDI do Banco Central (SGS 12, tabela global `reference_rates`); imposto estimado (IOF + IR regressivo) por aporte, só como "se resgatar hoje"; com resgate total ou parcial, por aporte ou em lote (R.22 a R.31), sem projeção e sem IPCA por ora. Aporte pode sair de uma conta (cria a transferência); o Resumo e as Contas separam o Disponível do Investido, com o rendimento (R.32 a R.34). Na Carteira é um grupo só, pesado pelo aportado |
 | Hospedagem | Uso próprio: Railway, com API, React e Postgres num só projeto e o React servido pela API (mesmo domínio). Cadastro público: reavaliar antes de abrir |
 | Nome público | **Prisma Money** (2026-10-13): domínio `prismamoney.com.br`, Instagram `@prismamoneybrasil`. O código continua `Prisma` |
@@ -1048,13 +1048,111 @@ O dono lançou todas as notas que tem (2026-10-12).
   - [x] **I.7e Visão da carteira** — três abas (Carteira, Proventos, Notas) com o ano escolhido: investido pelo custo, o
     espectro por tipo, peso de cada ativo, proventos com filtros, mês a mês e ano a ano (`docs/investimentos.md`, I.7e).
 
+- **I.8 Caixa da corretora** — pedida pelo dono (2026-10-27): a nota de corretagem passa a debitar (compra) ou creditar
+  (venda) o caixa da conta da corretora, com vínculo **opcional**; as notas antigas ficam como estão. Especificação,
+  regras e valores esperados em `docs/investimentos.md`, seção "I.8". Etapa por etapa, uma de cada vez, com a revisão do
+  dono entre elas.
+  - [x] **I.8a Cálculo** — só domínio: `NetCashCents` da nota (compras + custos − vendas + custos, pelo rateio da I.7a),
+    sinal e zero, `TransactionType.TradeSettlement`, o saldo (`AccountBalance`) e o resumo do mês tratando o valor novo
+    (fora de "Entrou", "Saiu" e "Investido"); teste antes da implementação, com os valores da tabela da spec, e CsCheck
+    para a soma. Sem banco, API nem tela.
+    Feita em 2026-10-27, na branch `feat/caixa-corretora`: `TradeNote.NetCashCents()`, `TransactionType.TradeSettlement` (no
+    fim do enum), `AccountBalance` e `MonthlySummary` tratando o valor novo; 13 testes novos (valores da spec e uma propriedade
+    CsCheck: líquido = compras − vendas + todos os custos), 4 mutações provadas. `dotnet test` verde (Domínio 1160, Arquitetura 17,
+    API 1054, 7 ignorados). A propriedade `TradeNoteId` do lançamento e a fábrica da liquidação ficam para a I.8b, com a migration:
+    mapear a coluna antes quebraria o banco.
+  - [x] **I.8b API e migration** — `trade_notes.settlement_account_id` e `transactions.trade_note_id`; criar, editar,
+    trocar conta e data, tirar o vínculo, excluir e desfazer mantêm a liquidação na mesma gravação; editar a linha
+    direto é recusado; cartão recusado; campo opcional no pedido; `.http` e `gen:api`. **A migration só se aplica no
+    banco com o "pode" do dono.** Testes de integração, isolamento por usuário, esquema (`export-user.sql`, exclusão de
+    conta, limpeza do excluído).
+    Feita em 2026-10-28: `TradeNote.SettlementAccountId`, `Transaction.TradeNoteId` e `TradeSettlement.Settle` (domínio);
+    `NoteSettlement` sincroniza a liquidação no mesmo `SaveChanges` de criar, editar, trocar conta/data, tirar o vínculo,
+    excluir e restaurar (a mesma linha volta; índice único `ux_transactions_trade_note` conta a excluída); check
+    `ck_transactions_trade_settlement`; editar ou excluir a liquidação à mão dá 409 ("Altere ou exclua a nota de
+    corretagem."); conta de cartão recusada (400), conta de outro usuário é 404, conta inativa só recusa ao trocar de
+    conta; excluir uma conta com nota vinculada é recusado, e a limpeza do excluído leva a liquidação junto e não apaga conta
+    que uma nota ainda aponta; o pedido só acrescenta (`settlementAccountId` opcional); `TransactionResponse.tradeNoteId`;
+    `.http` e `api-types.ts` (atualizado à mão: o `gen:api` exige a API rodando e a migration não foi aplicada no banco de
+    dev, refazer na I.8d). 9 testes de domínio e 22 de integração (`TradeNoteSettlementApiTests`); 10 mutações provadas (3
+    sobreviveram no começo: uma trava duplicada no handler foi removida e duas redes de segurança da limpeza ganharam teste).
+    **Migration `AddTradeNoteSettlement` gerada e NÃO aplicada no banco de dev nem na produção: falta o "pode" do dono.**
+    O front só ganhou o valor novo do tipo (compila); a liquidação aparece no extrato sem tratamento visual até a I.8d.
+    `dotnet test` verde (Domínio 1169, Arquitetura 17, API 1076, 7 ignorados); `tsc` e `oxlint` limpos.
+  - [x] **I.8c Investido** (**regra substituída pela I.9**; o que segue é o histórico) — `splitBalances` soma o "Em ativos"; Contas mostra "Em ativos R$ X" na conta de
+    investimento; o "Investido" do mês no Resumo não muda. Vitest da conta pura.
+    Feita em 2026-10-28: `AccountAssets.Of` (domínio; liquidações já ocorridas, compras − vendas, piso em zero) e
+    `assetsCents` em `GET /accounts/balances` (campo novo, só acrescenta; nulo no cartão); `splitBalances` soma o "Em ativos" de
+    **qualquer** conta ao Investido (a corrente que paga a nota também: o total Disponível + Investido não cai) e devolve
+    `assetsCents`; o "Investido" do Resumo ganha a nota "X em ativos" (e o bloco se divide mesmo sem conta de investimento, se
+    houver ativos); Contas mostra "Em ativos R$ X" e o "Investido" da conta de investimento inclui o valor. 6 testes de
+    domínio, 4 de integração, 3 de Vitest; 6 mutações provadas, todas pegas. **Falta a conferência visual** (320/390/1280, claro
+    e escuro): precisa do banco de dev com a migration da I.8b aplicada, junto com a I.8d.
+  - [x] **I.8d Tela da nota** — campo "Debitar da conta" (última usada, opcional), aviso de conta negativa, a linha no
+    extrato com a nota como destino ("Altere a nota"), editar uma nota antiga para vincular. Conferido em 320/390/1280,
+    claro e escuro, com toque real.
+    Feita em 2026-10-28: seção "Debitar da conta" no painel da nota (chips "Nenhuma" e as contas que não são cartão; a de uma nota
+    nova é a última escolhida, senão a de nome igual ao da corretora, senão nenhuma; "nenhuma" também é lembrada, para quem lança
+    notas antigas), a frase do que a nota faz no caixa ("A compra de R$ X sai de Íon") e o aviso "A conta ficará negativa. Você pode
+    salvar mesmo assim." (que desconta o que a própria nota já liquidava ali); a liquidação no extrato como "Compra/Venda de ativos"
+    com o logo da conta, valor em tinta com "−" ou "+" (nunca no espectro), e tocar nela abre a nota (`?aba=notas&nota=<id>`, que
+    limpa o endereço). Regras puras em `trades.ts`, 7 testes de Vitest, 5 mutações provadas. **Migration aplicada no banco de dev em
+    2026-10-28 (autorizada pelo dono)**; `gen:api` rodado de verdade e **idêntico** ao arquivo editado à mão na I.8b. Conferida por mim
+    no Chrome (toque real, usuário descartável removido depois): Resumo, Contas, Lançamentos e o painel da nota em 390 claro, 320
+    escuro e 1280 claro, sem rolagem lateral; achou e corrigiu dois defeitos (tile tracejado, que lê como "carregando", e texto cortado
+    em 320 px). Vitest 591, `tsc` e `oxlint` limpos. **Falta a conferência do dono**, em especial no celular.
+  - [x] **I.8e Documentos e produção** (**absorvida pela I.9d**, feita em 2026-10-29: o "Investido" mudou de regra e a varredura foi uma só) — varredura (`CLAUDE.md`, `README.md`, `docs/`, memória), contagens de testes,
+    e roteiro de vincular a nota da PETR4 de 22/10 na produção, com o "pode" do dono.
+
+- **I.9 Patrimônio investido** — pedida pelo dono (2026-10-28): o "Investido" passa a vir dos ativos (renda fixa inteira, com ou sem
+  transferência, e ações ao custo, com ou sem nota vinculada), e o caixa das corretoras vira opcional por conta ("acompanhar o caixa").
+  Quem investe há anos não precisa recriar o histórico de entradas. Especificação, regras e valores esperados em `docs/patrimonio.md`.
+  Substitui a regra de "Investido" da D20 e o "Em ativos" da I.8c. Uma etapa por vez, com a revisão do dono entre elas.
+  - [x] **I.9a Domínio** — `NetWorthSplit` (Disponível, Investido, Caixa nas corretoras, Patrimônio); testes antes. Feita em 2026-10-28:
+    `NetWorthSplit.Of(contas, investido, rendimento)` e `NetWorthAccount` (`Prisma.Domain.Accounts`); 12 testes (o caso do dono, caixa livre
+    negativo preservado, nota vinculada sem contar duas vezes, conta desligada, inativa e cartão fora), 5 mutações provadas, todas pegas;
+    Domínio 1187 verdes (só o domínio; a suíte completa roda no fechamento, I.9d). **`Account.TracksCash` ficou para a I.9b**, junto com a
+    coluna: mapear a propriedade antes quebraria o banco dos testes (como a `TradeNoteId` na I.8).
+  - [x] **I.9b API e migration** — `accounts.tracks_cash` (aditiva, falsa por padrão), `tracksCash` opcional ao criar e editar conta,
+    `AccountYield.principalCents`; `.http` e `gen:api`. **Migration só com o "pode" do dono.**
+    Feita em 2026-10-28: `Account.TracksCash` (criar com o campo; editar sem ele **mantém** a escolha, para a tela aberta antes do deploy;
+    só a conta de investimento aceita, as outras recebem 400 "Só a conta de investimento acompanha o caixa."), coluna `accounts.tracks_cash`
+    (padrão falso) e check `ck_accounts_tracks_cash`; `AccountResponse.tracksCash`; `AccountYield.principalCents` (o principal que sobra
+    dos aportes financiados pela conta, depois dos resgates); `accounts.http`; `api-types.ts` editado à mão (o `gen:api` roda na I.9c).
+    8 testes de domínio, 7 de integração de contas (`AccountTracksCashApiTests`) e 3 asserções novas em `FixedIncomeInvestedByAccountApiTests`;
+    6 mutações provadas, todas pegas; Arquitetura 17, Domínio 1195, contas e renda fixa por conta 36 verdes (suíte completa só no
+    fechamento, I.9d). **Migration `AddAccountTracksCash` gerada e NÃO aplicada no banco de dev nem na produção: falta o "pode" do dono.**
+  - [x] **I.9c Tela** — `splitBalances` reescrita (Resumo e Contas), "Acompanhar o caixa" na conta de investimento, card do mês "Aportado".
+    Feita em 2026-10-28: nasceu `GET /dashboard/net-worth` (`GetNetWorth`, usa o `NetWorthSplit` do domínio: a regra fica num lugar só e o
+    Resumo faz uma chamada; a medição de custo da regra 10 não foi necessária, o cálculo junta o que `GET /portfolio`, `/fixed-income/balances` e
+    `/accounts/balances` já calculam); `useNetWorth`, Resumo "Hoje" (Disponível, Investido com "Inclui R$ X de rendimento", Caixa nas corretoras só
+    para quem acompanha), Contas (a conta de investimento sem acompanhar mostra "caixa não acompanhado" e nenhum valor; acompanhando, "Caixa livre"),
+    formulário da conta com "Acompanhar o caixa desta conta" (só investimento), card do mês renomeado "Aportado"; `splitBalances`,
+    `balanceInAccounts` e o "Em ativos" da tela saíram. Achado e corrigido: salvar uma nota **vinculada** não recarregava saldos nem
+    lançamentos (`invalidateTrades` dizia "saldos, não"; defeito da I.8d). `gen:api` rodado de verdade: idêntico ao escrito à mão na I.9b. 8
+    testes de integração (`NetWorthApiTests`, oráculo: `GET /portfolio`), 3 de domínio, 8 de Vitest (`netWorth.test.ts`); 9 mutações provadas, 1
+    sobreviveu no começo e virou teste. **Migration `AddAccountTracksCash` aplicada no banco de dev em 2026-10-28 (autorizada pelo dono).**
+    Conferida por mim no Chrome com toque real (usuário descartável removido): Resumo, Contas, formulário e Lançamentos em 390 claro, 320 escuro
+    e 1280 claro, sem rolagem lateral; liga o caixa pelo formulário, salva e o Resumo e Contas mudam. Vitest 586, `tsc` e `oxlint` limpos.
+    **Falta a conferência do dono**, em especial no celular, e a suíte completa (uma vez, na I.9d).
+  - [x] **I.9d Documentos e produção** — varredura, D21, suíte completa uma vez, roteiro da produção (absorve a I.8e). Feita em 2026-10-29
+    (a produção em si não foi aplicada): `CLAUDE.md` (glossário: Caixa da corretora implementada, Disponível × Investido marcada como
+    substituída, Patrimônio investido, Acompanhar o caixa, Caixa livre e Aportado; árvore de `docs/`; a tela de renda fixa; nova seção "Patrimônio
+    na tela"; Resumo × Análise), `README.md`, `docs/patrimonio.md` (estado, decisões da implementação e o roteiro da produção, seção 8),
+    `docs/investimentos.md` (a regra 6 da I.8 marcada como substituída, o aviso de conta negativa e o defeito da I.9c), `docs/renda-fixa.md`
+    (estado, 7.4c, linha de D20 e a nova **D21**), `docs/fase-2.md` (2.4), `docs/operacao.md` (a exceção da chave estrangeira da liquidação na
+    limpeza), `PLAN.md` e a memória. Conferidos e **sem mudança**: a política de privacidade e os termos (nenhuma categoria nova de dado;
+    versão 1.0 mantida), `ops/privacy/export-user.sql` (usa `to_jsonb` da linha: as colunas novas entram sozinhas) e `docs/landing.md`.
+    **Conferência do dono (2026-10-29): roteiro de 11 passos no banco local, "deu tudo certo".** A suíte completa foi rodada pelo dono em
+    2026-10-29 e passou inteira; os números parciais de cada etapa estão acima.
+
 ---
 
 ## Renda fixa (objetivos e aportes)
 
 Pedida pelo dono (2026-10-17), fora da ordem das fases: objetivos financeiros ("caixas") com investimentos em renda fixa
 cadastrados à mão, rendimento calculado pelo CDI do Banco Central. Plano completo, fórmulas, fontes e decisões
-(D1 a D18) em `docs/renda-fixa.md`; o resgate (R.22 a R.31) em `docs/renda-fixa-resgate.md`; o "Disponível × Investido" (R.32 a R.34, D20) em `docs/renda-fixa.md`, 7.4c. Sem integração bancária nem movimentação real.
+(D1 a D18) em `docs/renda-fixa.md`; o resgate (R.22 a R.31) em `docs/renda-fixa-resgate.md`; o "Disponível × Investido" (R.32 a R.34, D20) em `docs/renda-fixa.md`, 7.4c (regra de "Investido" substituída pela I.9, D21). Sem integração bancária nem movimentação real.
 
 - [x] **R.0 Verificação** — fórmula da B3 conferida e reproduzida com dois extratos do banco do dono (diferença máxima de
   R$ 0,01); tabela de IOF lida no decreto; tabela de IR pela B3 (texto legal pendente, dispensado por ora).
@@ -1129,7 +1227,7 @@ em `market_sync_runs`, execução síncrona, horário automático mantido): M1 e
 - [x] **R.29 Lote: API** — prévia e gravação em lote, tudo ou nada, contas, duplicidade, desfazer lote; `.http` e `gen:api`. Feita em 2026-10-21: `RedemptionBatches` (prévia, gravação e `undo`), `Redemptions.Handler.Fund` virou `internal static` para os dois usarem a mesma regra de contas, eventos `RedemptionBatchAdded` (4319) e `RedemptionBatchUndone` (4320), `fixed-income.http` e `api-types.ts` regenerados (só acrescenta). 22 testes de integração (`FixedIncomeRedemptionBatchApiTests`), cada pedaço conferido contra a prévia do resgate de um aporte só; 6 mutações provadas (a do `Touch` do aporte sobreviveu e virou o teste de dois lotes ao mesmo tempo). `dotnet test` verde (Domínio 1147, Arquitetura 17, API 1047). **Sem migration** (só usa `fixed_income_redemptions`).
 - [x] **R.30 Lote: tela** — modo "Selecionar", painel do lote, prévia com ajuste. Feita em 2026-10-21: modo "Selecionar" na lista de aportes do objetivo (linha vira caixa de seleção, "Selecionar todos"/"Limpar", "Resgatar N aportes"), `BatchRedemptionSheet` (data, valor com "Resgatar tudo" como modo, aportes do mais antigo ao mais novo com caixa para desmarcar e o valor de cada um, totais da API, líquido do extrato, uma conta), `redemptionBatch.ts` (12 testes), consultas novas e "Desfazer" do lote no aviso. Vitest 575, tipos, lint e build limpos. Conferida por mim no Chrome com toque real e API paralela (390 claro, 320 escuro, 1280 claro; sem rolagem lateral; registrar, parcial, desmarcar e desfazer). **Falta a conferência do dono**, em especial no celular.
 - [x] **R.31 Lote: documentos** — varredura de tudo o que fala de resgate: `CLAUDE.md` (glossário com a linha do lote, árvore de `docs/`, a tela), `PLAN.md`, `README.md`, `docs/renda-fixa-resgate.md` (estado e seção 16), `docs/renda-fixa.md` (estado, D18 corrigida, nova D19, itens 19 e 20, seção 13: o resgate de um aporte já está na `main` pelo PR #23, e as contagens de testes), `docs/renda-fixa-ipca.md` (o "Depois" já não lista resgates) e a memória. Conferidos e **sem mudança**: `docs/operacao.md` e `docs/investimentos.md` (nenhuma tabela nova: exclusão de conta, limpeza do excluído e `export-user.sql` já cobrem `fixed_income_redemptions`) e a política e os termos (mesmos dados do resgate de um aporte; versão 1.0 mantida). Feita em 2026-10-21.
-**Disponível × Investido nas contas (R.32 a R.34, feitas em 2026-10-21; D20 em `docs/renda-fixa.md`).** Achado do dono: aportou R$ 10 mil da conta (Itaú → Íon) e não tem a visão do que sobrou, porque o "Em contas" soma dinheiro livre e investido e a Íon parece caixa. O saldo da conta não muda; muda a leitura. Decisões do dono: somar o rendimento ao "Investido" (o bruto, como a Carteira).
+**Disponível × Investido nas contas (R.32 a R.34, feitas em 2026-10-21; D20 em `docs/renda-fixa.md`; a regra de "Investido" foi substituída pela I.9 em 2026-10-28, D21: o que segue é o histórico).** Achado do dono: aportou R$ 10 mil da conta (Itaú → Íon) e não tem a visão do que sobrou, porque o "Em contas" soma dinheiro livre e investido e a Íon parece caixa. O saldo da conta não muda; muda a leitura. Decisões do dono: somar o rendimento ao "Investido" (o bruto, como a Carteira).
 
 - [x] **R.32 Investido: API** — `GET /fixed-income/balances` ganha `byAccount` (rendimento bruto do que sobra, por conta de investimento, só de aporte financiado por conta com as pontas vivas); só acrescenta; teste de integração (aporte financiado, aporte só acompanhado, ponta excluída, resgate parcial, isolamento por usuário); `.http` e `gen:api`. Feita em 2026-10-21: `AccountYield`/`byAccount` em `GetBalances` (campo novo, só acrescenta), `Fundings.LiveFundings` extraído de `Respond` (mesma regra de "pontas vivas"); `FixedIncomeInvestedByAccountApiTests` (7: aporte financiado, só acompanhado, soma por conta, resgate parcial, aporte excluído, transferência excluída à parte, isolamento; oráculo = rendimento do próprio aporte; mutações da contagem e do filtro de pontas vivas pegas, e a segunda só depois de um teste novo); `.http` e `api-types.ts` (+9 linhas). Suíte: Domínio 1147, Arquitetura 17, API 1054 (7 ignorados).
 - [x] **R.33 Investido: tela** — "Em contas" do Resumo em Disponível + Investido (com o rendimento), conta de investimento na lista de Contas como "Investido" com o rendimento ao lado; Vitest da conta pura; conferido em 320/390/1280, claro e escuro. Feita em 2026-10-21: `splitBalances` em `dashboard/upcoming.ts` (6 testes; 3 mutações pegas), `TodayPanel` ("Em contas" vira Disponível + Investido quando há conta de investimento; sem ela, igual a antes), `AccountsPage` (conta de investimento mostra "Investido" e "Com R$ X de rendimento"), `invalidateMoney` passa a recarregar `fixedIncomeKey`. Conferido em 320/390/1280, claro e escuro, com usuário descartável (R$ 10.000 aportados, R$ 211,96 de rendimento): dois defeitos achados e corrigidos (valor cortado no Resumo, texto sobre o valor em Contas a 320). Vitest 581, tsc, oxlint e build limpos.

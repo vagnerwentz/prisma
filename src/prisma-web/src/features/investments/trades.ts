@@ -193,3 +193,42 @@ export function assetStatus(asset: {
     return `virou ${asset.convertedToSymbol} em ${formatShortDate(asset.convertedOn)}`
   return asset.isActive ? null : 'saiu da bolsa'
 }
+
+// --- Conta da corretora (I.8, docs/investimentos.md): a nota debita (compra) ou credita (venda) o caixa de uma conta ---
+
+type SettlementAccount = { id: string; name: string; type: string; isActive: boolean }
+
+// O que a corretora liquida: compras e custos, menos as vendas. É a mesma conta da API (`netCashCents`), feita aqui para
+// mostrar antes de gravar; positivo sai da conta, negativo entra.
+export function settlementNetCents(totals: { buyCents: number; sellCents: number }, costsCents: number): number {
+  return totals.buyCents - totals.sellCents + costsCents
+}
+
+// Cartão não liquida nota; conta inativa só aparece se for a que a nota já tem.
+export function settlementAccountChoices<T extends SettlementAccount>(accounts: T[], currentId: string | null): T[] {
+  return accounts.filter((a) => a.type !== 'CreditCard' && (a.isActive || a.id === currentId))
+}
+
+const plain = (text: string) => text.normalize('NFD').replace(/\p{M}/gu, '').trim().toLowerCase()
+
+// A conta de uma nota nova: a última escolhida (se ainda existe), senão a que tem o nome da corretora, senão nenhuma.
+// 'none' é a escolha de não vincular, lembrada como qualquer outra: quem lança notas antigas não precisa desmarcar toda vez.
+export function defaultSettlementAccount(choices: SettlementAccount[], broker: string | null, last: string | null): string | null {
+  if (last === 'none') return null
+  if (last && choices.some((a) => a.id === last)) return last
+  const name = broker ? plain(broker) : ''
+  return (name && choices.find((a) => plain(a.name) === name)?.id) || null
+}
+
+// A frase sob a escolha da conta: o que a nota faz no caixa dela.
+export function settlementLine(netCents: number, accountName: string): string {
+  if (netCents > 0) return `A compra de ${formatCents(netCents)} sai de ${accountName}.`
+  if (netCents < 0) return `A venda de ${formatCents(-netCents)} entra em ${accountName}.`
+  return 'Compra e venda se anulam: nada é lançado na conta.'
+}
+
+// A conta ficaria negativa? `previousNetCents` é o que a nota já liquidava nesta mesma conta (o saldo atual já o inclui);
+// zero para nota nova ou conta diferente. Só a compra pode deixar a conta abaixo de zero. Aviso, nunca bloqueio.
+export function goesNegative(balanceCents: number | null, previousNetCents: number, netCents: number): boolean {
+  return balanceCents !== null && netCents > 0 && balanceCents + previousNetCents - netCents < 0
+}

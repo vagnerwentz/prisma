@@ -18,9 +18,14 @@ public sealed class AccountConfiguration : IEntityTypeConfiguration<Account>
             table.HasCheckConstraint("ck_accounts_closing_day", "closing_day BETWEEN 1 AND 31");
             table.HasCheckConstraint("ck_accounts_due_day", "due_day BETWEEN 1 AND 31");
             table.HasCheckConstraint("ck_accounts_credit_limit_cents", "credit_limit_cents >= 0");
+            // Só a conta de investimento acompanha o caixa (I.9, docs/patrimonio.md).
+            table.HasCheckConstraint("ck_accounts_tracks_cash", "NOT tracks_cash OR type = 'Investment'");
         });
 
         builder.Property(a => a.Name).HasMaxLength(Account.NameMaxLength);
+
+        // Desligado por padrão: conta existente e nova começam sem acompanhar o caixa.
+        builder.Property(a => a.TracksCash).HasDefaultValue(false);
 
         // Texto, não inteiro: legível no banco e imune a reordenação do enum.
         builder.Property(a => a.Type).HasConversion<string>().HasMaxLength(20);

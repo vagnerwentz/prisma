@@ -11,6 +11,7 @@ public static class DashboardModule
         services.AddScoped<GetInheritedInstallments.Handler>();
         services.AddScoped<GetCommittedMonths.Handler>();
         services.AddScoped<GetSpendingVariation.Handler>();
+        services.AddScoped<GetNetWorth.Handler>();
         return services;
     }
 
@@ -24,5 +25,6 @@ public static class DashboardModule
         GetInheritedInstallments.Map(group);
         GetCommittedMonths.Map(group);
         GetSpendingVariation.Map(group);
+        GetNetWorth.Map(group);
     }
 }

@@ -4,7 +4,7 @@ namespace Prisma.Domain.Investments.Trades;
 
 // A nota de corretagem digitada pela pessoa (o Prisma não importa nota): a corretora, as operações de um pregão e,
 // embaixo, os custos (docs/investimentos.md, "I.7 Operações"). É o envelope do rateio: as operações da nota dividem
-// os custos dela. Não mexe em saldo de conta: a carteira não é caixa.
+// os custos dela. Só mexe no saldo de uma conta se for vinculada a ela (SettlementAccountId, I.8).
 public sealed class TradeNote : Entity
 {
     public const int BrokerMaxLength = 60;
@@ -24,6 +24,12 @@ public sealed class TradeNote : Entity
 
     // O dia do pregão. Sem D+2: a carteira não mexe em dinheiro.
     public DateOnly Date { get; private set; }
+
+    // A conta da corretora cujo caixa a nota mexe (I.8, docs/investimentos.md): nulo é "sem vínculo", o caso de toda nota
+    // anterior à I.8. Quem confere a conta (do usuário, não cartão) é o chamador.
+    public Guid? SettlementAccountId { get; private set; }
+
+    public void LinkSettlementAccount(Guid? accountId) => SettlementAccountId = accountId;
 
     // Na ordem digitada.
     public IReadOnlyList<Trade> Trades => InTypedOrder();
@@ -128,6 +134,22 @@ public sealed class TradeNote : Entity
         }
 
         return costs;
+    }
+
+    // O que a corretora liquida na conta (I.8, docs/investimentos.md): as compras com os custos, menos as vendas já
+    // sem os custos. Positivo, o dinheiro sai da conta; negativo, entra; zero, não há liquidação. Os custos entram
+    // pelo mesmo rateio do preço médio (AllocateCosts), então a soma de uma nota nunca diverge da carteira.
+    public long NetCashCents()
+    {
+        var costs = AllocateCosts();
+        long net = 0;
+        for (var i = 0; i < _trades.Count; i++)
+        {
+            var trade = _trades[i];
+            net += trade.Side == TradeSide.Buy ? trade.GrossCents + costs[i] : -(trade.GrossCents - costs[i]);
+        }
+
+        return net;
     }
 
     // O banco devolve as linhas em qualquer ordem: arruma pelo número antes de usar.

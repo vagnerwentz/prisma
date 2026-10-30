@@ -85,3 +85,17 @@ Content-Type: application/json
   "type": "Savings",
   "initialBalanceCents": 0
 }
+
+### Conta de investimento que acompanha o caixa (I.9, docs/patrimonio.md). Desligado por padrão; só a conta de investimento aceita
+### tracksCash (as outras recebem 400). Ligado, o caixa livre da corretora (saldo menos o principal da renda fixa que ela financiou)
+### entra no patrimônio; desligado, o saldo da conta fica fora das somas do Resumo. O saldo e o extrato não mudam.
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{ "name": "Íon", "type": "Investment", "initialBalanceCents": 0, "tracksCash": true }
+
+### Editar: sem tracksCash, a escolha da pessoa fica como estava
+PATCH {{baseUrl}}/accounts/<id da conta>
+Content-Type: application/json
+
+{ "name": "Íon", "initialBalanceCents": 0, "isActive": true, "tracksCash": false }

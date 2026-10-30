@@ -149,4 +149,21 @@ public sealed class MonthlySummaryTests
         Should.Throw<ArgumentException>(() =>
             MonthlySummary.Of([new SummaryEntry(TransactionType.Transfer, null, AccountType.Investment, 100)]));
     }
+
+    // Liquidação de nota (I.8): mexe no saldo da conta, mas não é receita, despesa nem aporte ou resgate. Comprar ação
+    // com o caixa que já estava na corretora não pode aparecer como resgate no "Investido" do mês.
+    [Theory]
+    [InlineData(TransferDirection.Out)]
+    [InlineData(TransferDirection.In)]
+    public void Trade_settlement_is_not_income_expense_or_invested(TransferDirection direction)
+    {
+        var summary = MonthlySummary.Of(
+        [
+            Income(500000),
+            TransferIn(AccountType.Investment, 574970),                                       // aporte na Íon
+            new SummaryEntry(TransactionType.TradeSettlement, direction, AccountType.Investment, 574970),
+        ]);
+
+        summary.ShouldBe(new MonthlySummary(500000, 0, 0, 500000, 574970));
+    }
 }

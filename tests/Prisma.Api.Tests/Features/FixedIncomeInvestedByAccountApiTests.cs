@@ -23,7 +23,7 @@ public sealed class FixedIncomeInvestedByAccountApiTests(PostgresFixture postgre
 
     private sealed record EntryDto(Guid Id, Guid? TransferPairId);
 
-    private sealed record AccountYieldDto(Guid AccountId, int DepositCount, long GrossYieldCents);
+    private sealed record AccountYieldDto(Guid AccountId, int DepositCount, long GrossYieldCents, long PrincipalCents);
 
     private sealed record BalancesDto(LooseDto Unassigned, List<AccountYieldDto> ByAccount);
 
@@ -101,6 +101,8 @@ public sealed class FixedIncomeInvestedByAccountApiTests(PostgresFixture postgre
         entry.DepositCount.ShouldBe(1);
         entry.GrossYieldCents.ShouldBe(Yield(b, deposit));
         entry.GrossYieldCents.ShouldBeGreaterThan(0);
+        // O principal que sobra do aporte (I.9): é o que o saldo da conta guarda e o "Investido" já conta pela carteira.
+        entry.PrincipalCents.ShouldBe(1_000_000);
     }
 
     [Fact]
@@ -130,6 +132,7 @@ public sealed class FixedIncomeInvestedByAccountApiTests(PostgresFixture postgre
         var other = b.ByAccount.Single(x => x.AccountId == s.InvestmentB);
         other.DepositCount.ShouldBe(1);
         other.GrossYieldCents.ShouldBe(Yield(b, b1));
+        (a.PrincipalCents, other.PrincipalCents).ShouldBe((1_500_000L, 700_000L));
     }
 
     [Fact]
@@ -151,6 +154,9 @@ public sealed class FixedIncomeInvestedByAccountApiTests(PostgresFixture postgre
         entry.GrossYieldCents.ShouldBe(Yield(after, deposit));
         entry.GrossYieldCents.ShouldBeLessThan(before);
         entry.GrossYieldCents.ShouldBeGreaterThan(0);
+        // Resgatou R$ 3.000,00 brutos: o principal que sobra é o do que não saiu.
+        entry.PrincipalCents.ShouldBeLessThan(1_000_000);
+        entry.PrincipalCents.ShouldBeGreaterThan(0);
     }
 
     [Fact]

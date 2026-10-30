@@ -22,17 +22,17 @@ public sealed record AccountBalance(long CurrentCents, long ProjectedCents)
     }
 
     // Receita, estorno e transferência recebida entram; despesa e transferência enviada (inclusive o
-    // pagamento de fatura) saem.
+    // pagamento de fatura) saem. A liquidação de nota (I.8) segue a direção: venda entra, compra sai.
     private static long SignOf(TransactionType type, TransferDirection? direction) => type switch
     {
         TransactionType.Income => 1,
         TransactionType.Refund => 1, // o dinheiro volta (docs/fase-2.md, 2.5, regra 10)
         TransactionType.Expense => -1,
-        TransactionType.Transfer => direction switch
+        TransactionType.Transfer or TransactionType.TradeSettlement => direction switch
         {
             TransferDirection.In => 1,
             TransferDirection.Out => -1,
-            _ => throw new ArgumentException("Transferência sem direção.", nameof(direction)),
+            _ => throw new ArgumentException("Transferência ou liquidação sem direção.", nameof(direction)),
         },
         _ => throw new ArgumentOutOfRangeException(nameof(type)),
     };

@@ -2707,6 +2707,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/dashboard/net-worth": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GetNetWorthResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/holdings": {
         parameters: {
             query?: never;
@@ -5233,6 +5277,8 @@ export interface components {
             /** Format: int64 */
             creditLimitCents: null | number;
             isActive: boolean;
+            /** @default false */
+            tracksCash: boolean;
         };
         /** @enum {unknown} */
         AccountType: "Checking" | "CreditCard" | "Cash" | "Investment";
@@ -5243,6 +5289,11 @@ export interface components {
             depositCount: number;
             /** Format: int64 */
             grossYieldCents: number;
+            /**
+             * Format: int64
+             * @default 0
+             */
+            principalCents: number;
         };
         AddHoldingRequest: {
             /** Format: uuid */
@@ -5361,6 +5412,7 @@ export interface components {
             dueDay: null | number;
             /** Format: int64 */
             creditLimitCents: null | number;
+            tracksCash?: null | boolean;
         };
         CreateCategoryRequest: {
             name: string;
@@ -5592,6 +5644,28 @@ export interface components {
              */
             estimatedExpenseCents: number;
         };
+        GetNetWorthBrokerAccount: {
+            /** Format: uuid */
+            accountId: string;
+            tracksCash: boolean;
+            /** Format: int64 */
+            freeCashCents: null | number;
+        };
+        GetNetWorthResponse: {
+            /** Format: int64 */
+            availableCents: number;
+            /** Format: int32 */
+            availableCount: number;
+            /** Format: int64 */
+            investedCents: number;
+            /** Format: int64 */
+            yieldCents: number;
+            /** Format: int64 */
+            brokerCashCents: number;
+            /** Format: int64 */
+            totalCents: number;
+            brokers: components["schemas"]["GetNetWorthBrokerAccount"][];
+        };
         GetPortfolioPortfolioAssetResponse: {
             /** Format: uuid */
             assetId: string;
@@ -5805,6 +5879,8 @@ export interface components {
             owedCents: null | number;
             /** Format: int64 */
             availableCreditCents: null | number;
+            /** Format: int64 */
+            assetsCents?: null | number;
         };
         ListCategoriesCategoryNode: {
             /** Format: uuid */
@@ -6356,6 +6432,8 @@ export interface components {
             brokerageFeeOnAllKinds: null | boolean;
             trades: components["schemas"]["SaveTradeNoteLine"][];
             brokerageFeeKinds?: null | components["schemas"]["AssetKind"][];
+            /** Format: uuid */
+            settlementAccountId?: null | string;
         };
         SearchAssetsItem: {
             /** Format: uuid */
@@ -6414,6 +6492,10 @@ export interface components {
             brokerageFeeOnAllKinds: boolean;
             trades: components["schemas"]["TradeLineResponse"][];
             brokerageFeeKinds: components["schemas"]["AssetKind"][];
+            /** Format: uuid */
+            settlementAccountId: null | string;
+            /** Format: int64 */
+            netCashCents: number;
         };
         /** @enum {unknown} */
         TradeSide: "Buy" | "Sell";
@@ -6461,11 +6543,13 @@ export interface components {
             /** @default false */
             assetHasLogo: boolean;
             assetKind?: null | components["schemas"]["AssetKind"];
+            /** Format: uuid */
+            tradeNoteId?: null | string;
         };
         /** @enum {unknown} */
         TransactionSource: "Manual" | "OfxImport" | "PdfImport" | "Nfce";
         /** @enum {unknown} */
-        TransactionType: "Income" | "Expense" | "Transfer" | "Refund";
+        TransactionType: "Income" | "Expense" | "Transfer" | "Refund" | "TradeSettlement";
         /** @enum {unknown} */
         TransferDirection: "Out" | "In" | null;
         UnassignedResponse: {
@@ -6485,6 +6569,7 @@ export interface components {
             /** Format: int64 */
             creditLimitCents: null | number;
             isActive: boolean;
+            tracksCash?: null | boolean;
         };
         UpdateCategoryRequest: {
             name: string;

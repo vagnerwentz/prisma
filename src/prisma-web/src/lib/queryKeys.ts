@@ -4,6 +4,8 @@ export const transactionsKey = ['transactions'] as const
 export const statementsKey = ['statements'] as const
 export const balancesKey = ['accounts', 'balances'] as const
 export const dashboardKey = ['dashboard'] as const
+// O patrimônio de hoje (I.9, docs/patrimonio.md): muda com saldos, notas, aportes e com acompanhar o caixa de uma conta.
+export const netWorthKey = ['dashboard', 'net-worth'] as const
 // Lançamentos que se repetem: criar ou editar uma série gera lançamentos, e lançar pode criar uma série.
 export const recurrencesKey = ['recurrences'] as const
 // Ativos da carteira (docs/investimentos.md, etapa 5a).

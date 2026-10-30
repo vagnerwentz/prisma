@@ -34,3 +34,8 @@ GET {{baseUrl}}/dashboard/committed
 
 ### Por que o gasto mudou: diferença do "Saiu" para o mês anterior e os motivos (docs/fase-2.md, 2.7)
 GET {{baseUrl}}/dashboard/variation?month=2026-09
+
+### O patrimônio de hoje (I.9, docs/patrimonio.md): Disponível (corrente e carteira), Investido (a carteira de hoje e o rendimento da
+### renda fixa, com ou sem histórico de caixa) e o Caixa nas corretoras (só das contas de investimento com tracksCash). brokers traz,
+### por conta de investimento ativa, se acompanha o caixa e o caixa livre (saldo menos o principal da renda fixa que ela financiou).
+GET {{baseUrl}}/dashboard/net-worth

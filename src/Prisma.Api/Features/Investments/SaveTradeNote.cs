@@ -21,7 +21,8 @@ public static class SaveTradeNote
     // (BrokerageFeeOnAllKinds), como manda uma aba aberta antes do deploy.
     public sealed record Request(
         string Broker, DateOnly Date, long FeesCents, long BrokerageFeeCents, bool? BrokerageFeeOnAllKinds, IReadOnlyList<Line> Trades,
-        IReadOnlyList<AssetKind>? BrokerageFeeKinds = null);
+        // SettlementAccountId (I.8): a conta cujo caixa a nota mexe; ausente é "sem vínculo", como antes.
+        IReadOnlyList<AssetKind>? BrokerageFeeKinds = null, Guid? SettlementAccountId = null);
 
     // Tetos que deixam qualquer soma longe do limite do long: até 100 milhões de unidades a R$ 1 milhão.
     private const long MaxQuantity = 100_000_000;
@@ -85,6 +86,11 @@ public static class SaveTradeNote
             var brokerageKinds = TradeNote.BrokerageKindsFrom(req.BrokerageFeeKinds, req.BrokerageFeeOnAllKinds);
 
             // As outras notas só entram na conferência: lidas sem acompanhamento, salvar não as vasculha.
+            var currentAccountId = id is null ? null : await db.TradeNotes.Where(n => n.Id == id).Select(n => n.SettlementAccountId).SingleOrDefaultAsync(ct);
+            var settlementAccount = await NoteSettlement.Account(db, req.SettlementAccountId, currentAccountId, ct);
+            if (!settlementAccount.IsSuccess)
+                return settlementAccount.Error;
+
             var notes = await TradeBook.Notes(db, ct);
             TradeNote note;
             if (id is null)
@@ -113,8 +119,10 @@ public static class SaveTradeNote
             if (!positions.IsSuccess)
                 return positions.Error;
 
+            note.LinkSettlementAccount(settlementAccount.Value?.Id);
             if (id is null)
                 db.TradeNotes.Add(note);
+            await NoteSettlement.Sync(db, note, settlementAccount.Value, ct);
             foreach (var assetId in trades.Select(t => t.AssetId).Distinct())
                 await Portfolio.Ensure(db, currentUser.UserId, assetId, ct);
             await db.SaveChangesAsync(ct);

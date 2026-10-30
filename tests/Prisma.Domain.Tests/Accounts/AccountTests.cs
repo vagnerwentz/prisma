@@ -159,4 +159,65 @@ public sealed class AccountTests
         error.Message.ShouldBe(
             "Esta conta tem transações. Mova ou exclua as transações antes, ou marque a conta como inativa.");
     }
+
+    // --- Acompanhar o caixa (I.9, docs/patrimonio.md): só a conta de investimento, desligado por padrão ---
+
+    private static Account Broker(bool tracksCash = false) =>
+        Account.Create(UserId, "Íon", AccountType.Investment, 0, null, null, null, tracksCash).Value;
+
+    [Fact]
+    public void Cash_is_not_tracked_by_default_in_any_kind_of_account()
+    {
+        Broker().TracksCash.ShouldBeFalse();
+        Checking().TracksCash.ShouldBeFalse();
+        CreditCard().Value.TracksCash.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void An_investment_account_can_be_created_tracking_its_cash() =>
+        Broker(tracksCash: true).TracksCash.ShouldBeTrue();
+
+    [Theory]
+    [InlineData(AccountType.Checking)]
+    [InlineData(AccountType.Cash)]
+    public void Only_the_investment_account_tracks_cash_on_creation(AccountType type) =>
+        ShouldFailWith(Account.Create(UserId, "Conta", type, 0, null, null, null, tracksCash: true), "Só a conta de investimento acompanha o caixa.");
+
+    [Fact]
+    public void A_credit_card_does_not_track_cash_either() =>
+        ShouldFailWith(Account.Create(UserId, "Cartão", AccountType.CreditCard, 0, 5, 12, null, tracksCash: true), "Só a conta de investimento acompanha o caixa.");
+
+    [Fact]
+    public void Updating_can_turn_the_tracking_on_and_off()
+    {
+        var account = Broker();
+
+        account.Update("Íon", 0, null, null, null, true, tracksCash: true).IsSuccess.ShouldBeTrue();
+        account.TracksCash.ShouldBeTrue();
+        account.Update("Íon", 0, null, null, null, true, tracksCash: false).IsSuccess.ShouldBeTrue();
+        account.TracksCash.ShouldBeFalse();
+    }
+
+    // O pedido de uma tela aberta antes do deploy não manda o campo: a escolha da pessoa fica como estava.
+    [Fact]
+    public void Updating_without_the_field_keeps_the_choice()
+    {
+        var account = Broker(tracksCash: true);
+
+        account.Update("Íon Itaú", 100, null, null, null, true).IsSuccess.ShouldBeTrue();
+
+        account.TracksCash.ShouldBeTrue();
+        account.Name.ShouldBe("Íon Itaú");
+    }
+
+    [Fact]
+    public void Updating_a_checking_account_to_track_cash_is_refused_and_nothing_changes()
+    {
+        var account = Checking();
+
+        ShouldFailWith(account.Update("Outro nome", 0, null, null, null, true, tracksCash: true), "Só a conta de investimento acompanha o caixa.");
+
+        account.Name.ShouldBe("Itaú Personnalité");
+        account.TracksCash.ShouldBeFalse();
+    }
 }

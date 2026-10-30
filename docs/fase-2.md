@@ -40,7 +40,7 @@ quais faturas vêm pela frente.
 - **Despesas** = soma das transações `Expense` com `SettlementDate` no mês.
 - **Sobra** = receitas − despesas (decisão do usuário). Pode ser negativa. O investido **não** é
   descontado: investir é guardar a sobra, não gastar.
-- **Investido** = aportes − resgates (decisão do usuário): transferências recebidas por contas do
+- **Investido** (na tela, **"Aportado" desde a I.9, 2026-10-28**; o campo da API continua `investedCents`) = aportes − resgates (decisão do usuário; é o **fluxo** do mês, não o patrimônio, que vem dos ativos em `docs/patrimonio.md`): transferências recebidas por contas do
   tipo `Investment` menos as enviadas por elas, no mês. Transferência entre duas contas de
   investimento se anula. Pode ser negativo (mês em que se resgatou mais do que aportou).
 - **No cartão** = a parte das despesas feita em contas `CreditCard`: as faturas que vencem no mês.
@@ -70,7 +70,7 @@ quais faturas vêm pela frente.
 
 - **Próxima fatura de cada cartão ativo:** a primeira não paga que vence hoje ou depois, com total
   maior que zero. Mostra cartão, mês, vencimento e total; no topo, a soma de todas.
-- **Em contas:** soma dos saldos atuais das contas ativas que não são cartão (regra 2.5 da Fase 1). **Desde a R.33 (2026-10-21, `docs/renda-fixa.md`, D20)**, havendo conta de investimento ativa, o bloco mostra **Disponível** (corrente e carteira) e **Investido** (contas de investimento, com o rendimento bruto da renda fixa que entrou por elas); sem conta de investimento, é a soma de sempre. O saldo da conta não muda.
+- **Em contas:** soma dos saldos atuais das contas ativas que não são cartão (regra 2.5 da Fase 1). **Desde a I.9 (2026-10-28, `docs/patrimonio.md`; antes, R.33 e D20)**, havendo renda fixa, ação ou conta de investimento, o bloco mostra **Disponível** (corrente e carteira), **Investido** (vem dos ativos, não das contas) e, só para quem acompanha o caixa de uma conta de investimento, **Caixa nas corretoras**; sem nada disso, é a soma de sempre. O saldo de nenhuma conta muda.
   Reaproveita `GET /accounts/balances`.
 - Os dois blocos olham para **hoje** (`IClock.Today`), não para o mês escolhido no Resumo.
 - O total da fatura é o mesmo da tela do cartão (compras ativas; o pagamento não conta). Fatura

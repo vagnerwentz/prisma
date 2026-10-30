@@ -2,7 +2,7 @@ import { lazy, memo, Suspense, useMemo, useState } from 'react'
 import { X } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router'
 import { PrismLogo } from '@/components/brand/PrismLogo'
-import { AssetTile, EntryTile, TransferTile } from '@/components/brand/Tiles'
+import { AccountTile, AssetTile, EntryTile, TransferTile } from '@/components/brand/Tiles'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -164,6 +164,8 @@ const EntryRow = memo(function EntryRow({
   onOpenPayouts: (view: PayoutView) => void
 }) {
   if (entry.kind === 'transfer') return <TransferRow entry={entry} lookups={lookups} onOpen={() => onOpen(entryKey(entry))} />
+  if (entry.kind === 'single' && entry.transaction.type === 'TradeSettlement')
+    return <SettlementRow transaction={entry.transaction} lookups={lookups} />
   if (entry.kind === 'payouts')
     return (
       <PayoutsRow
@@ -256,6 +258,30 @@ function TransferRow({
         </div>
         <Amount type="Transfer" cents={entry.amountCents} className="text-muted-foreground" />
       </button>
+    </li>
+  )
+}
+
+// Liquidação de uma nota de corretagem (I.8, docs/investimentos.md): o caixa da conta que a nota mexeu. Não é receita nem despesa
+// (o valor leva "−" ou "+" em tinta, nunca no espectro) e não se edita aqui: tocar abre a nota, que manda.
+function SettlementRow({ transaction, lookups }: { transaction: Transaction; lookups: Lookups }) {
+  const incoming = transaction.transferDirection === 'In'
+  const account = lookups.accounts.get(transaction.accountId) ?? ''
+  return (
+    <li>
+      <Link
+        to={`/contas/investimentos?aba=notas&nota=${transaction.tradeNoteId ?? ''}`}
+        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors outline-none hover:bg-muted/40 focus-visible:bg-muted/60 active:bg-muted/70"
+      >
+        {/* O logo da conta que a nota liquidou (a Íon, por exemplo); sem logo, o ícone de investimento. */}
+        <AccountTile name={account} type="Investment" />
+        <div className="min-w-0 flex-1">
+          {/* Quebra em vez de cortar: em 320px o valor ocupa metade da linha. */}
+          <p className="font-medium text-pretty">{incoming ? 'Venda de ativos' : 'Compra de ativos'}</p>
+          <p className="text-sm text-pretty text-muted-foreground">{`${account} · nota de corretagem`}</p>
+        </div>
+        <Amount type={incoming ? 'Refund' : 'Expense'} cents={transaction.amountCents} />
+      </Link>
     </li>
   )
 }

@@ -548,10 +548,13 @@ entender os custos: **o Prisma não importa nota** (nada de PDF, OCR ou upload).
 - **Ordem = mesmo ativo + mesma direção + mesma nota.** A nota lista negócios, não ordens; preço diferente
   (`50 × 20,00` e `30 × 20,10`) não separa. Fracionário não separa (no catálogo é o mesmo ativo). As linhas digitadas
   ficam gravadas como estão: a junção existe só no cálculo.
-- **A carteira não mexe em dinheiro.** Comprar e vender não alteram saldo de conta nenhuma e não entram em "Entrou"
-  nem "Saiu"; lucro de venda não é receita. O dinheiro que vai para a corretora segue como hoje (transferência, o
+- **A carteira não mexe em dinheiro, por padrão.** Comprar e vender não alteram saldo de conta nenhuma e não entram em
+  "Entrou" nem "Saiu"; lucro de venda não é receita. O dinheiro que vai para a corretora segue como hoje (transferência, o
   "Investido"). Sem isso, as notas desde 2020 exigiriam saldos de contas que não existiam no Prisma. **Sem D+2:** vale
   a data da nota, e o calendário bancário continua só na série e na fatura.
+  **Mudou em 2026-10-27 (I.8, abaixo):** a nota ganhou o vínculo **opcional** com a conta da corretora; vinculada, ela
+  debita (compra) ou credita (venda) o caixa daquela conta. Sem vínculo, vale o parágrafo acima, e é o caso de todas as
+  notas lançadas até hoje.
 - **Corretora da nota:** escolhida de uma **lista de corretoras** (com o ícone da instituição; "Outra" para digitar),
   não das contas: a nota não mexe em dinheiro e a corretora de 2020 pode não existir mais como conta. Vem preenchida
   com a última usada. O dono lançará o histórico todo como Íon; a corretora só serve para ver "quanto tenho em cada
@@ -1458,3 +1461,119 @@ corretora mostra).
 - Token da brapi: a lista não precisa; a cotação (I.7) vai precisar. Fica em User Secrets (`Brapi:Token`) no
   desenvolvimento e em `Brapi__Token` no Railway, nunca no repositório (`docs/operacao.md`, seção 4.1). A brapi já está
   na tabela de stack do `CLAUDE.md`.
+
+---
+
+## I.8 Caixa da corretora (pedido do dono, 2026-10-27)
+
+> **Estado: I.8a a I.8d feitas (2026-10-28); a I.8e (documentos e produção) foi absorvida pela I.9d (`docs/patrimonio.md`).** A migration da I.8b (`AddTradeNoteSettlement`) está aplicada no banco de desenvolvimento do dono. **A regra 6 abaixo ("Em ativos" soma ao "Investido") foi substituída pela I.9 em 2026-10-28:** o "Investido" vem dos ativos, não das contas, e `assetsCents`/`AccountAssets` ficaram só como leitura; o resto da seção (vínculo opcional, liquidação líquida, nota que manda) segue valendo.
+> documento discordar, pare e pergunte.
+
+### Achado
+
+O dono transferiu R$ 5.749,70 do Itaú para a Íon (conta de investimento) e, no mesmo valor, comprou 100 PETR4 pela nota
+(22/10/2026). A nota não mexe em saldo (decisão da I.7), então a Íon continuou mostrando R$ 5.749,70 em Contas, como se o
+dinheiro estivesse parado, quando a corretora já o liquidou. Na renda fixa isso não acontece, porque o aporte é uma
+transferência para a conta de investimento e o saldo é, de propósito, o principal (R.32 a R.34).
+
+### Decisão do dono (2026-10-27)
+
+**Opção B:** a nota passa a mexer no caixa da conta da corretora. Vínculo **opcional**; notas antigas ficam como estão.
+
+### Regras
+
+1. **Vínculo opcional.** `TradeNote.SettlementAccountId` (`trade_notes.settlement_account_id`), nulo por padrão. Conta
+   do usuário, ativa e de tipo corrente, carteira ou investimento; cartão é recusado ("O cartão de crédito não liquida
+   nota de corretagem."). Notas existentes (todas as de 2020 em diante) ficam nulas: nenhum saldo muda, nada fica
+   negativo, e não é preciso saldo inicial. Pode-se editar uma nota antiga e escolher a conta.
+2. **Uma liquidação líquida por nota, não uma por operação.** A corretora liquida o líquido do pregão. O valor é
+   `NetCashCents` = (compras + custos rateados das compras) − (vendas − custos rateados das vendas), usando o rateio que
+   a I.7a já faz (`Money.Allocate`; os custos entram como na compra e na venda do preço médio). Positivo: sai da conta
+   (`TransferDirection.Out`). Negativo: entra (`In`). Zero: nenhuma linha. IRRF não entra (é a regra de custo da I.7).
+3. **É um lançamento de verdade, para aparecer no extrato**, mas nunca receita nem despesa: `TransactionType.TradeSettlement`
+   (valor novo do enum), com `TransferDirection` reaproveitada, `TradeNoteId` apontando para a nota, `PurchaseDate` =
+   `SettlementDate` = data da nota (sem D+2), descrição "Nota de corretagem · {corretora}" e o mesmo `AccountId` da nota.
+   Fica fora de "Entrou", "Saiu" e do **"Investido" do mês** (que é o fluxo de aportes menos resgates em conta de
+   investimento): comprar ação com o caixa que já estava na corretora não é resgate. Entra no saldo da conta
+   (`AccountBalance`) e na previsão, se a data for futura.
+4. **A nota manda; a liquidação não se edita à mão.** Editar ou excluir a linha direto é recusado com "Altere ou exclua a
+   nota de corretagem." (409/422). Salvar a nota (criar, editar, trocar a conta, trocar a data) recalcula e grava a
+   liquidação **na mesma gravação**, junto com a conferência da carteira inteira que a I.7b1 já faz. Tirar o vínculo
+   apaga a linha. Excluir a nota leva a liquidação junto, e o "Desfazer" (30 min) traz as duas. Passados os 30 minutos,
+   a limpeza do excluído (`ErasureRunner`) apaga a linha, pois ela tem `deleted_at` como as outras.
+5. **Saldo negativo é aviso, não bloqueio.** Se a liquidação deixar a conta abaixo de zero, a tela avisa ("A conta ficará
+   negativa") e deixa salvar: quem lança fora de ordem não pode ser travado. A API aceita.
+6. **O "Investido" ganha o que está em ativos.** A conta de investimento zerou, mas o dinheiro continua investido. Em
+   `splitBalances` (R.33), **Investido = caixa das contas de investimento + rendimento bruto da renda fixa + "Em ativos"**.
+   "Em ativos" de uma conta = Σ compras líquidas − Σ vendas líquidas das notas vinculadas a ela (o que a conta pôs em
+   ativos), nunca abaixo de zero. É uma aproximação ao custo: venda com lucro de nota vinculada contra compra antiga
+   sem vínculo dá um número menor que o custo real, e por isso o piso em zero. O patrimônio total não muda quando a
+   nota é vinculada: o dinheiro só passa de caixa para ativos. Na lista de Contas, a conta de investimento mostra
+   "Investido" (caixa) com "Em ativos R$ X" ao lado, como já mostra o rendimento.
+7. **Proventos não mudam.** Já são receita numa conta (I.5b).
+8. **A corretora da nota continua sendo um nome da lista** (ícone, "Outra"). O vínculo é um campo à parte: a corretora de
+   2020 pode não existir mais como conta. Ao escolher a conta, a corretora vem preenchida se casar pelo nome.
+9. **Isolamento:** a linha tem `UserId` e filtro como as outras; a conta e a nota são conferidas como do usuário.
+   Tabela nova não há: `transactions` ganha `trade_note_id` e `trade_notes` ganha `settlement_account_id`; o
+   `export-user.sql` e a exclusão de conta já cobrem as duas tabelas (conferir os testes de esquema).
+10. **API só acrescenta** (tela aberta antes do deploy): `settlementAccountId` entra opcional no pedido da nota, ausente
+    é "sem vínculo", o comportamento de antes. A resposta da nota ganha `settlementAccountId` e `netCashCents`.
+    Consumidores que fazem `switch` em `TransactionType` (resumo do mês, saldo, listagens, `api-types.ts`) precisam
+    tratar o valor novo; os testes de domínio acusam o caso que faltar.
+
+### Valores esperados (saem daqui, não do código)
+
+| Caso | Entrada | Esperado |
+|---|---|---|
+| Compra do dono | Nota 22/10/2026, 100 PETR4 × R$ 57,00 = R$ 5.700,00, custos R$ 49,70, conta Íon | Íon: `Out` de R$ 5.749,70; saldo da Íon de R$ 5.749,70 vai a R$ 0,00 |
+| Sem vínculo | A mesma nota, sem conta | Nenhuma linha; saldo da Íon igual |
+| Venda | 100 PETR4 × R$ 60,00 = R$ 6.000,00, custos R$ 50,00 | `In` de R$ 5.950,00 |
+| Compra e venda na mesma nota | Compra R$ 1.000,00 e venda R$ 1.500,00, custos R$ 10,00 no total (rateio da I.7a) | Líquido = compras + custos da compra − (vendas − custos da venda); sinal pelo líquido; zero não grava |
+| Líquido zero | Compra e venda que se anulam | Nenhuma linha |
+| Trocar a conta | Íon → outra | A linha muda de conta, o saldo da Íon volta, o da outra cai |
+| Editar valor ou data | Preço de 57,00 para 58,00 | A linha acompanha (R$ 5.849,70) |
+| Excluir e desfazer | Excluir a nota, depois "Desfazer" | Linha some e volta junto; saldo idem |
+| Mês | Compra vinculada | "Entrou", "Saiu" e "Investido" do mês iguais aos de antes |
+| Conta negativa | Nota maior que o saldo | Grava; a tela avisa |
+| Cartão | Conta de cartão escolhida | Recusada com mensagem em pt-BR |
+| Isolamento | Outro usuário | Não vê a linha nem usa a conta do primeiro |
+| Soma do Investido | Itaú → Íon R$ 5.749,70 e nota vinculada | Investido = R$ 0,00 de caixa + R$ 5.749,70 em ativos; o total não muda |
+
+### Perguntas ao dono (obsoletas: a regra 6 foi substituída pela I.9, que não usa "Em ativos")
+
+- "Em ativos" ao custo líquido (regra 6) basta, ou prefere o custo do preço médio (`AverageCostCents`) das posições, mais
+  exato e mais caro de calcular? O padrão é a regra 6.
+- Quando for lançar uma nota antiga vinculada, o dono quer um campo "dia em que o dinheiro entrou" para checar o saldo?
+  O padrão é não.
+
+### Decisões da implementação (I.8b)
+
+- **Sem chave estrangeira em `transactions.trade_note_id`**, como o par da transferência: a limpeza apaga a liquidação junto
+  com a nota (e o `AccountEraser` já apaga as duas tabelas por `user_id`). Com chave, a ordem dos `DELETE` viraria
+  armadilha. Há índice único filtrado, que **conta a liquidação excluída**: a nota tem uma só, que volta no "Desfazer" ou
+  quando o vínculo é refeito (dentro dos 30 minutos; depois a limpeza a apaga e nasce outra).
+- **`trade_notes.settlement_account_id` tem chave estrangeira** para `accounts` (restrita). Por isso excluir uma conta com
+  nota vinculada é recusado (conta como uso, mesmo com líquido zero), e a limpeza não apaga conta que uma nota ainda aponta.
+- **Restaurar uma nota cuja conta foi excluída** volta a nota sem o vínculo, em vez de ficar impossível de restaurar.
+- **Conta inativa:** só impede quando se *troca* para ela; editar uma nota antiga cuja conta foi inativada depois continua
+  possível.
+- **A liquidação usa `PaymentMethod.Ted`** (como o provento): o campo é obrigatório e a tela não o mostra.
+- **I.8c, "Em ativos" sai da API (substituído pela I.9; mantido como histórico):** `assetsCents` em `GET /accounts/balances` (campo novo, nulo no cartão), calculado pelo
+  domínio (`AccountAssets`) sobre as mesmas somas do saldo; conta só liquidação com data até hoje, como o saldo atual. O front
+  não refaz a conta. **Vale para qualquer tipo de conta** (corrente também): o dinheiro que a compra tirou do saldo continua
+  investido, então o Investido soma o "Em ativos" de todas e o total Disponível + Investido não cai. Isso afina a regra 6, que
+  falava só da conta de investimento.
+- **O `api-types.ts` foi editado à mão** nesta etapa (4 acréscimos, só aditivos); o `gen:api` rodado na I.8d gerou um arquivo idêntico.
+- **I.8d, a tela:** o campo é "Debitar da conta" (compra sai, venda entra; a frase sob os chips diz qual). O padrão de uma nota nova
+  vem do navegador (`prisma.lastSettlementAccount`, preferência de tela; vale `none` para "não vincular"), depois da conta com o nome da
+  corretora. O aviso de conta negativa conta o que a nota já liquidava na mesma conta. A liquidação no extrato leva ao painel da nota,
+  não a uma edição de lançamento. O "Em ativos" e a nota "R$ X em ativos" no Resumo vieram na I.8c.
+- **Decisões da I.9 que mexem nesta seção (2026-10-28):** o "Investido" do Resumo e de Contas passou a vir dos ativos (`docs/patrimonio.md`).
+  A nota vinculada continua tirando o valor do saldo da conta (regra 3 e a tela da I.8d), mas isso só importa para o **caixa** de quem
+  acompanha a conta; a compra entra em "Investido" pelo custo da nota, vinculada ou não. O caixa livre de uma conta de investimento é o saldo
+  menos o principal da renda fixa que ela financiou; a nota vinculada não entra nessa subtração, porque já saiu do saldo.
+- **O aviso de conta negativa da nota** compara o **saldo** da conta (o que o extrato do banco mostra), não o caixa livre: numa conta que
+  também guarda o principal de uma renda fixa, o aviso pode não acusar um caixa livre negativo. Conhecido e aceito; a tela de Contas e o
+  Resumo mostram o caixa livre real.
+- **Defeito achado na I.9c e corrigido:** salvar uma nota vinculada não recarregava saldos nem lançamentos na tela (`invalidateTrades` dizia
+  "saldos, não"); agora recarrega o que `invalidateMoney` recarrega.

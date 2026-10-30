@@ -16,7 +16,9 @@ public static class CreateAccount
         long InitialBalanceCents,
         int? ClosingDay,
         int? DueDay,
-        long? CreditLimitCents);
+        long? CreditLimitCents,
+        // Acompanhar o caixa (I.9): só conta de investimento; ausente é desligado, como antes.
+        bool? TracksCash = null);
 
     public sealed class Validator : AbstractValidator<Request>
     {
@@ -30,7 +32,7 @@ public static class CreateAccount
         {
             var created = Account.Create(
                 currentUser.UserId, req.Name, req.Type, req.InitialBalanceCents,
-                req.ClosingDay, req.DueDay, req.CreditLimitCents);
+                req.ClosingDay, req.DueDay, req.CreditLimitCents, req.TracksCash ?? false);
             if (!created.IsSuccess)
                 return created.Error;
 
