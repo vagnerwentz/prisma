@@ -7,4 +7,8 @@ public enum EmailKind
     AlreadyRegistered,
     ResetPassword,
     PasswordChanged,
+
+    // Disparos do admin (docs/admin-email.md, seção 4): saem de um modelo e um público escolhidos pelo dono, não de um pedido da pessoa.
+    ConfirmEmailReminder,
+    MissYou,
 }

@@ -27,11 +27,13 @@ public sealed class EmailOptions
 
     public OutboxOptions Outbox { get; init; } = new();
 
+    public CampaignOptions Campaigns { get; init; } = new();
+
     // Fora de desenvolvimento só o Resend, e com a chave: melhor a API não subir do que aceitar cadastros cujo e-mail
     // nunca sai.
     public bool IsValid(bool isDevelopment) =>
         IsAddress(From) && IsAddress(ReplyTo) &&
-        Resend.IsValid() && Outbox.IsValid() &&
+        Resend.IsValid() && Outbox.IsValid() && Campaigns.IsValid() &&
         (Transport == EmailTransportKind.Resend
             ? !string.IsNullOrWhiteSpace(Resend.ApiKey)
             : isDevelopment && !string.IsNullOrWhiteSpace(Folder));
@@ -61,4 +63,19 @@ public sealed class OutboxOptions
     public int BatchSize { get; init; } = 20;
 
     public bool IsValid() => PollSeconds is > 0 and <= 300 && BatchSize is > 0 and <= 500;
+}
+
+// Disparos do admin (docs/admin-email.md, seção 4). O teto existe por causa da cota do fornecedor (o plano gratuito do Resend
+// tem 100 por dia): um disparo não pode atrasar o e-mail de senha de ninguém.
+public sealed class CampaignOptions
+{
+    public const int DefaultMaxRecipients = 50;
+
+    // Quantas pessoas no máximo um disparo alcança. Acima disso o envio é recusado, não cortado.
+    public int MaxRecipients { get; init; } = DefaultMaxRecipients;
+
+    // Intervalo entre um e-mail e o seguinte do mesmo disparo na fila.
+    public int StaggerSeconds { get; init; } = 5;
+
+    public bool IsValid() => MaxRecipients is > 0 and <= 500 && StaggerSeconds is >= 0 and <= 60;
 }
