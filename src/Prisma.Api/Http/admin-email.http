@@ -1,0 +1,30 @@
+# Disparos de e-mail pelo admin (docs/admin-email.md, 3.3). Mesma exigência do admin-market.http: sessão de um e-mail de `Admin:Emails`.
+# O teste e o disparo dividem um limite por pessoa (`admin-email`, 6 por minuto). Nada aqui devolve quem é uma pessoa: só contagens.
+
+### Os modelos e se cada um pode sair agora (sendable; blockedCode = UnsubscribeRequired para o "sentimos sua falta")
+GET {{baseUrl}}/admin/emails/templates
+
+### Quantas pessoas estão no público de um modelo agora, com o teto por disparo (`days` de 1 a 365; sem `days`, o padrão do modelo)
+GET {{baseUrl}}/admin/emails/audience?template=confirm-reminder&days=3
+
+### Como o e-mail fica, com dados de exemplo (HTML pronto; vale também para modelo bloqueado)
+POST {{baseUrl}}/admin/emails/preview
+Content-Type: application/json
+
+{ "template": "confirm-reminder" }
+
+### Teste: o e-mail de exemplo só para o seu endereço, com o assunto marcado "[Teste]". 204; 502 SendFailed se o fornecedor recusar.
+POST {{baseUrl}}/admin/emails/test
+Content-Type: application/json
+
+{ "template": "confirm-reminder" }
+
+### Disparo: confirma a contagem que você viu (expectedCount). 200 = o disparo; 400 NoRecipients / TooManyRecipients / UnsubscribeRequired;
+# 409 AudienceChanged (a contagem mudou; veja de novo). Repetir o mesmo clientRequestId devolve o mesmo disparo, sem enfileirar de novo.
+POST {{baseUrl}}/admin/emails/send
+Content-Type: application/json
+
+{ "template": "confirm-reminder", "days": 3, "expectedCount": 3, "clientRequestId": "00000000-0000-0000-0000-000000000001" }
+
+### O histórico dos disparos (modelo, dias, quantas pessoas e quando), do mais novo ao mais antigo
+GET {{baseUrl}}/admin/emails/campaigns?limit=20

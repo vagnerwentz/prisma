@@ -94,7 +94,11 @@ reality, so the monthly numbers match your bank account instead of your receipts
 - **Admin area for the owner:** an allow-listed "Administration" entry with two screens: the market-data sync (the daily CDI
   can be triggered by hand) and a head count of accounts. Pick a number of days and it shows how many people were active in that
   window, how many have not used the app for that long, and how many confirmed their email and never did. Only numbers, never
-  who, and every look at the count is logged with who asked.
+  who, and every look at the count is logged with who asked. The same area sends **admin emails** to a chosen audience: a
+  template and a number of days ("never confirmed the email", "has not opened the app"), a preview with example data, a test sent
+  only to the owner, and a confirmation of the exact head count before anything goes out. Nobody gets the same email twice, and an
+  email that is optional for the person (as opposed to an account email) cannot be sent at all until an unsubscribe link exists. The
+  screen only enables "send" for what the server would accept, and says why when it does not.
 
 ## Engineering highlights
 
@@ -157,6 +161,13 @@ reality, so the monthly numbers match your bank account instead of your receipts
   never a wrong value, and the memory sits behind an interface so a shared cache could replace it. A failure to stamp is
   logged and never fails the request. "No access for N days" is a domain type, and a property-based test proves that the
   instant the SQL compares against agrees with counting civil days, including across midnight in São Paulo rather than UTC.
+- **Bulk email with guard rails.** A send is a template plus an audience, and the rules sit in the domain: how many days count (the same
+  civil-day window as the head count, so the number the owner sees is the number the send uses), who already received the template
+  (a table of its own, because the outbox forgets after 30 days), a per-send cap sized to the email provider's quota, and a count the
+  owner must have seen (a stale count is a 409, never a bigger send). The send, its recipients and the queued emails are written in one
+  transaction under a per-template Postgres advisory lock, a repeated request returns the same send, and the emails are spread out on
+  the queue so an account email requested in the middle never waits behind a send. A test holds the lock to prove the second send waits
+  instead of racing.
 - **Erasure that survives a restore.** Deleted account ids are kept for the 90 days that backups live; restoring an
   older backup brings those accounts back, and the job erases them again. Schema-reading tests fail when a new table
   with an owner or a soft delete is left out of the erasure.
@@ -295,7 +306,7 @@ ops/backup/test/roundtrip.sh /tmp/schema.sql
 ## Project documents
 
 The roadmap (`PLAN.md`), the phase specifications (`docs/`, including `docs/renda-fixa.md` for fixed income: formulas,
-sources and decisions; `docs/admin-mercado.md` for the market-data admin, where the CDI sync can be triggered by hand; `docs/renda-fixa-ipca.md` for the planned inflation-indexed products; `docs/admin-email.md` for the admin area that counts inactive people, and the plan to email them), the operations runbook (`docs/operacao.md`: database users, backups, restore, logs, the CDI sync)
+sources and decisions; `docs/admin-mercado.md` for the market-data admin, where the CDI sync can be triggered by hand; `docs/renda-fixa-ipca.md` for the planned inflation-indexed products; `docs/admin-email.md` for the admin area that counts inactive people and sends emails to a chosen audience), the operations runbook (`docs/operacao.md`: database users, backups, restore, logs, the CDI sync)
 and the working agreement (`CLAUDE.md`)
 are working documents written in Portuguese.
 

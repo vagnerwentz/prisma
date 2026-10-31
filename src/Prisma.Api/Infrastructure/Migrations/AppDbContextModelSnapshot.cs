@@ -236,6 +236,76 @@ namespace Prisma.Api.Infrastructure.Migrations
                     b.ToTable("users", (string)null);
                 });
 
+            modelBuilder.Entity("Prisma.Api.Infrastructure.Email.EmailCampaign", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ClientRequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("client_request_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("Days")
+                        .HasColumnType("integer")
+                        .HasColumnName("days");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("kind");
+
+                    b.Property<int>("Recipients")
+                        .HasColumnType("integer")
+                        .HasColumnName("recipients");
+
+                    b.HasKey("Id")
+                        .HasName("pk_email_campaigns");
+
+                    b.HasIndex("ClientRequestId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_email_campaigns_client_request_id");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("ix_email_campaigns_created_at");
+
+                    b.ToTable("email_campaigns", (string)null);
+                });
+
+            modelBuilder.Entity("Prisma.Api.Infrastructure.Email.EmailCampaignRecipient", b =>
+                {
+                    b.Property<Guid>("CampaignId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("campaign_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("kind");
+
+                    b.HasKey("CampaignId", "UserId")
+                        .HasName("pk_email_campaign_recipients");
+
+                    b.HasIndex("UserId", "Kind", "CreatedAt")
+                        .HasDatabaseName("ix_email_campaign_recipients_user_id_kind_created_at");
+
+                    b.ToTable("email_campaign_recipients", (string)null);
+                });
+
             modelBuilder.Entity("Prisma.Api.Infrastructure.Email.OutboxEmail", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1833,6 +1903,23 @@ namespace Prisma.Api.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_user_tokens_users_user_id");
+                });
+
+            modelBuilder.Entity("Prisma.Api.Infrastructure.Email.EmailCampaignRecipient", b =>
+                {
+                    b.HasOne("Prisma.Api.Infrastructure.Email.EmailCampaign", null)
+                        .WithMany()
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_email_campaign_recipients_email_campaigns_campaign_id");
+
+                    b.HasOne("Prisma.Api.Infrastructure.Auth.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_email_campaign_recipients_users_user_id");
                 });
 
             modelBuilder.Entity("Prisma.Api.Infrastructure.Email.OutboxEmail", b =>

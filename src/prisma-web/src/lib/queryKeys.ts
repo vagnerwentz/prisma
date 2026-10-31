@@ -31,3 +31,5 @@ export const fixedIncomeKey = ['fixed-income'] as const
 export const adminMarketKey = ['admin', 'market-data'] as const
 // Admin: contagem de pessoas (docs/admin-email.md, AE.3). Uma entrada por número de dias; só números, nunca quem é.
 export const adminPeopleKey = ['admin', 'people'] as const
+// Admin: disparos de e-mail (docs/admin-email.md, AE.5): modelos, contagem do público, prévia e histórico. Só números e textos de exemplo.
+export const adminEmailsKey = ['admin', 'emails'] as const

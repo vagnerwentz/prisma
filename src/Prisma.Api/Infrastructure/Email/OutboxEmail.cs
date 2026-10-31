@@ -45,14 +45,16 @@ public sealed class OutboxEmail
 
     public DateTime? SentAt { get; private set; }
 
-    public static OutboxEmail Create(EmailKind kind, Guid userId, string toAddress, DateTime utcNow) => new()
+    // `firstAttemptAt` adia a primeira tentativa: um disparo do admin escalona os e-mails, e os de conta (senha, confirmação)
+    // pedidos nesse meio tempo passam à frente na fila (ela é ordenada por NextAttemptAt).
+    public static OutboxEmail Create(EmailKind kind, Guid userId, string toAddress, DateTime utcNow, DateTime? firstAttemptAt = null) => new()
     {
         Id = Guid.CreateVersion7(),
         Kind = kind,
         UserId = userId,
         ToAddress = toAddress.Trim(),
         Status = EmailStatus.Pending,
-        NextAttemptAt = utcNow,
+        NextAttemptAt = firstAttemptAt ?? utcNow,
         CreatedAt = utcNow,
     };
 

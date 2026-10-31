@@ -333,6 +333,29 @@ Desenho em `docs/admin-email.md`. O que operar:
 - **Privacidade.** O último acesso é dado pessoal: vai na cópia pedida pelo titular (`ultimoAcessoEm`, `ops/privacy/export-user.sql`)
   e sai junto com a conta. Não está citado na política de privacidade (decisão do dono, 2026-10-30; `docs/admin-email.md`, seção 2).
 
+## 4.7 Disparos de e-mail pelo admin (AE.4)
+
+Desenho e travas em `docs/admin-email.md`, 3.3. O que operar:
+
+- **O que é.** O dono escolhe um modelo e um público pela tela **Administração → E-mails** (`/admin/emails`; as mesmas chamadas estão em
+  `src/Prisma.Api/Http/admin-email.http`) e o sistema põe um e-mail por pessoa na fila de sempre (`outbox_emails`), escalonados. A tarefa
+  que envia a fila é a mesma (`EmailOutboxWorker`): não há tarefa nem serviço novos.
+- **Configuração** (todas opcionais; o padrão serve): `Email__Campaigns__MaxRecipients` (teto de pessoas por disparo, padrão 50, de 1 a
+  500), `Email__Campaigns__StaggerSeconds` (intervalo entre um e-mail e o seguinte do mesmo disparo, padrão 5, de 0 a 60) e
+  `RateLimiting__AdminEmail__PermitLimit` (teste e disparo por pessoa por minuto, padrão 6). Valor fora da faixa **impede a API de subir**.
+- **Cota do Resend.** O plano gratuito tem 100 e-mails por dia e 3.000 por mês, e **a conta inteira divide essa cota** (cadastro,
+  senha e disparo). O teto de 50 por disparo existe por isso: antes de subi-lo, confira o plano. Um disparo de 50 leva uns 4 minutos
+  na fila, e o e-mail de senha ou de confirmação pedido nesse meio tempo passa à frente.
+- **Variável nova no Railway:** nenhuma é obrigatória. A migration `AddEmailCampaigns` (duas tabelas) sobe sozinha com o deploy.
+- **Ver o que saiu:** `GET /admin/emails/campaigns` (ou o SQL de `docs/consultas-saude.md`, seção 4): modelo, dias, quantas pessoas e
+  quando, sem dado de ninguém. Quem pediu só aparece no log (`EmailCampaignSent`, com o `userId`).
+- **Um e-mail do disparo não chegou:** o mesmo caminho da seção 8.4: o `outbox_emails` pelo tipo (`ConfirmEmailReminder`) e o status, e o
+  Resend em *Emails*. `Skipped` é normal: a pessoa confirmou, ou voltou, depois de entrar na fila.
+- **"Não posso enviar o sentimos sua falta":** é a trava de código (`UnsubscribeRequired`), até o descadastro existir (AE.6/AE.7, em espera por decisão do dono). A
+  prévia e o teste para o próprio dono funcionam.
+- **Privacidade.** `email_campaign_recipients` registra que a pessoa recebeu o disparo (para não mandar duas vezes) e some com a conta
+  (cascata, coberta pelo teste de exclusão). Não vai na cópia dos dados do titular: é controle operacional, como a fila de e-mails.
+
 ## 5. Backup fora do Railway (H.2b)
 
 Todo dia às 03:00 de São Paulo, o serviço `backup` copia o banco (`pg_dump`), tranca a cópia com a sua chave
@@ -703,6 +726,8 @@ As respostas pelo Gmail contam na cota do Resend junto com os e-mails do app (gr
   | Falha passageira, com o motivo e a próxima tentativa | `@eventName:EmailRetryScheduled` |
   | Desistiu (recusado, ou 24 h sem conseguir) | `@eventName:EmailFailed` |
   | Pedido barrado pelo limite por pessoa | `@eventName:EmailThrottled` |
+| Disparos do admin: um foi para a fila / uma trava o recusou (com o motivo) | `@eventName:EmailCampaignSent` / `@eventName:EmailCampaignRefused` |
+| "Enviar teste para mim" do admin: saiu / o fornecedor não aceitou | `@eventName:EmailTestSent` / `@eventName:EmailTestFailed` |
   | Cadastro com e-mail que já tem conta (vai o aviso ao dono) | `@eventName:RegistrationOfExistingAccount` |
   | E-mails confirmados / links recusados (motivo: vencido, mexido, senha errada) | `@eventName:EmailConfirmed` / `@eventName:EmailConfirmationRejected` |
   | Login com a senha certa e o e-mail sem confirmar | `@eventName:LoginFailed` com `@reason:EmailNotConfirmed` |

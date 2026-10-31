@@ -87,6 +87,10 @@ public sealed class AppDbContext(
     // Fila de e-mails a enviar (docs/email.md, seção 3). Sem filtro: a tarefa atende todo mundo.
     public DbSet<OutboxEmail> OutboxEmails => Set<OutboxEmail>();
 
+public DbSet<EmailCampaign> EmailCampaigns => Set<EmailCampaign>();
+
+public DbSet<EmailCampaignRecipient> EmailCampaignRecipients => Set<EmailCampaignRecipient>();
+
     // Contas apagadas nos últimos 90 dias, para apagar de novo depois de restaurar um backup (etapa A.3). Sem filtro.
     public DbSet<DeletedAccount> DeletedAccounts => Set<DeletedAccount>();
 
@@ -112,6 +116,10 @@ public sealed class AppDbContext(
         typeof(MarketSyncRun),
         // Fila de e-mails: só a API escreve e só a tarefa lê, para todos; nenhum endpoint a lista. O UserId é referência.
         typeof(OutboxEmail),
+        // Disparos do admin e quem entrou em cada um: o histórico não tem dado de ninguém, e o registro de destinatários só
+        // existe para não mandar o mesmo modelo duas vezes à mesma pessoa; só a API escreve, e a conta apagada o leva (cascata).
+        typeof(EmailCampaign),
+        typeof(EmailCampaignRecipient),
         // Contas apagadas: o dono não existe mais; só a limpeza lê (AccountEraser).
         typeof(DeletedAccount),
     };

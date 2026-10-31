@@ -207,6 +207,26 @@ ORDER BY 2 DESC;
 ```
 
 ```sql
+-- Disparos do admin (docs/admin-email.md, 3.3): o histórico, do mais novo ao mais antigo (sem dado de pessoa)
+SELECT created_at, kind, days, recipients
+FROM email_campaigns
+ORDER BY created_at DESC
+LIMIT 20;
+```
+
+```sql
+-- De quem recebeu cada modelo de disparo, quantos já agiram: lembrete de confirmação → confirmaram; sentimos sua falta → voltaram
+SELECT r.kind,
+       count(*)                                                                                  AS receberam,
+       count(*) FILTER (WHERE r.kind = 'ConfirmEmailReminder' AND u.email_confirmed)             AS confirmaram,
+       count(*) FILTER (WHERE r.kind = 'MissYou' AND u.last_seen_at > r.created_at)              AS voltaram
+FROM email_campaign_recipients r
+JOIN users u ON u.id = r.user_id
+GROUP BY 1
+ORDER BY 1;
+```
+
+```sql
 -- Taxa de confirmação: de quem recebeu o e-mail de confirmação, quantos confirmaram
 SELECT count(DISTINCT e.user_id)                                   AS receberam,
        count(DISTINCT e.user_id) FILTER (WHERE u.email_confirmed)  AS confirmaram
