@@ -108,6 +108,6 @@ public static class AuthEmails
     public static Uri SignInLink(Uri publicUrl) => new(publicUrl, "entrar");
 
     // "16/10/2026, às 21:31", na hora de São Paulo (CLAUDE.md, regra 3).
-    private static string SaoPaulo(DateTime utc) =>
+    public static string SaoPaulo(DateTime utc) =>
         TimeZoneInfo.ConvertTimeFromUtc(utc, SaoPauloTime.Zone).ToString("dd/MM/yyyy', às 'HH:mm", PtBr);
 }

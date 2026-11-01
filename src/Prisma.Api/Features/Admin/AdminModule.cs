@@ -1,4 +1,5 @@
 using Prisma.Api.Infrastructure.Auth;
+using Prisma.Api.Infrastructure.Email;
 
 namespace Prisma.Api.Features.Admin;
 
@@ -12,6 +13,17 @@ public static class AdminModule
         services.AddScoped<SyncMarketData.Handler>();
         services.AddScoped<ListSyncRuns.Handler>();
         services.AddScoped<GetUserSummary.Handler>();
+
+        // Disparos de e-mail (docs/admin-email.md, seção 4): os casos de uso e os montadores dos modelos.
+        services.AddScoped<CampaignAudienceQuery>();
+        services.AddScoped<ListEmailTemplates.Handler>();
+        services.AddScoped<GetEmailAudience.Handler>();
+        services.AddScoped<PreviewEmail.Handler>();
+        services.AddScoped<SendEmailTest.Handler>();
+        services.AddScoped<SendEmailCampaign.Handler>();
+        services.AddScoped<ListEmailCampaigns.Handler>();
+        services.AddScoped<IEmailComposer, ConfirmEmailReminderComposer>();
+        services.AddScoped<IEmailComposer, MissYouComposer>();
         return services;
     }
 
@@ -27,5 +39,14 @@ public static class AdminModule
 
         // Pessoas (docs/admin-email.md, AE.2): só contagens.
         GetUserSummary.Map(admin.MapGroup("/users"));
+
+        // E-mails: modelos, público, prévia, teste, disparo e histórico (docs/admin-email.md, seção 4).
+        var emails = admin.MapGroup("/emails");
+        ListEmailTemplates.Map(emails);
+        GetEmailAudience.Map(emails);
+        PreviewEmail.Map(emails);
+        SendEmailTest.Map(emails);
+        SendEmailCampaign.Map(emails);
+        ListEmailCampaigns.Map(emails);
     }
 }

@@ -1281,6 +1281,49 @@ a base legal e a redação da política.
   Conferida por mim no Chrome com toque real e API paralela (7160, banco descartável, tarefas desligadas): 320, 390 e 1280, claro e
   escuro, sem rolagem lateral; o toque em "7 dias" recalcula; um defeito achado e corrigido (com o campo inválido ficavam na tela os
   números do N anterior, esmaecidos). Tipos, lint e build limpos; Vitest 607. **Falta a conferência do dono**, no celular.
+- [x] **AE.4 Disparos de e-mail pelo admin (mecanismo, backend)** — pedido do dono (2026-10-31): várias formas de disparo, não só a
+  confirmação. Um disparo = **um modelo + um público**: `confirm-reminder` (`ConfirmEmailReminder`, categoria **conta**: não confirmou
+  há N dias, um lembrete por conta, para sempre) e `miss-you` (`MissYou`, categoria **relacionamento**: confirmou e está sem acesso há
+  N dias, intervalo de 30 dias), que já existe mas **não sai para ninguém** até o descadastro. API `/admin/emails`: `templates`,
+  `audience` (só a contagem e o teto), `preview` (dados de exemplo), `test` (só para o endereço do próprio admin, `[Teste]`), `send`
+  e `campaigns` (histórico). Travas (`CampaignGuard`, domínio): categoria, alguém no público, teto por disparo (50), a contagem que
+  o dono viu (`expectedCount`, senão 409); ninguém duas vezes (`email_campaign_recipients`); `clientRequestId` idempotente; lock do
+  Postgres por modelo; disparo, destinatários e fila numa transação; e-mails escalonados na fila (5 s) para não atrasar senha nem
+  estourar a cota do Resend; limite `admin-email` por pessoa. Detalhes em `docs/admin-email.md`, 3.3.
+  *Pronto quando:* o público de cada modelo segue a regra de dias civis de São Paulo; recusa categoria bloqueada, público vazio, teto e
+  contagem velha; nada sai duas vezes (nem em corrida); o teste vai só ao dono; o log traz quem pediu e nunca endereço.
+  *Feita (2026-10-31):* domínio (`Prisma.Domain/Emails`: `CampaignAudience`, `CampaignCooldown`, `CampaignGuard`) com 27 testes e
+  7 mutações pegas; API: `EmailCampaignCatalog`, `CampaignAudienceQuery`, `CampaignEmails` (textos e os montadores
+  `ConfirmEmailReminderComposer` e `MissYouComposer`), seis casos de uso em `Features/Admin`, tabelas globais `email_campaigns` e
+  `email_campaign_recipients` (migration `AddEmailCampaigns`), `Email:Campaigns`, política `admin-email`, eventos `EmailCampaignSent`
+  (5009), `EmailCampaignRefused` (5010), `EmailTestSent` (5011) e `EmailTestFailed` (5012), `admin-email.http`, `api-types.ts` (+476
+  linhas, nenhuma removida). `AdminEmailCampaignsApiTests` (27, num banco próprio por teste, porque o compartilhado tem contas não
+  confirmadas de outros testes), provados com 9 mutações (sem lock, sem filtrar quem já recebeu, sem gravar destinatários, sem
+  escalonar, relacionamento liberado, público sem exigir "não confirmado", montador sem pular quem confirmou, contagem esperada ignorada);
+  uma sobreviveu a princípio (o lock: duas chamadas simultâneas acabam em série) e pediu um teste determinístico que segura o lock.
+  Os dois e-mails entram na prévia (`EmailPreviewTests`) e foram conferidos no Chrome, claro e escuro.
+  Suíte completa verde (2026-10-31): Domínio 1238, Arquitetura 17, API 1150 (7 ignorados); Vitest 607.
+- [x] **AE.5 Tela dos disparos** — `/admin/emails` (cartão "E-mails" na entrada do admin): escolher o e-mail, os dias (com atalhos do
+  modelo: 3, 7 e 14 para a confirmação; 30, 60 e 90 para o "sentimos sua falta"), a contagem do público com o teto, a prévia num quadro
+  isolado (`sandbox` sem scripts), "enviar teste para mim", "enviar para N pessoas" com a confirmação da contagem exata e o histórico.
+  Modelo de relacionamento aparece com um cadeado e "só prévia e teste por enquanto": o botão de enviar fica desabilitado e diz por quê.
+  *Pronto quando:* a tela só deixa enviar o que o servidor aceitaria (modelo liberado, dias válidos, público entre 1 e o teto); a
+  confirmação carrega a contagem que o dono viu e uma chave de pedido estável; uma contagem velha (409) mostra o motivo e atualiza;
+  conferência visual em 320, 390 e 1280, claro e escuro, com toque real.
+  *Feita (2026-10-31):* `AdminEmailsPage`, `adminEmails.ts` (regras e textos: `sendState`, `confirmQuestion`, `sendErrorMessage`,
+  `campaignLine`, atalhos por modelo), consultas em `queries.ts` (o teste responde 204 e não passa pelo `unwrap`), chave
+  `adminEmailsKey`, rota `/admin/emails` (lazy, 10 kB, fora do pacote principal) e o cartão em `AdminHomePage`. `adminEmails.test.ts`
+  (25), provado com 7 mutações; uma sobreviveu (o ramo do 429 coincidia com a mensagem padrão do cliente) e pediu um teste que exige a
+  mensagem própria da tela. Conferida por mim no Chrome com toque real e API paralela (7160, banco descartável, tarefas desligadas):
+  320, 390 e 1280, claro e escuro, sem rolagem lateral; teste enviado (204, aviso na tela e o evento no log), confirmação "Enviar … para
+  8 pessoas? … não dá para desfazer", envio (8 e-mails na fila escalonados em 35 s, 8 destinatários, 1 disparo), público a zero depois,
+  histórico com a hora de São Paulo; modelo bloqueado com o botão desabilitado e o motivo. Tipos, lint e build limpos; Vitest 632.
+  **Falta a conferência do dono**, no celular. No desenvolvimento o logo do cabeçalho do e-mail aparece quebrado na prévia porque vem de
+  `App:PublicUrl` (o Vite na 5173, que não estava de pé); na produção é o domínio.
+- [ ] **AE.6 Descadastro — EM ESPERA por decisão do dono (2026-10-31), não implementar sem ele pedir** — preferência por pessoa no Prisma, link assinado sem login, `List-Unsubscribe` e `List-Unsubscribe-Post`;
+  depende da base legal do e-mail de relacionamento (legítimo interesse ou consentimento) e de revisar a política.
+- [ ] **AE.7 Liberar o "sentimos sua falta" — EM ESPERA (depende da AE.6)** — `UnsubscribeAvailable` verdadeiro, rodapé de descadastro no texto, e o teste de que o
+  e-mail de relacionamento sai só com ele.
 
 ---
 

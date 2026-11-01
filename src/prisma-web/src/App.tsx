@@ -26,10 +26,13 @@ const AccountsPage = lazy(() => import('@/features/accounts/AccountsPage').then(
 const RecurrencesPage = lazy(() => import('@/features/recurrences/RecurrencesPage').then((m) => ({ default: m.RecurrencesPage })))
 const InvestmentsPage = lazy(() => import('@/features/investments/InvestmentsPage').then((m) => ({ default: m.InvestmentsPage })))
 const AcceptTermsPage = lazy(() => import('@/features/auth/AcceptTermsPage').then((m) => ({ default: m.AcceptTermsPage })))
-const ChangePasswordPage = lazy(() => import('@/features/auth/ChangePasswordPage').then((m) => ({ default: m.ChangePasswordPage })))
+const ChangePasswordPage = lazy(() =>
+  import('@/features/auth/ChangePasswordPage').then((m) => ({ default: m.ChangePasswordPage })),
+)
 const DeleteAccountPage = lazy(() => import('@/features/auth/DeleteAccountPage').then((m) => ({ default: m.DeleteAccountPage })))
 const AdminHomePage = lazy(() => import('@/features/admin/AdminHomePage').then((m) => ({ default: m.AdminHomePage })))
 const AdminPage = lazy(() => import('@/features/admin/AdminPage').then((m) => ({ default: m.AdminPage })))
+const AdminEmailsPage = lazy(() => import('@/features/admin/AdminEmailsPage').then((m) => ({ default: m.AdminEmailsPage })))
 const AdminPeoplePage = lazy(() => import('@/features/admin/AdminPeoplePage').then((m) => ({ default: m.AdminPeoplePage })))
 const AccountDetailPage = lazy(() =>
   import('@/features/accounts/AccountDetailPage').then((m) => ({ default: m.AccountDetailPage })),
@@ -80,6 +83,7 @@ export function App() {
                 <Route path="/admin" element={<AdminHomePage />} />
                 <Route path="/admin/mercado" element={<AdminPage />} />
                 <Route path="/admin/pessoas" element={<AdminPeoplePage />} />
+                <Route path="/admin/emails" element={<AdminEmailsPage />} />
               </Route>
             </Route>
             {CrashOnPurpose && <Route path="/dev/erro" element={<CrashOnPurpose />} />}

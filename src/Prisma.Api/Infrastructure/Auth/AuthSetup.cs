@@ -22,6 +22,9 @@ public static class AuthSetup
     // Disparos manuais da sincronização dos dados de mercado (docs/admin-mercado.md, 6): por pessoa, não por IP.
     public const string AdminSyncRateLimitPolicy = "admin-sync";
 
+    // Teste e disparo de e-mail pelo admin (docs/admin-email.md, seção 4): por pessoa, não por IP.
+    public const string AdminEmailRateLimitPolicy = "admin-email";
+
     public static readonly TimeSpan SessionCheckInterval = TimeSpan.FromMinutes(5);
 
     public static IServiceCollection AddAuth(this IServiceCollection services, IConfiguration configuration)
@@ -157,6 +160,17 @@ public static class AuthSetup
                     _ => new FixedWindowRateLimiterOptions
                     {
                         PermitLimit = adminSyncLimit,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                    }));
+
+            var adminEmailLimit = configuration.GetValue("RateLimiting:AdminEmail:PermitLimit", 6);
+            options.AddPolicy(AdminEmailRateLimitPolicy, context =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = adminEmailLimit,
                         Window = TimeSpan.FromMinutes(1),
                         QueueLimit = 0,
                     }));

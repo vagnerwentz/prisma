@@ -24,3 +24,14 @@ public sealed record MarketSeriesStatus(
 // e-mail confirmado, `Active + Inactive + NeverUsed = Confirmed`.
 public sealed record UserSummaryResponse(
     int Days, int Accounts, int Confirmed, int Unconfirmed, int Active, int Inactive, int NeverUsed);
+
+// Disparos de e-mail do admin (docs/admin-email.md, seção 4). Nada aqui descreve uma pessoa: só modelos, contagens e o histórico.
+public sealed record EmailTemplateResponse(
+    string Code, string Name, string Description, string Category, string Audience, int DefaultDays, int? MinDaysBetween,
+    bool Sendable, string? BlockedCode);
+
+public sealed record EmailAudienceResponse(string Template, int Days, int Count, int Cap);
+
+public sealed record EmailPreviewResponse(string Subject, string Html, string Text);
+
+public sealed record EmailCampaignResponse(Guid Id, string Template, int Days, int Recipients, DateTime CreatedAt);

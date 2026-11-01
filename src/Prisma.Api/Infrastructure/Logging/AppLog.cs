@@ -363,6 +363,20 @@ public static partial class AppLog
     [LoggerMessage(5008, LogLevel.Information, "Removed {Count} old emails from the outbox")]
     public static partial void EmailOutboxCleaned(this ILogger logger, int count);
 
+    // Disparos do admin (docs/admin-email.md, seção 4): quem pediu fica só aqui, no userId, e nunca na tabela. Só ids, o tipo, a
+    // contagem e o código da recusa: nunca o endereço de quem recebe nem o texto.
+    [LoggerMessage(5009, LogLevel.Information, "Email campaign {CampaignId} ({Kind}) queued by {UserId}: {Recipients} recipients, {Days} days")]
+    public static partial void EmailCampaignSent(this ILogger logger, Guid campaignId, EmailKind kind, Guid userId, int recipients, int days);
+
+    [LoggerMessage(5010, LogLevel.Warning, "Email campaign ({Kind}) refused for {UserId}: {Code}")]
+    public static partial void EmailCampaignRefused(this ILogger logger, EmailKind kind, Guid userId, string code);
+
+    [LoggerMessage(5011, LogLevel.Information, "Test email ({Kind}) sent to the owner {UserId}")]
+    public static partial void EmailTestSent(this ILogger logger, EmailKind kind, Guid userId);
+
+    [LoggerMessage(5012, LogLevel.Warning, "Test email ({Kind}) for {UserId} was not sent: {Reason}")]
+    public static partial void EmailTestFailed(this ILogger logger, EmailKind kind, Guid userId, string reason);
+
     // Apagar a conta e o excluído (etapa A.3). O AccountDeleted guarda o id fora do banco: se o banco se perder, é por
     // ele que se acham as contas a apagar de novo depois de restaurar um backup (docs/operacao.md, 5.6).
     [LoggerMessage(6000, LogLevel.Information, "User {UserId} deleted their account")]

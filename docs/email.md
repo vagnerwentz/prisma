@@ -121,6 +121,11 @@ segurança do `CLAUDE.md`, seção 8; o teste de arquitetura já recusa parâmet
 | `AlreadyRegistered` | cadastro com e-mail que já tem conta | Alguém tentou criar uma conta com seu e-mail | `/entrar` e, na nota, `/esqueci-senha` |
 | `ResetPassword` | "esqueci a senha" | Crie uma senha nova no Prisma Money | `/nova-senha#u=…&t=…`, vale **1 hora** |
 | `PasswordChanged` | senha trocada ou redefinida | Sua senha do Prisma Money foi trocada | `/esqueci-senha`, para quem não reconhece a troca |
+| `ConfirmEmailReminder` | disparo do admin, para quem não confirmou há N dias | Falta só confirmar seu e-mail no Prisma Money | `/confirmar-email#u=…&t=…`, vale **3 dias** |
+| `MissYou` | disparo do admin, para quem está sem acesso há N dias (**bloqueado** até o descadastro) | Sentimos sua falta no Prisma Money | `/entrar` |
+
+Os dois últimos não nascem de um pedido da pessoa: o dono os dispara pelo admin, com público, teto e travas próprios
+(`docs/admin-email.md`, 3.3). Não passam pelo limite do `EmailQueue`, e o conteúdo e o token também saem na hora do envio.
 
 - Prazos diferentes pedem dois provedores de token no Identity (o padrão usa um só, de 1 dia, para tudo):
   `ConfirmEmailTokenProvider` e `ResetPasswordTokenProvider`. Cada token vale só para a sua finalidade.
@@ -247,7 +252,7 @@ em meia hora.
 
 - **Trocar o e-mail da conta** (pede confirmar o novo endereço): quando fizer falta.
 - **Aviso de login de aparelho novo, 2FA:** depois do cadastro público, se fizer sentido.
-- **E-mail em massa para quem não entra há tempo** (reengajamento): desenho, descadastro e o que depende de decisão do dono em `docs/admin-email.md`; o último acesso que o alimenta (AE.1) já existe.
+- **E-mail em massa** (confirmação de quem travou, "sentimos sua falta"): o mecanismo de disparos existe desde a AE.4 (`docs/admin-email.md`, 3.3), com a trava de que e-mail de relacionamento só sai com o descadastro, que ainda não existe (AE.6, em espera por decisão do dono).
 - **E-mail de boas-vindas, resumo do mês, lembrete de fatura:** produto, não conta; cada um entra com decisão própria.
   A fila e o transporte já servem a eles.
 - **Webhook do Resend** (devolvido, marcado como spam): só com volume que justifique.

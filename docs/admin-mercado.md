@@ -11,7 +11,7 @@ Legenda: **[V]** verificado no código ou na fonte; **[H]** hipótese a confirma
 
 ---
 
-> O admin ganhou outra área (contagem de pessoas, e-mail de quem não entra): `docs/admin-email.md`. Desde a AE.3, `/admin` é a entrada do admin, e esta tela mora em `/admin/mercado`.
+> O admin ganhou outras áreas (contagem de pessoas e disparos de e-mail): `docs/admin-email.md`. Desde a AE.3, `/admin` é a entrada do admin, e esta tela mora em `/admin/mercado`.
 
 ## 1. Por que agora
 

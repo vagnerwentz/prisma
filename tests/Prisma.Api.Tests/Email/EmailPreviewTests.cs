@@ -1,3 +1,4 @@
+using Prisma.Api.Features.Admin;
 using Prisma.Api.Features.Auth;
 using Prisma.Api.Infrastructure.Email;
 
@@ -11,7 +12,7 @@ public sealed class EmailPreviewTests
 {
     private static readonly Uri PublicUrl = new("https://prismamoney.com.br/");
 
-    public static TheoryData<string> Emails => new() { "confirm-email", "already-registered", "reset-password", "password-changed" };
+    public static TheoryData<string> Emails => new() { "confirm-email", "already-registered", "reset-password", "password-changed", "confirm-reminder", "miss-you" };
 
     [PreviewTheory]
     [MemberData(nameof(Emails))]
@@ -28,6 +29,11 @@ public sealed class EmailPreviewTests
                 new DateTime(2026, 10, 14, 1, 31, 0, DateTimeKind.Utc)),
             "password-changed" => AuthEmails.PasswordChanged("pessoa@exemplo.com.br",
                 new DateTime(2026, 10, 14, 0, 31, 0, DateTimeKind.Utc), AuthEmails.ForgotPasswordLink(PublicUrl)),
+            // Os disparos do admin (docs/admin-email.md, seção 4): o mesmo texto que a prévia e o teste do admin mostram.
+            "confirm-reminder" => CampaignEmails.ConfirmReminder("pessoa@exemplo.com.br",
+                AuthEmails.ConfirmEmailLink(PublicUrl, Guid.Parse("0199e3a2-6f1c-7d3e-9a41-5b8c2d7e4f10"), "CfDJ8Exemplo+de/token=="),
+                new DateTime(2026, 10, 17, 0, 31, 0, DateTimeKind.Utc)),
+            "miss-you" => CampaignEmails.MissYou("pessoa@exemplo.com.br", AuthEmails.SignInLink(PublicUrl)),
             _ => throw new ArgumentOutOfRangeException(nameof(name)),
         };
         var content = EmailLayout.Render(template, PublicUrl);

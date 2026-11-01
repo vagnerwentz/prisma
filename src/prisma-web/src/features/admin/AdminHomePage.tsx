@@ -1,4 +1,4 @@
-import { ChevronRight, Database, Users, type LucideIcon } from 'lucide-react'
+import { ChevronRight, Database, Mail, Users, type LucideIcon } from 'lucide-react'
 import { Link } from 'react-router'
 import { AdminBack } from './AdminBack'
 
@@ -15,6 +15,12 @@ const areas: { to: string; title: string; description: string; icon: LucideIcon 
     title: 'Pessoas',
     description: 'Quantas contas há e quantas estão sem acessar o app. Só números, nunca quem é.',
     icon: Users,
+  },
+  {
+    to: '/admin/emails',
+    title: 'E-mails',
+    description: 'Mande um e-mail a um grupo de pessoas: veja a prévia, teste para você e confirme quantas recebem.',
+    icon: Mail,
   },
 ]
 
